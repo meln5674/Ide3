@@ -1,0 +1,56 @@
+name:                Ide3
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            http://github.com/githubuser/Ide3#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2016 Author Here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Ide3.Types
+                     , Ide3.Mechanism
+                     , Ide3.Project
+                     , Ide3.Module
+                     , Ide3.Monad
+                     , Ide3.Import
+                     , Ide3.Export
+                     , Ide3.Declaration
+                     , Ide3.Declaration.TypeDeclaration
+                     , Ide3.Declaration.BindDeclaration
+                     , Ide3.Declaration.ModifierDeclaration
+                     , Ide3.Constructor
+  build-depends:       base >= 4.7 && < 5
+                     , containers >= 0.5.6.2
+                     , mtl >= 2.2.1
+                     , haskell-src-exts >= 1.17.1
+                     , transformers >= 0.4.2.0
+  default-language:    Haskell2010
+
+executable Ide3-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , Ide3
+  default-language:    Haskell2010
+
+test-suite Ide3-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , Ide3
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/Ide3
