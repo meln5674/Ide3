@@ -48,6 +48,8 @@ test-suite Ide3-test
   main-is:             Spec.hs
   build-depends:       base
                      , Ide3
+                     , mtl >= 2.2.1
+                     , transformers >= 0.4.2.0
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010
 

@@ -9,7 +9,7 @@ class Monad m => ProjectM m where
     editProjectInfo :: (ProjectInfo -> ProjectInfo) -> m ()
     addModule :: Module -> m ()
     createModule :: ModuleInfo -> m ()
-    getModule :: ModuleInfo -> m (Maybe Module) 
+    getModule :: ModuleInfo -> m (Either ProjectError Module) 
     addDeclaration :: ModuleInfo -> WithBody Declaration -> m ()
     addImport :: ModuleInfo -> WithBody Import -> m ()
     removeImport :: ModuleInfo -> WithBody Import -> m ()

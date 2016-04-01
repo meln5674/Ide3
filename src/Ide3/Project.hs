@@ -28,26 +28,30 @@ addModule (Project i ms b) m@(Module i' _ _ _)
 createModule :: Project -> ModuleInfo -> Project
 createModule p i = addModule p (Module.new i)
 
-getModule :: Project -> ModuleInfo -> Maybe Module
-getModule (Project _ ms _) i = Map.lookup i ms
+getModule :: Project -> ModuleInfo -> Either ProjectError Module
+getModule (Project _ ms _) i = case Map.lookup i ms of
+    Just m -> Right m
+    Nothing -> Left $ "Project.getModule: " ++ (show i) ++ " did not match any modules"
 
 hasModuleInfo :: Project -> ModuleInfo -> Bool
-hasModuleInfo p m = getModule p m /= Nothing
+hasModuleInfo p m = case getModule p m of
+    Right _ -> True
+    Left _ -> False
 
 hasModule :: Project -> Module -> Bool
 hasModule p (Module i _ _ _) = hasModuleInfo p i
 
-removeModule :: Project -> ModuleInfo -> Maybe Project
+removeModule :: Project -> ModuleInfo -> Either ProjectError Project
 removeModule p@(Project pi ms b) i
-    | p `hasModuleInfo` i = Just $ Project pi ms' b
-    | otherwise         = Nothing
+    | p `hasModuleInfo` i = Right $ Project pi ms' b
+    | otherwise           = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
   where
     ms' = Map.delete i ms
 
 editModule :: Project 
            -> ModuleInfo
-           -> (Module -> Maybe Module) 
-           -> Maybe Project
+           -> (Module -> Either ProjectError Module) 
+           -> Either ProjectError Project
 editModule p@(Project pi ms b) i f = do
     m <- getModule p i
     m' <- f m
@@ -57,7 +61,7 @@ editModule p@(Project pi ms b) i f = do
 editModule' :: Project
             -> ModuleInfo
             -> (Module -> Module)
-            -> Maybe Project
+            -> Either ProjectError Project
 editModule' p i f = editModule p i (return . f)
 
 addImport p mi i = editModule' p mi $ \m -> Module.addImport m i
@@ -69,19 +73,19 @@ removeExport p mi e = editModule p mi $ \m -> Module.removeExport m e
 addDeclaration :: Project 
                -> ModuleInfo 
                -> WithBody Declaration
-               -> Maybe Project
+               -> Either ProjectError Project
 addDeclaration p i d = editModule' p i (`Module.addDeclaration` d)
 
 removeDeclaration :: Project 
                   -> ModuleChild DeclarationInfo 
-                  -> Maybe Project
+                  -> Either ProjectError Project
 removeDeclaration p (ModuleChild i d)
   = editModule p i (`Module.removeDeclaration` d)
 
 editDeclaration :: Project 
                 -> ModuleChild DeclarationInfo
-                -> (Declaration -> Maybe Declaration)
-                -> Maybe Project
+                -> (Declaration -> Either ProjectError Declaration)
+                -> Either ProjectError Project
 editDeclaration p (ModuleChild i di) f = do
     mi <- Module.info <$> getModule p i
     editModule p mi (\m -> Module.editDeclaration m di f)
@@ -91,7 +95,7 @@ editDeclaration' p m f = editDeclaration p m (return . f)
 moveDeclaration :: Project 
                 -> ModuleChild DeclarationInfo
                 -> ModuleInfo
-                -> Maybe Project
+                -> Either ProjectError Project
 moveDeclaration p c@(ModuleChild i di) i' = do
   (ModuleChild _ d) <- getDeclaration p c
   p' <- removeDeclaration p c
@@ -99,12 +103,12 @@ moveDeclaration p c@(ModuleChild i di) i' = do
 
 getDeclaration :: Project 
                -> ModuleChild DeclarationInfo 
-               -> Maybe (ModuleChild (WithBody Declaration))
+               -> Either ProjectError (ModuleChild (WithBody Declaration))
 getDeclaration p (ModuleChild i di)
   = getModule p i >>= (`Module.getDeclaration` di)
 
 getDeclaration' :: Project
                 -> ModuleChild DeclarationInfo
-                -> Maybe (ModuleChild Declaration)
+                -> Either ProjectError (ModuleChild Declaration)
 getDeclaration' p (ModuleChild i di)
   = getModule p i >>= (`Module.getDeclaration'` di)

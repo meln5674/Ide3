@@ -4,6 +4,7 @@ import Language.Haskell.Exts.Parser
 import Language.Haskell.Exts.Syntax hiding (Symbol)
 
 import Ide3.Types
+import qualified Ide3.Constructor as Constructor
 
 import qualified Ide3.Declaration.TypeDeclaration as TypeDeclaration
 import qualified Ide3.Declaration.BindDeclaration as BindDeclaration
@@ -17,10 +18,22 @@ info (ModifierDeclaration i _) = i
 parse :: String -> Either String Declaration
 parse s = case parseDecl s of
     ParseOk x -> case x of
-        TypeDecl _ n _ t -> Right $ TypeDeclaration DeclarationInfo 
-                                            (TypeSynonym (Symbol $ show n)
-                                                         (Symbol $ show t)
-                                            )
+        TypeDecl _ n _ t
+            -> Right $ TypeDeclaration (DeclarationInfo (toSym n))
+                                       (TypeSynonym (toSym n)
+                                                    (toSym t)
+                                       )
+        DataDecl _ NewType context n _ [con] dervs
+            -> Right $ TypeDeclaration (DeclarationInfo (toSym n))
+                                       (NewtypeDeclaration (toSym n)
+                                                           (Constructor.toConstructor con)
+                                       )
+        DataDecl _ DataType context n _ cons dervs
+            -> Right $ TypeDeclaration (DeclarationInfo (toSym n))
+                                       (DataDeclaration (toSym n)
+                                                        (map Constructor.toConstructor cons)
+                                       )
+        x -> Left $ "Unsupported: " ++ show x
     ParseFailed _ s -> Left s
 
 symbolsProvided :: Declaration -> [Symbol]

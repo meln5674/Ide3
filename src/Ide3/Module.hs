@@ -2,7 +2,7 @@ module Ide3.Module where
 
 import Data.List (intercalate, delete, find)
 
-import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.Except
 
 import qualified Data.Map as Map
 import Data.Map.Strict ( Map )
@@ -47,7 +47,7 @@ qualify :: Module -> a -> ModuleChild a
 qualify (Module i _ _ _) x = ModuleChild i x
 
 
-exportedSymbols :: ProjectM m => Module -> m [ModuleChild Symbol]
+exportedSymbols :: ProjectM m => Module -> ExceptT ProjectError m [ModuleChild Symbol]
 exportedSymbols m@(Module _ _ Nothing _) = return $ allSymbols m
 exportedSymbols m@(Module n _ (Just es) _) = do
     syms <- concat <$> mapM (Export.symbolsProvided m . item) es
@@ -55,7 +55,7 @@ exportedSymbols m@(Module n _ (Just es) _) = do
     --return $ getModuleName n : qualSyms
     return qualSyms
 
-internalSymbols :: ProjectM m => Module -> MaybeT m [Symbol]
+internalSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]
 internalSymbols m@(Module _ is _ ds) = do
     importSyms <- concat <$> mapM (Import.symbolsProvided . item) is
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) ds
@@ -65,7 +65,7 @@ allSymbols m@(Module _ _ _ ds)
   = concatMap (map (qualify m) . Declaration.symbolsProvided . item) ds
 
 
-symbolTree :: ProjectM m => Module -> Symbol -> MaybeT m [ModuleChild Symbol]
+symbolTree :: ProjectM m => Module -> Symbol -> ExceptT ProjectError m [ModuleChild Symbol]
 symbolTree m@(Module _ is _ ds) s = do
     case find (\d -> s `elem` Declaration.symbolsProvided d) (map item $ Map.elems ds) of
         Just d -> return $ map (qualify m) $ delete s $ Declaration.symbolsProvided d
@@ -73,9 +73,7 @@ symbolTree m@(Module _ is _ ds) s = do
             provided <- mapM (\i -> (,) i <$> Import.symbolsProvided i) $ map item is
             case find ((s `elem`) . snd) provided of
                 Just (i,_) -> map (qualify m) <$> Import.symbolTree i s
-                Nothing -> MaybeT $ return Nothing
-            
---symbolTree = undefined
+                Nothing -> throwE $ "Module.symbolTree: " ++ (show s) ++ " is not an availible symbol in " ++ (show m)
 
 allDeclarations :: Module -> [ModuleChild DeclarationInfo]
 allDeclarations m@(Module _ _ _ ds)
@@ -87,9 +85,12 @@ infoMatches (Module i _ _ _) i' = i == i'
 addImport :: Module -> WithBody Import -> Module
 addImport (Module mi is es ds) i = Module mi (i:is) es ds
 
-removeImport :: Module -> WithBody Import -> Maybe Module
-removeImport (Module mi is es ds) i = Just $ Module mi (i `delete` is) es ds
--- TODO
+removeImport :: Module -> WithBody Import -> Either ProjectError Module
+removeImport (Module mi is es ds) i = Right $ Module mi (i `delete` is) es ds
+-- TODO: error on duplicate
+
+importsModule :: Module -> Symbol -> Bool
+importsModule (Module _ is _ _) sym = sym `elem` map (Import.moduleName . item) is
 
 exportAll :: Module -> Module
 exportAll (Module mi is _ ds) = Module mi is Nothing ds
@@ -98,10 +99,11 @@ addExport :: Module -> WithBody Export -> Module
 addExport (Module mi is Nothing ds) e = Module mi is (Just [e]) ds
 addExport (Module mi is (Just es) ds) e = Module mi is (Just $ e:es) ds
 
-removeExport :: Module -> WithBody Export -> Maybe Module
-removeExport (Module mi is Nothing ds) e = Nothing
+removeExport :: Module -> WithBody Export -> Either ProjectError Module
+removeExport (Module mi is Nothing ds) e = Left $ "Module.removeExport: Can't remove an export from an export all"
 removeExport (Module mi is (Just es) ds) e
-    = Just $ Module mi is (Just $ e `delete` es) ds
+    = Right $ Module mi is (Just $ e `delete` es) ds
+-- TODO: not found
 
 addDeclaration :: Module -> WithBody Declaration -> Module
 addDeclaration (Module i is es ds) d = (Module i is es ds')
@@ -112,20 +114,20 @@ addDeclaration (Module i is es ds) d = (Module i is es ds')
 
 hasDeclarationInfo :: Module -> DeclarationInfo -> Bool
 hasDeclarationInfo m di = case getDeclaration m di of
-    Just _ -> True
-    Nothing -> False
+    Right _ -> True
+    Left  _ -> False
 
-removeDeclaration :: Module -> DeclarationInfo -> Maybe Module
+removeDeclaration :: Module -> DeclarationInfo -> Either ProjectError Module
 removeDeclaration m@(Module i is es ds) di
-    | m `hasDeclarationInfo` di = Just $ Module i is es ds'
-    | otherwise                 = Nothing
+    | m `hasDeclarationInfo` di = Right $ Module i is es ds'
+    | otherwise                 = Left $ "Module.removeDeclaration: " ++ show di ++ " is not a declaration in" ++ show m
   where
     ds' = Map.delete di ds
 
 editDeclaration :: Module 
                 -> DeclarationInfo
-                -> (Declaration -> Maybe Declaration)
-                -> Maybe Module
+                -> (Declaration -> Either ProjectError Declaration)
+                -> Either ProjectError Module
 editDeclaration m@(Module i is es ds) di f = do
     (ModuleChild _ (WithBody d s)) <- getDeclaration m di
     d' <- WithBody <$> (f d) <*> pure s
@@ -136,12 +138,14 @@ editDeclaration' m d f = editDeclaration m d (return . f)
 
 getDeclaration :: Module
                -> DeclarationInfo
-               -> Maybe (ModuleChild (WithBody Declaration))
-getDeclaration m@(Module _ _ _ ds) di = qualify m <$> Map.lookup di ds
+               -> Either ProjectError (ModuleChild (WithBody Declaration))
+getDeclaration m@(Module _ _ _ ds) di = case Map.lookup di ds of
+        Just d -> Right $ qualify m d
+        Nothing -> Left $ "Module.getDeclaration: " ++ show di ++ " is not a declaration in " ++ show m
 
 getDeclaration' :: Module
                 -> DeclarationInfo
-                -> Maybe (ModuleChild Declaration)
+                -> Either ProjectError (ModuleChild Declaration)
 getDeclaration' m di = do
     (ModuleChild i (WithBody d s)) <- getDeclaration m di
     return $ ModuleChild i d

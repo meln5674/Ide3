@@ -1,5 +1,9 @@
 module Ide3.Types where
 
+import Language.Haskell.Exts.Syntax hiding (Symbol, Module, Type)
+import qualified Language.Haskell.Exts.Syntax as Syntax
+
+
 import qualified Data.Map as Map
 import Data.Map.Strict ( Map )
 
@@ -45,6 +49,7 @@ data Module = Module ModuleInfo
     deriving (Show, Read, Eq)
 
 data ModuleChild a = ModuleChild ModuleInfo a
+    deriving (Show, Eq, Ord)
 
 getChild :: ModuleChild a -> a
 getChild (ModuleChild _ a) = a
@@ -71,10 +76,10 @@ data ImportKind
 data Export
     = SingleExport Symbol
     | ModuleExport Symbol
-    | AggregateExport Symbol [Symbol]
+    | AggregateExport Symbol (Maybe [Symbol])
     deriving (Show, Read, Eq)
 
-data DeclarationInfo = DeclarationInfo
+data DeclarationInfo = DeclarationInfo Symbol
     deriving (Show, Read, Eq, Ord)
 
 data Declaration
@@ -113,7 +118,7 @@ data FixityType = FixityType
 data Constructor
     = PrefixConstructor Symbol [Symbol]
     | InfixConstructor Symbol Symbol Symbol
-    | RecordConstructor Symbol [(Symbol, Type)]
+    | RecordConstructor Symbol [(Symbol, Symbol)]
     deriving (Show, Read, Eq)
 
 
@@ -124,3 +129,36 @@ data TypeSearchResult
     = TypeFound Type
     | TypeNotGiven
     | IsNotBindDecl
+
+class ToSym a where
+    toSym :: a -> Symbol
+
+instance ToSym Name where
+    toSym (Ident n) = Symbol n
+    toSym (Syntax.Symbol n) = Symbol n
+
+instance ToSym CName where
+    toSym (VarName n) = toSym n
+    toSym (ConName n) = toSym n
+
+instance ToSym ModuleName where
+    toSym (ModuleName n) = Symbol n
+
+instance ToSym SpecialCon where
+    toSym UnitCon = Symbol "()"
+    toSym ListCon = Symbol "[]"
+    toSym FunCon = Symbol "->"
+    toSym (TupleCon Unboxed n) = Symbol $ "(" ++ replicate n ',' ++ ")"
+    toSym (TupleCon Boxed n) = Symbol $ "(#" ++ replicate n ',' ++ "#)"
+    toSym Cons = Symbol ":"
+    toSym UnboxedSingleCon = Symbol "(# #)"
+
+instance ToSym QName where
+    toSym (Qual m n) = toSym m `joinSym` toSym n
+    toSym (UnQual n) = toSym n
+    toSym (Special s) = toSym s
+
+instance ToSym Syntax.Type where
+    toSym _ = Symbol $ "There's a type here, I promise" --TODO
+
+type ProjectError = String

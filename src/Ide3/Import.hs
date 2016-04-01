@@ -2,7 +2,9 @@ module Ide3.Import where
 
 import Ide3.Types
 
-import Control.Monad.Trans.Maybe
+import Data.List (find)
+
+import Control.Monad.Trans.Except
 
 import Language.Haskell.Exts.Parser
 import Language.Haskell.Exts.Syntax hiding (Symbol, Module)
@@ -13,16 +15,7 @@ import {-# SOURCE #-} qualified Ide3.Module as Module
 
 import Ide3.Monad
 
-class ToSym a where
-    toSym :: a -> Symbol
 
-instance ToSym Name where
-    toSym (Ident n) = Symbol n
-    toSym (Syntax.Symbol n) = Symbol n
-
-instance ToSym CName where
-    toSym (VarName n) = toSym n
-    toSym (ConName n) = toSym n
 
 parse :: String -> Either String Import
 parse s = case parseImportDecl s of
@@ -72,12 +65,12 @@ importedModuleName i = case rename of
     name = moduleName i
     rename = renamed i
 
-whitelistTree :: ProjectM m => Module -> ImportKind -> MaybeT m [Symbol]
+whitelistTree :: ProjectM m => Module -> ImportKind -> ExceptT ProjectError m [Symbol]
 whitelistTree m i = do
-    exSyms <- MaybeT $ Just <$> map getChild <$> exportedSymbols m
+    exSyms <- map getChild <$> exportedSymbols m
     case i of
         NameImport s | s `elem` exSyms -> return [s]
-                     | otherwise -> MaybeT $ return Nothing
+                     | otherwise -> throwE $ "Import.whitelistTree: " ++ (show s) ++ " is not exported by " ++ (show m)
           --where
             --s = getChild s'
         --AbsImport
@@ -85,35 +78,35 @@ whitelistTree m i = do
         SomeImport s ss -> do
             ls <- Module.symbolTree m s
             let ls' = map getChild ls
-            case all (`elem` ls') ss of
-                True -> return (s:ss)
-                False -> MaybeT $ return Nothing
-blacklistTree :: ProjectM m => Module -> ImportKind -> MaybeT m [Symbol]
+            case find (not . (`elem` ls')) ss of
+                Just s' -> throwE $ "Import.whitelistTree: " ++ (show s) ++ " is not a sub-symbol of " ++ (show s)
+                Nothing -> return (s:ss)
+blacklistTree :: ProjectM m => Module -> ImportKind -> ExceptT ProjectError m [Symbol]
 blacklistTree m i = do
     whitelistSyms <- whitelistTree m i
-    allSyms <- MaybeT $ Just <$> map getChild <$> exportedSymbols m
-    MaybeT $ return $ Just <$> filter (not . (`elem` whitelistSyms)) $ allSyms
+    allSyms <- map getChild <$> exportedSymbols m
+    ExceptT $ return $ Right $ filter (not . (`elem` whitelistSyms)) $ allSyms
 
-unqualSymbolsProvided :: ProjectM m => Import -> MaybeT m [Symbol]
+unqualSymbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
 unqualSymbolsProvided m@(ModuleImport sym _ _) = do
-    mod <- MaybeT $ getModule (ModuleInfo sym)
-    moduleSyms <- MaybeT $ Just <$> exportedSymbols mod
+    mod <- ExceptT $ getModule (ModuleInfo sym)
+    moduleSyms <- exportedSymbols mod
     return $ map getChild moduleSyms
 unqualSymbolsProvided m@(WhitelistImport sym _ _ specs) = do
-    mod <- MaybeT $ getModule (ModuleInfo sym)
+    mod <- ExceptT $ getModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (whitelistTree mod) specs
     return moduleSyms
 unqualSymbolsProvided m@(BlacklistImport sym _ _ specs) = do
-    mod <- MaybeT $ getModule (ModuleInfo sym)
+    mod <- ExceptT $ getModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (blacklistTree mod) specs
     return moduleSyms
 
-symbolsProvided :: ProjectM m => Import -> MaybeT m [Symbol]
+symbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
 symbolsProvided i = symbolsProvided' (importedModuleName i)
                                      (isQualified i) 
                                  <$> (unqualSymbolsProvided i)
 
-symbolTree :: ProjectM m => Import -> Symbol -> MaybeT m [Symbol]
+symbolTree :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m [Symbol]
 symbolTree i s = do
-    mod <- MaybeT $ getModule (ModuleInfo (moduleName i))
+    mod <- ExceptT $ getModule (ModuleInfo (moduleName i))
     map getChild <$> Module.symbolTree mod s
