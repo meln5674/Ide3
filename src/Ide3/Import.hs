@@ -2,7 +2,7 @@ module Ide3.Import where
 
 import Ide3.Types
 
-import Data.List (find)
+import Data.List
 
 import Control.Monad.Trans.Except
 
@@ -34,8 +34,10 @@ parse s = case parseImportDecl s of
 
 getSpec :: ImportSpec -> ImportKind
 getSpec (IVar n) = NameImport (toSym n)
+getSpec (IAbs NoNamespace n) = NameImport (toSym n)
 getSpec (IThingAll n) = AllImport (toSym n)
 getSpec (IThingWith n ns) = SomeImport (toSym n) (map toSym ns)
+getSpec x = error $ show x
 
 moduleName :: Import -> Symbol
 moduleName (ModuleImport sym _ _) = sym
@@ -105,6 +107,21 @@ symbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
 symbolsProvided i = symbolsProvided' (importedModuleName i)
                                      (isQualified i) 
                                  <$> (unqualSymbolsProvided i)
+
+providesSymbol :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m Bool
+providesSymbol i s = do
+    syms <- symbolsProvided i
+    return $ s `elem` syms
+
+otherSymbols :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m (Maybe [Symbol])
+otherSymbols i s = do
+    p <- i `providesSymbol` s
+    if p
+        then do
+            syms <- symbolsProvided i
+            return $ Just $ delete s syms
+        else
+            return Nothing
 
 symbolTree :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m [Symbol]
 symbolTree i s = do

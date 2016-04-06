@@ -1,5 +1,9 @@
 module Ide3.Module where
 
+import Control.Monad
+
+import Data.Monoid
+
 import Data.List (intercalate, delete, find)
 
 import Control.Monad.Trans.Except
@@ -17,22 +21,47 @@ info :: Module -> ModuleInfo
 info (Module i _ _ _) = i
 
 empty :: Module
-empty = Module (ModuleInfo (Symbol "")) [] Nothing Map.empty
+empty = Module (ModuleInfo (Symbol "")) Map.empty Nothing Map.empty
 
 new :: ModuleInfo -> Module
-new i = Module i [] Nothing Map.empty
+new i = Module i Map.empty Nothing Map.empty
 
+getImports :: Module -> [WithBody Import]
+getImports (Module _ is _ _) = Map.elems is
+
+getDeclarations :: Module -> [WithBody Declaration]
+getDeclarations (Module _ _ _ ds) = Map.elems ds
+
+getExports :: Module -> [WithBody Export]
+getExports (Module _ _ Nothing _) = []
+getExports (Module _ _ (Just es) _) = Map.elems es
+
+{-
+getExportTexts :: Module -> [String]
+getExportTexts (Module _ _ es _) = case es of
+    Nothing -> []
+    Just es -> map body $ Map.elems es
+-}
+getHeaderText :: Module -> String
+getHeaderText m = case bodies $ getExports m of
+    [] -> "module " ++ name ++ " where"
+    es -> "module " ++ name ++ "(" ++ intercalate "," es ++ ") where"
+  where
+    ModuleInfo (Symbol name) = info m
+{-
+getImportTexts :: Module -> [String]
+getImportTexts (Module _ is _ _) = map body $ Map.elems is
+
+getDeclarationTexts :: Module -> [String]
+getDeclarationTexts (Module _ _ _ ds) = map body $ Map.elems ds
+-}
 toFile :: Module -> String
-toFile (Module (ModuleInfo (Symbol name)) is es ds)
+toFile m@(Module (ModuleInfo (Symbol name)) is es ds)
     = intercalate "\n" $ parts
   where
-    header = case es of
-        Nothing -> "module " ++ name ++ " where"
-        Just es -> "module " ++ name ++ exports
-          where 
-            exports = "(" ++ intercalate "," (map body es) ++ ") where"
-    imports = map body is 
-    declarations = map body (Map.elems ds)
+    header = getHeaderText m
+    imports = bodies $ getImports m
+    declarations = bodies $ getDeclarations m
     parts = header : imports ++ declarations
 
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]
@@ -65,15 +94,42 @@ allSymbols m@(Module _ _ _ ds)
   = concatMap (map (qualify m) . Declaration.symbolsProvided . item) ds
 
 
+search :: (a -> Maybe b) -> [a] -> Maybe (a,b)
+search f xs = case find pred $ map toPair xs of
+    Just (x,Just y) -> Just (x,y)
+    _ -> Nothing
+  where
+    toPair x = (x,f x)
+    pred (_,Just y) = True
+    pred _ = False
+
+searchM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe (a,b))
+searchM f xs = do
+    r <- find pred <$> mapM toPair xs 
+    case r of
+        Just (x,Just y) -> return $ Just (x,y)
+        _ -> return Nothing
+  where
+    toPair x = do
+        y <- f x
+        return (x,y)
+    pred (_,Just y) = True
+    pred _ = False
+
 symbolTree :: ProjectM m => Module -> Symbol -> ExceptT ProjectError m [ModuleChild Symbol]
-symbolTree m@(Module _ is _ ds) s = do
-    case find (\d -> s `elem` Declaration.symbolsProvided d) (map item $ Map.elems ds) of
-        Just d -> return $ map (qualify m) $ delete s $ Declaration.symbolsProvided d
+symbolTree m sym = do
+    let declarations = items $ getDeclarations m
+        searchResult = search (`Declaration.otherSymbols`sym) declarations
+    case searchResult of
+        Just (_,syms) -> return $ map (qualify m) syms
         Nothing -> do
-            provided <- mapM (\i -> (,) i <$> Import.symbolsProvided i) $ map item is
-            case find ((s `elem`) . snd) provided of
-                Just (i,_) -> map (qualify m) <$> Import.symbolTree i s
-                Nothing -> throwE $ "Module.symbolTree: " ++ (show s) ++ " is not an availible symbol in " ++ (show m)
+            let imports = items $ getImports m
+            searchResult <- searchM (`Import.otherSymbols` sym) imports
+            case searchResult of
+                Just (i,_) -> do
+                    otherSyms <- Import.symbolTree i sym
+                    return $ map (qualify m) otherSyms
+                Nothing -> throwE $ "Module.symbolTree: " ++ (show sym) ++ " is not an availible symbol in " ++ (show m)
 
 allDeclarations :: Module -> [ModuleChild DeclarationInfo]
 allDeclarations m@(Module _ _ _ ds)
@@ -82,31 +138,45 @@ allDeclarations m@(Module _ _ _ ds)
 infoMatches :: Module -> ModuleInfo -> Bool
 infoMatches (Module i _ _ _) i' = i == i'
 
-addImport :: Module -> WithBody Import -> Module
-addImport (Module mi is es ds) i = Module mi (i:is) es ds
+nextImportId :: Module -> ImportId
+nextImportId (Module _ is _ _) = 1 + maximum (-1 : (Map.keys is))
 
-removeImport :: Module -> WithBody Import -> Either ProjectError Module
-removeImport (Module mi is es ds) i = Right $ Module mi (i `delete` is) es ds
--- TODO: error on duplicate
+addImport :: Module -> WithBody Import -> (Module, ImportId)
+addImport m@(Module mi is es ds) i = (Module mi (Map.insert id i is) es ds, id)
+    where
+        id = nextImportId m
+
+removeImport :: Module -> ImportId -> Either ProjectError Module
+removeImport (Module mi is es ds) i
+    = case Map.lookup i is of
+        Just _ -> Right $ Module mi (Map.delete i is) es ds
+        Nothing -> Left $ "Module.removeImport: no such import id: " ++ show i
 
 importsModule :: Module -> Symbol -> Bool
-importsModule (Module _ is _ _) sym = sym `elem` map (Import.moduleName . item) is
+importsModule m sym = sym `elem` (map Import.moduleName $ items $ getImports m)
 
 exportAll :: Module -> Module
 exportAll (Module mi is _ ds) = Module mi is Nothing ds
 
-addExport :: Module -> WithBody Export -> Module
-addExport (Module mi is Nothing ds) e = Module mi is (Just [e]) ds
-addExport (Module mi is (Just es) ds) e = Module mi is (Just $ e:es) ds
+nextExportId :: Module -> ExportId
+nextExportId (Module _ _ Nothing _) = 0
+nextExportId (Module _ _ (Just es) _) = 1 + (maximum $ -1 :(Map.keys es))
 
-removeExport :: Module -> WithBody Export -> Either ProjectError Module
+addExport :: Module -> WithBody Export -> (Module,ExportId)
+addExport m@(Module mi is es ds) e = (Module mi is es' ds,nextId)
+  where
+    nextId = nextExportId m
+    es' = case es of
+        Nothing -> Just $ Map.singleton nextId e
+        Just es -> Just $ Map.insert nextId e es
+
+removeExport :: Module -> ExportId -> Either ProjectError Module
 removeExport (Module mi is Nothing ds) e = Left $ "Module.removeExport: Can't remove an export from an export all"
 removeExport (Module mi is (Just es) ds) e
-    = Right $ Module mi is (Just $ e `delete` es) ds
--- TODO: not found
+    = Right $ Module mi is (Just $ e `Map.delete` es) ds
 
 addDeclaration :: Module -> WithBody Declaration -> Module
-addDeclaration (Module i is es ds) d = (Module i is es ds')
+addDeclaration (Module i is es ds) d = Module i is es ds'
   where
     di = Declaration.info . item $ d
     ds' = Map.insert di d ds

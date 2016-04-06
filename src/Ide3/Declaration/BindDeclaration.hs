@@ -2,7 +2,7 @@ module Ide3.Declaration.BindDeclaration where
 
 import Ide3.Types
 
-symbolCreated :: BindDeclaration -> Symbol
-symbolCreated (LocalBindDeclaration s _) = s
-symbolCreated (ForeignBindDeclaration s _ _) = s
+symbolsCreated :: BindDeclaration -> [Symbol]
+symbolsCreated (LocalBindDeclaration ss _) = ss
+symbolsCreated (ForeignBindDeclaration s _ _) = [s]
 

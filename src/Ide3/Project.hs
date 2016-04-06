@@ -21,11 +21,13 @@ allDeclarations (Project _ ms _) = concatMap Module.allDeclarations ms
 allSymbols :: Project -> [ModuleChild Symbol]
 allSymbols (Project _ ms _) = concatMap Module.allSymbols ms
 
-addModule :: Project -> Module -> Project
+addModule :: Project -> Module -> Either ProjectError Project
 addModule (Project i ms b) m@(Module i' _ _ _)
-  = Project i (Map.insert i' m ms) b
+  = case Map.lookup i' ms of
+    Just _ -> Left $ "Project.addModule: " ++ (show i') ++ " Is already an existing module"
+    Nothing -> Right $ Project i (Map.insert i' m ms) b
 
-createModule :: Project -> ModuleInfo -> Project
+createModule :: Project -> ModuleInfo -> Either ProjectError Project
 createModule p i = addModule p (Module.new i)
 
 getModule :: Project -> ModuleInfo -> Either ProjectError Module
@@ -48,15 +50,27 @@ removeModule p@(Project pi ms b) i
   where
     ms' = Map.delete i ms
 
-editModule :: Project 
-           -> ModuleInfo
-           -> (Module -> Either ProjectError Module) 
-           -> Either ProjectError Project
-editModule p@(Project pi ms b) i f = do
+editModuleR :: Project 
+            -> ModuleInfo
+            -> (Module -> Either ProjectError (Module,a))
+            -> Either ProjectError (Project,a)
+editModuleR p@(Project pi ms b) i f = do
     m <- getModule p i
-    m' <- f m
+    (m',x) <- f m
     let ms' = Map.insert i m' ms
-    return $ Project pi ms' b
+    return $ (Project pi ms' b, x)
+
+editModule :: Project
+           -> ModuleInfo
+           -> (Module -> Either ProjectError Module)
+           -> Either ProjectError Project
+editModule p i f = fst <$> editModuleR p i (\m -> (\r -> (r,())) <$> (f m))
+
+editModuleR' :: Project
+             -> ModuleInfo
+             -> (Module -> (Module,a))
+             -> Either ProjectError (Project,a)
+editModuleR' p i f = editModuleR p i (return . f)
 
 editModule' :: Project
             -> ModuleInfo
@@ -64,10 +78,10 @@ editModule' :: Project
             -> Either ProjectError Project
 editModule' p i f = editModule p i (return . f)
 
-addImport p mi i = editModule' p mi $ \m -> Module.addImport m i
+addImport p mi i = editModuleR' p mi $ \m -> Module.addImport m i
 removeImport p mi i = editModule p mi $ \m -> Module.removeImport m i
 exportAll p mi = editModule' p mi $ \m -> Module.exportAll m
-addExport p mi e = editModule' p mi $ \m -> Module.addExport m e
+addExport p mi e = editModuleR' p mi $ \m -> Module.addExport m e
 removeExport p mi e = editModule p mi $ \m -> Module.removeExport m e
     
 addDeclaration :: Project 

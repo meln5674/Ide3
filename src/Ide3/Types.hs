@@ -1,5 +1,7 @@
 module Ide3.Types where
 
+import Language.Haskell.Exts.Pretty
+
 import Language.Haskell.Exts.Syntax hiding (Symbol, Module, Type)
 import qualified Language.Haskell.Exts.Syntax as Syntax
 
@@ -13,8 +15,14 @@ data WithBody a = WithBody a String
 body :: WithBody a -> String
 body (WithBody _ s) = s
 
+bodies :: [WithBody a] -> [String]
+bodies = map body
+
 item :: WithBody a -> a
 item (WithBody x _) = x
+
+items :: [WithBody a] -> [a]
+items = map item
 
 instance Functor WithBody where
     fmap f (WithBody x s) = WithBody (f x) s
@@ -43,8 +51,8 @@ getModuleName :: ModuleInfo -> Symbol
 getModuleName (ModuleInfo n) = n
 
 data Module = Module ModuleInfo 
-                     [WithBody Import] 
-                     (Maybe [WithBody Export])
+                     (Map ImportId (WithBody Import))
+                     (Maybe (Map ExportId (WithBody Export)))
                      (Map DeclarationInfo (WithBody Declaration))
     deriving (Show, Read, Eq)
 
@@ -66,6 +74,8 @@ data Import
     | BlacklistImport Symbol Bool (Maybe Symbol) [ImportKind]
     deriving (Show, Read, Eq)
 
+type ImportId = Int
+
 data ImportKind
     = NameImport Symbol
     | AbsImport Symbol Symbol
@@ -78,6 +88,8 @@ data Export
     | ModuleExport Symbol
     | AggregateExport Symbol (Maybe [Symbol])
     deriving (Show, Read, Eq)
+
+type ExportId = Int
 
 data DeclarationInfo = DeclarationInfo Symbol
     deriving (Show, Read, Eq, Ord)
@@ -103,13 +115,14 @@ data ForeignInfo = ForeignInfo
     deriving (Show, Read, Eq)
 
 data BindDeclaration
-    = LocalBindDeclaration Symbol Type
+    = LocalBindDeclaration [Symbol] (Maybe Symbol)
     | ForeignBindDeclaration Symbol Type ForeignInfo
     deriving (Show, Read, Eq)
 
 data ModifierDeclaration
     = FixityDeclaration [Symbol] Int FixityType
     | InstanceDeclaration Symbol [Symbol] [Declaration]
+    | TypeSignatureDeclaration Symbol Symbol
     deriving (Show, Read, Eq)
 
 data FixityType = FixityType
@@ -159,6 +172,7 @@ instance ToSym QName where
     toSym (Special s) = toSym s
 
 instance ToSym Syntax.Type where
-    toSym _ = Symbol $ "There's a type here, I promise" --TODO
+    --toSym _ = Symbol $ "There's a type here, I promise" --TODO
+    toSym = Symbol . prettyPrint
 
 type ProjectError = String

@@ -1,3 +1,5 @@
+import Test.HUnit
+
 import Control.Monad.State
 
 import Control.Monad.Trans.Except
@@ -5,20 +7,27 @@ import Control.Monad.Trans.Except
 import Ide3.Mechanism
 import Ide3.Types
 import Ide3.Monad
+import qualified Ide3.Import as Import
+import qualified Ide3.Export as Export
 import qualified Ide3.Module as Module
 import qualified Ide3.Project as Project
+
+import qualified Data.Map as Map
 
 testModuleName = "Test"
 testModuleName2 = "Test2"
 testTypeSynonym = "type Test = String"
 testTypeSynonym2 = "type Test2 = Int"
+testSymbol = Symbol "Test"
+testSymbol2 = Symbol "Test2"
 testNewtype = "newtype TestNewtype = MkTestNewtype Test"
 testModuleInfo = ModuleInfo (Symbol testModuleName)
 testModuleInfo2 = ModuleInfo (Symbol testModuleName2)
 testImport = "import Test2"
+testImportedModule = Symbol testModuleName2
 testExport = "Test"
 testExport2 = "Test2"
-
+{-
 type ProjectResult' a = [Either ProjectError a]
 type ProjectResult = ( ProjectResult' String
                      , ProjectResult' [Symbol]
@@ -92,6 +101,7 @@ test1 = do
             testModuleInfo2
             testNewtype
 
+
 test2 :: ProjectState ()
 test2 = do
     new ProjectInfo
@@ -110,9 +120,193 @@ testPrim = map (Module.getDeclaration mod . getChild) $ Module.allDeclarations m
     decl1 = (WithBody (TypeDeclaration (DeclarationInfo (Symbol "A")) (TypeSynonym (Symbol "A") (Symbol "B"))) "")
     decl2 = (WithBody (TypeDeclaration (DeclarationInfo (Symbol "C")) (TypeSynonym (Symbol "C") (Symbol "D"))) "")
     mod = Module.addDeclaration (Module.addDeclaration Module.empty decl1) decl2
+-}
+
+testBase :: (Eq a, Show a) => ProjectState a -> a -> Test
+testBase f expected = result ~=? expected
+  where
+    (result,_) = runProjectState f
+
+testJust :: (Eq a, Show a) => ProjectState (Maybe a) -> a -> Test
+testJust f expected = testBase f (Just expected)
+
+testNothing :: (Eq a, Show a) => ProjectState (Maybe a) -> Test
+testNothing f = testBase f Nothing
+
+testRight :: (Eq r, Show r, Show l) => ProjectState (Either l r) -> r -> Test
+testRight f expected = case result of
+    Right r' -> r' ~=? expected
+    Left l -> TestCase $ assertFailure (show l)
+  where
+    (result,_) = runProjectState f
+
+testLeft :: (Eq r, Show r, Eq l, Show l) => ProjectState (Either l r) -> Test
+testLeft f = case result of
+    Right r -> TestCase $ assertFailure (show r)
+    Left l -> TestCase $ assertBool "" True
+  where
+    (result,_) = runProjectState f
+  
+
+test_addModule :: Test
+test_addModule = testRight f ()
+  where
+    f = do
+        createModule testModuleInfo
+
+test_addAndRetrieveModule :: Test
+test_addAndRetrieveModule = testRight f expected
+  where
+    f = do
+        createModule testModuleInfo
+        getModule testModuleInfo
+    expected = Module testModuleInfo (Map.empty) Nothing (Map.empty)
+
+test_getNonexistentModule :: Test
+test_getNonexistentModule = testLeft f
+  where
+    f = do
+        getModule testModuleInfo
+
+test_addAndRemoveModule :: Test
+test_addAndRemoveModule = testRight f ()
+  where
+    f = do
+        createModule testModuleInfo
+        removeModule testModuleInfo
+
+test_addRemoveThenGetModule :: Test
+test_addRemoveThenGetModule = testLeft f
+  where
+    f = do
+        createModule testModuleInfo
+        removeModule testModuleInfo
+        getModule testModuleInfo
+
+test_addDuplicateModule :: Test
+test_addDuplicateModule = testLeft f
+  where
+    f = do
+        createModule testModuleInfo
+        createModule testModuleInfo
+
+test_removeNonexistentModule :: Test
+test_removeNonexistentModule = testLeft f
+  where
+    f = do
+        removeModule testModuleInfo
+
+moduleTests =
+    [ test_addModule
+    , test_addAndRetrieveModule
+    , test_getNonexistentModule
+    , test_addAndRemoveModule
+    , test_addRemoveThenGetModule
+    , test_addDuplicateModule
+    , test_removeNonexistentModule
+    ]
+
+test_addImport :: Test
+test_addImport = testRight f True
+  where
+    f = runExceptT $ do
+        ExceptT $ createModule testModuleInfo
+        ExceptT $ addRawImport testModuleInfo testImport
+        m <- (ExceptT $ getModule testModuleInfo)
+        return $ m `Module.importsModule` testImportedModule
+
+test_removeImport :: Test
+test_removeImport = testRight f False
+  where
+    f = runExceptT $ do
+        ExceptT $ createModule testModuleInfo
+        id <- ExceptT $ addRawImport testModuleInfo testImport
+        ExceptT $ removeImport testModuleInfo id
+        m <- (ExceptT $ getModule testModuleInfo)
+        return $ m `Module.importsModule` testImportedModule
+
+
+test_importSymbolVisible :: Test
+test_importSymbolVisible = testRight f True
+    where
+        f = runExceptT $ do
+            ExceptT $ createModule testModuleInfo
+            ExceptT $ createModule testModuleInfo2
+            ExceptT $ addRawDeclaration testModuleInfo2 testTypeSynonym
+            ExceptT $ addRawImport testModuleInfo testImport
+            m <- ExceptT $ getModule testModuleInfo 
+            syms <- Module.internalSymbols m 
+            return $ testSymbol `elem` syms
+
+testParse :: (Show e, Eq e, Show r, Eq r) => (String -> Either e r) -> String -> r -> Test
+testParse p s r = p s ~?= Right r 
+
+testParseImport = testParse Import.parse
+
+test_importParse1 = testParseImport 
+    "import X" 
+    $ ModuleImport (Symbol "X") False Nothing
+test_importParse2 = testParseImport 
+    "import qualified X" 
+    $ ModuleImport (Symbol "X") True Nothing
+test_importParse3 = testParseImport 
+    "import X as Y" 
+    $ ModuleImport (Symbol "X") False (Just (Symbol "Y"))
+test_importParse4 = testParseImport 
+    "import qualified X as Y" 
+    $ ModuleImport (Symbol "X") True (Just (Symbol "Y"))
+
+test_importParse5 = testParseImport 
+    "import X (Z)" 
+    $ WhitelistImport (Symbol "X") False Nothing [NameImport (Symbol "Z")]
+test_importParse6 = testParseImport 
+    "import qualified X (Z)" 
+    $ WhitelistImport (Symbol "X") True Nothing [NameImport (Symbol "Z")]
+test_importParse7 = testParseImport 
+    "import X as Y (Z)" 
+    $ WhitelistImport (Symbol "X") False (Just (Symbol "Y")) [NameImport (Symbol "Z")]
+test_importParse8 = testParseImport 
+    "import qualified X as Y (Z)" 
+    $ WhitelistImport (Symbol "X") True (Just (Symbol "Y")) [NameImport (Symbol "Z")]
+
+test_importParse9 = testParseImport 
+    "import X hiding (Z)" 
+    $ BlacklistImport (Symbol "X") False Nothing [NameImport (Symbol "Z")]
+test_importParse10 = testParseImport 
+    "import qualified X hiding (Z)" 
+    $ BlacklistImport (Symbol "X") True Nothing [NameImport (Symbol "Z")]
+test_importParse11 = testParseImport 
+    "import X as Y hiding (Z)" 
+    $ BlacklistImport (Symbol "X") False (Just (Symbol "Y")) [NameImport (Symbol "Z")]
+test_importParse12 = testParseImport 
+    "import qualified X as Y hiding (Z)" 
+    $ BlacklistImport (Symbol "X") True (Just (Symbol "Y")) [NameImport (Symbol "Z")]
+
+importTests =
+    [ test_addImport
+    , test_removeImport
+    , test_importSymbolVisible
+    , test_importParse1
+    , test_importParse2
+    , test_importParse3
+    , test_importParse4
+    , test_importParse5
+    , test_importParse6
+    , test_importParse7
+    , test_importParse8
+    , test_importParse9
+    , test_importParse10
+    , test_importParse11
+    , test_importParse12
+    ]
+
+allTests = concat
+    [ moduleTests
+    , importTests
+    ]
+
+
+
 
 main :: IO ()
-main = do
-    --runTest test2 [testModuleInfo2]
-    runTest test1 [testModuleInfo, testModuleInfo2]
-    --print testPrim
+main = void $ runTestTT $ TestList allTests
