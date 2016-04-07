@@ -12,10 +12,13 @@ import qualified Data.Map as Map
 import Data.Map.Strict ( Map )
 
 import Ide3.Types
-import Ide3.Monad
+import Ide3.Monad hiding (new, addExport, addImport, addDeclaration)
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Export as Export
 import qualified Ide3.Import as Import
+
+import Ide3.Module.Parser (ExtractionResults(..))
+import qualified Ide3.Module.Parser as Parser
 
 info :: Module -> ModuleInfo
 info (Module i _ _ _) = i
@@ -25,6 +28,24 @@ empty = Module (ModuleInfo (Symbol "")) Map.empty Nothing Map.empty
 
 new :: ModuleInfo -> Module
 new i = Module i Map.empty Nothing Map.empty
+
+foldlRes :: (b -> a -> (b,c)) -> b -> [a] -> (b,[c])
+foldlRes f x [] = (x,[])
+foldlRes f x (y:ys) =
+    let (x',z) = f x y
+        (x'', zs) = foldlRes f x' ys
+    in (x'',z:zs)
+                    
+
+parse :: String -> Either ProjectError (Module,[ExportId],[ImportId])
+parse s = case Parser.parse s of
+    Right (Extracted info exports imports decls) -> Right $ (withDecls, eids, iids)
+      where
+        newModule = new info
+        (withExports,eids) = foldlRes addExport newModule exports
+        (withImports,iids) = foldlRes addImport withExports imports
+        withDecls = foldl addDeclaration withImports decls
+    Left msg -> Left msg
 
 getImports :: Module -> [WithBody Import]
 getImports (Module _ is _ _) = Map.elems is

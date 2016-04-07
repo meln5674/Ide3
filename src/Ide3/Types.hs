@@ -2,9 +2,9 @@ module Ide3.Types where
 
 import Language.Haskell.Exts.Pretty
 
-import Language.Haskell.Exts.Syntax hiding (Symbol, Module, Type)
-import qualified Language.Haskell.Exts.Syntax as Syntax
-
+import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
+import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.SrcLoc
 
 import qualified Data.Map as Map
 import Data.Map.Strict ( Map )
@@ -44,7 +44,9 @@ data Project = Project ProjectInfo (Map ModuleInfo Module) BuildInfo
     deriving (Show, Read, Eq)
 
 
-data ModuleInfo = ModuleInfo Symbol
+data ModuleInfo 
+    = ModuleInfo Symbol
+    | UnamedModule (Maybe FilePath)
     deriving (Show, Read, Eq, Ord)
 
 getModuleName :: ModuleInfo -> Symbol
@@ -146,33 +148,39 @@ data TypeSearchResult
 class ToSym a where
     toSym :: a -> Symbol
 
-instance ToSym Name where
-    toSym (Ident n) = Symbol n
-    toSym (Syntax.Symbol n) = Symbol n
+instance ToSym (Name a) where
+    toSym (Ident _ n)         = Symbol n
+    toSym (Syntax.Symbol _ n) = Symbol n
 
-instance ToSym CName where
-    toSym (VarName n) = toSym n
-    toSym (ConName n) = toSym n
+instance ToSym (CName a) where
+    toSym (VarName _ n) = toSym n
+    toSym (ConName _ n) = toSym n
 
-instance ToSym ModuleName where
-    toSym (ModuleName n) = Symbol n
+instance ToSym (ModuleName a) where
+    toSym (ModuleName _ n) = Symbol n
 
-instance ToSym SpecialCon where
-    toSym UnitCon = Symbol "()"
-    toSym ListCon = Symbol "[]"
-    toSym FunCon = Symbol "->"
-    toSym (TupleCon Unboxed n) = Symbol $ "(" ++ replicate n ',' ++ ")"
-    toSym (TupleCon Boxed n) = Symbol $ "(#" ++ replicate n ',' ++ "#)"
-    toSym Cons = Symbol ":"
-    toSym UnboxedSingleCon = Symbol "(# #)"
+instance ToSym (SpecialCon a) where
+    toSym (UnitCon _)   = Symbol "()"
+    toSym (ListCon _)   = Symbol "[]"
+    toSym (FunCon _)    = Symbol "->"
+    toSym (TupleCon _ Unboxed n) = Symbol $ "(" ++ replicate n ',' ++ ")"
+    toSym (TupleCon _ Boxed n) = Symbol $ "(#" ++ replicate n ',' ++ "#)"
+    toSym (Cons _) = Symbol ":"
+    toSym (UnboxedSingleCon _) = Symbol "(# #)"
 
-instance ToSym QName where
-    toSym (Qual m n) = toSym m `joinSym` toSym n
-    toSym (UnQual n) = toSym n
-    toSym (Special s) = toSym s
+instance ToSym (QName a) where
+    toSym (Qual _ m n) = toSym m `joinSym` toSym n
+    toSym (UnQual _ n) = toSym n
+    toSym (Special _ s) = toSym s
 
-instance ToSym Syntax.Type where
-    --toSym _ = Symbol $ "There's a type here, I promise" --TODO
+instance SrcInfo a => ToSym (Syntax.Type a) where
     toSym = Symbol . prettyPrint
+
+instance ToSym (DeclHead a) where
+    toSym (DHead _ n) = toSym n
+    toSym (DHInfix _ _ n) = toSym n
+    toSym (DHParen _ h) = toSym h
+    toSym (DHApp _ h _) = toSym h
+
 
 type ProjectError = String

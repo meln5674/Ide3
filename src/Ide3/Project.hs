@@ -126,3 +126,4 @@ getDeclaration' :: Project
                 -> Either ProjectError (ModuleChild Declaration)
 getDeclaration' p (ModuleChild i di)
   = getModule p i >>= (`Module.getDeclaration'` di)
+

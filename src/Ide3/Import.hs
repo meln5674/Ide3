@@ -6,37 +6,47 @@ import Data.List
 
 import Control.Monad.Trans.Except
 
-import Language.Haskell.Exts.Parser
-import Language.Haskell.Exts.Syntax hiding (Symbol, Module)
-import qualified Language.Haskell.Exts.Syntax as Syntax
+import Language.Haskell.Exts.Annotated.Parser
+import Language.Haskell.Exts.Parser (ParseResult(..))
+import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
+import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.SrcLoc
 
 import {-# SOURCE #-} Ide3.Module (exportedSymbols)
 import {-# SOURCE #-} qualified Ide3.Module as Module
 
 import Ide3.Monad
+import Ide3.SrcLoc
 
+convert :: Show a => ImportDecl a -> Import
+convert x = case importSpecs x of
+    Nothing -> ModuleImport sym isQualified rename
+    Just (ImportSpecList _ True ss) -> BlacklistImport sym isQualified rename (map getSpec ss)
+    Just (ImportSpecList _ False ss) -> WhitelistImport sym isQualified rename (map getSpec ss)
+  where
+    ModuleName _ n = importModule x
+    sym = Symbol n
+    rename = case importAs x of
+        Just (ModuleName _ n) -> Just (Symbol n)
+        Nothing -> Nothing
+    isQualified = importQualified x
 
+convertWithBody :: (Spanable a,Show a) => String -> ImportDecl a -> WithBody Import
+convertWithBody str x = WithBody import_ body
+  where
+    body = ann x >< str
+    import_ = convert x
 
 parse :: String -> Either String Import
 parse s = case parseImportDecl s of
-    ParseOk x -> case importSpecs x of
-            Nothing -> Right $ ModuleImport sym isQualified rename
-            Just (True, ss) -> Right $ BlacklistImport sym isQualified rename (map getSpec ss)
-            Just (False, ss) -> Right $ WhitelistImport sym isQualified rename (map getSpec ss)
-        where
-            ModuleName n = importModule x
-            sym = Symbol n
-            rename = case importAs x of
-                Just (ModuleName n) -> Just (Symbol n)
-                Nothing -> Nothing
-            isQualified = importQualified x
+    ParseOk x -> Right $ convert x
     ParseFailed _ s -> Left s
 
-getSpec :: ImportSpec -> ImportKind
-getSpec (IVar n) = NameImport (toSym n)
-getSpec (IAbs NoNamespace n) = NameImport (toSym n)
-getSpec (IThingAll n) = AllImport (toSym n)
-getSpec (IThingWith n ns) = SomeImport (toSym n) (map toSym ns)
+getSpec :: Show a => ImportSpec a -> ImportKind
+getSpec (IVar _ n) = NameImport (toSym n)
+getSpec (IAbs _ (NoNamespace _) n) = NameImport (toSym n)
+getSpec (IThingAll _ n) = AllImport (toSym n)
+getSpec (IThingWith _ n ns) = SomeImport (toSym n) (map toSym ns)
 getSpec x = error $ show x
 
 moduleName :: Import -> Symbol

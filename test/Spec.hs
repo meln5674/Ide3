@@ -4,9 +4,11 @@ import Control.Monad.State
 
 import Control.Monad.Trans.Except
 
-import Ide3.Mechanism
+--import Ide3.Mechanism
+import Ide3.Mechanism.Except
+import Ide3.Mechanism.State
 import Ide3.Types
-import Ide3.Monad
+import Ide3.Monad (ProjectM)
 import qualified Ide3.Import as Import
 import qualified Ide3.Export as Export
 import qualified Ide3.Module as Module
@@ -151,13 +153,12 @@ testLeft f = case result of
 test_addModule :: Test
 test_addModule = testRight f ()
   where
-    f = do
-        createModule testModuleInfo
+    f = runExceptT $ createModule testModuleInfo
 
 test_addAndRetrieveModule :: Test
 test_addAndRetrieveModule = testRight f expected
   where
-    f = do
+    f = runExceptT $ do
         createModule testModuleInfo
         getModule testModuleInfo
     expected = Module testModuleInfo (Map.empty) Nothing (Map.empty)
@@ -165,20 +166,20 @@ test_addAndRetrieveModule = testRight f expected
 test_getNonexistentModule :: Test
 test_getNonexistentModule = testLeft f
   where
-    f = do
+    f = runExceptT $ do
         getModule testModuleInfo
 
 test_addAndRemoveModule :: Test
 test_addAndRemoveModule = testRight f ()
   where
-    f = do
+    f = runExceptT $ do
         createModule testModuleInfo
         removeModule testModuleInfo
 
 test_addRemoveThenGetModule :: Test
 test_addRemoveThenGetModule = testLeft f
   where
-    f = do
+    f = runExceptT $ do
         createModule testModuleInfo
         removeModule testModuleInfo
         getModule testModuleInfo
@@ -186,15 +187,14 @@ test_addRemoveThenGetModule = testLeft f
 test_addDuplicateModule :: Test
 test_addDuplicateModule = testLeft f
   where
-    f = do
+    f = runExceptT $ do
         createModule testModuleInfo
         createModule testModuleInfo
 
 test_removeNonexistentModule :: Test
 test_removeNonexistentModule = testLeft f
   where
-    f = do
-        removeModule testModuleInfo
+    f = runExceptT $ removeModule testModuleInfo
 
 moduleTests =
     [ test_addModule
@@ -210,19 +210,19 @@ test_addImport :: Test
 test_addImport = testRight f True
   where
     f = runExceptT $ do
-        ExceptT $ createModule testModuleInfo
-        ExceptT $ addRawImport testModuleInfo testImport
-        m <- (ExceptT $ getModule testModuleInfo)
+        createModule testModuleInfo
+        addRawImport testModuleInfo testImport
+        m <- getModule testModuleInfo
         return $ m `Module.importsModule` testImportedModule
 
 test_removeImport :: Test
 test_removeImport = testRight f False
   where
     f = runExceptT $ do
-        ExceptT $ createModule testModuleInfo
-        id <- ExceptT $ addRawImport testModuleInfo testImport
-        ExceptT $ removeImport testModuleInfo id
-        m <- (ExceptT $ getModule testModuleInfo)
+        createModule testModuleInfo
+        id <- addRawImport testModuleInfo testImport
+        removeImport testModuleInfo id
+        m <- getModule testModuleInfo
         return $ m `Module.importsModule` testImportedModule
 
 
@@ -230,11 +230,11 @@ test_importSymbolVisible :: Test
 test_importSymbolVisible = testRight f True
     where
         f = runExceptT $ do
-            ExceptT $ createModule testModuleInfo
-            ExceptT $ createModule testModuleInfo2
-            ExceptT $ addRawDeclaration testModuleInfo2 testTypeSynonym
-            ExceptT $ addRawImport testModuleInfo testImport
-            m <- ExceptT $ getModule testModuleInfo 
+            createModule testModuleInfo
+            createModule testModuleInfo2
+            addRawDeclaration testModuleInfo2 testTypeSynonym
+            addRawImport testModuleInfo testImport
+            m <- getModule testModuleInfo 
             syms <- Module.internalSymbols m 
             return $ testSymbol `elem` syms
 
