@@ -3,7 +3,7 @@ Module      : Ide3.Module
 Description : Top level operations on the Modules
 Copyright   : (c) Andrew Melnick, 2016
 
-Lisense     : BSD3
+License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX

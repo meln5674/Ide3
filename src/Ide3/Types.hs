@@ -3,7 +3,7 @@ Module      : Ide3.Types
 Description : Top level types used by Ide3
 Copyright   : (c) Andrew Melnick, 2016
 
-Lisense     : BSD3
+License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
@@ -82,13 +82,13 @@ getModuleName (ModuleInfo n) = n
 -- |A module. 
 data Module
     = Module 
-             -- |Identifying information
+             -- Identifying information
              ModuleInfo
-             -- |Imports
+             -- Imports
              (Map ImportId (WithBody Import))
-             -- |Exports, or 'Nothing' if the module exports everything
+             -- Exports, or 'Nothing' if the module exports everything
              (Maybe (Map ExportId (WithBody Export)))
-             -- |Declarations
+             -- Declarations
              (Map DeclarationInfo (WithBody Declaration))
     deriving (Show, Read, Eq)
 

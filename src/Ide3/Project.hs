@@ -3,7 +3,7 @@ Module      : Ide3.Project
 Description : Top level operations on the project data structure
 Copyright   : (c) Andrew Melnick, 2016
 
-Lisense     : BSD3
+License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
@@ -41,6 +41,10 @@ allDeclarations (Project _ ms _) = concatMap Module.allDeclarations ms
 --  present in
 allSymbols :: Project -> [ModuleChild Symbol]
 allSymbols (Project _ ms _) = concatMap Module.allSymbols ms
+
+-- |Get a list of every module in the project
+allModules :: Project -> [ModuleInfo]
+allModules (Project _ ms _) = Map.keys ms
 
 -- |Add a module to the project
 addModule :: Project -> Module -> Either ProjectError Project

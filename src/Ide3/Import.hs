@@ -1,4 +1,19 @@
-module Ide3.Import where
+{-|
+Module      : Ide3.Import
+Description : Import declarations
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+This module provides operations on import statements
+-}
+module Ide3.Import
+    ( module Ide3.Import
+    , module Ide3.Import.Parser
+    ) where
 
 import Ide3.Types
 
@@ -6,69 +21,39 @@ import Data.List
 
 import Control.Monad.Trans.Except
 
-import Language.Haskell.Exts.Annotated.Parser
-import Language.Haskell.Exts.Parser (ParseResult(..))
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
-import Language.Haskell.Exts.SrcLoc
-
 import {-# SOURCE #-} Ide3.Module (exportedSymbols)
 import {-# SOURCE #-} qualified Ide3.Module as Module
 
 import Ide3.Monad
-import Ide3.SrcLoc
+import Ide3.Import.Parser
 
-convert :: Show a => ImportDecl a -> Import
-convert x = case importSpecs x of
-    Nothing -> ModuleImport sym isQualified rename
-    Just (ImportSpecList _ True ss) -> BlacklistImport sym isQualified rename (map getSpec ss)
-    Just (ImportSpecList _ False ss) -> WhitelistImport sym isQualified rename (map getSpec ss)
-  where
-    ModuleName _ n = importModule x
-    sym = Symbol n
-    rename = case importAs x of
-        Just (ModuleName _ n) -> Just (Symbol n)
-        Nothing -> Nothing
-    isQualified = importQualified x
-
-convertWithBody :: (Spanable a,Show a) => String -> ImportDecl a -> WithBody Import
-convertWithBody str x = WithBody import_ body
-  where
-    body = ann x >< str
-    import_ = convert x
-
-parse :: String -> Either String Import
-parse s = case parseImportDecl s of
-    ParseOk x -> Right $ convert x
-    ParseFailed _ s -> Left s
-
-getSpec :: Show a => ImportSpec a -> ImportKind
-getSpec (IVar _ n) = NameImport (toSym n)
-getSpec (IAbs _ (NoNamespace _) n) = NameImport (toSym n)
-getSpec (IThingAll _ n) = AllImport (toSym n)
-getSpec (IThingWith _ n ns) = SomeImport (toSym n) (map toSym ns)
-getSpec x = error $ show x
-
+-- | Get the name of the module being imported, pre-rename
 moduleName :: Import -> Symbol
 moduleName (ModuleImport sym _ _) = sym
 moduleName (WhitelistImport sym _ _ _) = sym
 moduleName (BlacklistImport sym _ _ _) = sym
 
-
+-- | Get if the import is qualified
 isQualified :: Import -> Bool
 isQualified (ModuleImport _ q _) = q
 isQualified (WhitelistImport _ q _ _) = q
 isQualified (BlacklistImport _ q _ _) = q
 
+-- | Get if the import is renaming the module
 renamed :: Import -> Maybe Symbol
 renamed (ModuleImport _ _ r) = r
 renamed (WhitelistImport _ _ r _) = r
 renamed (BlacklistImport _ _ r _) = r
 
-symbolsProvided' :: Symbol -> Bool -> [Symbol] -> [Symbol]
-symbolsProvided' modName True syms = modName : map (modName `joinSym`) syms
-symbolsProvided' modName False syms = modName : syms
+-- | Qualify a list of symbols
+qualifySymbols :: Symbol        -- ^ Module name being imported as
+               -> Bool          -- ^ Is the import qualified?
+               -> [Symbol]      -- ^ List of symbols being imported
+               -> [Symbol]      -- ^ List of symbols provided
+qualifySymbols modName True syms = modName : map (modName `joinSym`) syms
+qualifySymbols modName False syms = modName : syms
 
+-- | Get the name of the module being imported, post-rename
 importedModuleName :: Import -> Symbol
 importedModuleName i = case rename of
     Just name -> name
@@ -77,14 +62,16 @@ importedModuleName i = case rename of
     name = moduleName i
     rename = renamed i
 
-whitelistTree :: ProjectM m => Module -> ImportKind -> ExceptT ProjectError m [Symbol]
+-- | Find the symbols to import from a module using a whitelist import
+whitelistTree :: ProjectM m 
+              => Module     -- ^ Module symbols are being imported from
+              -> ImportKind -- ^ Specific import to search for
+              -> ExceptT ProjectError m [Symbol]
 whitelistTree m i = do
     exSyms <- map getChild <$> exportedSymbols m
     case i of
         NameImport s | s `elem` exSyms -> return [s]
                      | otherwise -> throwE $ "Import.whitelistTree: " ++ (show s) ++ " is not exported by " ++ (show m)
-          --where
-            --s = getChild s'
         --AbsImport
         AllImport s -> map getChild <$> Module.symbolTree m s
         SomeImport s ss -> do
@@ -93,12 +80,18 @@ whitelistTree m i = do
             case find (not . (`elem` ls')) ss of
                 Just s' -> throwE $ "Import.whitelistTree: " ++ (show s) ++ " is not a sub-symbol of " ++ (show s)
                 Nothing -> return (s:ss)
-blacklistTree :: ProjectM m => Module -> ImportKind -> ExceptT ProjectError m [Symbol]
+
+-- | Find the symbosl to import from a module using a blacklist import
+blacklistTree :: ProjectM m 
+              => Module     -- ^ Module symbols are being imported from
+              -> ImportKind -- ^ Import to blacklist
+              -> ExceptT ProjectError m [Symbol]
 blacklistTree m i = do
     whitelistSyms <- whitelistTree m i
     allSyms <- map getChild <$> exportedSymbols m
     ExceptT $ return $ Right $ filter (not . (`elem` whitelistSyms)) $ allSyms
 
+-- | Get the symbols provided by an import, ignoring qualification
 unqualSymbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
 unqualSymbolsProvided m@(ModuleImport sym _ _) = do
     mod <- ExceptT $ getModule (ModuleInfo sym)
@@ -113,16 +106,19 @@ unqualSymbolsProvided m@(BlacklistImport sym _ _ specs) = do
     moduleSyms <- concat <$> mapM (blacklistTree mod) specs
     return moduleSyms
 
+-- | Get the symbols provided by an import
 symbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
-symbolsProvided i = symbolsProvided' (importedModuleName i)
+symbolsProvided i = qualifySymbols (importedModuleName i)
                                      (isQualified i) 
                                  <$> (unqualSymbolsProvided i)
 
+-- | Test if an import provides a symbol
 providesSymbol :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m Bool
 providesSymbol i s = do
     syms <- symbolsProvided i
     return $ s `elem` syms
 
+-- | If this import provides a symbol, get all of the other symbols it provides
 otherSymbols :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m (Maybe [Symbol])
 otherSymbols i s = do
     p <- i `providesSymbol` s
@@ -133,6 +129,9 @@ otherSymbols i s = do
         else
             return Nothing
 
+-- | Given a sub-symbol (class method, data constructor, etc...), find the other
+-- sub-symbols and the parent symbol from this import
+-- See 'Ide3.Module.symbolTree'
 symbolTree :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m [Symbol]
 symbolTree i s = do
     mod <- ExceptT $ getModule (ModuleInfo (moduleName i))

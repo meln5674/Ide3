@@ -1,3 +1,13 @@
+{-|
+Module      : Ide3.Mechanism.Internal
+Description : TODO
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
 module Ide3.Mechanism.Internal where
 
 import Control.Monad.Trans.Except

@@ -1,3 +1,15 @@
+{-|
+Module      : Ide3.Declaration.Parser
+Description : Parsing declarations
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+This module provides functions for parsing declarations
+-}
 module Ide3.Declaration.Parser where
 
 import Data.Monoid
@@ -13,6 +25,7 @@ import Ide3.SrcLoc
 import Ide3.Types
 import qualified Ide3.Constructor as Constructor
 
+-- | Convert a declaration if it is a type synonym
 parseTypeSynonym (TypeDecl _ h t)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (TypeSynonym (toSym h)
@@ -21,6 +34,7 @@ parseTypeSynonym (TypeDecl _ h t)
 
 parseTypeSynonym _ = Nothing
 
+-- | Convert a declaration if it is a data declaration
 parseDataDecl (DataDecl _ (NewType _) _ h [con] dervs)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
@@ -28,6 +42,7 @@ parseDataDecl (DataDecl _ (NewType _) _ h [con] dervs)
                              )
 parseDataDecl _ = Nothing
 
+-- | Convert a declaration if it is a newtype declaration
 parseNewtypeDecl (DataDecl _ (DataType _) _ h cons dervs)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (DataDeclaration (toSym h)
@@ -35,6 +50,7 @@ parseNewtypeDecl (DataDecl _ (DataType _) _ h cons dervs)
                              )
 parseNewtypeDecl _ = Nothing
 
+-- | Convert a declaration if it is a function bind
 parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSym n) 
                                      $ LocalBindDeclaration [toSym n] Nothing
   where
@@ -43,6 +59,7 @@ parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSy
         InfixMatch _ _ n _ _ _ -> n
 parseFuncBind _ = Nothing
 
+-- | Convert a declaration if it is a type signature
 parseTypeSignature (TypeSig _ ns t) = case allsigs of
     Nothing -> Nothing
     Just [] -> Nothing
@@ -55,6 +72,7 @@ parseTypeSignature (TypeSig _ ns t) = case allsigs of
       $ TypeSignatureDeclaration (toSym n) (toSym t)
 parseTypeSignature _ = Nothing
 
+-- | Convert a declaration if it is a class declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
     = Just $ TypeDeclaration (DeclarationInfo $ toSym h)
            $ ClassDeclaration (toSym h) ds'
@@ -66,9 +84,11 @@ parseClassDecl (ClassDecl _ _ h _ ds)
         Nothing -> Just []
 parseClassDecl _ = Nothing
 
-maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
-maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
+ 
+--maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
+--maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
 
+-- | Class of types which can yield a list of symbols
 class HasNames a where
     findName :: a -> [Symbol]
 
@@ -95,7 +115,7 @@ parsePatBind (PatBind _ p _ _) = case findName p of
     ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
 parsePatBind _ = Nothing
 
-
+-- | Try to convert a declaration
 tryConvert x = getFirst $ mconcat                 
              $ map (First . ($x))
                 [ parseTypeSynonym
@@ -107,7 +127,7 @@ tryConvert x = getFirst $ mconcat
                 , parsePatBind
                 ]
           
-
+-- | Parse a string containing 0 or more delcarations
 parseMany :: String -> Either String [Declaration]
 parseMany s = case parseModule s of
     ParseOk (Syntax.Module _ _ _ _ ds) -> case sequence $ map tryConvert ds of
@@ -116,7 +136,7 @@ parseMany s = case parseModule s of
     ParseOk _ -> Left "Unsupported"
     ParseFailed _ s -> Left s
 
-
+-- | Convert a declaration and extract its body
 convertWithBody :: (Show a, Spanable a, SrcInfo a) => String -> Decl a -> Either ProjectError (WithBody Declaration)
 convertWithBody str x = case decl of
     Just decl -> Right $ WithBody decl body
@@ -126,7 +146,8 @@ convertWithBody str x = case decl of
     decl = tryConvert x
 
 
-
+-- | Take a list of declarations and combine the first type signature with the first bind
+-- This function assumes that all declarations in the input list have the same symbol
 combineFuncAndTypeSig :: [WithBody Declaration] -> [WithBody Declaration]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     (((WithBody sig sb):_),((WithBody func fb):_)) -> WithBody newDecl newBody : notFuncBinds
@@ -143,7 +164,8 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     (funcBinds,notFuncBinds) = partition (isFuncBind . item) notTypeSigs
     isFuncBind (BindDeclaration _ (LocalBindDeclaration _ _)) = True
     isFuncBind _ = False
-    
+
+-- | Parse a declaration    
 parse :: String -> Either String Declaration
 parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of

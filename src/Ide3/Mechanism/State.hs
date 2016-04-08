@@ -1,9 +1,30 @@
+{-|
+Module      : Ide3.Mechanism.State
+Description : State monad instance of ProjectM
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+This module provides the ProjectStateT and ProjectState types.
+These are simply StateT and State with a Project as their state type.
+
+In addition, this provides an instance of ProjectM for any monad which
+is a MonadState for Projects.
+-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Ide3.Mechanism.State where
+module Ide3.Mechanism.State
+    ( ProjectStateT
+    , ProjectState
+    , runProjectStateT
+    , runProjectState
+    ) where
 
 import Control.Monad.Trans.State (StateT, runStateT)
 import Control.Monad.State.Class
@@ -49,4 +70,4 @@ instance (Monad m, MonadState Project m) => ProjectM m where
     addExport mi e = modifyEitherR $ \p -> Project.addExport p mi e
     removeExport mi e = modifyEither $ \p -> Project.removeExport p mi e
     exportAll mi = modifyEither $ \p -> Project.exportAll p mi
-
+    getModules = gets Project.allModules
