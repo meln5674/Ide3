@@ -1,6 +1,6 @@
 {-|
 Module      : Ide3.Declaration.BindDeclaration
-Description : TODO
+Description : Operations on bind declarations
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -8,7 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-TODO
+A bind declaration is a function or pattern bind, or a foreign function import
 -}
 module Ide3.Declaration.BindDeclaration where
 

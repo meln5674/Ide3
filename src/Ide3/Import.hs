@@ -94,15 +94,15 @@ blacklistTree m i = do
 -- | Get the symbols provided by an import, ignoring qualification
 unqualSymbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
 unqualSymbolsProvided m@(ModuleImport sym _ _) = do
-    mod <- ExceptT $ getModule (ModuleInfo sym)
+    mod <- getModule (ModuleInfo sym)
     moduleSyms <- exportedSymbols mod
     return $ map getChild moduleSyms
 unqualSymbolsProvided m@(WhitelistImport sym _ _ specs) = do
-    mod <- ExceptT $ getModule (ModuleInfo sym)
+    mod <- getModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (whitelistTree mod) specs
     return moduleSyms
 unqualSymbolsProvided m@(BlacklistImport sym _ _ specs) = do
-    mod <- ExceptT $ getModule (ModuleInfo sym)
+    mod <- getModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (blacklistTree mod) specs
     return moduleSyms
 
@@ -134,5 +134,5 @@ otherSymbols i s = do
 -- See 'Ide3.Module.symbolTree'
 symbolTree :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m [Symbol]
 symbolTree i s = do
-    mod <- ExceptT $ getModule (ModuleInfo (moduleName i))
+    mod <- getModule (ModuleInfo (moduleName i))
     map getChild <$> Module.symbolTree mod s

@@ -48,7 +48,7 @@ allModules (Project _ ms _) = Map.keys ms
 
 -- |Add a module to the project
 addModule :: Project -> Module -> Either ProjectError Project
-addModule (Project i ms b) m@(Module i' _ _ _)
+addModule (Project i ms b) m@(Module i' _ _ _ _)
   = case Map.lookup i' ms of
     Just _ -> Left $ "Project.addModule: " ++ (show i') ++ " Is already an existing module"
     Nothing -> Right $ Project i (Map.insert i' m ms) b
@@ -71,7 +71,7 @@ hasModuleInfo p m = case getModule p m of
 
 -- |Determine if there is a module which is exactly equivalent to a provided one
 hasModule :: Project -> Module -> Bool
-hasModule p (Module i _ _ _) = hasModuleInfo p i
+hasModule p (Module i _ _ _ _) = hasModuleInfo p i
 
 -- |Remove a module that has matching ModuleInfo
 --  This function will fail if no matching module is found

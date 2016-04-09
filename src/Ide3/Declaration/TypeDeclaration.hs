@@ -1,6 +1,6 @@
 {-|
 Module      : Ide3.Declaration.TypeDeclaration
-Description : TODO
+Description : Operations on type declarations
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -8,19 +8,26 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-TODO
+A type declaration is any declaration that provides new types to the program:
+
+data
+type
+newtype
+class
 -}
 module Ide3.Declaration.TypeDeclaration where
 
 import Ide3.Types
 import qualified Ide3.Constructor as Constructor
 
+-- | Get the type created by a declaration
 typeCreated :: TypeDeclaration -> Symbol
 typeCreated (ClassDeclaration s _) = s
 typeCreated (TypeSynonym s _) = s
 typeCreated (DataDeclaration s _) = s
 typeCreated (NewtypeDeclaration s _) = s
 
+-- | Get the list of binds created by a declaration
 bindsCreated :: TypeDeclaration -> [Symbol]
 bindsCreated (ClassDeclaration _ ds)
     = undefined -- concatMap symbolsProvided ds
@@ -29,7 +36,8 @@ bindsCreated (DataDeclaration _ cs)
     = concatMap Constructor.bindsProvided cs
 bindsCreated (NewtypeDeclaration _ c)
     = Constructor.bindsProvided c
-    
+
+-- | Get a list of constructors created by a declaration
 constructorsCreated :: TypeDeclaration -> [Symbol]
 constructorsCreated (ClassDeclaration _ _) = []
 constructorsCreated (TypeSynonym _ _) = []

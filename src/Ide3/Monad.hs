@@ -25,7 +25,11 @@ starting point.
 -}
 module Ide3.Monad where
 
+import Control.Monad.Trans.Except
+
 import Ide3.Types
+
+type ProjectResult m = ExceptT ProjectError m
 
 -- |Abstract interface to a project
 class Monad m => ProjectM m where
@@ -36,43 +40,42 @@ class Monad m => ProjectM m where
     --  constructors, this means that new methods of loading can be added without
     --  breaking the interface, and does not require every instance to support
     --  all methods of loading.
-    load :: m ()
+    load :: ProjectResult m ()
     -- |Create a new project
     --  See 'load' for discussion of lack of additional parameters
-    new :: ProjectInfo -> m ()
+    new :: ProjectInfo -> ProjectResult m ()
     -- |Perform what ever actions are necessary to be able to load the current
     --  project at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
-    finalize :: m ()
+    finalize :: ProjectResult m ()
     -- |Apply a transformation to the projects identifying information
-    editProjectInfo :: (ProjectInfo -> ProjectInfo) -> m ()
+    editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m ()
     -- |Add a module
-    addModule :: Module -> m (Either ProjectError ())
+    addModule :: Module -> ProjectResult m ()
     -- |Create a new module
-    createModule :: ModuleInfo -> m (Either ProjectError ())
+    createModule :: ModuleInfo -> ProjectResult m ()
     -- |Retrieve a module
-    getModule :: ModuleInfo -> m (Either ProjectError Module) 
+    getModule :: ModuleInfo -> ProjectResult m Module
     -- |Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
-    removeModule :: ModuleInfo -> m (Either ProjectError ())
+    removeModule :: ModuleInfo -> ProjectResult m ()
     -- |Add a declaration to a module
-    addDeclaration :: ModuleInfo -> WithBody Declaration -> m (Either ProjectError ())
+    addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m ()
     -- |Add an import to a module
-    addImport :: ModuleInfo -> WithBody Import -> m (Either ProjectError ImportId)
+    addImport :: ModuleInfo -> WithBody Import -> ProjectResult m ImportId
     -- |Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
-    removeImport :: ModuleInfo -> ImportId -> m (Either ProjectError ())
+    removeImport :: ModuleInfo -> ImportId -> ProjectResult m ()
     -- |Add an export to a module
-    addExport :: ModuleInfo -> WithBody Export -> m (Either ProjectError ExportId)
+    addExport :: ModuleInfo -> WithBody Export -> ProjectResult m ExportId
     -- |Remove an export from a module
     --  Instances are expected to return a Left value if a matching export is not found
-    removeExport :: ModuleInfo -> ExportId -> m (Either ProjectError ())
+    removeExport :: ModuleInfo -> ExportId -> ProjectResult m ()
     -- |Set a module to export all of its symbols
-    exportAll :: ModuleInfo -> m (Either ProjectError ())
+    exportAll :: ModuleInfo -> ProjectResult m ()
     -- |Get a list of all the availible modules
-    getModules :: m [ModuleInfo]
-
+    getModules :: ProjectResult m [ModuleInfo]

@@ -79,11 +79,16 @@ data ModuleInfo
 getModuleName :: ModuleInfo -> Symbol
 getModuleName (ModuleInfo n) = n
 
+-- | A module pragma
+type Pragma = String
+
 -- |A module. 
 data Module
     = Module 
              -- Identifying information
              ModuleInfo
+             -- Pragmas
+             [Pragma]
              -- Imports
              (Map ImportId (WithBody Import))
              -- Exports, or 'Nothing' if the module exports everything

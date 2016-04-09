@@ -1,12 +1,14 @@
 {-|
 Module      : Ide3.Mechanism.Internal
-Description : TODO
+Description : Convienience functions for the Project monad
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
+
+TODO
 -}
 module Ide3.Mechanism.Internal where
 
@@ -21,28 +23,36 @@ import qualified Ide3.Declaration as Declaration
 
 import Ide3.Monad
 
-addRawImport :: ProjectM m => ModuleInfo -> String -> m (Either ProjectError ImportId)
+-- | Parse an import and add it to a module
+addRawImport :: ProjectM m => ModuleInfo -> String -> ProjectResult m ImportId
 addRawImport mi s = case Import.parse s of
     Right i -> addImport mi (WithBody i s)
-    Left msg -> return $ Left $ "Failed to parse import: " ++ msg
-addRawExport :: ProjectM m => ModuleInfo -> String -> m (Either ProjectError ExportId)
+    Left msg -> throwE $ "Failed to parse import: " ++ msg
+
+-- | Parse an export and add it to a module
+addRawExport :: ProjectM m => ModuleInfo -> String -> ProjectResult m  ExportId
 addRawExport mi s = case Export.parse s of
     Right e -> addExport mi (WithBody e s)
-    Left msg -> return $ Left $ "Failed to parse export: " ++ msg
-addRawDeclaration :: ProjectM m => ModuleInfo -> String -> m (Either ProjectError ())
+    Left msg -> throwE $ "Failed to parse export: " ++ msg
+
+-- | Parse a declaration and add it to a module
+addRawDeclaration :: ProjectM m => ModuleInfo -> String -> ProjectResult m  ()
 addRawDeclaration i s = case Declaration.parse s of
     Right d -> do addDeclaration i (WithBody d s)
-                  return $ Right ()
-    Left msg -> return $ Left $ "Failed to parse declaration: " ++ msg
+                  return ()
+    Left msg -> throwE $ "Failed to parse declaration: " ++ msg
 
-addRawModule :: ProjectM m => String -> m (Either ProjectError ModuleInfo)
-addRawModule s = case Module.parse s of
+-- | Parse an entire module and add it to the project
+addRawModule :: ProjectM m => String -> Maybe FilePath -> ProjectResult m  ModuleInfo
+addRawModule s p = case Module.parse s p of
     Right (m,eids,iids) -> do addModule m
-                              return $ Right $ Module.info m
-    Left msg -> return $ Left $ "Failed to parse module: " ++ msg
+                              return $ Module.info m
+    Left msg -> throwE $ "Failed to parse module: " ++ msg
 
-getExternalSymbols :: ProjectM m => ModuleInfo -> m (Either ProjectError [Symbol])
-getExternalSymbols m = runExceptT $ ExceptT (getModule m) >>= Module.exportedSymbols >>= return . map getChild
+-- | Get the symbols exported by a module
+getExternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m  [Symbol]
+getExternalSymbols m = getModule m >>= Module.exportedSymbols >>= return . map getChild
 
-getInternalSymbols :: ProjectM m => ModuleInfo -> m (Either ProjectError [Symbol])
-getInternalSymbols m = runExceptT $ ExceptT (getModule m) >>= Module.internalSymbols
+-- | Get the symbols availible at the top level of a module
+getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m  [Symbol]
+getInternalSymbols m = getModule m >>= Module.internalSymbols

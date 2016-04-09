@@ -84,13 +84,29 @@ parseClassDecl (ClassDecl _ _ h _ ds)
         Nothing -> Just []
 parseClassDecl _ = Nothing
 
- 
+parseInstanceDecl x@(InstDecl _ _ r _)
+    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ show x) 
+           $ InstanceDeclaration cls ts []
+  where
+    (cls:ts) = findName r
+parseInstanceDecl _ = Nothing
+
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
 --maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
 
 -- | Class of types which can yield a list of symbols
 class HasNames a where
     findName :: a -> [Symbol]
+
+instance SrcInfo a => HasNames (InstRule a) where
+    findName (IRule _ _ _ h) = findName h
+    findName (IParen _ h) = findName h
+
+instance SrcInfo a => HasNames (InstHead a) where
+    findName (IHCon _ n) = [toSym n]
+    findName (IHInfix _ t n) = [toSym t, toSym n]
+    findName (IHParen _ h) = findName h
+    findName (IHApp _ h t) = toSym t : findName h
 
 instance HasNames (Pat a) where
     findName (PVar _ n) = [toSym n]
@@ -125,6 +141,7 @@ tryConvert x = getFirst $ mconcat
                 , parseClassDecl
                 , parseTypeSignature
                 , parsePatBind
+                , parseInstanceDecl
                 ]
           
 -- | Parse a string containing 0 or more delcarations

@@ -41,7 +41,7 @@ symbolsProvided m (SingleExport s)
       = throwE $ "Export.symbolsProvided: " ++ (show s) ++ " is not an availible symbol in " ++ (show m)
 symbolsProvided m (ModuleExport n)
     | m `importsModule` n
-      = (ExceptT $ getModule $ ModuleInfo n) 
+      = (getModule $ ModuleInfo n) 
           >>= exportedSymbols 
           >>= return . map getChild
     | otherwise

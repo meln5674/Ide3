@@ -12,6 +12,7 @@ This module provides matching functions to those provided by 'Ide3.Monad' and
 'Ide3.Mechanism.Internal', with each function operating in the ExceptT monad,
 allowing for seamless error throwing and handling with throwE and catchE.
 -}
+{-
 module Ide3.Mechanism.Except where
 
 import Control.Monad.Trans.Except
@@ -23,13 +24,13 @@ import qualified Ide3.Monad as I
 import qualified Ide3.Mechanism.Internal as I
 
 load :: ProjectM m => ExceptT ProjectError m ()
-load = lift I.load
+load = ExceptT I.load
 new :: ProjectM m => ProjectInfo -> ExceptT ProjectError m ()
-new = lift . I.new 
+new = ExceptT . I.new 
 finalize :: ProjectM m => ExceptT ProjectError m ()
-finalize = lift I.finalize
+finalize = ExceptT I.finalize
 editProjectInfo :: ProjectM m => (ProjectInfo -> ProjectInfo) -> ExceptT ProjectError m ()
-editProjectInfo = lift . I.editProjectInfo
+editProjectInfo = ExceptT . I.editProjectInfo
 addModule :: ProjectM m => Module -> ExceptT ProjectError m ()
 addModule = ExceptT . I.addModule
 createModule:: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m ()
@@ -51,20 +52,19 @@ removeExport x = ExceptT . I.removeExport x
 exportAll :: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m ()
 exportAll = ExceptT . I.exportAll
 getModules :: ProjectM m => ExceptT ProjectError m [ModuleInfo]
-getModules = lift I.getModules
+getModules = ExceptT I.getModules
 
 
 addRawImport:: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ImportId
-addRawImport x  = ExceptT . I.addRawImport x
+addRawImport x = ExceptT . I.addRawImport x
 addRawExport :: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ExportId
 addRawExport x  = ExceptT . I.addRawExport x
 addRawDeclaration :: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ()
 addRawDeclaration x  = ExceptT . I.addRawDeclaration x
-addRawModule :: ProjectM m => String -> ExceptT ProjectError m ModuleInfo
-addRawModule = ExceptT . I.addRawModule
+addRawModule :: ProjectM m => String -> Maybe FilePath -> ExceptT ProjectError m ModuleInfo
+addRawModule x = ExceptT . I.addRawModule x
 getExternalSymbols :: ProjectM m => ModuleInfo -> ExceptT ProjectError m [Symbol]
 getExternalSymbols = ExceptT . I.getExternalSymbols
 getInternalSymbols :: ProjectM m => ModuleInfo -> ExceptT ProjectError m [Symbol]
 getInternalSymbols = ExceptT . I.getInternalSymbols
-
-
+-}
