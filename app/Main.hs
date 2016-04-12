@@ -2,16 +2,18 @@ module Main where
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
+import Control.Monad
 
 import System.Environment
+import System.IO (hFlush, stdout)
 
 import Ide3.Monad
 
 import qualified Ide3.Declaration as Declaration
-import Ide3.Module (getDeclarations, getImports, getExports)
+import qualified Ide3.Module as Module
 
-import Ide3.Types (items, ModuleInfo(..), Symbol(..))
+import Ide3.Types (items, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError)
 import Ide3.HasA
 
 import Ide3.Mechanism.State ( runProjectStateT )
@@ -21,18 +23,7 @@ import CmdParser
 import Digest
 import Viewer
 
-{-
-run :: FilePath -> IO ()
-run path = do
-    runProjectStateT $ runExceptT $ do
-        let f = do
-                digestProject path
-                moduleList <- getModules
-                liftIO $ print (length moduleList)
-        catchE f (liftIO . putStrLn)
-    return ()
--}
-
+readCmd :: IO (Maybe Cmd)
 readCmd = do
     input <- getLine
     case Cmd.parse input of
@@ -49,7 +40,9 @@ printHelp = do
         , "module MODULE: set MODULE as the current module"
         , "declarations: list the declarations in the current module"
         , "imports: list the imports in the current module"
+        , "imported: list the symbols imported by the current module"
         , "exports: list the exports in the current module"
+        , "exported: list the symbols exported by the current module"
         , "quit: exit the program"
         ]
 
@@ -57,13 +50,25 @@ printOnError f = do
     runExceptT $ catchE f $ liftIO . putStrLn
     return ()
 
+withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [a]) -> ViewerStateM ()
+withSelectedModule f = printOnError $ do
+    name <- lift $ gets currentModule
+    case name of
+        Nothing -> throwE "No module currently selected"
+        Just name -> do
+            mod <- getModule (ModuleInfo (Symbol name))
+            xs <- f mod
+            liftIO $ mapM_ print xs
+
 doHelp :: ViewerStateM ()
 doHelp = liftIO printHelp
 
 doOpen :: FilePath -> ViewerStateM ()
 doOpen path = printOnError $ do
     lift . lift $ put (ToOpen path)
+    lift $ modify $ \s -> s{currentModule=Nothing}
     load
+
 doModules = printOnError $ do
     names <- getModules
     liftIO $ mapM_ print names
@@ -73,52 +78,65 @@ doModule name = printOnError $ do
     getModule (ModuleInfo (Symbol name))
     lift $ modify $ \s -> s{currentModule=Just name}
 
-doDeclarations = printOnError $ do
-    name <- lift $ gets currentModule
-    case name of
-        Nothing -> throwE "No module currently selected"
-        Just name -> do
-            mod <- getModule (ModuleInfo (Symbol name))
-            let infos = map (Declaration.info) $ items $ getDeclarations mod
-            liftIO $ mapM_ print infos
-doImports = printOnError $ do
-    name <- lift $ gets currentModule
-    case name of
-        Nothing -> throwE "No module currently selected"
-        Just name -> do
-            mod <- getModule (ModuleInfo (Symbol name))
-            let infos = items $ getImports mod
-            liftIO $ mapM_ print infos
-doExports = printOnError $ do
-    name <- lift $ gets currentModule
-    case name of
-        Nothing -> throwE "No module currently selected"
-        Just name -> do
-            mod <- getModule (ModuleInfo (Symbol name))
-            let infos = items $ getExports mod
-            liftIO $ mapM_ print infos
+doDeclarations :: ViewerStateM ()
+doDeclarations = withSelectedModule 
+    $ return 
+    . map (Declaration.info) 
+    . items 
+    . Module.getDeclarations
+
+doImports :: ViewerStateM ()
+doImports = withSelectedModule 
+    $ return
+    . items
+    . Module.getImports
+
+doImported :: ViewerStateM ()
+doImported = withSelectedModule
+    Module.importedSymbols
+    
+doExports :: ViewerStateM ()
+doExports = withSelectedModule
+    $ return
+    . items
+    . Module.getExports
+
+doExported :: ViewerStateM ()
+doExported = withSelectedModule
+    $   (return 
+    .   map getChild)
+    <=< Module.exportedSymbols 
+
+-- (a -> m b) -> (b -> c) -> c
 
 doQuit :: ViewerStateM ()
 doQuit = return ()
 
-runMain = do
+
+
+repl = do
     input <- liftIO $ readCmd
     case input of
-        Just Help -> doHelp >> runMain
-        Just (Open path) -> doOpen path >> runMain
-        Just Modules -> doModules >> runMain
-        Just (Module name) -> doModule name >> runMain
-        Just Declarations -> doDeclarations >> runMain
-        Just Imports -> doImports >> runMain
-        Just Exports -> doExports >> runMain
-        Just Quit -> return ()
-        Nothing -> runMain
-        
+        Just Help -> doHelp >> return True
+        Just (Open path) -> doOpen path >> return True
+        Just Modules -> doModules >> return True
+        Just (Module name) -> doModule name >> return True
+        Just Declarations -> doDeclarations >> return True
+        Just Imports -> doImports >> return True
+        Just Imported -> doImported >> return True
+        Just Exports -> doExports >> return True
+        Just Exported -> doExported >> return True
+        Just Quit -> return False
+        Nothing -> return True
+
+runMain = do
+    liftIO $ putStr ">" >> hFlush stdout
+    continue <- repl
+    when continue runMain
+      
 main :: IO ()
-main = runViewerState runMain
-{-do
-    args <- getArgs
-    case args of
-        [path] -> run path
-        _ -> putStrLn "Expecting 1 and only 1 path"
--}
+main = do
+    putStrLn "Haskell project viewer"
+    putStrLn "Type \"help\" for commands"
+    runViewerState runMain
+    return ()

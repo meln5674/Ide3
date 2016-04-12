@@ -65,7 +65,9 @@ digestProject' :: MonadIO m => FilePath -> ProjectResult m Project
 digestProject' path = do
     contents <- liftIO $ enumerateHaskellProject path
     let fold_f pj (p,c) = do
-            (mod,_,_) <- Module.parse c (Just p)
+            (mod,_,_) <- case Module.parse c (Just p) of
+                    Right x -> Right x
+                    Left msg -> Left $ "Parse error: " ++ msg
             Project.addModule pj mod
     ExceptT $ return $ foldM fold_f Project.empty contents
 

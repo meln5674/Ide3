@@ -64,7 +64,9 @@ parse s p = case Parser.parse s p of
             UnamedModule Nothing -> UnamedModule p
             x -> x
         withPragmas = foldl addPragma newModule pragmas
-        (withExports,eids) = foldlRes addExport withPragmas exports
+        (withExports,eids) = case exports of
+            Just exports -> foldlRes addExport withPragmas exports
+            Nothing -> (Ide3.Module.exportAll withPragmas,[])
         (withImports,iids) = foldlRes addImport withExports imports
         withDecls = foldl addDeclaration withImports decls
     Left msg -> Left msg
@@ -126,11 +128,18 @@ exportedSymbols m@(Module n _ _ (Just es) _) = do
     let qualSyms = map (qualify m) syms
     return qualSyms
 
+-- | Within the context of a project, find all of the symbosl being imported by
+-- a module
+importedSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]
+importedSymbols m@(Module _ _ is _ _)
+    = concat <$> mapM (Import.symbolsProvided . item) is
+
+
 -- |Within the context of a project, find all of the symbols which are visible
 --  at the top level of this module 
 internalSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]
-internalSymbols m@(Module _ _ is _ ds) = do
-    importSyms <- concat <$> mapM (Import.symbolsProvided . item) is
+internalSymbols m@(Module _ _ _ _ ds) = do
+    importSyms <- importedSymbols m
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) ds
 
 -- |Find all of the symbols that are created within this module

@@ -22,6 +22,7 @@ is a MonadState for Projects.
 module Ide3.Mechanism.State
     ( ProjectStateT
     , ProjectState
+    , initialProject
     , runProjectStateT
     , runProjectState
     , ProjectShellM (..)
@@ -29,7 +30,7 @@ module Ide3.Mechanism.State
     ) where
 
 import Control.Monad.Trans
-import Control.Monad.Trans.State (StateT, runStateT)
+import Control.Monad.Trans.State.Strict (StateT, runStateT)
 import Control.Monad.Trans.Except
 import qualified Control.Monad.State.Class as State
 import Control.Monad.State.Class
@@ -40,10 +41,12 @@ import qualified Ide3.Monad as M
 import Ide3.Types
 import qualified Ide3.Project as Project
 
-import Ide3.HasA
+--import Ide3.HasA
 
 type ProjectStateT m = StateT Project m
 type ProjectState = ProjectStateT Identity
+
+initialProject = Project.new ProjectInfo
 
 -- | Run a project state operation starting with an empty project
 runProjectStateT :: Monad m => ProjectStateT m a -> m (a,Project)

@@ -35,7 +35,7 @@ import qualified Ide3.Import as Import
 data ExtractionResults
     = Extracted ModuleInfo
                 [Pragma]
-                [WithBody Export]
+                (Maybe [WithBody Export])
                 [WithBody Import]
                 [WithBody Declaration] 
 
@@ -48,10 +48,10 @@ extractPragmas :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [Pragma]
 extractPragmas s (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
 
 -- |Extract the exports from the module
-extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [WithBody Export]
+extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> (Maybe [WithBody Export])
 extractExports str (Syntax.Module _ (Just (Syntax.ModuleHead _ _ _ (Just (Syntax.ExportSpecList _ exports)))) _ _ _, _)
-     = map (Export.convertWithBody str) exports
-extractExports _ _ = []
+     = Just $ map (Export.convertWithBody str) exports
+extractExports _ _ = Nothing
 
 -- |Extract the imports from the module
 extractImports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [WithBody Import]
@@ -79,9 +79,11 @@ extract str x = do
 parse :: String -> Maybe FilePath -> Either ProjectError ExtractionResults
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
-    ParseFailed loc msg -> Left $ msg ++ "(" ++ show loc ++ ")"
+    ParseFailed loc msg -> Left $ msg ++ " " ++ locMsg loc
   where
     parseMode = case p of
         Just p -> defaultParseMode{parseFilename=p,extensions=glasgowExts}
         Nothing -> defaultParseMode{extensions=glasgowExts}
-
+    locMsg loc = case p of
+        Just p -> "(" ++ p ++ ": " ++ show loc ++ ")"
+        Nothing -> "(unknown file: " ++ show loc ++ ")"

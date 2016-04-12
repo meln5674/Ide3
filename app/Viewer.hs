@@ -4,10 +4,11 @@ module Viewer where
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.State
+import Control.Monad.Trans.State.Strict
 
 
 import Ide3.Mechanism.State
+import Ide3.Types (Project)
 
 import Digest
 
@@ -20,13 +21,23 @@ data FileSystemProject
 
 type ViewerStateM = StateT ViewerState (StateT FileSystemProject (ProjectStateT IO))
 
-runViewerState :: ViewerStateM a -> IO a
-runViewerState f = result
-  where
-    runViewer = evalStateT f (Viewer Nothing)
-    runFPS = evalStateT runViewer Unopened
-    runProject = runProjectStateT runFPS
-    result = fst <$> runProject
+data ViewerResume = Resume ViewerState FileSystemProject Project
+
+runViewerState :: ViewerStateM a -> IO (a,ViewerResume)
+runViewerState f = resumeViewerState f (Resume (Viewer Nothing) (Unopened) initialProject)
+{-    let runViewer = runStateT f (Viewer Nothing)
+        runFPS = runStateT runViewer Unopened
+        runProject = runProjectStateT runFPS
+    (((result,viewer),fsp),proj) <- runProject
+    return (result,Resume viewer fsp proj)-}
+
+resumeViewerState :: ViewerStateM a -> ViewerResume -> IO (a,ViewerResume)
+resumeViewerState f (Resume viewer fsp proj) = do
+    let runViewer = runStateT f viewer
+        runFSP = runStateT runViewer fsp
+        runProject = runStateT runFSP proj
+    (((result,viewer'),fsp'),proj') <- runProject
+    return (result,Resume viewer' fsp' proj')
 
 instance ProjectStateM ViewerStateM where
     getProject = lift (lift get)
@@ -37,7 +48,7 @@ instance ProjectShellM ViewerStateM where
     load = do
         fsp <- lift (lift get)
         case fsp of
-            ToOpen path -> digestProject' path
+            ToOpen path -> catchE (digestProject' path) (\e -> throwE $ "Digest Error: " ++ e)
             Unopened -> throwE $ "No path specified for opening"
             Opened path -> digestProject' path
     finalize _ = throwE $ "Saving projects is unsupported at this time"

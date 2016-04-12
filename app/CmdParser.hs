@@ -14,7 +14,9 @@ data Cmd
     | Module String
     | Declarations
     | Imports
+    | Imported
     | Exports
+    | Exported
     | Quit
     deriving Show
 
@@ -39,8 +41,10 @@ parseModule = do
 parseDeclarations = string "declarations" >> return Declarations
 
 parseImports = string "imports" >> return Imports
+parseImported = string "imported" >> return Imported
 
 parseExports = string "exports" >> return Exports
+parseExported = string "exported" >> return Exported
 
 parseQuit = string "quit" >> return Quit
 
@@ -64,7 +68,9 @@ parseCmd =
     <|> (try parseModule)
     <|> (try parseDeclarations)
     <|> (try parseImports)
+    <|> (try parseImported)
     <|> (try parseExports)
+    <|> (try parseExported)
     <|> (try parseQuit)
     <|> parseGarbage
 
