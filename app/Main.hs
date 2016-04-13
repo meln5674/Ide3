@@ -13,9 +13,10 @@ import Ide3.Monad
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
-import Ide3.Types (items, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError)
+import Ide3.Types (items, body, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError, DeclarationInfo (..))
 
 import Ide3.Mechanism.State ( runProjectStateT )
+import Ide3.Mechanism
 
 import qualified CmdParser as Cmd
 import CmdParser
@@ -42,6 +43,8 @@ printHelp = do
         , "imported: list the symbols imported by the current module"
         , "exports: list the exports in the current module"
         , "exported: list the symbols exported by the current module"
+        , "visible: list the symbols visible at the top level of the current module"
+        , "cat SYMBOL: show the body of the declaration of SYMBOL"
         , "quit: exit the program"
         ]
 
@@ -49,7 +52,18 @@ printOnError f = do
     runExceptT $ catchE f $ liftIO . putStrLn
     return ()
 
-withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [a]) -> ViewerStateM ()
+type Output a = Either a String
+
+asShow = Left
+asShows = map asShow
+asString = Right
+asStrings = map asString
+
+output :: Show a => Output a -> IO ()
+output (Left a) = print a
+output (Right s) = putStrLn s
+
+withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [Output a]) -> ViewerStateM ()
 withSelectedModule f = printOnError $ do
     name <- lift $ gets currentModule
     case name of
@@ -57,7 +71,7 @@ withSelectedModule f = printOnError $ do
         Just name -> do
             mod <- getModule (ModuleInfo (Symbol name))
             xs <- f mod
-            liftIO $ mapM_ print xs
+            liftIO $ mapM_ output xs
 
 doHelp :: ViewerStateM ()
 doHelp = liftIO printHelp
@@ -80,6 +94,7 @@ doModule name = printOnError $ do
 doDeclarations :: ViewerStateM ()
 doDeclarations = withSelectedModule 
     $ return 
+    . asShows
     . map (Declaration.info) 
     . items 
     . Module.getDeclarations
@@ -87,26 +102,38 @@ doDeclarations = withSelectedModule
 doImports :: ViewerStateM ()
 doImports = withSelectedModule 
     $ return
+    . asShows
     . items
     . Module.getImports
 
 doImported :: ViewerStateM ()
 doImported = withSelectedModule
-    Module.importedSymbols
+    $ liftM asShows 
+    . Module.importedSymbols
     
 doExports :: ViewerStateM ()
 doExports = withSelectedModule
     $ return
+    . asShows
     . items
     . Module.getExports
 
 doExported :: ViewerStateM ()
 doExported = withSelectedModule
     $   (return 
+    .   asShows
     .   map getChild)
     <=< Module.exportedSymbols 
 
--- (a -> m b) -> (b -> c) -> c
+doVisible :: ViewerStateM ()
+doVisible = withSelectedModule $ liftM asShows . Module.internalSymbols
+
+doCat :: String -> ViewerStateM ()
+doCat sym = withSelectedModule $ \mod -> ExceptT $ return $ do
+    decl <- Module.getDeclaration mod (DeclarationInfo (Symbol sym))
+    let strings :: [Output Bool]
+        strings = asStrings . lines . body . getChild $ decl
+    return strings
 
 doQuit :: ViewerStateM ()
 doQuit = return ()
@@ -125,6 +152,7 @@ repl = do
         Just Imported -> doImported >> return True
         Just Exports -> doExports >> return True
         Just Exported -> doExported >> return True
+        Just (Cat sym) -> doCat sym >> return True
         Just Quit -> return False
         Nothing -> return True
 

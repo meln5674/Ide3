@@ -17,6 +17,8 @@ data Cmd
     | Imported
     | Exports
     | Exported
+    | Visible
+    | Cat String
     | Quit
     deriving Show
 
@@ -46,6 +48,15 @@ parseImported = string "imported" >> return Imported
 parseExports = string "exports" >> return Exports
 parseExported = string "exported" >> return Exported
 
+parseVisible = string "visible" >> return Visible
+
+parseCat = do
+    string "cat"
+    notFollowedBy eof
+    string " " <?> "cat expects a symbol name"
+    name <- many1 anyChar <?> "cat expects a symbol name"
+    return $ Cat name
+
 parseQuit = string "quit" >> return Quit
 
 untilSpaceOrEof 
@@ -71,6 +82,8 @@ parseCmd =
     <|> (try parseImported)
     <|> (try parseExports)
     <|> (try parseExported)
+    <|> (try parseVisible)
+    <|> (try parseCat)
     <|> (try parseQuit)
     <|> parseGarbage
 
