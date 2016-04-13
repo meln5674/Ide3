@@ -18,10 +18,10 @@ exportedSymbols (ExternModule i es) = do
     map (ModuleChild i) syms
 
 symbolTree :: ProjectM m => ExternModule -> Symbol -> ProjectResult m [ModuleChild Symbol]
-symbolTree (ExternModule i es) s = case getFirst $ mconcat $ map (look s) es of
+symbolTree (ExternModule i es) s = case getFirst $ mconcat $ map look es of
     Just ss -> return $ map (ModuleChild i) ss
     Nothing -> throwE $ "Extern.symbolTree: " ++ show s ++ " is not provided by " ++ show i
   where
-    look s(SingleExternExport s') | s == s' = First $ Just []
-    look s (MultiExternExport s' ss) | s' `elem` ss = First $ Just $ delete s' ss
-    look _ _ = First $ Nothing
+    look (SingleExternExport s') | s == s' = First $ Just []
+    look (MultiExternExport s' ss) | s' `elem` ss = First $ Just $ delete s' ss
+    look _ = First $ Nothing

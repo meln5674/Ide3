@@ -20,7 +20,6 @@ import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Language.Haskell.Exts.SrcLoc
 
-import qualified Data.Map as Map
 import Data.Map.Strict ( Map )
 
 -- |Attaches a string ("body") to another type
@@ -84,6 +83,7 @@ data ModuleInfo
 -- |Get the name of a module from its info
 getModuleName :: ModuleInfo -> Symbol
 getModuleName (ModuleInfo n) = n
+getModuleName _ = Symbol "UNNAMED MODULE"
 
 -- | A module pragma
 type Pragma = String

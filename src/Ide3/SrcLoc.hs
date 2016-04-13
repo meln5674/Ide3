@@ -11,6 +11,8 @@ Portability : POSIX
 -}
 module Ide3.SrcLoc ( module Ide3.SrcLoc, module Language.Haskell.Exts.SrcLoc ) where
 
+import Prelude hiding (span)
+
 import Language.Haskell.Exts.SrcLoc
 
 -- | The class of types which can be used to retreive a substring
@@ -29,7 +31,7 @@ splitAndCount = go 0
 
 -- | Given a 1-based (row,column) pair, find the 0-based character index in a string
 indexIn :: (Int,Int) -> String -> Maybe Int
-(1,c) `indexIn` str = Just $ c - 1
+(1,c) `indexIn` _ = Just $ c - 1
 (r,c) `indexIn` str = do
     (lineLen,rest) <- splitAndCount str '\n'
     next <- ((r-1,c) `indexIn` drop lineLen str)

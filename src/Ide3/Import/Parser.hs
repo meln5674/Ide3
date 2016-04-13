@@ -15,11 +15,9 @@ module Ide3.Import.Parser where
 import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
-import Language.Haskell.Exts.SrcLoc
 
 
-import Ide3.Types
+import Ide3.Types hiding (body)
 import Ide3.SrcLoc
 
 -- | Convert from the third party import type
@@ -32,7 +30,7 @@ convert x = case importSpecs x of
     ModuleName _ n = importModule x
     sym = Symbol n
     rename = case importAs x of
-        Just (ModuleName _ n) -> Just (Symbol n)
+        Just (ModuleName _ n') -> Just (Symbol n')
         Nothing -> Nothing
     isQualified = importQualified x
 
@@ -47,7 +45,7 @@ convertWithBody str x = WithBody import_ body
 parse :: String -> Either String Import
 parse s = case parseImportDecl s of
     ParseOk x -> Right $ convert x
-    ParseFailed _ s -> Left s
+    ParseFailed _ msg -> Left msg
 
 -- | Convert a third party import kind
 getSpec :: Show a => ImportSpec a -> ImportKind

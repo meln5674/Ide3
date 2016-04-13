@@ -20,9 +20,7 @@ library
                      , Ide3.HasA
                      , Ide3.Mechanism
                      , Ide3.Mechanism.State
---                     , Ide3.Mechanism.Except
                      , Ide3.Mechanism.Internal
-                     , Ide3.Mechanism.FileSystem
                      , Ide3.Project
                      , Ide3.Module
                      , Ide3.Module.Parser
@@ -49,6 +47,9 @@ library
 executable Ide3-exe
   hs-source-dirs:      app
   main-is:             Main.hs
+  other-modules:       CmdParser
+                     , Digest
+                     , Viewer
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3
