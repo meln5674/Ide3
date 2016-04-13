@@ -21,65 +21,104 @@ import qualified Ide3.Module as Module
 
 -- |Create an empry project
 empty :: Project
-empty = Project ProjectInfo Map.empty BuildInfo
+empty = Project ProjectInfo Map.empty BuildInfo Map.empty
 
 -- |Create a new project from a ProjectInfo
 new :: ProjectInfo -> Project
-new i = Project i Map.empty BuildInfo
+new i = Project i Map.empty BuildInfo Map.empty
 
 -- |Given a symbol, find all of the declarations which modify it, tagged with
 --  the module they are present in
 modifiersOf :: Symbol -> Project -> [ModuleChild DeclarationInfo]
-modifiersOf s (Project _ ms _) = concatMap (Module.modifiersOf s) ms
+modifiersOf s = concatMap (Module.modifiersOf s) . projectModules
 
 -- |List every declaration in the project, tagged with the modules they are
 --  present in
 allDeclarations :: Project -> [ModuleChild DeclarationInfo]
-allDeclarations (Project _ ms _) = concatMap Module.allDeclarations ms
+allDeclarations = concatMap Module.allDeclarations . projectModules
 
 -- |List every symbol in the project, tagged with the modules they are
 --  present in
 allSymbols :: Project -> [ModuleChild Symbol]
-allSymbols (Project _ ms _) = concatMap Module.allSymbols ms
+allSymbols = concatMap Module.allSymbols . projectModules
 
 -- |Get a list of every module in the project
 allModules :: Project -> [ModuleInfo]
-allModules (Project _ ms _) = Map.keys ms
+allModules = Map.keys . projectModules
 
 -- |Add a module to the project
 addModule :: Project -> Module -> Either ProjectError Project
-addModule (Project i ms b) m@(Module i' _ _ _ _)
+addModule p m@(Module i' _ _ _ _)
   = case Map.lookup i' ms of
     Just _ -> Left $ "Project.addModule: " ++ (show i') ++ " Is already an existing module"
-    Nothing -> Right $ Project i (Map.insert i' m ms) b
+    Nothing -> Right $ p{projectModules = Map.insert i' m ms} 
+  where
+    ms = projectModules p
 
 -- |Create a new module from a ModuleInfo
 createModule :: Project -> ModuleInfo -> Either ProjectError Project
 createModule p i = addModule p (Module.new i)
 
+addExternModule :: Project -> ExternModule -> Either ProjectError Project
+addExternModule p m@(ExternModule i' _)
+  = case Map.lookup i' ms of
+    Just _ -> Left $ "Project.addExternModule: " ++ (show i') ++ " Is already an exsting external module"
+    Nothing -> Right $ p{projectExternModules = Map.insert i' m ms}
+  where  
+   ms = projectExternModules p
+
 -- |Retreive a module using its ModuleInfo
 getModule :: Project -> ModuleInfo -> Either ProjectError Module
-getModule (Project _ ms _) i = case Map.lookup i ms of
+getModule p i = case Map.lookup i ms of
     Just m -> Right m
     Nothing -> Left $ "Project.getModule: " ++ (show i) ++ " did not match any modules"
+  where
+    ms = projectModules p
+
+getExternModule :: Project -> ModuleInfo -> Either ProjectError ExternModule
+getExternModule p i = case Map.lookup i ms of
+    Just m -> Right m
+    Nothing -> Left $ "Project.getExternModule: " ++ (show i) ++ " did not match any external modules"
+  where
+    ms = projectExternModules p
 
 -- |Determine if there is a module that matches the provided ModuleInfo
 hasModuleInfo :: Project -> ModuleInfo -> Bool
-hasModuleInfo p m = case getModule p m of
+hasModuleInfo p m = hasLocalModuleInfo p m || hasExternModuleInfo p m
+
+hasLocalModuleInfo :: Project -> ModuleInfo -> Bool
+hasLocalModuleInfo p m = case getModule p m of
     Right _ -> True
     Left _ -> False
 
+hasExternModuleInfo :: Project -> ModuleInfo -> Bool
+hasExternModuleInfo p m = case getExternModule p m of
+    Right _ -> True
+    Left _ -> False
+    
 -- |Determine if there is a module which is exactly equivalent to a provided one
 hasModule :: Project -> Module -> Bool
 hasModule p (Module i _ _ _ _) = hasModuleInfo p i
 
+hasExternModule :: Project -> ExternModule -> Bool
+hasExternModule p (ExternModule i _) = hasModuleInfo p i
+
 -- |Remove a module that has matching ModuleInfo
 --  This function will fail if no matching module is found
 removeModule :: Project -> ModuleInfo -> Either ProjectError Project
-removeModule p@(Project pi ms b) i
-    | p `hasModuleInfo` i = Right $ Project pi ms' b
-    | otherwise           = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
+removeModule p i
+    | p `hasLocalModuleInfo` i = Right $ p{projectModules = ms'} 
+    | otherwise                = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
   where
+    ms = projectModules p
+    ms' = Map.delete i ms
+
+removeExternModule :: Project -> ModuleInfo -> Either ProjectError Project
+removeExternModule p i
+    | p `hasExternModuleInfo` i = Right $ p{projectExternModules = ms'} 
+    | otherwise                 = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
+  where
+    ms = projectExternModules p
     ms' = Map.delete i ms
 
 -- |Find the module which matches the provided ModuleInfo,
@@ -90,12 +129,12 @@ editModuleR :: Project
             -> ModuleInfo
             -> (Module -> Either ProjectError (Module,a))
             -> Either ProjectError (Project,a)
-editModuleR p@(Project pi ms b) i f = do
+editModuleR p i f = do
     m <- getModule p i
     (m',x) <- f m
-    let ms' = Map.insert i m' ms
-    return $ (Project pi ms' b, x)
-
+    let ms' = Map.insert i m' $ projectModules p
+    return $ (p{projectModules = ms'}, x)
+    
 -- |Same as 'editModuleR', but no extra result is produced by the tranformation
 editModule :: Project
            -> ModuleInfo

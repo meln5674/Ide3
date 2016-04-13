@@ -54,10 +54,12 @@ class Monad m => ProjectM m where
     editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m ()
     -- |Add a module
     addModule :: Module -> ProjectResult m ()
+    addExternModule :: ExternModule -> ProjectResult m ()
     -- |Create a new module
     createModule :: ModuleInfo -> ProjectResult m ()
     -- |Retrieve a module
     getModule :: ModuleInfo -> ProjectResult m Module
+    getExternModule :: ModuleInfo -> ProjectResult m ExternModule
     -- |Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found

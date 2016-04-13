@@ -115,10 +115,12 @@ instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
     load = Ide3.Mechanism.State.load >>= lift . putProject
     new i = Ide3.Mechanism.State.new i >>= lift . putProject
     finalize = lift getProject >>= Ide3.Mechanism.State.finalize
-    editProjectInfo f = lift $ modifyProject $ \(Project i ms b) -> (Project (f i) ms b)
+    editProjectInfo f = lift $ modifyProject $ \p -> p{projectInfo = f $ projectInfo p} 
     addModule m = modifyProjectE $ \p -> Project.addModule p m
+    addExternModule m = modifyProjectE $ \p -> Project.addExternModule p m
     createModule i = modifyProjectE $ \p -> Project.createModule p i
     getModule i = ExceptT $ getsProject $ \p -> Project.getModule p i
+    getExternModule i = ExceptT $ getsProject $ \p -> Project.getExternModule p i
     removeModule i = modifyProjectE $ \p -> Project.removeModule p i
     addDeclaration i d = modifyProjectE $ \p -> Project.addDeclaration p i d
     addImport mi i = modifyProjectER $ \p -> Project.addImport p mi i

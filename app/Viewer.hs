@@ -6,9 +6,8 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
-
 import Ide3.Mechanism.State
-import Ide3.Types (Project)
+import Ide3.Types (Project, ExternExport (..), ExternModule (..), Symbol (..), ModuleInfo (..))
 
 import Digest
 
@@ -52,3 +51,4 @@ instance ProjectShellM ViewerStateM where
             Unopened -> throwE $ "No path specified for opening"
             Opened path -> digestProject' path
     finalize _ = throwE $ "Saving projects is unsupported at this time"
+

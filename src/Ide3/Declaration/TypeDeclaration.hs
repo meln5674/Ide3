@@ -19,6 +19,7 @@ module Ide3.Declaration.TypeDeclaration where
 
 import Ide3.Types
 import qualified Ide3.Constructor as Constructor
+import {-# SOURCE #-} qualified Ide3.Declaration as Declaration
 
 -- | Get the type created by a declaration
 typeCreated :: TypeDeclaration -> Symbol
@@ -30,7 +31,7 @@ typeCreated (NewtypeDeclaration s _) = s
 -- | Get the list of binds created by a declaration
 bindsCreated :: TypeDeclaration -> [Symbol]
 bindsCreated (ClassDeclaration _ ds)
-    = undefined -- concatMap symbolsProvided ds
+    = concatMap Declaration.symbolsProvided ds
 bindsCreated (TypeSynonym _ _) = []
 bindsCreated (DataDeclaration _ cs)
     = concatMap Constructor.bindsProvided cs

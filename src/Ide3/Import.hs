@@ -21,12 +21,13 @@ import Data.List
 
 import Control.Monad.Trans.Except
 
-import {-# SOURCE #-} Ide3.Module (exportedSymbols)
-import {-# SOURCE #-} qualified Ide3.Module as Module
+import {-# SOURCE #-} Ide3.Module.Common (EitherModule)
+import {-# SOURCE #-} qualified Ide3.Module.Common as Module
 
 import Ide3.Monad
 import Ide3.Import.Parser
 
+import {-# SOURCE #-} Ide3.Mechanism.Internal
 -- | Get the name of the module being imported, pre-rename
 moduleName :: Import -> Symbol
 moduleName (ModuleImport sym _ _) = sym
@@ -64,11 +65,11 @@ importedModuleName i = case rename of
 
 -- | Find the symbols to import from a module using a whitelist import
 whitelistTree :: ProjectM m 
-              => Module     -- ^ Module symbols are being imported from
-              -> ImportKind -- ^ Specific import to search for
+              => EitherModule   -- ^ Module symbols are being imported from
+              -> ImportKind     -- ^ Specific import to search for
               -> ExceptT ProjectError m [Symbol]
 whitelistTree m i = do
-    exSyms <- map getChild <$> exportedSymbols m
+    exSyms <- map getChild <$> Module.exportedSymbols m
     case i of
         NameImport s | s `elem` exSyms -> return [s]
                      | otherwise -> throwE $ "Import.whitelistTree: " ++ (show s) ++ " is not exported by " ++ (show m)
@@ -83,26 +84,26 @@ whitelistTree m i = do
 
 -- | Find the symbosl to import from a module using a blacklist import
 blacklistTree :: ProjectM m 
-              => Module     -- ^ Module symbols are being imported from
-              -> ImportKind -- ^ Import to blacklist
+              => EitherModule   -- ^ Module symbols are being imported from
+              -> ImportKind     -- ^ Import to blacklist
               -> ExceptT ProjectError m [Symbol]
 blacklistTree m i = do
     whitelistSyms <- whitelistTree m i
-    allSyms <- map getChild <$> exportedSymbols m
+    allSyms <- map getChild <$> Module.exportedSymbols m
     ExceptT $ return $ Right $ filter (not . (`elem` whitelistSyms)) $ allSyms
 
 -- | Get the symbols provided by an import, ignoring qualification
 unqualSymbolsProvided :: ProjectM m => Import -> ExceptT ProjectError m [Symbol]
-unqualSymbolsProvided m@(ModuleImport sym _ _) = do
-    mod <- getModule (ModuleInfo sym)
+unqualSymbolsProvided m@(ModuleImport sym _ _) = getExternalSymbols (ModuleInfo sym)
+{-    mod <- getModule (ModuleInfo sym)
     moduleSyms <- exportedSymbols mod
-    return $ map getChild moduleSyms
+    return $ map getChild moduleSyms-}
 unqualSymbolsProvided m@(WhitelistImport sym _ _ specs) = do
-    mod <- getModule (ModuleInfo sym)
+    mod <- getAnyModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (whitelistTree mod) specs
     return moduleSyms
 unqualSymbolsProvided m@(BlacklistImport sym _ _ specs) = do
-    mod <- getModule (ModuleInfo sym)
+    mod <- getAnyModule (ModuleInfo sym)
     moduleSyms <- concat <$> mapM (blacklistTree mod) specs
     return moduleSyms
 
@@ -134,5 +135,5 @@ otherSymbols i s = do
 -- See 'Ide3.Module.symbolTree'
 symbolTree :: ProjectM m => Import -> Symbol -> ExceptT ProjectError m [Symbol]
 symbolTree i s = do
-    mod <- getModule (ModuleInfo (moduleName i))
+    mod <- getAnyModule (ModuleInfo (moduleName i))
     map getChild <$> Module.symbolTree mod s

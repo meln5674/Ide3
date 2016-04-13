@@ -5,10 +5,10 @@ import Control.Monad.State
 import Control.Monad.Trans.Except
 
 --import Ide3.Mechanism
-import Ide3.Mechanism.Except
+import Ide3.Mechanism
 import Ide3.Mechanism.State
 import Ide3.Types
-import Ide3.Monad (ProjectM)
+import Ide3.Monad
 import qualified Ide3.Import as Import
 import qualified Ide3.Export as Export
 import qualified Ide3.Module as Module

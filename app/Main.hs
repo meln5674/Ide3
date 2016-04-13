@@ -14,7 +14,6 @@ import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
 import Ide3.Types (items, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError)
-import Ide3.HasA
 
 import Ide3.Mechanism.State ( runProjectStateT )
 

@@ -17,6 +17,7 @@ import Control.Monad.Trans.Except
 import Ide3.Types 
 import qualified Ide3.Project as Project 
 import qualified Ide3.Module as Module 
+import qualified Ide3.Module.Extern as ExternModule 
 import qualified Ide3.Import as Import 
 import qualified Ide3.Export as Export 
 import qualified Ide3.Declaration as Declaration
@@ -49,10 +50,23 @@ addRawModule s p = case Module.parse s p of
                               return $ Module.info m
     Left msg -> throwE $ "Failed to parse module: " ++ msg
 
+
+getAnyModule :: ProjectM m => ModuleInfo -> ProjectResult m (Either Module ExternModule)
+getAnyModule i = catchE (getModule i >>= return . Left) $ \_ -> (getExternModule i >>= return . Right)
+
 -- | Get the symbols exported by a module
 getExternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m  [Symbol]
-getExternalSymbols m = getModule m >>= Module.exportedSymbols >>= return . map getChild
+getExternalSymbols i = do
+    m <- getAnyModule i
+    case m of
+        Left m -> Module.exportedSymbols m >>= return . map getChild
+        Right m -> return $ map getChild $ ExternModule.exportedSymbols m 
 
 -- | Get the symbols availible at the top level of a module
 getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m  [Symbol]
 getInternalSymbols m = getModule m >>= Module.internalSymbols
+
+
+class Monad m => ProjectResolveM m where
+    getLocalModule :: ModuleInfo -> ProjectResult m (Maybe Module)
+    getExternalModule :: ModuleInfo -> ProjectResult m (Maybe Module)

@@ -53,7 +53,7 @@ newtype Symbol = Symbol String
 
 -- |Join two symbols together such that the second is qualified by the first
 joinSym :: Symbol -> Symbol -> Symbol
-joinSym = undefined
+joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 
 -- |Information about a project
 data ProjectInfo = ProjectInfo
@@ -64,7 +64,13 @@ data BuildInfo = BuildInfo
 
 -- |Top level type, contains information about a project, how to build it,
 --  and the modules it contains
-data Project = Project ProjectInfo (Map ModuleInfo Module) BuildInfo
+data Project
+    = Project
+    { projectInfo :: ProjectInfo
+    , projectModules :: (Map ModuleInfo Module)
+    , projectBuildInfo :: BuildInfo
+    , projectExternModules :: (Map ModuleInfo ExternModule)
+    }
     deriving (Show, Read, Eq)
 
 -- |Information identifying a module
@@ -96,6 +102,20 @@ data Module
              -- Declarations
              (Map DeclarationInfo (WithBody Declaration))
     deriving (Show, Read, Eq)
+
+data ExternExport
+    = SingleExternExport Symbol
+    | MultiExternExport Symbol [Symbol]
+    deriving (Show, Eq, Read, Ord)
+
+-- | A module which is external to the project, only a list of exported symbols
+--  are availible
+data ExternModule
+    = ExternModule
+            ModuleInfo
+            [ExternExport]
+    deriving (Show, Eq, Read, Ord)
+
 
 -- |A value which is tagged as belonging to a module
 data ModuleChild a = ModuleChild ModuleInfo a
