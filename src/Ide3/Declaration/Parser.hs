@@ -146,19 +146,19 @@ tryConvert x = getFirst $ mconcat
                 ]
           
 -- | Parse a string containing 0 or more delcarations
-parseMany :: String -> Either String [Declaration]
+parseMany :: String -> Either (ProjectError u) [Declaration]
 parseMany s = case parseModule s of
     ParseOk (Syntax.Module _ _ _ _ ds) -> case mapM tryConvert ds of
         Just y -> Right y
-        Nothing -> Left "Unsupported"
-    ParseOk _ -> Left "Unsupported"
-    ParseFailed _ s -> Left s
+        Nothing -> Left $ Unsupported ""
+    ParseOk _ -> Left $ Unsupported "" 
+    ParseFailed l s -> Left $ ParseError l s ""
 
 -- | Convert a declaration and extract its body
-convertWithBody :: (Show a, Spanable a, SrcInfo a) => String -> Decl a -> Either ProjectError (WithBody Declaration)
+convertWithBody :: (Show a, Spanable a, SrcInfo a) => String -> Decl a -> Either (ProjectError u) (WithBody Declaration)
 convertWithBody str x = case decl of
     Just decl -> Right $ WithBody decl body
-    Nothing -> Left $ "Unsupported: " ++ body ++ " " ++ show (ann x)
+    Nothing -> Left $ Unsupported $ body ++ " " ++ show (ann x)
   where
     body = ann x >< str
     decl = tryConvert x
@@ -184,9 +184,9 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     isFuncBind _ = False
 
 -- | Parse a declaration    
-parse :: String -> Either String Declaration
+parse :: String -> Either (ProjectError u) Declaration
 parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
-        Nothing -> Left $ "Unsupported: " ++ show x
-    ParseFailed _ s -> Left s
+        Nothing -> Left $ Unsupported $ show x
+    ParseFailed l s -> Left $ ParseError l s ""

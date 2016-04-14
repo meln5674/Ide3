@@ -23,13 +23,14 @@ for testing is simpler and does not require any IO.
 Instances are not required to use the Project type, but it is provided as a
 starting point.
 -}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Ide3.Monad where
 
 import Control.Monad.Trans.Except
 
 import Ide3.Types
 
-type ProjectResult m = ExceptT ProjectError m
+type ProjectResult m u = ExceptT (ProjectError u) m
 
 -- |Abstract interface to a project
 class Monad m => ProjectM m where
@@ -40,44 +41,44 @@ class Monad m => ProjectM m where
     --  constructors, this means that new methods of loading can be added without
     --  breaking the interface, and does not require every instance to support
     --  all methods of loading.
-    load :: ProjectResult m ()
+    load :: ProjectResult m u ()
     -- |Create a new project
     --  See 'load' for discussion of lack of additional parameters
-    new :: ProjectInfo -> ProjectResult m ()
+    new :: ProjectInfo -> ProjectResult m u ()
     -- |Perform what ever actions are necessary to be able to load the current
     --  project at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
-    finalize :: ProjectResult m ()
+    finalize :: ProjectResult m u ()
     -- |Apply a transformation to the projects identifying information
-    editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m ()
+    editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m u ()
     -- |Add a module
-    addModule :: Module -> ProjectResult m ()
-    addExternModule :: ExternModule -> ProjectResult m ()
+    addModule :: Module -> ProjectResult m u ()
+    addExternModule :: ExternModule -> ProjectResult m u ()
     -- |Create a new module
-    createModule :: ModuleInfo -> ProjectResult m ()
+    createModule :: ModuleInfo -> ProjectResult m u ()
     -- |Retrieve a module
-    getModule :: ModuleInfo -> ProjectResult m Module
-    getExternModule :: ModuleInfo -> ProjectResult m ExternModule
+    getModule :: ModuleInfo -> ProjectResult m u Module
+    getExternModule :: ModuleInfo -> ProjectResult m u ExternModule
     -- |Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
-    removeModule :: ModuleInfo -> ProjectResult m ()
+    removeModule :: ModuleInfo -> ProjectResult m u ()
     -- |Add a declaration to a module
-    addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m ()
+    addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m u ()
     -- |Add an import to a module
-    addImport :: ModuleInfo -> WithBody Import -> ProjectResult m ImportId
+    addImport :: ModuleInfo -> WithBody Import -> ProjectResult m u ImportId
     -- |Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
-    removeImport :: ModuleInfo -> ImportId -> ProjectResult m ()
+    removeImport :: ModuleInfo -> ImportId -> ProjectResult m u ()
     -- |Add an export to a module
-    addExport :: ModuleInfo -> WithBody Export -> ProjectResult m ExportId
+    addExport :: ModuleInfo -> WithBody Export -> ProjectResult m u ExportId
     -- |Remove an export from a module
     --  Instances are expected to return a Left value if a matching export is not found
-    removeExport :: ModuleInfo -> ExportId -> ProjectResult m ()
+    removeExport :: ModuleInfo -> ExportId -> ProjectResult m u ()
     -- |Set a module to export all of its symbols
-    exportAll :: ModuleInfo -> ProjectResult m ()
+    exportAll :: ModuleInfo -> ProjectResult m u ()
     -- |Get a list of all the availible modules
-    getModules :: ProjectResult m [ModuleInfo]
+    getModules :: ProjectResult m u [ModuleInfo]

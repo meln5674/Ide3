@@ -64,9 +64,7 @@ enumerateHaskellProject path = do
     getFilesInTree haskellTree
 
 foldAddModule pj (p,c) = do
-    (mod,_,_) <- case Module.parse c (Just p) of
-            Right x -> Right x
-            Left msg -> Left $ "Parse error: " ++ msg
+    (mod,_,_) <- Module.parse c (Just p)
     Project.addModule pj mod
 
 foldAddExternModule pj i = Project.addExternModule pj (convIface i)
@@ -78,7 +76,7 @@ foldAddExternModule pj i = Project.addExternModule pj (convIface i)
         Just es -> map convExport es
     
 
-digestProject' :: MonadIO m => FilePath -> ProjectResult m Project
+digestProject' :: MonadIO m => FilePath -> ProjectResult m u Project
 digestProject' path = do
     contents <- liftIO $ enumerateHaskellProject path
     ifaceFile <- liftIO $ readFile "ifaces" -- TODO: FOR THE LOVE OF GOD FIX THIS SOON
@@ -89,7 +87,7 @@ digestProject' path = do
             return withExternModules
     ExceptT $ return project
 
-digestProject :: (MonadIO m, ProjectM m) => FilePath -> ProjectResult m ()
+digestProject :: (MonadIO m, ProjectM m) => FilePath -> ProjectResult m u ()
 digestProject path = do
     contents <- liftIO $ enumerateHaskellProject path
     forM_ contents $  \(p,c) -> addRawModule c (Just p)

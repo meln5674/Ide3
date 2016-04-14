@@ -20,7 +20,7 @@ import Ide3.Monad
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
-import Ide3.Types (item, items, body, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError, DeclarationInfo (..))
+import Ide3.Types (item, items, body, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError, DeclarationInfo (..), ProjectError (..))
 
 import Ide3.Mechanism.State ( runProjectStateT )
 import Ide3.Mechanism
@@ -56,8 +56,10 @@ printHelp = intercalate "\n"
         , "quit: exit the program"
         ]
 
-printOnError :: ProjectResult ViewerStateM String -> ViewerStateM String
-printOnError f = liftM (either id id) $ runExceptT f
+type UserError = ()
+
+printOnError :: ProjectResult ViewerStateM UserError String -> ViewerStateM String
+printOnError f = liftM (either show id) $ runExceptT f
 
 type Output a = Either a String
 
@@ -70,11 +72,11 @@ output :: Show a => Output a -> String
 output (Left a) = show a
 output (Right s) = s
 
-withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [Output a]) -> ViewerStateM String
+withSelectedModule :: Show a => (Module -> ProjectResult ViewerStateM UserError [Output a]) -> ViewerStateM String
 withSelectedModule f = printOnError $ do
     name <- lift $ gets currentModule
     case name of
-        Nothing -> throwE "No module currently selected"
+        Nothing -> throwE $ InvalidOperation "No module currently selected" ""
         Just name -> do
             mod <- getModule (ModuleInfo (Symbol name))
             xs <- f mod

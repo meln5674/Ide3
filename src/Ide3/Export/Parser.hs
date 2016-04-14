@@ -40,14 +40,14 @@ convertWithBody str export = WithBody export' body
     body = ann export >< str
 
 -- | Parse an export
-parse :: String -> Either String Export
+parse :: String -> Either (ProjectError u) Export
 parse s = case result of
     ParseOk ok -> Right $ convert export
       where 
         headAndImports = unNonGreedy ok
         ModuleHeadAndImports _ _ (Just (ModuleHead _ _ _ (Just (ExportSpecList _ exportList)))) _ = headAndImports
         [export] = exportList
-    ParseFailed _ s -> Left s
+    ParseFailed l s -> Left $ ParseError l s ""
   where
     dummyHeader = "module DUMMY (" ++ s ++ ") where"
     result = Parser.parse dummyHeader :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))

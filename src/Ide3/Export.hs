@@ -30,35 +30,36 @@ import {-# SOURCE #-} Ide3.Module ( allSymbols
                                   , symbolTree
                                   , infoMatches
                                   , internalSymbols
+                                  , info
                                   )
 
 import Ide3.Monad
 import Ide3.Export.Parser
 
 -- | Get a list of the symbols this export provides
-symbolsProvided :: ProjectM m => Module -> Export -> ExceptT ProjectError m [Symbol]
+symbolsProvided :: ProjectM m => Module -> Export -> ProjectResult m u [Symbol]
 symbolsProvided m@(Module i _ _ _ _) (SingleExport s) = do
     p <- liftM (s `elem`) $ internalSymbols m
     case p of
         True -> return [s]
-        False -> throwE $ "Export.symbolsProvided: " ++ show s ++ " is not an availible symbol in " ++ show i
+        False -> throwE $ SymbolNotFound i s "Export.symbolsProvided"
 symbolsProvided m@(Module i _ _ _ _) (ModuleExport n)
     | m `importsModule` n
       = liftM (map getChild) $ getModule (ModuleInfo n) >>= exportedSymbols 
     | m `infoMatches` (ModuleInfo n) = return $ map getChild $ allSymbols m
     | otherwise
-      = throwE $ "Export.symbolsProvided: " ++ show n ++ " is not imported by " ++ show i
+      = throwE $ ModuleNotImported i (ModuleInfo n) "Export.symbolsProvided"
 symbolsProvided m (AggregateExport s (Just ss))
     | (`elem` (map getChild $ allSymbols m)) `all` (s:ss)
       = do
         tree <- map getChild <$> symbolTree m s 
         case find (not . (`elem` tree)) ss of
-                Just s' -> throwE $ "Export.symbolsProvided: " ++ show s' ++ " is not a sub-symbol of " ++ show m
+                Just s' -> throwE $ NotSubSymbol s s' "Export.symbolsProvided"
                 Nothing -> return ss
     | otherwise
-      = throwE $ "Export.symbolsProvided: " ++ show s ++ " is not an availible symbol in " ++ show m
+      = throwE $ SymbolNotFound (info m) s "Export.symbolsProvided"
 symbolsProvided m (AggregateExport s Nothing)
     | s `elem` map getChild (allSymbols m)
       = map getChild <$> symbolTree m s
     | otherwise
-      = throwE $ "Export.symbolsProvided: " ++ show s ++ " is not an availible symbol in " ++ show m
+      = throwE $ SymbolNotFound (info m) s "Export.symbolsProvided"

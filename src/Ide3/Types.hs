@@ -20,6 +20,8 @@ import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Language.Haskell.Exts.SrcLoc
 
+import Text.Printf
+
 import Data.Map.Strict ( Map )
 
 -- |Attaches a string ("body") to another type
@@ -286,4 +288,48 @@ instance ToSym (DeclHead a) where
     toSym (DHApp _ h _) = toSym h
 
 -- |Errors that can arrise during modifying and querying a project
-type ProjectError = String
+data ProjectError u
+    = ModuleNotFound ModuleInfo String
+    | DeclarationNotFound ModuleInfo DeclarationInfo String
+    | SymbolNotFound ModuleInfo Symbol String
+    | SymbolNotImported ModuleInfo Symbol String
+    | SymbolNotExported ModuleInfo Symbol String
+    | NotSubSymbol Symbol Symbol String
+    | ModuleNotImported ModuleInfo ModuleInfo String
+    | InvalidImportId ModuleInfo ImportId String
+    | InvalidExportId ModuleInfo ExportId String
+    | InvalidOperation String String
+    | DuplicateModule ModuleInfo String
+    | ParseError SrcLoc String String
+    | Unsupported String
+    | UserError u
+
+instance Show u => Show (ProjectError u) where
+    show (ModuleNotFound i s)
+        = printf "%s: module \"%s\" not found" s (show i)
+    show (DeclarationNotFound mi di s)
+        = printf "%s: in module \"%s\" declaration \"%s\" not found" s (show mi) (show di)
+    show (SymbolNotFound mi sym s)
+        = printf "%s: in module \"%s\" symbol \"%s\" not found" s (show mi) (show sym)
+    show (SymbolNotImported mi sym s)
+        = printf "%s: module \"%s\" does not import symbol \"%s\"" s (show mi) (show sym)
+    show (SymbolNotExported mi sym s)
+        = printf "%s: module \"%s\" does not export symbol \"%s\"" s (show mi) (show sym)
+    show (NotSubSymbol super sub s)
+        = printf "%s: \"%s\" is not a class method or constructor of \"%s\" %s" s (show sub) (show super)
+    show (ModuleNotImported importer importee s)
+        = printf "%s: module \"%s\" does not import module \"%s\"" s (show importer) (show importee)
+    show (InvalidImportId mi ii s)
+        = printf "%s: module \"%s\" does not have an import with ID \"%s\"" s (show mi) (show ii)
+    show (InvalidExportId mi ei s)
+        = printf "%s: module \"%s\" does not have an export with ID \"%s\"" s (show mi) (show ei)
+    show (InvalidOperation s1 s2)
+        = printf "%s: %s" s2 s1
+    show (DuplicateModule mi s)
+        = printf "%s: a module named \"%s\" already exists" s (show mi)
+    show (ParseError l msg s)
+        = printf "%s: %s: %s" s (show l) msg
+    show (Unsupported s)
+        = s
+    show (UserError u)
+        = show u

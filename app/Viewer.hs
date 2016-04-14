@@ -10,7 +10,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Mechanism.State
-import Ide3.Types (Project, ExternExport (..), ExternModule (..), Symbol (..), ModuleInfo (..))
+import Ide3.Types (Project, ExternExport (..), ExternModule (..), Symbol (..), ModuleInfo (..), ProjectError (..))
 
 import Digest
 
@@ -57,12 +57,12 @@ instance ProjectStateM ViewerStateM where
     putProject p = lift (lift (put p))
 
 instance ProjectShellM ViewerStateM where
-    new _ = throwE $ "Creating new projects is unsupported at this time"
+    new _ = throwE $ Unsupported "Creating new projects is unsupported at this time"
     load = do
         fsp <- lift (lift get)
         case fsp of
-            ToOpen path -> catchE (digestProject' path) (\e -> throwE $ "Digest Error: " ++ e)
-            Unopened -> throwE $ "No path specified for opening"
+            ToOpen path -> digestProject' path
+            Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened path -> digestProject' path
-    finalize _ = throwE $ "Saving projects is unsupported at this time"
+    finalize _ = throwE $ Unsupported "Saving projects is unsupported at this time"
 

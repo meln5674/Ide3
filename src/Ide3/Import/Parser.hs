@@ -42,10 +42,10 @@ convertWithBody str x = WithBody import_ body
     import_ = convert x
 
 -- | Parse an import statement
-parse :: String -> Either String Import
+parse :: String -> Either (ProjectError u) Import
 parse s = case parseImportDecl s of
     ParseOk x -> Right $ convert x
-    ParseFailed _ msg -> Left msg
+    ParseFailed l msg -> Left $ ParseError l msg ""
 
 -- | Convert a third party import kind
 getSpec :: Show a => ImportSpec a -> ImportKind

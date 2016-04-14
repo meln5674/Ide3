@@ -79,9 +79,9 @@ class HasProject a where
 -}    
 
 class Monad m => ProjectShellM m where
-    load :: ProjectResult m Project
-    new :: ProjectInfo -> ProjectResult m Project
-    finalize :: Project -> ProjectResult m ()
+    load :: ProjectResult m u Project
+    new :: ProjectInfo -> ProjectResult m u Project
+    finalize :: Project -> ProjectResult m u ()
 
 class Monad m => ProjectStateM m where
     getProject :: m Project
@@ -99,12 +99,12 @@ getsProject f = f <$> getProject
 modifyProject :: ProjectStateM m => (Project -> Project) -> m ()
 modifyProject f = liftM f getProject >>= putProject
 
-modifyProjectE :: ProjectStateM m => (Project -> Either ProjectError Project) -> ExceptT ProjectError m ()
+modifyProjectE :: ProjectStateM m => (Project -> Either (ProjectError u) Project) -> ProjectResult m u ()
 modifyProjectE f = modifyProjectER $ \p -> do
     p' <- f p
     return (p',())
 
-modifyProjectER :: ProjectStateM m => (Project -> Either ProjectError (Project,a)) -> ExceptT ProjectError m a
+modifyProjectER :: ProjectStateM m => (Project -> Either (ProjectError u) (Project,a)) -> ProjectResult m u a
 modifyProjectER f = do
     p <- lift getProject
     case f p of

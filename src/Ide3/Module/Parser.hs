@@ -60,13 +60,13 @@ extractImports str (Syntax.Module _ _ _ imports _, _)
 extractImports _ _ = []
 
 -- |Extract the declarations from the module
-extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either ProjectError [WithBody Declaration]
+extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (ProjectError u) [WithBody Declaration]
 extractDecls str (Syntax.Module _ _ _ _ decls, _)
     = Declaration.combineMany <$> mapM (Declaration.convertWithBody str) decls
 extractDecls _ _ = Right []
 
 -- |Extract the data needed for buliding a Module
-extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either ProjectError ExtractionResults
+extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (ProjectError u) ExtractionResults
 extract str x = do
     let info    =  extractInfo      str x
         pragmas =  extractPragmas   str x
@@ -76,10 +76,10 @@ extract str x = do
     return $ Extracted info pragmas exports imports decls
 
 -- |Take a string and produce the needed information for building a Module
-parse :: String -> Maybe FilePath -> Either ProjectError ExtractionResults
+parse :: String -> Maybe FilePath -> Either (ProjectError u) ExtractionResults
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
-    ParseFailed loc msg -> Left $ msg ++ " " ++ locMsg loc
+    ParseFailed loc msg -> Left $ ParseError loc msg ""
   where
     parseMode = case p of
         Just p -> defaultParseMode{parseFilename=p,extensions=glasgowExts}

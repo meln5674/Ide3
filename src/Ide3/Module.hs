@@ -56,7 +56,7 @@ foldlRes f x (y:ys) =
                     
 -- |Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
-parse :: String -> Maybe FilePath -> Either ProjectError (Module,[ExportId],[ImportId])
+parse :: String -> Maybe FilePath -> Either (ProjectError u) (Module,[ExportId],[ImportId])
 parse s p = case Parser.parse s p of
     Right (Extracted info pragmas exports imports decls) -> Right (withDecls, eids, iids)
       where
@@ -121,7 +121,7 @@ qualify (Module i _ _ _ _) = ModuleChild i
 -- |Within the context of a project, find all of the symbols this module exports
 --  This requires the project context as modules may export other modules,
 --      necessitating finding what symbols they export, and so on
-exportedSymbols :: ProjectM m => Module -> ExceptT ProjectError m [ModuleChild Symbol]
+exportedSymbols :: ProjectM m => Module -> ProjectResult m u [ModuleChild Symbol]
 exportedSymbols m@(Module _ _ _ Nothing _) = return $ allSymbols m
 exportedSymbols m@(Module n _ _ (Just es) _) = do
     syms <- concat <$> mapM (Export.symbolsProvided m . item) es
@@ -130,14 +130,14 @@ exportedSymbols m@(Module n _ _ (Just es) _) = do
 
 -- | Within the context of a project, find all of the symbosl being imported by
 -- a module
-importedSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]
+importedSymbols :: ProjectM m => Module -> ProjectResult m u [Symbol]
 importedSymbols m@(Module _ _ is _ _)
     = concat <$> mapM (Import.symbolsProvided . item) is
 
 
 -- |Within the context of a project, find all of the symbols which are visible
 --  at the top level of this module 
-internalSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]
+internalSymbols :: ProjectM m => Module -> ProjectResult m u [Symbol]
 internalSymbols m@(Module _ _ _ _ ds) = do
     importSyms <- importedSymbols m
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) ds
@@ -177,7 +177,7 @@ searchM f xs = do
 --  If successful, the list will contain the parent symbol as its head, and the
 --      siblings as the tail. The symbol provided will not be an item in the list
 --  If the symbol is imported, it will be tagged as such
-symbolTree :: ProjectM m => Module -> Symbol -> ExceptT ProjectError m [ModuleChild Symbol]
+symbolTree :: ProjectM m => Module -> Symbol -> ProjectResult m u [ModuleChild Symbol]
 symbolTree m sym = do
     let declarations = items $ getDeclarations m
         searchResult = search (`Declaration.otherSymbols`sym) declarations
@@ -190,7 +190,7 @@ symbolTree m sym = do
                 Just (i,_) -> do
                     otherSyms <- Import.symbolTree i sym
                     return $ map (qualify m) otherSyms
-                Nothing -> throwE $ "Module.symbolTree: " ++ show sym ++ " is not an availible symbol in " ++ show m
+                Nothing -> throwE $ SymbolNotFound (info m) sym "Module.symbolTree"
 
 -- |Get a list of all declarations in a module
 allDeclarations :: Module -> [ModuleChild DeclarationInfo]
@@ -216,11 +216,11 @@ addImport m@(Module mi ps is es ds) i = (Module mi ps (Map.insert id i is) es ds
 
 -- |Remove an import from a module
 --  This function fails if no matching import is found
-removeImport :: Module -> ImportId -> Either ProjectError Module
+removeImport :: Module -> ImportId -> Either (ProjectError u) Module
 removeImport (Module mi ps is es ds) i
     = case Map.lookup i is of
         Just _ -> Right $ Module mi ps (Map.delete i is) es ds
-        Nothing -> Left $ "Module.removeImport: no such import id: " ++ show i
+        Nothing -> Left $ InvalidImportId mi i "Module.removeImport"
 
 -- |Test if a module imports another
 importsModule :: Module -> Symbol -> Bool
@@ -246,8 +246,8 @@ addExport m@(Module mi ps is es ds) e = (Module mi ps is es' ds,nextId)
 
 -- |Remove an export from a module
 --  This function fails if no matching export is found
-removeExport :: Module -> ExportId -> Either ProjectError Module
-removeExport (Module mi ps is Nothing ds) e = Left "Module.removeExport: Can't remove an export from an export all"
+removeExport :: Module -> ExportId -> Either (ProjectError u) Module
+removeExport (Module mi ps is Nothing ds) e = Left $ InvalidOperation "Can't remove an export from an export all" "Module.removeExport"
 removeExport (Module mi ps is (Just es) ds) e
     = Right $ Module mi ps is (Just $ e `Map.delete` es) ds
 
@@ -266,18 +266,18 @@ hasDeclarationInfo m di = case getDeclaration m di of
 
 -- |Remove a declaration from a module
 --  This function fails if no matching declaration is found
-removeDeclaration :: Module -> DeclarationInfo -> Either ProjectError Module
+removeDeclaration :: Module -> DeclarationInfo -> Either (ProjectError u) Module
 removeDeclaration m@(Module i ps is es ds) di
     | m `hasDeclarationInfo` di = Right $ Module i ps is es ds'
-    | otherwise                 = Left $ "Module.removeDeclaration: " ++ show di ++ " is not a declaration in" ++ show m
+    | otherwise                 = Left $ DeclarationNotFound (info m) di "Module.removeDeclaration"
   where
     ds' = Map.delete di ds
 
 -- |Apply a transformation to a declaration in a module
 editDeclaration :: Module 
                 -> DeclarationInfo
-                -> (Declaration -> Either ProjectError Declaration)
-                -> Either ProjectError Module
+                -> (Declaration -> Either (ProjectError u) Declaration)
+                -> Either (ProjectError u) Module
 editDeclaration m@(Module i ps is es ds) di f = do
     (ModuleChild _ (WithBody d s)) <- getDeclaration m di
     d' <- WithBody <$> f d <*> pure s
@@ -288,21 +288,21 @@ editDeclaration m@(Module i ps is es ds) di f = do
 editDeclaration' :: Module
                  -> DeclarationInfo
                  -> (Declaration -> Declaration)
-                 -> Either ProjectError Module
+                 -> Either (ProjectError u) Module
 editDeclaration' m d f = editDeclaration m d (return . f)
 
 -- |Get a declaration from a module
 getDeclaration :: Module
                -> DeclarationInfo
-               -> Either ProjectError (ModuleChild (WithBody Declaration))
+               -> Either (ProjectError u) (ModuleChild (WithBody Declaration))
 getDeclaration m@(Module _ _ _ _ ds) di = case Map.lookup di ds of
         Just d -> Right $ qualify m d
-        Nothing -> Left $ "Module.getDeclaration: " ++ show di ++ " is not a declaration in " ++ show m
+        Nothing -> Left $ DeclarationNotFound (info m) di "Module.getDeclaration"
 
 -- |Same as 'getDeclaration', but the body is discarded
 getDeclaration' :: Module
                 -> DeclarationInfo
-                -> Either ProjectError (ModuleChild Declaration)
+                -> Either (ProjectError u) (ModuleChild Declaration)
 getDeclaration' m di = do
     (ModuleChild i (WithBody d s)) <- getDeclaration m di
     return $ ModuleChild i d
