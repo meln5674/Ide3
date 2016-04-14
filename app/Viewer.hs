@@ -2,6 +2,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Viewer where
 
+import Data.Maybe
+
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
@@ -17,6 +20,7 @@ data FileSystemProject
     = ToOpen FilePath
     | Unopened
     | Opened FilePath
+    deriving Show
 
 type ViewerStateM = StateT ViewerState (StateT FileSystemProject (ProjectStateT IO))
 
@@ -37,6 +41,16 @@ resumeViewerState f (Resume viewer fsp proj) = do
         runProject = runStateT runFSP proj
     (((result,viewer'),fsp'),proj') <- runProject
     return (result,Resume viewer' fsp' proj')
+
+hasOpenedProject :: ViewerStateM Bool
+hasOpenedProject = do
+    fsp <- lift get
+    case fsp of
+        Opened _ -> return True
+        _ -> return False
+
+hasCurrentModule :: ViewerStateM Bool
+hasCurrentModule = liftM isJust $ gets currentModule
 
 instance ProjectStateM ViewerStateM where
     getProject = lift (lift get)

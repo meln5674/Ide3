@@ -20,6 +20,7 @@ import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.Pretty
 import Ide3.SrcLoc
 
 import Ide3.Types
@@ -85,7 +86,7 @@ parseClassDecl (ClassDecl _ _ h _ ds)
 parseClassDecl _ = Nothing
 
 parseInstanceDecl x@(InstDecl _ _ r _)
-    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ show x) 
+    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
   where
     (cls:ts) = findName r

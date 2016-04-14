@@ -22,42 +22,26 @@ data Cmd
     | Quit
     deriving Show
 
-parseHelp = string "help" >> return Help
-
-parseOpen = do
-    string "open"
+parseArity0 s v = string s >> return v
+parseArity1 s c e = do
+    string s
     notFollowedBy eof
-    string " " <?> "open expects a directory path"
-    path <- many1 anyChar <?> "open expects a directory path"
-    return $ Open path
+    string " " <?> s ++ " expects a " ++ e
+    arg <- untilSpaceOrEof <?> s ++ " expects a " ++ e
+    return $ c arg
 
-parseModules = string "modules" >> return Modules
-
-parseModule = do
-    string "module"
-    notFollowedBy eof
-    string " " <?> "module expects a module name"
-    name <- many1 anyChar <?> "module expects a module name"
-    return $ Module name
-
-parseDeclarations = string "declarations" >> return Declarations
-
-parseImports = string "imports" >> return Imports
-parseImported = string "imported" >> return Imported
-
-parseExports = string "exports" >> return Exports
-parseExported = string "exported" >> return Exported
-
-parseVisible = string "visible" >> return Visible
-
-parseCat = do
-    string "cat"
-    notFollowedBy eof
-    string " " <?> "cat expects a symbol name"
-    name <- many1 anyChar <?> "cat expects a symbol name"
-    return $ Cat name
-
-parseQuit = string "quit" >> return Quit
+parseHelp = parseArity0 "help" Help
+parseOpen = parseArity1 "open" Open "directory path"
+parseModules = parseArity0 "modules" Modules
+parseModule = parseArity1 "module" Module "module name"
+parseDeclarations = parseArity0 "declarations" Declarations
+parseImports = parseArity0 "imports" Imports
+parseImported = parseArity0 "imported" Imported
+parseExports = parseArity0 "exports" Exports
+parseExported = parseArity0 "exported" Exported
+parseVisible = parseArity0 "visible" Visible
+parseCat = parseArity1 "cat" Cat "smbol name"
+parseQuit = parseArity0 "quit" Quit
 
 untilSpaceOrEof 
     =  (eof >> return [])
@@ -91,3 +75,19 @@ parseCmd =
 parse s = case P.parse parseCmd "" s of
     Left err -> Left $ lastError err
     Right x -> Right x
+
+
+cmdList = 
+    [ "help"
+    , "open"
+    , "module"
+    , "modules"
+    , "declarations"
+    , "imports"
+    , "imported"
+    , "exports"
+    , "exported"
+    , "visible"
+    , "cat"
+    , "quit"
+    ]

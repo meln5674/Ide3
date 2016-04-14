@@ -1,19 +1,26 @@
 module Main where
 
+import Data.List
+import Data.Maybe
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State.Strict
 import Control.Monad
 
 import System.Environment
 import System.IO (hFlush, stdout)
 
+import System.Console.Haskeline
+import System.Console.Haskeline.Completion
+
 import Ide3.Monad
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
-import Ide3.Types (items, body, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError, DeclarationInfo (..))
+import Ide3.Types (item, items, body, Module, ModuleInfo(..), Symbol(..), getChild, ProjectError, DeclarationInfo (..))
 
 import Ide3.Mechanism.State ( runProjectStateT )
 import Ide3.Mechanism
@@ -23,15 +30,16 @@ import CmdParser
 import Digest
 import Viewer
 
-readCmd :: IO (Maybe Cmd)
+--readCmd :: MonadIO m => InputT m (Maybe Cmd)
 readCmd = do
-    input <- getLine
-    case Cmd.parse input of
-        Right cmd -> return $ Just cmd
-        Left err -> putStrLn err >> return Nothing
+    input <- getInputLine ">"
+    case input of
+        Nothing -> return Nothing
+        Just input -> case Cmd.parse input of
+            Right cmd -> return $ Just cmd
+            Left err -> outputStrLn err >> return Nothing
 
-printHelp = do
-    mapM_ putStrLn $
+printHelp = intercalate "\n"
         [ "Commands: "
         , ""
         , "help: show this message"
@@ -48,9 +56,8 @@ printHelp = do
         , "quit: exit the program"
         ]
 
-printOnError f = do
-    runExceptT $ catchE f $ liftIO . putStrLn
-    return ()
+printOnError :: ProjectResult ViewerStateM String -> ViewerStateM String
+printOnError f = liftM (either id id) $ runExceptT f
 
 type Output a = Either a String
 
@@ -59,11 +66,11 @@ asShows = map asShow
 asString = Right
 asStrings = map asString
 
-output :: Show a => Output a -> IO ()
-output (Left a) = print a
-output (Right s) = putStrLn s
+output :: Show a => Output a -> String
+output (Left a) = show a
+output (Right s) = s
 
-withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [Output a]) -> ViewerStateM ()
+withSelectedModule :: Show a => (Module -> ExceptT ProjectError ViewerStateM [Output a]) -> ViewerStateM String
 withSelectedModule f = printOnError $ do
     name <- lift $ gets currentModule
     case name of
@@ -71,27 +78,31 @@ withSelectedModule f = printOnError $ do
         Just name -> do
             mod <- getModule (ModuleInfo (Symbol name))
             xs <- f mod
-            liftIO $ mapM_ output xs
+            return $ intercalate "\n" $ map output xs
 
-doHelp :: ViewerStateM ()
-doHelp = liftIO printHelp
+doHelp :: ViewerStateM String
+doHelp = return printHelp
 
-doOpen :: FilePath -> ViewerStateM ()
+doOpen :: FilePath -> ViewerStateM String
 doOpen path = printOnError $ do
     lift . lift $ put (ToOpen path)
     lift $ modify $ \s -> s{currentModule=Nothing}
     load
+    lift . lift $ put (Opened path)
+    return "Loaded"
 
+doModules :: ViewerStateM String
 doModules = printOnError $ do
     names <- getModules
-    liftIO $ mapM_ print names
+    return $ intercalate "\n" $ map show names
 
-doModule :: String -> ViewerStateM ()
+doModule :: String -> ViewerStateM String
 doModule name = printOnError $ do
     getModule (ModuleInfo (Symbol name))
     lift $ modify $ \s -> s{currentModule=Just name}
+    return ""
 
-doDeclarations :: ViewerStateM ()
+doDeclarations :: ViewerStateM String
 doDeclarations = withSelectedModule 
     $ return 
     . asShows
@@ -99,71 +110,197 @@ doDeclarations = withSelectedModule
     . items 
     . Module.getDeclarations
 
-doImports :: ViewerStateM ()
+doImports :: ViewerStateM String
 doImports = withSelectedModule 
     $ return
     . asShows
     . items
     . Module.getImports
 
-doImported :: ViewerStateM ()
+doImported :: ViewerStateM String
 doImported = withSelectedModule
     $ liftM asShows 
     . Module.importedSymbols
     
-doExports :: ViewerStateM ()
+doExports :: ViewerStateM String
 doExports = withSelectedModule
     $ return
     . asShows
     . items
     . Module.getExports
 
-doExported :: ViewerStateM ()
+doExported :: ViewerStateM String
 doExported = withSelectedModule
     $   (return 
     .   asShows
     .   map getChild)
     <=< Module.exportedSymbols 
 
-doVisible :: ViewerStateM ()
+doVisible :: ViewerStateM String
 doVisible = withSelectedModule $ liftM asShows . Module.internalSymbols
 
-doCat :: String -> ViewerStateM ()
+doCat :: String -> ViewerStateM String
 doCat sym = withSelectedModule $ \mod -> ExceptT $ return $ do
     decl <- Module.getDeclaration mod (DeclarationInfo (Symbol sym))
     let strings :: [Output Bool]
         strings = asStrings . lines . body . getChild $ decl
     return strings
 
-doQuit :: ViewerStateM ()
-doQuit = return ()
+doQuit :: ViewerStateM String
+doQuit = return ""
 
-
-
+repl :: InputT ViewerStateM Bool
 repl = do
-    input <- liftIO $ readCmd
-    case input of
-        Just Help -> doHelp >> return True
-        Just (Open path) -> doOpen path >> return True
-        Just Modules -> doModules >> return True
-        Just (Module name) -> doModule name >> return True
-        Just Declarations -> doDeclarations >> return True
-        Just Imports -> doImports >> return True
-        Just Imported -> doImported >> return True
-        Just Exports -> doExports >> return True
-        Just Exported -> doExported >> return True
-        Just (Cat sym) -> doCat sym >> return True
-        Just Quit -> return False
-        Nothing -> return True
+    input <- readCmd
+    output <- case input of
+        Nothing -> return $ Just ""
+        Just Quit -> return Nothing
+        Just cmd -> liftM Just $ lift $ case cmd of
+            Help -> doHelp
+            Open path -> doOpen path
+            Modules -> doModules
+            Module name -> doModule name
+            Declarations -> doDeclarations
+            Imports -> doImports
+            Imported -> doImported
+            Exports -> doExports
+            Exported -> doExported
+            Visible -> doVisible
+            Cat sym -> doCat sym
+    case output of
+        Just output -> outputStrLn output >> return True
+        Nothing -> return False
 
+runMain :: InputT ViewerStateM ()
 runMain = do
-    liftIO $ putStr ">" >> hFlush stdout
     continue <- repl
     when continue runMain
+
+settings :: Settings ViewerStateM
+settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
+
+
+isPrefixOfCommand l 
+    = mapMaybe
+        (\x -> if (l `isPrefixOf` x && l /= x) then Just x else Nothing)
+      cmdList
+
+isCommandPrefixOf l'
+    = mapMaybe
+        (\x -> if x == l then Just (l,r) else Nothing)
+      cmdList
+  where
+    (l,r) = case words l' of
+        [] -> ("","")
+        (x:xs) -> (x,unwords xs)
+    
+for xs f = map f xs
+
+
+isCommandAllowed :: String -> ViewerStateM Bool
+isCommandAllowed "help" = return True
+isCommandAllowed "open" = return True
+isCommandAllowed "module" = hasOpenedProject
+isCommandAllowed "modules" = hasOpenedProject
+isCommandAllowed "declarations" = hasCurrentModule
+isCommandAllowed "imports" = hasCurrentModule
+isCommandAllowed "imported" = hasCurrentModule
+isCommandAllowed "exports" = hasCurrentModule
+isCommandAllowed "exported" = hasCurrentModule
+isCommandAllowed "visible" = hasCurrentModule
+isCommandAllowed "cat" = hasCurrentModule
+isCommandAllowed "quit" = return True
+
+cmdPrefixCompletion :: String -> Maybe [Completion]
+cmdPrefixCompletion l = 
+  case isPrefixOfCommand l of
+        [] -> Nothing
+        xs -> Just $ for xs $ \x -> 
+                Completion{ replacement=drop (length l) x
+                          , display = x
+                          , isFinished = null $ isPrefixOfCommand x
+                          }
+
+moduleNameCompletion :: String -> ViewerStateM (Maybe [Completion])
+moduleNameCompletion s = do
+    p <- hasOpenedProject
+    case p of
+        False -> return Nothing
+        True -> do
+            r <- runExceptT $ do
+                mods <- getModules
+                let modNames = catMaybes $ for mods  $ \m -> case m of
+                        (ModuleInfo (Symbol s)) -> Just s
+                        _ -> Nothing
+                let matchingNames = filter (s `isPrefixOf`) modNames
+                return $ Just $ for matchingNames $ \n ->
+                    Completion{ replacement = drop (length s) n
+                              , display = n
+                              , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingNames
+                              }
+            return $ case r of
+                Right x -> x
+                Left _ -> Nothing
+declarationNameCompletion :: String -> ViewerStateM (Maybe [Completion])
+declarationNameCompletion s = do
+    n <- gets currentModule
+    case n of
+        Nothing -> return Nothing
+        Just n -> do
+            r <- runExceptT $ do
+                m <- getModule (ModuleInfo (Symbol n))
+                let infos = map (Declaration.info . item) $ Module.getDeclarations m
+                let syms = for infos $ \(DeclarationInfo (Symbol sym)) -> sym
+                let matchingSyms = filter (s `isPrefixOf`) syms
+                return $ Just $ for matchingSyms $ \n -> 
+                    Completion{ replacement = drop (length s) n
+                              , display = n
+                              , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingSyms
+                              }    
+            return $ case r of
+                Right x -> x
+                Left _ -> Nothing
+
+cmdArgCompletion :: String -> String -> ViewerStateM (Maybe [Completion])
+cmdArgCompletion cmd arg = do
+    p <- isCommandAllowed cmd
+    case p of
+        False -> return Nothing
+        True -> case cmd of
+            "help" -> return (Just [])
+            "open" -> liftM Just $ listFiles arg
+            "module" -> moduleNameCompletion arg
+            "modules" -> return (Just [])
+            "declarations" -> return (Just [])
+            "imports" -> return (Just [])
+            "imported" -> return (Just [])
+            "exports" -> return (Just [])
+            "exported" -> return (Just [])
+            "visible" -> return (Just [])
+            "cat" -> declarationNameCompletion arg
+            "quit" -> return (Just [])
+
+
+cmdCompletion :: (String,String) -> ViewerStateM (String, [Completion])
+cmdCompletion (l',r) = do
+    case cmdPrefixCompletion l of
+        Just cs -> do
+            cs' <- filterM (isCommandAllowed . (l ++) . replacement) cs
+            return (l',cs')
+        Nothing -> do
+            let cs = isCommandPrefixOf l
+            cs' <- filterM (isCommandAllowed . fst) cs
+            cs'' <- forM cs' $ \(cmd,arg) -> cmdArgCompletion cmd arg
+            let cs''' = concat $ catMaybes cs''
+            return (l',cs''')
+  where
+    l = reverse l'
       
 main :: IO ()
 main = do
-    putStrLn "Haskell project viewer"
-    putStrLn "Type \"help\" for commands"
-    runViewerState runMain
+    runViewerState $ do
+        runInputT settings $ do
+            outputStrLn "Haskell project viewer"
+            outputStrLn "Type \"help\" for commands"
+            runMain
     return ()
