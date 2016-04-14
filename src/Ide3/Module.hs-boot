@@ -9,3 +9,5 @@ exportedSymbols :: ProjectM m => Module -> ExceptT ProjectError m [ModuleChild S
 symbolTree :: ProjectM m => Module -> Symbol -> ExceptT ProjectError m [ModuleChild Symbol]
 allSymbols :: Module -> [ModuleChild Symbol]
 importsModule :: Module -> Symbol -> Bool
+infoMatches :: Module -> ModuleInfo -> Bool
+internalSymbols :: ProjectM m => Module -> ExceptT ProjectError m [Symbol]

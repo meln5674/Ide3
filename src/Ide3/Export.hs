@@ -28,6 +28,8 @@ import {-# SOURCE #-} Ide3.Module ( allSymbols
                                   , exportedSymbols
                                   , importsModule
                                   , symbolTree
+                                  , infoMatches
+                                  , internalSymbols
                                   )
 
 import Ide3.Monad
@@ -35,16 +37,17 @@ import Ide3.Export.Parser
 
 -- | Get a list of the symbols this export provides
 symbolsProvided :: ProjectM m => Module -> Export -> ExceptT ProjectError m [Symbol]
-symbolsProvided m (SingleExport s)
-    | s `elem` map getChild (allSymbols m)
-      = return [s]
-    | otherwise                             
-      = throwE $ "Export.symbolsProvided: " ++ show s ++ " is not an availible symbol in " ++ show m
-symbolsProvided m (ModuleExport n)
+symbolsProvided m@(Module i _ _ _ _) (SingleExport s) = do
+    p <- liftM (s `elem`) $ internalSymbols m
+    case p of
+        True -> return [s]
+        False -> throwE $ "Export.symbolsProvided: " ++ show s ++ " is not an availible symbol in " ++ show i
+symbolsProvided m@(Module i _ _ _ _) (ModuleExport n)
     | m `importsModule` n
       = liftM (map getChild) $ getModule (ModuleInfo n) >>= exportedSymbols 
+    | m `infoMatches` (ModuleInfo n) = return $ map getChild $ allSymbols m
     | otherwise
-      = throwE $ "Export.symbolsProvided: " ++ show n ++ " is not imported by " ++ show m
+      = throwE $ "Export.symbolsProvided: " ++ show n ++ " is not imported by " ++ show i
 symbolsProvided m (AggregateExport s (Just ss))
     | (`elem` (map getChild $ allSymbols m)) `all` (s:ss)
       = do
