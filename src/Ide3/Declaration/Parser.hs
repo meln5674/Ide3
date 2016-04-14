@@ -80,7 +80,7 @@ parseClassDecl (ClassDecl _ _ h _ ds)
     parseSubDecl (ClsDecl _ d) = tryConvert d
     parseSubDecl _ = Nothing
     Just ds' = case ds of
-        Just ds -> sequence $ map parseSubDecl ds
+        Just ds -> mapM parseSubDecl ds
         Nothing -> Just []
 parseClassDecl _ = Nothing
 
@@ -147,7 +147,7 @@ tryConvert x = getFirst $ mconcat
 -- | Parse a string containing 0 or more delcarations
 parseMany :: String -> Either String [Declaration]
 parseMany s = case parseModule s of
-    ParseOk (Syntax.Module _ _ _ _ ds) -> case sequence $ map tryConvert ds of
+    ParseOk (Syntax.Module _ _ _ _ ds) -> case mapM tryConvert ds of
         Just y -> Right y
         Nothing -> Left "Unsupported"
     ParseOk _ -> Left "Unsupported"
@@ -167,7 +167,7 @@ convertWithBody str x = case decl of
 -- This function assumes that all declarations in the input list have the same symbol
 combineFuncAndTypeSig :: [WithBody Declaration] -> [WithBody Declaration]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
-    (((WithBody sig sb):_),((WithBody func fb):_)) -> WithBody newDecl newBody : notFuncBinds
+    (WithBody sig sb:_,WithBody func fb:_) -> WithBody newDecl newBody : notFuncBinds
       where
         ModifierDeclaration _ (TypeSignatureDeclaration _ type_) = sig
         BindDeclaration info (LocalBindDeclaration syms _) = func
@@ -187,5 +187,5 @@ parse :: String -> Either String Declaration
 parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
-        Nothing -> Left $ "Unsupported: " ++ show x where
+        Nothing -> Left $ "Unsupported: " ++ show x
     ParseFailed _ s -> Left s

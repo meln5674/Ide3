@@ -12,6 +12,7 @@ TODO
 -}
 module Ide3.Mechanism.Internal where
 
+import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types 
@@ -52,14 +53,14 @@ addRawModule s p = case Module.parse s p of
 
 
 getAnyModule :: ProjectM m => ModuleInfo -> ProjectResult m (Either Module ExternModule)
-getAnyModule i = catchE (getModule i >>= return . Left) $ \_ -> (getExternModule i >>= return . Right)
+getAnyModule i = catchE (liftM Left $ getModule i) $ \_ -> liftM Right $ getExternModule i
 
 -- | Get the symbols exported by a module
 getExternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m  [Symbol]
 getExternalSymbols i = do
     m <- getAnyModule i
     case m of
-        Left m -> Module.exportedSymbols m >>= return . map getChild
+        Left m -> liftM (map getChild) $ Module.exportedSymbols m
         Right m -> return $ map getChild $ ExternModule.exportedSymbols m 
 
 -- | Get the symbols availible at the top level of a module

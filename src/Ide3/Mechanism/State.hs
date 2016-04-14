@@ -29,6 +29,7 @@ module Ide3.Mechanism.State
     , ProjectStateM (..)
     ) where
 
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Strict (StateT, runStateT)
 import Control.Monad.Trans.Except
@@ -96,7 +97,7 @@ getsProject :: ProjectStateM m => (Project -> a) -> m a
 getsProject f = f <$> getProject
 
 modifyProject :: ProjectStateM m => (Project -> Project) -> m ()
-modifyProject f = getProject >>= return . f >>= putProject
+modifyProject f = liftM f getProject >>= putProject
 
 modifyProjectE :: ProjectStateM m => (Project -> Either ProjectError Project) -> ExceptT ProjectError m ()
 modifyProjectE f = modifyProjectER $ \p -> do

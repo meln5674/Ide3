@@ -39,7 +39,7 @@ symbol (RecordConstructor s _) = s
 
 -- | Get the binds provided by a constructor
 bindsProvided :: Constructor -> [Symbol]
-bindsProvided (PrefixConstructor _ _) = []
-bindsProvided (InfixConstructor _ _ _) = []
+bindsProvided PrefixConstructor{} = []
+bindsProvided InfixConstructor{} = []
 bindsProvided (RecordConstructor _ ss) = map fst ss
 

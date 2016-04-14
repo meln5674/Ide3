@@ -58,7 +58,7 @@ foldlRes f x (y:ys) =
 --  created, along with each of the export and import ids created
 parse :: String -> Maybe FilePath -> Either ProjectError (Module,[ExportId],[ImportId])
 parse s p = case Parser.parse s p of
-    Right (Extracted info pragmas exports imports decls) -> Right $ (withDecls, eids, iids)
+    Right (Extracted info pragmas exports imports decls) -> Right (withDecls, eids, iids)
       where
         newModule = new $ case info of
             UnamedModule Nothing -> UnamedModule p
@@ -98,7 +98,7 @@ getHeaderText m = case bodies $ getExports m of
 -- |Reconstruct the source code from a Module
 toFile :: Module -> String
 toFile m@(Module (ModuleInfo (Symbol name)) _ is es ds)
-    = intercalate "\n" $ parts
+    = intercalate "\n" parts
   where
     pragmas = getPragmas m
     header = getHeaderText m
@@ -116,7 +116,7 @@ modifiersOf s m@(Module _ _ _ _ ds)
 
 -- |Tag a value as belonging to this module
 qualify :: Module -> a -> ModuleChild a
-qualify (Module i _ _ _ _) x = ModuleChild i x
+qualify (Module i _ _ _ _) = ModuleChild i
 
 -- |Within the context of a project, find all of the symbols this module exports
 --  This requires the project context as modules may export other modules,
@@ -190,7 +190,7 @@ symbolTree m sym = do
                 Just (i,_) -> do
                     otherSyms <- Import.symbolTree i sym
                     return $ map (qualify m) otherSyms
-                Nothing -> throwE $ "Module.symbolTree: " ++ (show sym) ++ " is not an availible symbol in " ++ (show m)
+                Nothing -> throwE $ "Module.symbolTree: " ++ show sym ++ " is not an availible symbol in " ++ show m
 
 -- |Get a list of all declarations in a module
 allDeclarations :: Module -> [ModuleChild DeclarationInfo]
@@ -203,10 +203,10 @@ infoMatches (Module i _ _ _ _) i' = i == i'
 
 -- |Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
-nextImportId (Module _ _ is _ _) = 1 + maximum (-1 : (Map.keys is))
+nextImportId (Module _ _ is _ _) = 1 + maximum (-1 : Map.keys is)
 
 addPragma :: Module -> Pragma -> Module
-addPragma (Module mi ps is es ds) p = (Module mi (p:ps) is es ds)
+addPragma (Module mi ps is es ds) p = Module mi (p:ps) is es ds
 
 -- |Add an import to a module
 addImport :: Module -> WithBody Import -> (Module, ImportId)
@@ -224,7 +224,7 @@ removeImport (Module mi ps is es ds) i
 
 -- |Test if a module imports another
 importsModule :: Module -> Symbol -> Bool
-importsModule m sym = sym `elem` (map Import.moduleName $ items $ getImports m)
+importsModule m sym = sym `elem` map Import.moduleName (items $ getImports m)
 
 -- |Set a module to export all of its symbols
 exportAll :: Module -> Module
@@ -233,7 +233,7 @@ exportAll (Module mi ps is _ ds) = Module mi ps is Nothing ds
 -- |Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
 nextExportId (Module _ _ _ Nothing _) = 0
-nextExportId (Module _ _ _ (Just es) _) = 1 + (maximum $ -1 :(Map.keys es))
+nextExportId (Module _ _ _ (Just es) _) = 1 + maximum (-1 : Map.keys es)
 
 -- |Add an export to a module
 addExport :: Module -> WithBody Export -> (Module,ExportId)
@@ -247,7 +247,7 @@ addExport m@(Module mi ps is es ds) e = (Module mi ps is es' ds,nextId)
 -- |Remove an export from a module
 --  This function fails if no matching export is found
 removeExport :: Module -> ExportId -> Either ProjectError Module
-removeExport (Module mi ps is Nothing ds) e = Left $ "Module.removeExport: Can't remove an export from an export all"
+removeExport (Module mi ps is Nothing ds) e = Left "Module.removeExport: Can't remove an export from an export all"
 removeExport (Module mi ps is (Just es) ds) e
     = Right $ Module mi ps is (Just $ e `Map.delete` es) ds
 
@@ -280,7 +280,7 @@ editDeclaration :: Module
                 -> Either ProjectError Module
 editDeclaration m@(Module i ps is es ds) di f = do
     (ModuleChild _ (WithBody d s)) <- getDeclaration m di
-    d' <- WithBody <$> (f d) <*> pure s
+    d' <- WithBody <$> f d <*> pure s
     let ds' = Map.insert di d' ds
     return $ Module i ps is es ds'
 

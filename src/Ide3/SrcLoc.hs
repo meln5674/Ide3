@@ -34,7 +34,7 @@ indexIn :: (Int,Int) -> String -> Maybe Int
 (1,c) `indexIn` _ = Just $ c - 1
 (r,c) `indexIn` str = do
     (lineLen,rest) <- splitAndCount str '\n'
-    next <- ((r-1,c) `indexIn` drop lineLen str)
+    next <- (r-1,c) `indexIn` drop lineLen str
     return $ lineLen + next
 
 instance Spanable SrcSpan where

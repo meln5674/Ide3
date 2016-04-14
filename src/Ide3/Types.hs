@@ -66,9 +66,9 @@ data BuildInfo = BuildInfo
 data Project
     = Project
     { projectInfo :: ProjectInfo
-    , projectModules :: (Map ModuleInfo Module)
+    , projectModules :: Map ModuleInfo Module
     , projectBuildInfo :: BuildInfo
-    , projectExternModules :: (Map ModuleInfo ExternModule)
+    , projectExternModules :: Map ModuleInfo ExternModule
     }
     deriving (Show, Read, Eq)
 
@@ -124,9 +124,6 @@ data ModuleChild a = ModuleChild ModuleInfo a
 -- |Get the value tagged with a module
 getChild :: ModuleChild a -> a
 getChild (ModuleChild _ a) = a
-
-withChildF :: Functor f => (a -> b) -> ModuleChild (f a) -> ModuleChild (f b)
-withChildF f (ModuleChild mi x) = ModuleChild mi (f <$> x)
 
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi (f x)

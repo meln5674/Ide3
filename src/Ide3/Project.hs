@@ -50,7 +50,7 @@ allModules = Map.keys . projectModules
 addModule :: Project -> Module -> Either ProjectError Project
 addModule p m@(Module i' _ _ _ _)
   = case Map.lookup i' ms of
-    Just _ -> Left $ "Project.addModule: " ++ (show i') ++ " Is already an existing module"
+    Just _ -> Left $ "Project.addModule: " ++ show i' ++ " Is already an existing module"
     Nothing -> Right $ p{projectModules = Map.insert i' m ms} 
   where
     ms = projectModules p
@@ -62,7 +62,7 @@ createModule p i = addModule p (Module.new i)
 addExternModule :: Project -> ExternModule -> Either ProjectError Project
 addExternModule p m@(ExternModule i' _)
   = case Map.lookup i' ms of
-    Just _ -> Left $ "Project.addExternModule: " ++ (show i') ++ " Is already an exsting external module"
+    Just _ -> Left $ "Project.addExternModule: " ++ show i' ++ " Is already an exsting external module"
     Nothing -> Right $ p{projectExternModules = Map.insert i' m ms}
   where  
    ms = projectExternModules p
@@ -71,14 +71,14 @@ addExternModule p m@(ExternModule i' _)
 getModule :: Project -> ModuleInfo -> Either ProjectError Module
 getModule p i = case Map.lookup i ms of
     Just m -> Right m
-    Nothing -> Left $ "Project.getModule: " ++ (show i) ++ " did not match any modules"
+    Nothing -> Left $ "Project.getModule: " ++ show i ++ " did not match any modules"
   where
     ms = projectModules p
 
 getExternModule :: Project -> ModuleInfo -> Either ProjectError ExternModule
 getExternModule p i = case Map.lookup i ms of
     Just m -> Right m
-    Nothing -> Left $ "Project.getExternModule: " ++ (show i) ++ " did not match any external modules"
+    Nothing -> Left $ "Project.getExternModule: " ++ show i ++ " did not match any external modules"
   where
     ms = projectExternModules p
 
@@ -108,7 +108,7 @@ hasExternModule p (ExternModule i _) = hasModuleInfo p i
 removeModule :: Project -> ModuleInfo -> Either ProjectError Project
 removeModule p i
     | p `hasLocalModuleInfo` i = Right $ p{projectModules = ms'} 
-    | otherwise                = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
+    | otherwise                = Left $ "Project.removeModule: " ++ show i ++ " did not match any modules"
   where
     ms = projectModules p
     ms' = Map.delete i ms
@@ -116,7 +116,7 @@ removeModule p i
 removeExternModule :: Project -> ModuleInfo -> Either ProjectError Project
 removeExternModule p i
     | p `hasExternModuleInfo` i = Right $ p{projectExternModules = ms'} 
-    | otherwise                 = Left $ "Project.removeModule: " ++ (show i) ++ " did not match any modules"
+    | otherwise                 = Left $ "Project.removeModule: " ++ show i ++ " did not match any modules"
   where
     ms = projectExternModules p
     ms' = Map.delete i ms
@@ -133,14 +133,14 @@ editModuleR p i f = do
     m <- getModule p i
     (m',x) <- f m
     let ms' = Map.insert i m' $ projectModules p
-    return $ (p{projectModules = ms'}, x)
+    return (p{projectModules = ms'}, x)
     
 -- |Same as 'editModuleR', but no extra result is produced by the tranformation
 editModule :: Project
            -> ModuleInfo
            -> (Module -> Either ProjectError Module)
            -> Either ProjectError Project
-editModule p i f = fst <$> editModuleR p i (\m -> (\r -> (r,())) <$> (f m))
+editModule p i f = fst <$> editModuleR p i (\m -> (\r -> (r,())) <$> f m)
 
 -- |Same as 'editModuleR', but the transformation is garunteed to succeed
 editModuleR' :: Project

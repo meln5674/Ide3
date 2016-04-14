@@ -48,7 +48,7 @@ extractPragmas :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [Pragma]
 extractPragmas s (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
 
 -- |Extract the exports from the module
-extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> (Maybe [WithBody Export])
+extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Maybe [WithBody Export]
 extractExports str (Syntax.Module _ (Just (Syntax.ModuleHead _ _ _ (Just (Syntax.ExportSpecList _ exports)))) _ _ _, _)
      = Just $ map (Export.convertWithBody str) exports
 extractExports _ _ = Nothing
@@ -62,7 +62,7 @@ extractImports _ _ = []
 -- |Extract the declarations from the module
 extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either ProjectError [WithBody Declaration]
 extractDecls str (Syntax.Module _ _ _ _ decls, _)
-    = Declaration.combineMany <$> (sequence $ map (Declaration.convertWithBody str) decls)
+    = Declaration.combineMany <$> mapM (Declaration.convertWithBody str) decls
 extractDecls _ _ = Right []
 
 -- |Extract the data needed for buliding a Module

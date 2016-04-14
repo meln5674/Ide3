@@ -24,4 +24,4 @@ symbolTree (ExternModule i es) s = case getFirst $ mconcat $ map look es of
   where
     look (SingleExternExport s') | s == s' = First $ Just []
     look (MultiExternExport s' ss) | s' `elem` ss = First $ Just $ delete s' ss
-    look _ = First $ Nothing
+    look _ = First Nothing
