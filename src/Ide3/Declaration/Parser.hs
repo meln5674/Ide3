@@ -14,7 +14,6 @@ module Ide3.Declaration.Parser where
 
 import Data.Monoid
 import Data.List
-import Control.Applicative
 
 import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Parser (ParseResult(..))
@@ -27,6 +26,7 @@ import Ide3.Types
 import qualified Ide3.Constructor as Constructor
 
 -- | Convert a declaration if it is a type synonym
+parseTypeSynonym :: SrcInfo t => Decl t -> Maybe Declaration
 parseTypeSynonym (TypeDecl _ h t)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (TypeSynonym (toSym h)
@@ -36,7 +36,8 @@ parseTypeSynonym (TypeDecl _ h t)
 parseTypeSynonym _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
-parseDataDecl (DataDecl _ (NewType _) _ h [con] dervs)
+parseDataDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseDataDecl (DataDecl _ (NewType _) _ h [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
                                                  (Constructor.toConstructor con)
@@ -44,7 +45,8 @@ parseDataDecl (DataDecl _ (NewType _) _ h [con] dervs)
 parseDataDecl _ = Nothing
 
 -- | Convert a declaration if it is a newtype declaration
-parseNewtypeDecl (DataDecl _ (DataType _) _ h cons dervs)
+parseNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseNewtypeDecl (DataDecl _ (DataType _) _ h cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (DataDeclaration (toSym h)
                                               (map Constructor.toConstructor cons)
@@ -52,20 +54,22 @@ parseNewtypeDecl (DataDecl _ (DataType _) _ h cons dervs)
 parseNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a function bind
+parseFuncBind :: SrcInfo t => Decl t -> Maybe Declaration
 parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSym n) 
                                      $ LocalBindDeclaration [toSym n] Nothing
   where
     n = case m of
-        Match _ n _ _ _ -> n
-        InfixMatch _ _ n _ _ _ -> n
+        Match _ n' _ _ _ -> n'
+        InfixMatch _ _ n' _ _ _ -> n'
 parseFuncBind _ = Nothing
 
 -- | Convert a declaration if it is a type signature
+parseTypeSignature :: SrcInfo t => Decl t -> Maybe Declaration
 parseTypeSignature (TypeSig _ ns t) = case allsigs of
     Nothing -> Nothing
     Just [] -> Nothing
     Just [x] -> Just x
-    Just (x:xs) -> Just x --TODO
+    Just (x:_) -> Just x --TODO
   where
     for xs f = map f xs
     allsigs = Just $ for ns $ \n ->
@@ -74,18 +78,18 @@ parseTypeSignature (TypeSig _ ns t) = case allsigs of
 parseTypeSignature _ = Nothing
 
 -- | Convert a declaration if it is a class declaration
+parseClassDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
     = Just $ TypeDeclaration (DeclarationInfo $ toSym h)
            $ ClassDeclaration (toSym h) ds'
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
     parseSubDecl _ = Nothing
-    Just ds' = case ds of
-        Just ds -> mapM parseSubDecl ds
-        Nothing -> Just []
+    Just ds' = ds >>= mapM parseSubDecl
 parseClassDecl _ = Nothing
 
-parseInstanceDecl x@(InstDecl _ _ r _)
+parseInstanceDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseInstanceDecl (InstDecl _ _ r _)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
   where
@@ -127,24 +131,28 @@ instance HasNames (PatField l) where
     findName (PFieldPun _ n) = [toSym n]
     findName _ = [] -- TODO: rest
 
+parsePatBind :: SrcInfo t => Decl t -> Maybe Declaration
 parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
     ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
 parsePatBind _ = Nothing
 
 -- | Try to convert a declaration
-tryConvert x = getFirst $ mconcat                 
-             $ map (First . ($x))
-                [ parseTypeSynonym
-                , parseDataDecl
-                , parseNewtypeDecl
-                , parseFuncBind
-                , parseClassDecl
-                , parseTypeSignature
-                , parsePatBind
-                , parseInstanceDecl
-                ]
-          
+tryConvert :: SrcInfo t => Decl t -> Maybe Declaration
+tryConvert x
+    = getFirst 
+    $ mconcat
+    $ map (First . ($x))
+        [ parseTypeSynonym
+        , parseDataDecl
+        , parseNewtypeDecl
+        , parseFuncBind
+        , parseClassDecl
+        , parseTypeSignature
+        , parsePatBind
+        , parseInstanceDecl
+        ]
+  
 -- | Parse a string containing 0 or more delcarations
 parseMany :: String -> Either (ProjectError u) [Declaration]
 parseMany s = case parseModule s of
@@ -152,17 +160,13 @@ parseMany s = case parseModule s of
         Just y -> Right y
         Nothing -> Left $ Unsupported ""
     ParseOk _ -> Left $ Unsupported "" 
-    ParseFailed l s -> Left $ ParseError l s ""
+    ParseFailed l msg -> Left $ ParseError l msg ""
 
 -- | Convert a declaration and extract its body
 convertWithBody :: (Show a, Spanable a, SrcInfo a) => String -> Decl a -> Either (ProjectError u) (WithBody Declaration)
-convertWithBody str x = case decl of
-    Just decl -> Right $ WithBody decl body
-    Nothing -> Left $ Unsupported $ body ++ " " ++ show (ann x)
-  where
-    body = ann x >< str
-    decl = tryConvert x
-
+convertWithBody str x = case tryConvert x of
+    Just decl -> Right $ WithBody decl (ann x >< str)
+    Nothing -> Left $ Unsupported $ (ann x >< str) ++ " " ++ show (ann x)
 
 -- | Take a list of declarations and combine the first type signature with the first bind
 -- This function assumes that all declarations in the input list have the same symbol
@@ -189,4 +193,4 @@ parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
         Nothing -> Left $ Unsupported $ show x
-    ParseFailed l s -> Left $ ParseError l s ""
+    ParseFailed l msg -> Left $ ParseError l msg ""

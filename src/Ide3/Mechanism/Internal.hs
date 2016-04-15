@@ -17,7 +17,6 @@ import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types 
-import qualified Ide3.Project as Project
 import Ide3.Module.Common (EitherModule)
 import qualified Ide3.Module as Module 
 import qualified Ide3.Module.Extern as ExternModule 
@@ -49,8 +48,8 @@ addRawDeclaration i s = case Declaration.parse s of
 -- | Parse an entire module and add it to the project
 addRawModule :: ProjectM m => String -> Maybe FilePath -> ProjectResult m u  ModuleInfo
 addRawModule s p = case Module.parse s p of
-    Right (m,eids,iids) -> do addModule m
-                              return $ Module.info m
+    Right (m,_,_) -> do addModule m
+                        return $ Module.info m
     Left err -> throwE err
 
 
@@ -62,8 +61,8 @@ getExternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]
 getExternalSymbols i = do
     m <- getAnyModule i
     case m of
-        Left m -> liftM (map getChild) $ Module.exportedSymbols m
-        Right m -> return $ map getChild $ ExternModule.exportedSymbols m 
+        Left lm -> liftM (map getChild) $ Module.exportedSymbols lm
+        Right em -> return $ map getChild $ ExternModule.exportedSymbols em
 
 -- | Get the symbols availible at the top level of a module
 getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]

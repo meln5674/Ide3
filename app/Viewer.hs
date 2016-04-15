@@ -10,7 +10,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Mechanism.State
-import Ide3.Types (Project, ExternExport (..), ExternModule (..), Symbol (..), ModuleInfo (..), ProjectError (..))
+import Ide3.Types (Project, ProjectError (..))
 
 import Digest
 

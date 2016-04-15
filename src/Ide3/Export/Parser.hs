@@ -27,17 +27,14 @@ convert :: ExportSpec a -> Export
 convert export = case export of
     EVar _ n -> SingleExport (toSym n)
     EAbs _ (NoNamespace _) n -> SingleExport (toSym n)
-    --EAbs ?? n
+    EAbs _ _ _ -> error "FOUND AN ABS EXPORT"
     EThingAll _ n -> AggregateExport (toSym n) Nothing
     EThingWith _ n ns -> AggregateExport (toSym n) (Just $ map toSym ns)
     EModuleContents _ n -> ModuleExport (toSym n)
 
 -- | Convert from the third party export and extract the body
 convertWithBody :: Spanable a => String -> ExportSpec a -> WithBody Export
-convertWithBody str export = WithBody export' body 
-  where
-    export' = convert export
-    body = ann export >< str
+convertWithBody str export = WithBody (convert export) (ann export >< str)
 
 -- | Parse an export
 parse :: String -> Either (ProjectError u) Export
@@ -47,7 +44,7 @@ parse s = case result of
         headAndImports = unNonGreedy ok
         ModuleHeadAndImports _ _ (Just (ModuleHead _ _ _ (Just (ExportSpecList _ exportList)))) _ = headAndImports
         [export] = exportList
-    ParseFailed l s -> Left $ ParseError l s ""
+    ParseFailed l msg -> Left $ ParseError l msg ""
   where
     dummyHeader = "module DUMMY (" ++ s ++ ") where"
     result = Parser.parse dummyHeader :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))

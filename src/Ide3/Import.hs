@@ -15,8 +15,6 @@ module Ide3.Import
     , module Ide3.Import.Parser
     ) where
 
-import Control.Monad
-
 import Ide3.Types
 
 import Data.List
@@ -74,7 +72,7 @@ whitelistTree m i = do
     case i of
         NameImport s | s `elem` exSyms -> return [s]
                      | otherwise -> throwE $ SymbolNotExported (Module.info m) s "Import.whitelistTree"
-        --AbsImport
+        AbsImport _ _ -> error "FOUND AN ABS IMPORT"
         AllImport s -> map getChild <$> Module.symbolTree m s
         SomeImport s ss -> do
             ls <- Module.symbolTree m s
@@ -96,12 +94,12 @@ blacklistTree m i = do
 
 -- | Get the symbols provided by an import, ignoring qualification
 unqualSymbolsProvided :: ProjectM m => Import -> ProjectResult m u [Symbol]
-unqualSymbolsProvided m@(ModuleImport sym _ _) = getExternalSymbols (ModuleInfo sym)
-unqualSymbolsProvided m@(WhitelistImport sym _ _ specs) = do
+unqualSymbolsProvided (ModuleImport sym _ _) = getExternalSymbols (ModuleInfo sym)
+unqualSymbolsProvided (WhitelistImport sym _ _ specs) = do
     module_ <- getAnyModule (ModuleInfo sym)
     symbolsFromEach <- mapM (whitelistTree module_) specs
     return $ concat symbolsFromEach
-unqualSymbolsProvided m@(BlacklistImport sym _ _ specs) = do
+unqualSymbolsProvided (BlacklistImport sym _ _ specs) = do
     module_ <- getAnyModule (ModuleInfo sym)
     symbolsFromEach <- mapM (blacklistTree module_) specs
     return $ concat symbolsFromEach
@@ -134,5 +132,5 @@ otherSymbols i s = do
 -- See 'Ide3.Module.symbolTree'
 symbolTree :: ProjectM m => Import -> Symbol -> ProjectResult m u [Symbol]
 symbolTree i s = do
-    mod <- getAnyModule (ModuleInfo (moduleName i))
-    map getChild <$> Module.symbolTree mod s
+    module_ <- getAnyModule (ModuleInfo (moduleName i))
+    map getChild <$> Module.symbolTree module_ s

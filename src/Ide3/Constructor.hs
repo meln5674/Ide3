@@ -26,7 +26,7 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
     toConstructor (InfixConDecl _ tl n tr) = InfixConstructor (toSym tl) (toSym n) (toSym tr)
     toConstructor (RecDecl _ n rs) = RecordConstructor (toSym n) (concatMap f rs)
       where
-        f (FieldDecl _ ns t) = map (\n -> (toSym n,toSym t)) ns
+        f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
 
 instance SrcInfo a => ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d

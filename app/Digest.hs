@@ -1,7 +1,6 @@
 module Digest where
 
 import Data.List
-import Data.Maybe
 
 import Control.Monad
 import Control.Monad.Trans
@@ -37,7 +36,7 @@ enumerateDirectory path = do
                         "" -> return []
                         "." -> loop
                         ".." -> loop
-                        childPath -> ((path </> childPath):) <$> loop
+                        realPath -> ((path </> realPath):) <$> loop
             paths <- loop
             closeDirStream stream
             branches <- mapM enumerateDirectory paths
@@ -63,15 +62,17 @@ enumerateHaskellProject path = do
     let haskellTree = findHaskellFiles fileTree
     getFilesInTree haskellTree
 
+foldAddModule :: Project -> (FilePath,String) -> Either (ProjectError u) Project
 foldAddModule pj (p,c) = do
-    (mod,_,_) <- Module.parse c (Just p)
-    Project.addModule pj mod
+    (module_,_,_) <- Module.parse c (Just p)
+    Project.addModule pj module_
 
+foldAddExternModule :: Project -> Iface.Interface -> Either (ProjectError u) Project
 foldAddExternModule pj i = Project.addExternModule pj (convIface i)
   where
     convExport (Iface.SingleExport s) = SingleExternExport (Symbol s)
     convExport (Iface.MultiExport s ss) = MultiExternExport (Symbol s) (map Symbol ss)
-    convIface i = ExternModule (ModuleInfo $ Symbol $ Iface.modName i) $ case Iface.exports i of
+    convIface iface = ExternModule (ModuleInfo $ Symbol $ Iface.modName i) $ case Iface.exports iface of
         Nothing -> []
         Just es -> map convExport es
     

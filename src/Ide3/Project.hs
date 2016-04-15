@@ -14,7 +14,6 @@ for working with the Project data type.
 module Ide3.Project where
 
 import qualified Data.Map as Map
-import Data.Map.Strict ( Map )
 
 import Ide3.Types
 import qualified Ide3.Module as Module
@@ -222,7 +221,7 @@ moveDeclaration :: Project
                 -> ModuleChild DeclarationInfo
                 -> ModuleInfo
                 -> Either (ProjectError u) Project
-moveDeclaration p c@(ModuleChild i di) i' = do
+moveDeclaration p c i' = do
   (ModuleChild _ d) <- getDeclaration p c
   p' <- removeDeclaration p c
   addDeclaration p' i' d

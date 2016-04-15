@@ -13,16 +13,12 @@ for working with the Module data type.
 -}
 module Ide3.Module where
 
-import Control.Monad
-
-import Data.Monoid
-
-import Data.List (intercalate, delete, find)
+import Data.Maybe
+import Data.List (intercalate, find)
 
 import Control.Monad.Trans.Except
 
 import qualified Data.Map as Map
-import Data.Map.Strict ( Map )
 
 import Ide3.Types
 import Ide3.Monad hiding (new, addExport, addImport, addDeclaration)
@@ -48,7 +44,7 @@ new i = Module i [] Map.empty Nothing Map.empty
 -- |Similar to foldl, but each fold produces an extra result, the list of which
 --  is returned along with the final fold
 foldlRes :: (b -> a -> (b,c)) -> b -> [a] -> (b,[c])
-foldlRes f x [] = (x,[])
+foldlRes _ x [] = (x,[])
 foldlRes f x (y:ys) =
     let (x',z) = f x y
         (x'', zs) = foldlRes f x' ys
@@ -58,14 +54,14 @@ foldlRes f x (y:ys) =
 --  created, along with each of the export and import ids created
 parse :: String -> Maybe FilePath -> Either (ProjectError u) (Module,[ExportId],[ImportId])
 parse s p = case Parser.parse s p of
-    Right (Extracted info pragmas exports imports decls) -> Right (withDecls, eids, iids)
+    Right (Extracted minfo pragmas exports imports decls) -> Right (withDecls, eids, iids)
       where
-        newModule = new $ case info of
+        newModule = new $ case minfo of
             UnamedModule Nothing -> UnamedModule p
             x -> x
         withPragmas = foldl addPragma newModule pragmas
         (withExports,eids) = case exports of
-            Just exports -> foldlRes addExport withPragmas exports
+            Just exportList -> foldlRes addExport withPragmas exportList
             Nothing -> (Ide3.Module.exportAll withPragmas,[])
         (withImports,iids) = foldlRes addImport withExports imports
         withDecls = foldl addDeclaration withImports decls
@@ -97,8 +93,7 @@ getHeaderText m = case bodies $ getExports m of
 
 -- |Reconstruct the source code from a Module
 toFile :: Module -> String
-toFile m@(Module (ModuleInfo (Symbol name)) _ is es ds)
-    = intercalate "\n" parts
+toFile m = intercalate "\n" parts
   where
     pragmas = getPragmas m
     header = getHeaderText m
@@ -123,7 +118,7 @@ qualify (Module i _ _ _ _) = ModuleChild i
 --      necessitating finding what symbols they export, and so on
 exportedSymbols :: ProjectM m => Module -> ProjectResult m u [ModuleChild Symbol]
 exportedSymbols m@(Module _ _ _ Nothing _) = return $ allSymbols m
-exportedSymbols m@(Module n _ _ (Just es) _) = do
+exportedSymbols m@(Module _ _ _ (Just es) _) = do
     syms <- concat <$> mapM (Export.symbolsProvided m . item) es
     let qualSyms = map (qualify m) syms
     return qualSyms
@@ -131,7 +126,7 @@ exportedSymbols m@(Module n _ _ (Just es) _) = do
 -- | Within the context of a project, find all of the symbosl being imported by
 -- a module
 importedSymbols :: ProjectM m => Module -> ProjectResult m u [Symbol]
-importedSymbols m@(Module _ _ is _ _)
+importedSymbols (Module _ _ is _ _)
     = concat <$> mapM (Import.symbolsProvided . item) is
 
 
@@ -150,18 +145,16 @@ allSymbols m@(Module _ _ _ _ ds)
 -- |Apply a transformation to each item in a list, then find the first item
 --  which did not fail the transformation, and the result
 search :: (a -> Maybe b) -> [a] -> Maybe (a,b)
-search f xs = case find pred $ map toPair xs of
+search f xs = case find (isJust . snd) $ map toPair xs of
     Just (x,Just y) -> Just (x,y)
     _ -> Nothing
   where
     toPair x = (x,f x)
-    pred (_,Just y) = True
-    pred _ = False
 
 --  |Same as 'search', but the transformation runs in a monad
 searchM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe (a,b))
 searchM f xs = do
-    r <- find pred <$> mapM toPair xs 
+    r <- find (isJust . snd) <$> mapM toPair xs 
     case r of
         Just (x,Just y) -> return $ Just (x,y)
         _ -> return Nothing
@@ -169,8 +162,6 @@ searchM f xs = do
     toPair x = do
         y <- f x
         return (x,y)
-    pred (_,Just y) = True
-    pred _ = False
 
 -- |Given a sub-symbol, (such as a data constructor or a class method), find
 --  the parent symbol and its siblings
@@ -180,13 +171,13 @@ searchM f xs = do
 symbolTree :: ProjectM m => Module -> Symbol -> ProjectResult m u [ModuleChild Symbol]
 symbolTree m sym = do
     let declarations = items $ getDeclarations m
-        searchResult = search (`Declaration.otherSymbols`sym) declarations
-    case searchResult of
+        declSearchResult = search (`Declaration.otherSymbols`sym) declarations
+    case declSearchResult of
         Just (_,syms) -> return $ map (qualify m) syms
         Nothing -> do
             let imports = items $ getImports m
-            searchResult <- searchM (`Import.otherSymbols` sym) imports
-            case searchResult of
+            importSearchResult <- searchM (`Import.otherSymbols` sym) imports
+            case importSearchResult of
                 Just (i,_) -> do
                     otherSyms <- Import.symbolTree i sym
                     return $ map (qualify m) otherSyms
@@ -210,9 +201,9 @@ addPragma (Module mi ps is es ds) p = Module mi (p:ps) is es ds
 
 -- |Add an import to a module
 addImport :: Module -> WithBody Import -> (Module, ImportId)
-addImport m@(Module mi ps is es ds) i = (Module mi ps (Map.insert id i is) es ds, id)
+addImport m@(Module mi ps is es ds) i = (Module mi ps (Map.insert iid i is) es ds, iid)
     where
-        id = nextImportId m
+        iid = nextImportId m
 
 -- |Remove an import from a module
 --  This function fails if no matching import is found
@@ -242,12 +233,12 @@ addExport m@(Module mi ps is es ds) e = (Module mi ps is es' ds,nextId)
     nextId = nextExportId m
     es' = case es of
         Nothing -> Just $ Map.singleton nextId e
-        Just es -> Just $ Map.insert nextId e es
+        Just el -> Just $ Map.insert nextId e el
 
 -- |Remove an export from a module
 --  This function fails if no matching export is found
 removeExport :: Module -> ExportId -> Either (ProjectError u) Module
-removeExport (Module mi ps is Nothing ds) e = Left $ InvalidOperation "Can't remove an export from an export all" "Module.removeExport"
+removeExport (Module _ _ _ Nothing _) _ = Left $ InvalidOperation "Can't remove an export from an export all" "Module.removeExport"
 removeExport (Module mi ps is (Just es) ds) e
     = Right $ Module mi ps is (Just $ e `Map.delete` es) ds
 
@@ -304,5 +295,5 @@ getDeclaration' :: Module
                 -> DeclarationInfo
                 -> Either (ProjectError u) (ModuleChild Declaration)
 getDeclaration' m di = do
-    (ModuleChild i (WithBody d s)) <- getDeclaration m di
+    (ModuleChild i (WithBody d _)) <- getDeclaration m di
     return $ ModuleChild i d

@@ -33,12 +33,9 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Strict (StateT, runStateT)
 import Control.Monad.Trans.Except
-import qualified Control.Monad.State.Class as State
-import Control.Monad.State.Class
 import Control.Monad.Identity
 
 import Ide3.Monad
-import qualified Ide3.Monad as M
 import Ide3.Types
 import qualified Ide3.Project as Project
 
@@ -47,6 +44,7 @@ import qualified Ide3.Project as Project
 type ProjectStateT m = StateT Project m
 type ProjectState = ProjectStateT Identity
 
+initialProject :: Project
 initialProject = Project.new ProjectInfo
 
 -- | Run a project state operation starting with an empty project

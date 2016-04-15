@@ -16,8 +16,6 @@ module Ide3.Declaration
     , Parser.convertWithBody
     ) where
 
-import Control.Applicative
-
 import Data.List
 
 import Ide3.Types
@@ -35,7 +33,7 @@ import Data.Map (Map)
 -- The result of the function is used as the key, and the values
 -- in the map are lists of items which produced the same key
 partitionBy :: (Ord k) => (a -> k) -> [a] -> Map k [a]
-partitionBy f xs = go xs Map.empty
+partitionBy f ys = go ys Map.empty
   where
     go [] m = m
     go (x:xs) m = go xs m'

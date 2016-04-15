@@ -33,7 +33,7 @@ splitAndCount = go 0
 indexIn :: (Int,Int) -> String -> Maybe Int
 (1,c) `indexIn` _ = Just $ c - 1
 (r,c) `indexIn` str = do
-    (lineLen,rest) <- splitAndCount str '\n'
+    (lineLen,_) <- splitAndCount str '\n'
     next <- (r-1,c) `indexIn` drop lineLen str
     return $ lineLen + next
 

@@ -1,7 +1,5 @@
 module Ide3.Module where
 
-import Control.Monad.Trans.Except
-
 import Ide3.Types
 import Ide3.Monad
 

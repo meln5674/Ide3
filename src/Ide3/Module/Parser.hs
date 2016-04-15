@@ -45,7 +45,8 @@ extractInfo _ (Syntax.Module _ (Just (Syntax.ModuleHead _ (Syntax.ModuleName _ n
 extractInfo _ _ = UnamedModule Nothing
 
 extractPragmas :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [Pragma]
-extractPragmas s (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
+extractPragmas _ (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
+extractPragmas _ _ = []
 
 -- |Extract the exports from the module
 extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Maybe [WithBody Export]
@@ -79,11 +80,8 @@ extract str x = do
 parse :: String -> Maybe FilePath -> Either (ProjectError u) ExtractionResults
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
-    ParseFailed loc msg -> Left $ ParseError loc msg ""
+    ParseFailed l msg -> Left $ ParseError l msg ""
   where
     parseMode = case p of
-        Just p -> defaultParseMode{parseFilename=p,extensions=glasgowExts}
+        Just fn -> defaultParseMode{parseFilename=fn,extensions=glasgowExts}
         Nothing -> defaultParseMode{extensions=glasgowExts}
-    locMsg loc = case p of
-        Just p -> "(" ++ p ++ ": " ++ show loc ++ ")"
-        Nothing -> "(unknown file: " ++ show loc ++ ")"
