@@ -53,7 +53,7 @@ findHaskellFiles (Directory path branches)
     isHaskellFile _ = True
 
 getFilesInTree :: FileTree -> IO [(FilePath,String)]
-getFilesInTree (File path) = return <$> (,) path <$> readFile path
+getFilesInTree (File path) = return . (,) path <$> readFile path
 getFilesInTree (Directory _ branches) = concat <$> mapM getFilesInTree branches
 
 enumerateHaskellProject :: FilePath -> IO [(FilePath,String)]
@@ -84,8 +84,7 @@ digestProject' path = do
     let ifaces = read ifaceFile :: [Iface.Interface]
     let project = do
             withModules <- foldM foldAddModule Project.empty contents
-            withExternModules <- foldM foldAddExternModule withModules ifaces
-            return withExternModules
+            foldM foldAddExternModule withModules ifaces
     ExceptT $ return project
 
 digestProject :: (MonadIO m, ProjectM m) => FilePath -> ProjectResult m u ()

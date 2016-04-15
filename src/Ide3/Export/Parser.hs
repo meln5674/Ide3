@@ -27,7 +27,7 @@ convert :: ExportSpec a -> Export
 convert export = case export of
     EVar _ n -> SingleExport (toSym n)
     EAbs _ (NoNamespace _) n -> SingleExport (toSym n)
-    EAbs _ _ _ -> error "FOUND AN ABS EXPORT"
+    EAbs{} -> error "FOUND AN ABS EXPORT"
     EThingAll _ n -> AggregateExport (toSym n) Nothing
     EThingWith _ n ns -> AggregateExport (toSym n) (Just $ map toSym ns)
     EModuleContents _ n -> ModuleExport (toSym n)

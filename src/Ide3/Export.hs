@@ -40,13 +40,13 @@ import Ide3.Export.Parser
 symbolsProvided :: ProjectM m => Module -> Export -> ProjectResult m u [Symbol]
 symbolsProvided m@(Module i _ _ _ _) (SingleExport s) = do
     p <- liftM (s `elem`) $ internalSymbols m
-    case p of
-        True -> return [s]
-        False -> throwE $ SymbolNotFound i s "Export.symbolsProvided"
+    if p
+        then return [s]
+        else throwE $ SymbolNotFound i s "Export.symbolsProvided"
 symbolsProvided m@(Module i _ _ _ _) (ModuleExport n)
     | m `importsModule` n
       = liftM (map getChild) $ getModule (ModuleInfo n) >>= exportedSymbols 
-    | m `infoMatches` (ModuleInfo n) = return $ map getChild $ allSymbols m
+    | m `infoMatches` ModuleInfo n = return $ map getChild $ allSymbols m
     | otherwise
       = throwE $ ModuleNotImported i (ModuleInfo n) "Export.symbolsProvided"
 symbolsProvided m (AggregateExport s (Just ss))

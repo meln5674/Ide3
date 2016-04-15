@@ -108,7 +108,7 @@ doDeclarations :: ViewerStateM String
 doDeclarations = withSelectedModule 
     $ return 
     . asShows
-    . map (Declaration.info) 
+    . map Declaration.info
     . items 
     . Module.getDeclarations
 
@@ -184,7 +184,7 @@ settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=
 
 isPrefixOfCommand l 
     = mapMaybe
-        (\x -> if (l `isPrefixOf` x && l /= x) then Just x else Nothing)
+        (\x -> if l `isPrefixOf` x && l /= x then Just x else Nothing)
       cmdList
 
 isCommandPrefixOf l'
@@ -226,9 +226,9 @@ cmdPrefixCompletion l =
 moduleNameCompletion :: String -> ViewerStateM (Maybe [Completion])
 moduleNameCompletion s = do
     p <- hasOpenedProject
-    case p of
-        False -> return Nothing
-        True -> do
+    if not p
+        then return Nothing
+        else do
             r <- runExceptT $ do
                 mods <- getModules
                 let modNames = catMaybes $ for mods  $ \m -> case m of
@@ -266,9 +266,9 @@ declarationNameCompletion s = do
 cmdArgCompletion :: String -> String -> ViewerStateM (Maybe [Completion])
 cmdArgCompletion cmd arg = do
     p <- isCommandAllowed cmd
-    case p of
-        False -> return Nothing
-        True -> case cmd of
+    if not p
+        then return Nothing
+        else case cmd of
             "help" -> return (Just [])
             "open" -> liftM Just $ listFiles arg
             "module" -> moduleNameCompletion arg
@@ -284,7 +284,7 @@ cmdArgCompletion cmd arg = do
 
 
 cmdCompletion :: (String,String) -> ViewerStateM (String, [Completion])
-cmdCompletion (l',r) = do
+cmdCompletion (l',r) =
     case cmdPrefixCompletion l of
         Just cs -> do
             cs' <- filterM (isCommandAllowed . (l ++) . replacement) cs
@@ -292,17 +292,16 @@ cmdCompletion (l',r) = do
         Nothing -> do
             let cs = isCommandPrefixOf l
             cs' <- filterM (isCommandAllowed . fst) cs
-            cs'' <- forM cs' $ \(cmd,arg) -> cmdArgCompletion cmd arg
+            cs'' <- forM cs' $ uncurry cmdArgCompletion
             let cs''' = concat $ catMaybes cs''
             return (l',cs''')
   where
     l = reverse l'
       
 main :: IO ()
-main = do
-    runViewerState $ do
+main = void $ 
+    runViewerState $
         runInputT settings $ do
             outputStrLn "Haskell project viewer"
             outputStrLn "Type \"help\" for commands"
             runMain
-    return ()

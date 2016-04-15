@@ -88,18 +88,18 @@ lastError p = case errorMessages p of
 
 parseCmd :: Stream s m Char => ParsecT s u m Cmd
 parseCmd =
-    (try parseHelp)
-    <|> (try parseOpen)
-    <|> (try parseModules)
-    <|> (try parseModule)
-    <|> (try parseDeclarations)
-    <|> (try parseImports)
-    <|> (try parseImported)
-    <|> (try parseExports)
-    <|> (try parseExported)
-    <|> (try parseVisible)
-    <|> (try parseCat)
-    <|> (try parseQuit)
+    try parseHelp
+    <|> try parseOpen
+    <|> try parseModules
+    <|> try parseModule
+    <|> try parseDeclarations
+    <|> try parseImports
+    <|> try parseImported
+    <|> try parseExports
+    <|> try parseExported
+    <|> try parseVisible
+    <|> try parseCat
+    <|> try parseQuit
     <|> parseGarbage
 
 parse :: Stream s Identity Char => s -> Either String Cmd

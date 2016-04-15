@@ -27,7 +27,7 @@ type ViewerStateM = StateT ViewerState (StateT FileSystemProject (ProjectStateT 
 data ViewerResume = Resume ViewerState FileSystemProject Project
 
 runViewerState :: ViewerStateM a -> IO (a,ViewerResume)
-runViewerState f = resumeViewerState f (Resume (Viewer Nothing) (Unopened) initialProject)
+runViewerState f = resumeViewerState f (Resume (Viewer Nothing) Unopened initialProject)
 {-    let runViewer = runStateT f (Viewer Nothing)
         runFPS = runStateT runViewer Unopened
         runProject = runProjectStateT runFPS
