@@ -21,7 +21,7 @@ import Control.Monad.Trans.Except
 import qualified Data.Map as Map
 
 import Ide3.Types
-import Ide3.Monad hiding (new, addExport, addImport, addDeclaration)
+import Ide3.Monad (ProjectM, ProjectResult)
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Export as Export
 import qualified Ide3.Import as Import

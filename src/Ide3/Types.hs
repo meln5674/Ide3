@@ -90,19 +90,21 @@ getModuleName _ = Symbol "UNNAMED MODULE"
 -- | A module pragma
 type Pragma = String
 
+type ImportCollection = Map ImportId (WithBody Import)
+
+type ExportCollection = Maybe (Map ExportId (WithBody Export))
+
+type DeclarationCollection = Map DeclarationInfo (WithBody Declaration)
+
 -- |A module. 
 data Module
     = Module 
-             -- Identifying information
-             ModuleInfo
-             -- Pragmas
-             [Pragma]
-             -- Imports
-             (Map ImportId (WithBody Import))
-             -- Exports, or 'Nothing' if the module exports everything
-             (Maybe (Map ExportId (WithBody Export)))
-             -- Declarations
-             (Map DeclarationInfo (WithBody Declaration))
+    { moduleInfo :: ModuleInfo  -- ^ Identifying information
+    , modulePragmas :: [Pragma] -- ^ Pragmas
+    , moduleImports :: ImportCollection
+    , moduleExports :: ExportCollection
+    , moduleDeclarations :: DeclarationCollection
+    }
     deriving (Show, Read, Eq)
 
 data ExternExport
@@ -152,11 +154,8 @@ data ImportKind
     = NameImport Symbol
     -- |Importing a symbol under a namespace
     | AbsImport Symbol Symbol
-    -- |Importing a symbol and all of its sub-symbols (class methods, data
-    --  constructors, etc...)
-    | AllImport Symbol
-    -- |Importing a symbol and only some of its sub-symbols
-    | SomeImport Symbol [Symbol]
+    -- |Importing a symbol and either all of some of its sub-symbols
+    | AggregateImport Symbol (Maybe [Symbol])
     deriving (Show, Read, Eq)
 
 -- |An export statement
@@ -303,6 +302,7 @@ data ProjectError u
     | ParseError SrcLoc String String
     | Unsupported String
     | UserError u
+    deriving Eq
 
 instance Show u => Show (ProjectError u) where
     show (ModuleNotFound i s)

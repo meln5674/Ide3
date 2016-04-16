@@ -62,8 +62,8 @@ extractImports _ _ = []
 
 -- |Extract the declarations from the module
 extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (ProjectError u) [WithBody Declaration]
-extractDecls str (Syntax.Module _ _ _ _ decls, _)
-    = Declaration.combineMany <$> mapM (Declaration.convertWithBody str) decls
+extractDecls str (Syntax.Module _ _ _ _ decls, cs)
+    = Declaration.combineMany <$> mapM (Declaration.convertWithBody str cs) decls
 extractDecls _ _ = Right []
 
 -- |Extract the data needed for buliding a Module

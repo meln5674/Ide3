@@ -10,6 +10,7 @@ Portability : POSIX
 
 This module provides functions for parsing declarations
 -}
+{-# LANGUAGE FlexibleInstances #-}
 module Ide3.Declaration.Parser where
 
 import Data.Monoid
@@ -19,6 +20,7 @@ import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
 import Ide3.SrcLoc
 
@@ -162,10 +164,23 @@ parseMany s = case parseModule s of
     ParseOk _ -> Left $ Unsupported "" 
     ParseFailed l msg -> Left $ ParseError l msg ""
 
+instance Spannable Comment where
+    getSpan (Comment _ s _) = s
+
 -- | Convert a declaration and extract its body
-convertWithBody :: (Show a, Spanable a, SrcInfo a) => String -> Decl a -> Either (ProjectError u) (WithBody Declaration)
-convertWithBody str x = case tryConvert x of
-    Just decl -> Right $ WithBody decl (ann x >< str)
+convertWithBody :: (Show a, Spannable a, SrcInfo a) 
+                => String 
+                -> [Comment]
+                -> Decl a
+                -> Either (ProjectError u) (WithBody Declaration)
+convertWithBody str cs x = case tryConvert x of
+    Just decl -> Right $ WithBody decl (spanWithComments >< str)
+      where
+        leftBoundaryComments = leftBoundaries str (ann x) cs 
+        spanWithComments = case leftBoundaryComments of
+            [] -> getSpan $ ann x
+            (c:_) -> mergeSrcSpan (getSpan c) (getSpan $ ann x)
+        
     Nothing -> Left $ Unsupported $ (ann x >< str) ++ " " ++ show (ann x)
 
 -- | Take a list of declarations and combine the first type signature with the first bind

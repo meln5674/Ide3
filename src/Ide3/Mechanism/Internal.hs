@@ -8,9 +8,8 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-TODO
+TODO: Description
 -}
-{-# LANGUAGE ScopedTypeVariables #-}
 module Ide3.Mechanism.Internal where
 
 import Control.Monad
@@ -26,6 +25,12 @@ import qualified Ide3.Declaration as Declaration
 
 import Ide3.Monad
 
+{-
+f :: Monad m => Either e a -> (a -> ExceptT e m a) -> ExceptT e m a
+f p s = case p of
+    Right x -> s x
+    Left e -> throwE e
+-}
 -- | Parse an import and add it to a module
 addRawImport :: ProjectM m => ModuleInfo -> String -> ProjectResult m u ImportId
 addRawImport mi s = case Import.parse s of
@@ -41,18 +46,18 @@ addRawExport mi s = case Export.parse s of
 -- | Parse a declaration and add it to a module
 addRawDeclaration :: ProjectM m => ModuleInfo -> String -> ProjectResult m u ()
 addRawDeclaration i s = case Declaration.parse s of
-    Right d -> do addDeclaration i (WithBody d s)
-                  return ()
+    Right d -> void $ addDeclaration i (WithBody d s)
     Left err -> throwE err
     
 -- | Parse an entire module and add it to the project
 addRawModule :: ProjectM m => String -> Maybe FilePath -> ProjectResult m u  ModuleInfo
 addRawModule s p = case Module.parse s p of
-    Right (m,_,_) -> do addModule m
-                        return $ Module.info m
+    Right (m,_,_) -> do
+        addModule m
+        return $ Module.info m
     Left err -> throwE err
 
-
+-- | Get either an internal or external module
 getAnyModule :: ProjectM m => ModuleInfo -> ProjectResult m u EitherModule
 getAnyModule i = catchE (liftM Left $ getModule i) $ \_ -> liftM Right $ getExternModule i
 
@@ -67,9 +72,3 @@ getExternalSymbols i = do
 -- | Get the symbols availible at the top level of a module
 getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]
 getInternalSymbols m = getModule m >>= Module.internalSymbols
-
-{-
-class Monad m => ProjectResolveM m u where
-    getLocalModule :: ModuleInfo -> ProjectResult m u u (Maybe Module)
-    getExternalModule :: ModuleInfo -> ProjectResult m u u (Maybe Module)
--}

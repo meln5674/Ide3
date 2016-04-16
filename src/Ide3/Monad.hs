@@ -51,28 +51,52 @@ class Monad m => ProjectM m where
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
     finalize :: ProjectResult m u ()
+
+
     -- |Apply a transformation to the projects identifying information
     editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m u ()
+
+
     -- |Add a module
     addModule :: Module -> ProjectResult m u ()
+    -- | Add an external module
     addExternModule :: ExternModule -> ProjectResult m u ()
     -- |Create a new module
     createModule :: ModuleInfo -> ProjectResult m u ()
     -- |Retrieve a module
     getModule :: ModuleInfo -> ProjectResult m u Module
+    -- | Retrieve an external module
     getExternModule :: ModuleInfo -> ProjectResult m u ExternModule
+    -- |Get a list of all the availible modules
+    getModules :: ProjectResult m u [ModuleInfo]
+    -- | Apply a transformation to a module
+    editModule :: ModuleInfo -> (Module -> Either (ProjectError u) Module) -> ProjectResult m u ()
     -- |Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
     removeModule :: ModuleInfo -> ProjectResult m u ()
+    
+
+
     -- |Add a declaration to a module
     addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m u ()
+    getDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u (WithBody Declaration)
+    -- | Apply a transformation to a declaration in a module
+    editDeclaration :: ModuleInfo 
+                    -> DeclarationInfo 
+                    -> (Declaration -> Either (ProjectError u) Declaration)
+                    -> ProjectResult m u ()
+    -- | Remove a declaration from a module
+    removeDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u ()
+
     -- |Add an import to a module
     addImport :: ModuleInfo -> WithBody Import -> ProjectResult m u ImportId
     -- |Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
     removeImport :: ModuleInfo -> ImportId -> ProjectResult m u ()
+
+
     -- |Add an export to a module
     addExport :: ModuleInfo -> WithBody Export -> ProjectResult m u ExportId
     -- |Remove an export from a module
@@ -80,5 +104,3 @@ class Monad m => ProjectM m where
     removeExport :: ModuleInfo -> ExportId -> ProjectResult m u ()
     -- |Set a module to export all of its symbols
     exportAll :: ModuleInfo -> ProjectResult m u ()
-    -- |Get a list of all the availible modules
-    getModules :: ProjectResult m u [ModuleInfo]

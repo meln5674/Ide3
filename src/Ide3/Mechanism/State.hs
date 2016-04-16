@@ -31,7 +31,7 @@ module Ide3.Mechanism.State
 
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.State.Strict (StateT, runStateT)
+import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
 import Control.Monad.Trans.Except
 import Control.Monad.Identity
 
@@ -110,24 +110,37 @@ modifyProjectER f = do
                            return r
         Left msg -> throwE msg
 
+instance Monad m => ProjectStateM (ProjectStateT m) where
+    getProject = get
+    putProject = put
+
 instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
     load = Ide3.Mechanism.State.load >>= lift . putProject
     new i = Ide3.Mechanism.State.new i >>= lift . putProject
     finalize = lift getProject >>= Ide3.Mechanism.State.finalize
+
     editProjectInfo f = lift $ modifyProject $ \p -> p{projectInfo = f $ projectInfo p} 
+
     addModule m = modifyProjectE $ \p -> Project.addModule p m
     addExternModule m = modifyProjectE $ \p -> Project.addExternModule p m
     createModule i = modifyProjectE $ \p -> Project.createModule p i
     getModule i = ExceptT $ getsProject $ \p -> Project.getModule p i
     getExternModule i = ExceptT $ getsProject $ \p -> Project.getExternModule p i
+    getModules = lift $ getsProject Project.allModules
+    editModule i f = modifyProjectE $ \p -> Project.editModule p i f        
     removeModule i = modifyProjectE $ \p -> Project.removeModule p i
+
     addDeclaration i d = modifyProjectE $ \p -> Project.addDeclaration p i d
+    getDeclaration i di = ExceptT $ getsProject $ \p -> getChild <$> Project.getDeclaration p (ModuleChild i di)
+    editDeclaration i di f = modifyProjectE $ \p -> Project.editDeclaration p (ModuleChild i di) f
+    removeDeclaration i di = modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
+
     addImport mi i = modifyProjectER $ \p -> Project.addImport p mi i
     removeImport mi i = modifyProjectE $ \p -> Project.removeImport p mi i
+    
     addExport mi e = modifyProjectER $ \p -> Project.addExport p mi e
     removeExport mi e = modifyProjectE $ \p -> Project.removeExport p mi e
     exportAll mi = modifyProjectE $ \p -> Project.exportAll p mi
-    getModules = lift $ getsProject Project.allModules
 {-
 --instance (ProjectShellM m, MonadState x m, HasA Project x) => ProjectM m where
 instance (ProjectShellM m, HasA Project x) => ProjectM (StateT x m) where

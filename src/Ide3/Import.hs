@@ -73,8 +73,8 @@ whitelistTree m i = do
         NameImport s | s `elem` exSyms -> return [s]
                      | otherwise -> throwE $ SymbolNotExported (Module.info m) s "Import.whitelistTree"
         AbsImport _ _ -> error "FOUND AN ABS IMPORT"
-        AllImport s -> map getChild <$> Module.symbolTree m s
-        SomeImport s ss -> do
+        AggregateImport s Nothing -> map getChild <$> Module.symbolTree m s
+        AggregateImport s (Just ss) -> do
             ls <- Module.symbolTree m s
             let ls' = map getChild ls
             case find (not . (`elem` ls')) ss of

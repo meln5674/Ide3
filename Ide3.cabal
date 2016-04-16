@@ -66,6 +66,28 @@ test-suite Ide3-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  other-modules:       Tests
+                     , Tests.Declaration
+                     , Tests.Declaration.Basic
+                     , Tests.Declaration.NonExistent
+                     , Tests.Export
+                     , Tests.Export.Basic
+                     , Tests.Export.NonExistent
+                     , Tests.Import
+                     , Tests.Import.Basic
+                     , Tests.Import.NonExistent
+                     , Tests.ImportExport
+                     , Tests.ImportExport.Basic
+                     , Tests.Module
+                     , Tests.Module.Basic
+                     , Tests.Module.Conflicting
+                     , Tests.Module.NonExistent
+                     , Tests.Parsing
+                     , Tests.Parsing.Declaration
+                     , Tests.Parsing.Export
+                     , Tests.Parsing.Import
+                     , Tests.Parsing.Module
+                     , Tests.Utils
   build-depends:       base
                      , Ide3
                      , mtl >= 2.2.1

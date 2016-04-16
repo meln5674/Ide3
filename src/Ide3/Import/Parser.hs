@@ -35,7 +35,7 @@ convert x = case importSpecs x of
     isQualified = importQualified x
 
 -- | Convert from the third part import type and extract the body as well
-convertWithBody :: (Spanable a,Show a) => String -> ImportDecl a -> WithBody Import
+convertWithBody :: (Spannable a,Show a) => String -> ImportDecl a -> WithBody Import
 convertWithBody str x = WithBody import_ body
   where
     body = ann x >< str
@@ -51,6 +51,6 @@ parse s = case parseImportDecl s of
 getSpec :: Show a => ImportSpec a -> ImportKind
 getSpec (IVar _ n) = NameImport (toSym n)
 getSpec (IAbs _ (NoNamespace _) n) = NameImport (toSym n)
-getSpec (IThingAll _ n) = AllImport (toSym n)
-getSpec (IThingWith _ n ns) = SomeImport (toSym n) (map toSym ns)
+getSpec (IThingAll _ n) = AggregateImport (toSym n) Nothing
+getSpec (IThingWith _ n ns) = AggregateImport (toSym n) $ Just $ map toSym ns
 getSpec x = error $ show x

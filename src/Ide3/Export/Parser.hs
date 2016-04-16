@@ -33,7 +33,7 @@ convert export = case export of
     EModuleContents _ n -> ModuleExport (toSym n)
 
 -- | Convert from the third party export and extract the body
-convertWithBody :: Spanable a => String -> ExportSpec a -> WithBody Export
+convertWithBody :: Spannable a => String -> ExportSpec a -> WithBody Export
 convertWithBody str export = WithBody (convert export) (ann export >< str)
 
 -- | Parse an export
