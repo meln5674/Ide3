@@ -1,8 +1,22 @@
 import Test.HUnit
 
-import Control.Monad.State
+import System.Exit
 
+import Control.Monad
+
+import Tests
+
+main :: IO ()
+main = do
+    c <- runTestTT tests_all
+    when (errors c /= 0 || failures c /= 0) $ exitFailure
+    exitSuccess
+
+
+--import Control.Monad.State
+{-
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
 
 --import Ide3.Mechanism
 import Ide3.Mechanism
@@ -15,6 +29,8 @@ import qualified Ide3.Module as Module
 import qualified Ide3.Project as Project
 
 import qualified Data.Map as Map
+
+
 
 testModuleName = "Test"
 testModuleName2 = "Test2"
@@ -29,7 +45,7 @@ testImport = "import Test2"
 testImportedModule = Symbol testModuleName2
 testExport = "Test"
 testExport2 = "Test2"
-{-
+
 type ProjectResult' a = [Either ProjectError a]
 type ProjectResult = ( ProjectResult' String
                      , ProjectResult' [Symbol]
@@ -122,7 +138,7 @@ testPrim = map (Module.getDeclaration mod . getChild) $ Module.allDeclarations m
     decl1 = (WithBody (TypeDeclaration (DeclarationInfo (Symbol "A")) (TypeSynonym (Symbol "A") (Symbol "B"))) "")
     decl2 = (WithBody (TypeDeclaration (DeclarationInfo (Symbol "C")) (TypeSynonym (Symbol "C") (Symbol "D"))) "")
     mod = Module.addDeclaration (Module.addDeclaration Module.empty decl1) decl2
--}
+
 
 testBase :: (Eq a, Show a) => ProjectState a -> a -> Test
 testBase f expected = result ~=? expected
@@ -148,38 +164,42 @@ testLeft f = case result of
     Left l -> TestCase $ assertBool "" True
   where
     (result,_) = runProjectState f
-  
+
+runExceptProject :: ProjectResult ProjectState () a -> ProjectState (Either (ProjectError ()) a)
+runExceptProject = runExceptT
+
+
 
 test_addModule :: Test
 test_addModule = testRight f ()
   where
-    f = runExceptT $ createModule testModuleInfo
+    f = runExceptProject $ createModule testModuleInfo
 
 test_addAndRetrieveModule :: Test
 test_addAndRetrieveModule = testRight f expected
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         getModule testModuleInfo
-    expected = Module testModuleInfo (Map.empty) Nothing (Map.empty)
+    expected = Module testModuleInfo [] (Map.empty) Nothing (Map.empty)
 
 test_getNonexistentModule :: Test
 test_getNonexistentModule = testLeft f
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         getModule testModuleInfo
 
 test_addAndRemoveModule :: Test
 test_addAndRemoveModule = testRight f ()
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         removeModule testModuleInfo
 
 test_addRemoveThenGetModule :: Test
 test_addRemoveThenGetModule = testLeft f
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         removeModule testModuleInfo
         getModule testModuleInfo
@@ -187,14 +207,14 @@ test_addRemoveThenGetModule = testLeft f
 test_addDuplicateModule :: Test
 test_addDuplicateModule = testLeft f
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         createModule testModuleInfo
 
 test_removeNonexistentModule :: Test
 test_removeNonexistentModule = testLeft f
   where
-    f = runExceptT $ removeModule testModuleInfo
+    f = runExceptProject $ removeModule testModuleInfo
 
 moduleTests =
     [ test_addModule
@@ -209,7 +229,7 @@ moduleTests =
 test_addImport :: Test
 test_addImport = testRight f True
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         addRawImport testModuleInfo testImport
         m <- getModule testModuleInfo
@@ -218,7 +238,7 @@ test_addImport = testRight f True
 test_removeImport :: Test
 test_removeImport = testRight f False
   where
-    f = runExceptT $ do
+    f = runExceptProject $ do
         createModule testModuleInfo
         id <- addRawImport testModuleInfo testImport
         removeImport testModuleInfo id
@@ -229,7 +249,7 @@ test_removeImport = testRight f False
 test_importSymbolVisible :: Test
 test_importSymbolVisible = testRight f True
     where
-        f = runExceptT $ do
+        f = runExceptProject $ do
             createModule testModuleInfo
             createModule testModuleInfo2
             addRawDeclaration testModuleInfo2 testTypeSynonym
@@ -241,7 +261,8 @@ test_importSymbolVisible = testRight f True
 testParse :: (Show e, Eq e, Show r, Eq r) => (String -> Either e r) -> String -> r -> Test
 testParse p s r = p s ~?= Right r 
 
-testParseImport = testParse Import.parse
+testParseImport :: String -> Import -> Test
+testParseImport = testParse (Import.parse :: String -> Either (ProjectError ()) Import)
 
 test_importParse1 = testParseImport 
     "import X" 
@@ -305,8 +326,4 @@ allTests = concat
     , importTests
     ]
 
-
-
-
-main :: IO ()
-main = void $ runTestTT $ TestList allTests
+-}    
