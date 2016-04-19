@@ -41,7 +41,7 @@ splitAndCount = go 0
     go _ [] _ = Nothing
     go i (x:xs) y | x == y      = Just (i+1, xs)
                   | otherwise   = go (i+1) xs y
-{-
+
 -- | Given a 1-based (row,column) pair, find the 0-based character index in a string
 indexIn :: (Int,Int) -> String -> Maybe Int
 (1,c) `indexIn` _ = Just $ c - 1
@@ -49,11 +49,12 @@ indexIn :: (Int,Int) -> String -> Maybe Int
     (lineLen,_) <- splitAndCount str '\n'
     next <- (r-1,c) `indexIn` drop lineLen str
     return $ lineLen + next
--}
+
 
 measureLines :: String -> [(String,Int)]
 measureLines = map (\l -> (l,length l + 1)) . lines
 
+{-
 indexIn :: (Int,Int) -> String -> Maybe Int
 indexIn (r,c) s = case dropWhile g $ scanl f (r,0) $ measureLines s of
     [] -> Nothing
@@ -64,6 +65,7 @@ indexIn (r,c) s = case dropWhile g $ scanl f (r,0) $ measureLines s of
     f (r',i) (_,x) = (r-1,i + x)
     g (0,_) = False
     g _ = True
+-}
 
 contacts :: SrcSpan -> SrcSpan -> String -> Bool
 contacts a b s = case (a2i,b1i) of

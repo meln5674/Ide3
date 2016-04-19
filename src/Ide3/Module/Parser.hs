@@ -19,6 +19,7 @@ import Language.Haskell.Exts.Parser
     , defaultParseMode
     , parseFilename
     , extensions
+    , fixities
     )
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc
@@ -83,5 +84,5 @@ parse s p = case parseModuleWithComments parseMode s of
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
     parseMode = case p of
-        Just fn -> defaultParseMode{parseFilename=fn,extensions=glasgowExts}
-        Nothing -> defaultParseMode{extensions=glasgowExts}
+        Just fn -> defaultParseMode{parseFilename=fn,extensions=glasgowExts,fixities=Just[]}
+        Nothing -> defaultParseMode{extensions=glasgowExts,fixities=Just[]}
