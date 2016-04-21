@@ -60,7 +60,7 @@ importedModuleName :: Import -> Symbol
 importedModuleName i = fromMaybe name rename
   where
     name = moduleName i
-    rename = renamed i
+    rename = renamed i        
 
 -- | Find the symbols to import from a module using a whitelist import
 whitelistTree :: ProjectM m

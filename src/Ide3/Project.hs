@@ -36,6 +36,11 @@ modifiersOf s = concatMap (Module.modifiersOf s) . projectModules
 allDeclarations :: Project -> [ModuleChild DeclarationInfo]
 allDeclarations = concatMap Module.allDeclarations . projectModules
 
+-- |List every declaration in the project, tagged with the modules they are
+--  present in
+allDeclarationsIn :: Project -> ModuleInfo -> Either (ProjectError u) [ModuleChild DeclarationInfo]
+allDeclarationsIn p mi = getModule p mi >>= return . Module.allDeclarations
+
 -- |List every symbol in the project, tagged with the modules they are
 --  present in
 allSymbols :: Project -> [ModuleChild Symbol]
@@ -168,6 +173,17 @@ removeImport :: Project
              -> ImportId
              -> Either (ProjectError u) Project
 removeImport p mi i = editModule p mi $ \m -> Module.removeImport m i
+
+getImport :: Project
+          -> ModuleInfo
+          -> ImportId
+          -> Either (ProjectError u) (WithBody Import)
+getImport p mi iid = getModule p mi >>= \m -> Module.getImport m iid
+
+getImports :: Project -> ModuleInfo -> Either (ProjectError u) [ImportId]
+getImports p mi = getModule p mi >>= \m -> return (Module.getImportIds m)
+
+
 -- |Set a module to export all of its symbols
 exportAll :: Project
           -> ModuleInfo
@@ -186,6 +202,23 @@ removeExport :: Project
              -> ExportId
              -> Either (ProjectError u) Project
 removeExport p mi e = editModule p mi $ \m -> Module.removeExport m e
+
+-- | Set a module to export nothing
+-- This function failes if no matching module is found
+exportNothing :: Project
+              -> ModuleInfo
+              -> Either (ProjectError u) Project
+exportNothing p mi = editModule' p mi $ Module.exportNothing
+
+getExports :: Project -> ModuleInfo -> Either (ProjectError u) [ExportId]
+getExports p mi = getModule p mi >>= \m -> return (Module.getExportIds m)
+
+getExport :: Project
+          -> ModuleInfo
+          -> ExportId
+          -> Either (ProjectError u) (WithBody Export)
+getExport p mi eid = getModule p mi >>= \m -> Module.getExport m eid
+
 -- |Add a declaration to a module
 addDeclaration :: Project 
                -> ModuleInfo 

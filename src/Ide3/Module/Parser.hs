@@ -84,5 +84,6 @@ parse s p = case parseModuleWithComments parseMode s of
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
     parseMode = case p of
-        Just fn -> defaultParseMode{parseFilename=fn,extensions=glasgowExts,fixities=Just[]}
-        Nothing -> defaultParseMode{extensions=glasgowExts,fixities=Just[]}
+        Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
+        Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
+    exts = (EnableExtension LambdaCase) : glasgowExts

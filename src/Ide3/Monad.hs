@@ -80,7 +80,10 @@ class Monad m => ProjectM m where
 
     -- |Add a declaration to a module
     addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m u ()
+    -- | Get a declaration in a module from its info
     getDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u (WithBody Declaration)
+    -- | Get all info on all declarations in a module
+    getDeclarations :: ModuleInfo -> ProjectResult m u [DeclarationInfo]
     -- | Apply a transformation to a declaration in a module
     editDeclaration :: ModuleInfo 
                     -> DeclarationInfo 
@@ -91,16 +94,26 @@ class Monad m => ProjectM m where
 
     -- |Add an import to a module
     addImport :: ModuleInfo -> WithBody Import -> ProjectResult m u ImportId
+    -- | Get an import from a module
+    getImport :: ModuleInfo -> ImportId -> ProjectResult m u (WithBody Import)
     -- |Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
     removeImport :: ModuleInfo -> ImportId -> ProjectResult m u ()
+    -- | Get a list of all of the import ids in a module
+    getImports :: ModuleInfo -> ProjectResult m u [ImportId]
 
 
     -- |Add an export to a module
     addExport :: ModuleInfo -> WithBody Export -> ProjectResult m u ExportId
+    -- | Get an export from a module
+    getExport :: ModuleInfo -> ExportId -> ProjectResult m u (WithBody Export)
     -- |Remove an export from a module
     --  Instances are expected to return a Left value if a matching export is not found
     removeExport :: ModuleInfo -> ExportId -> ProjectResult m u ()
     -- |Set a module to export all of its symbols
     exportAll :: ModuleInfo -> ProjectResult m u ()
+    -- | Set a module to export nothing
+    exportNothing :: ModuleInfo -> ProjectResult m u  ()
+    -- | Get a list of all of the export ids in a module
+    getExports :: ModuleInfo -> ProjectResult m u [ExportId]

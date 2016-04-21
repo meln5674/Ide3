@@ -55,7 +55,7 @@ symbolsProvided m (AggregateExport s (Just ss))
         tree <- map getChild <$> symbolTree m s 
         case find (not . (`elem` tree)) ss of
                 Just s' -> throwE $ NotSubSymbol s s' "Export.symbolsProvided"
-                Nothing -> return ss
+                Nothing -> return $ s:ss
     | otherwise
       = throwE $ SymbolNotFound (info m) s "Export.symbolsProvided"
 symbolsProvided m (AggregateExport s Nothing)

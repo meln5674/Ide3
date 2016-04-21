@@ -71,6 +71,11 @@ parse s p = case Parser.parse s p of
 getImports :: Module -> [WithBody Import]
 getImports (Module _ _ is _ _) = Map.elems is
 
+getImport :: Module -> ImportId -> Either (ProjectError u) (WithBody Import)
+getImport (Module mi _ is _ _) iid = case Map.lookup iid is of
+    Just i -> Right i
+    Nothing -> Left $ InvalidImportId mi iid "Module.getImport"
+
 getPragmas :: Module -> [Pragma]
 getPragmas (Module _ ps _ _ _) = ps
 
@@ -82,6 +87,20 @@ getDeclarations (Module _ _ _ _ ds) = Map.elems ds
 getExports :: Module -> [WithBody Export]
 getExports (Module _ _ _ Nothing _) = []
 getExports (Module _ _ _ (Just es) _) = Map.elems es
+
+getExport :: Module -> ExportId -> Either (ProjectError u) (WithBody Export)
+getExport (Module mi _ _ (Just es) _) eid = case Map.lookup eid es of
+    Just e -> Right e
+    Nothing -> Left $ InvalidExportId mi eid "Module.getExport"
+getExport (Module _ _ _ Nothing _) _ = Left $ InvalidOperation "Can't get export from an export all" "Module.getExport"
+
+getExportIds :: Module -> [ExportId]
+getExportIds (Module _ _ _ Nothing _) = []
+getExportIds (Module _ _ _ (Just es) _) = Map.keys es
+
+getImportIds :: Module -> [ImportId]
+getImportIds (Module _ _ is _ _) = Map.keys is
+
 
 -- |Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
@@ -241,6 +260,9 @@ removeExport :: Module -> ExportId -> Either (ProjectError u) Module
 removeExport (Module _ _ _ Nothing _) _ = Left $ InvalidOperation "Can't remove an export from an export all" "Module.removeExport"
 removeExport (Module mi ps is (Just es) ds) e
     = Right $ Module mi ps is (Just $ e `Map.delete` es) ds
+
+exportNothing :: Module -> Module
+exportNothing (Module mi ps is _ ds) = Module mi ps is (Just Map.empty) ds
 
 -- |Add a declaration to a module
 addDeclaration :: Module -> WithBody Declaration -> Module

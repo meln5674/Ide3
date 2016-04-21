@@ -132,15 +132,21 @@ instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
 
     addDeclaration i d = modifyProjectE $ \p -> Project.addDeclaration p i d
     getDeclaration i di = ExceptT $ getsProject $ \p -> getChild <$> Project.getDeclaration p (ModuleChild i di)
+    getDeclarations i = ExceptT $ getsProject $ \p -> map getChild <$> Project.allDeclarationsIn p i
     editDeclaration i di f = modifyProjectE $ \p -> Project.editDeclaration p (ModuleChild i di) f
     removeDeclaration i di = modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
 
     addImport mi i = modifyProjectER $ \p -> Project.addImport p mi i
+    getImport mi iid = ExceptT $ getsProject $ \p -> Project.getImport p mi iid
     removeImport mi i = modifyProjectE $ \p -> Project.removeImport p mi i
+    getImports mi = ExceptT $ getsProject $ \p -> Project.getImports p mi
     
     addExport mi e = modifyProjectER $ \p -> Project.addExport p mi e
+    getExport mi eid = ExceptT $ getsProject $ \p -> Project.getExport p mi eid
     removeExport mi e = modifyProjectE $ \p -> Project.removeExport p mi e
     exportAll mi = modifyProjectE $ \p -> Project.exportAll p mi
+    exportNothing mi = modifyProjectE $ \p -> Project.exportNothing p mi
+    getExports mi = ExceptT $ getsProject $ \p -> Project.getExports p mi
 {-
 --instance (ProjectShellM m, MonadState x m, HasA Project x) => ProjectM m where
 instance (ProjectShellM m, HasA Project x) => ProjectM (StateT x m) where
