@@ -14,7 +14,6 @@ tests_nonExistentExport = TestList
     , test_removeExportFromNonExistentModule
     , test_exportAllNonExistentModule
     , test_removeNonExistentExport
-    , test_addExportWithoutDeclaration
     ]
 
 test_addExportToNonExistentModule :: (?loc :: CallStack) => Test    
@@ -22,13 +21,14 @@ test_addExportToNonExistentModule = expectFailure $ do
     addExport nonExistentModuleInfo newExport
 
 test_removeExportFromNonExistentModule :: (?loc :: CallStack) => Test    
-test_removeExportFromNonExistentModule = unimplementedTest
+test_removeExportFromNonExistentModule = expectFailure $ do
+    removeExport nonExistentModuleInfo nonExistentExportId
 
 test_exportAllNonExistentModule :: (?loc :: CallStack) => Test    
-test_exportAllNonExistentModule = unimplementedTest
+test_exportAllNonExistentModule = expectFailure $ do
+    exportAll nonExistentModuleInfo
 
 test_removeNonExistentExport :: (?loc :: CallStack) => Test    
-test_removeNonExistentExport = unimplementedTest
-
-test_addExportWithoutDeclaration :: (?loc :: CallStack) => Test    
-test_addExportWithoutDeclaration = unimplementedTest
+test_removeNonExistentExport = expectFailure $ do
+    createModule newModuleInfo
+    removeExport newModuleInfo nonExistentExportId
