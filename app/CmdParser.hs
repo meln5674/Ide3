@@ -20,6 +20,7 @@ data Cmd
     | Exported
     | Visible
     | Cat String
+    | Tree
     | Quit
     deriving Show
 
@@ -67,6 +68,9 @@ parseVisible = parseArity0 "visible" Visible
 parseCat :: Stream s m Char => ParsecT s u m Cmd
 parseCat = parseArity1 "cat" Cat "smbol name"
 
+parseTree :: Stream s m Char => ParsecT s u m Cmd
+parseTree = parseArity0 "tree" Tree
+
 parseQuit :: Stream s m Char => ParsecT s u m Cmd
 parseQuit = parseArity0 "quit" Quit
 
@@ -99,6 +103,7 @@ parseCmd =
     <|> try parseExported
     <|> try parseVisible
     <|> try parseCat
+    <|> try parseTree
     <|> try parseQuit
     <|> parseGarbage
 
@@ -120,5 +125,6 @@ cmdList =
     , "exported"
     , "visible"
     , "cat"
+    , "tree"
     , "quit"
     ]

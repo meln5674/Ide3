@@ -1,7 +1,11 @@
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import Data.List
 import Data.Maybe
+import qualified Data.Set as Set
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -47,6 +51,7 @@ printHelp = intercalate "\n"
         , "exported: list the symbols exported by the current module"
         , "visible: list the symbols visible at the top level of the current module"
         , "cat SYMBOL: show the body of the declaration of SYMBOL"
+        , "tree: Display a tree of the current project's modules and declarations"
         , "quit: exit the program"
         ]
 
@@ -146,8 +151,170 @@ doCat sym = withSelectedModule $ \module_ -> ExceptT $ return $ do
         strings = asStrings . lines . body . getChild $ decl
     return strings
 
+doTree :: ViewerStateM String
+doTree = printOnError $ do
+    trees <- makeTree
+    return $ intercalate "\n \n" $ map formatTree trees
+    --return $ show trees
+
 doQuit :: ViewerStateM String
 doQuit = return ""
+
+partitionBy :: Ord k => (a -> k) -> [a] -> Map k [a]
+partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -> Just (x:ys) }) (f x) m) Map.empty
+
+data ModuleTree
+    = OrgNode ModuleInfo [ModuleTree]
+    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree]
+    deriving Show
+
+makeTreeSkeleton :: [ModuleInfo] -> [ModuleTree]
+makeTreeSkeleton = go ""
+  where
+    go knownRoot modInfos = for partitions processPartition
+      where
+        processPartition (rootInfo,subModuleNames) = makeNode rootInfo newRoot toProcess
+          where
+            rootPresent = rootInfo `elem` subModuleNames
+            rootString = case rootInfo of
+                ModuleInfo (Symbol s) -> s
+                UnamedModule (Just p) -> p
+            newRoot = rootString ++ "."
+            toProcess = if rootPresent
+                then delete rootInfo subModuleNames
+                else subModuleNames
+            makeNode x y z = if rootPresent
+                then ModuleNode x [] $ go y z
+                else OrgNode x $ go y z
+        partitions = Map.toList $ partitionBy getRootName modInfos
+        getRootName (ModuleInfo (Symbol s)) = ModuleInfo $ Symbol $ preRoot ++ postRoot
+          where
+            preRoot = take (length knownRoot) s
+            postRoot = takeWhile ('.' /= ) $ drop (length knownRoot) s
+        getRootName x = x
+
+
+{-
+Take a list of module names
+Find all root module names
+Collect module names into lists tagged with the root
+For each list:
+    If the root is present:
+        remove the root
+        Repeat the process on the sub-list, not considering the root as part of the name
+        Collect the result into a ModuleNode with empty declarations
+    If the root is not present:
+        Repeat the process on the sub-list, not considering the root as part of the name
+        Collect the result into an OrgNode
+
+-}
+
+fillTree :: ProjectM m => ModuleTree -> ProjectResult m u ModuleTree
+fillTree (OrgNode i ts) = do
+    ts' <- mapM fillTree ts
+    return $ OrgNode i ts'
+fillTree (ModuleNode i _ ts) = do
+    ds <- getDeclarations i
+    ts' <- mapM fillTree ts
+    return $ ModuleNode i ds ts'
+
+makeTree :: ProjectM m => ProjectResult m u [ModuleTree]
+makeTree = do
+    modules <- getModules
+    let emptyTree = makeTreeSkeleton modules
+    mapM fillTree emptyTree
+    
+formatTree :: ModuleTree -> String
+formatTree = intercalate "\n" . go []
+  where
+    go prefixFlags tree = lines
+      where
+        buildPrefix [] = ""
+        buildPrefix (True:xs)  = buildPrefix xs ++ "|   "
+        buildPrefix (False:xs) = buildPrefix xs ++ "    "
+        prefix = buildPrefix prefixFlags
+        headPrefix = buildPrefix (drop 1 prefixFlags)
+        decls = case tree of 
+            OrgNode{} -> []
+            ModuleNode _ ds _ -> ds
+        subModules = case tree of
+            OrgNode _ ms -> ms
+            ModuleNode _ _ ms -> ms
+        moduleInfo = case tree of
+            OrgNode n _ -> n
+            ModuleNode n _ _ -> n
+        moduleName = case moduleInfo of
+            ModuleInfo (Symbol n) -> n
+            UnamedModule (Just p) -> p
+        firstLine = case prefixFlags of
+            [] -> moduleName
+            [_] -> "+-- " ++ moduleName
+            _ -> headPrefix ++ "+-- " ++ moduleName
+        declLines = case decls of
+            [] -> []
+            ds -> map ((prefix ++) . ("|- " ++) . makeLine) ds
+              where
+                makeLine (DeclarationInfo (Symbol s)) = s
+        subModuleLines = case subModules of
+            [] -> []
+            ms -> firstModuleLines ++ lastModuleLines
+              where
+                firstModules = init ms
+                lastModule = last ms
+                firstModuleLines = concatMap (go (True:prefixFlags)) firstModules
+                lastModuleLines = go (False:prefixFlags) lastModule
+        lines = case (declLines,subModuleLines) of
+            ([],[]) -> [firstLine,prefix]
+            (ds,[]) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix]
+            ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]
+            (ds,ms) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix ++ "|"] ++ ms ++ [prefix]
+        
+{-
+A
+|- x
+|- y
+|
++-- A.B
+|   |- a
+|   |- b
+|   |
+|   +-- A.B.D
+|   |   |
+|   |   +-- A.B.D.E
+|   |       |
+|   |       +-- A.B.D.E.G
+|   |
+|   +-- A.B.F
+|
++-- A.C
+    |
+    +-- A.C.D
+
+E
+|
++-- E.F
+    |- 1
+    |- 2
+
+
+Steps:
+PREFIX +-- MODULENAME
+[
+    {PREFIX |- DECLARATIONNAME} DECLARATIONS
+    |
+]
+[
+    {
+        PREFIX |
+        SUBMODULE, PREFIX+= |
+    } SUBMODULES
+    |
+]
+PREFIX
+
+
+
+-}
 
 repl :: InputT ViewerStateM Bool
 repl = do
@@ -167,6 +334,7 @@ repl = do
             Exported -> doExported
             Visible -> doVisible
             Cat sym -> doCat sym
+            Tree -> doTree
             Quit -> error "wut?"
     case response of
         Just output -> outputStrLn output >> return True
@@ -212,6 +380,7 @@ isCommandAllowed "exports" = hasCurrentModule
 isCommandAllowed "exported" = hasCurrentModule
 isCommandAllowed "visible" = hasCurrentModule
 isCommandAllowed "cat" = hasCurrentModule
+isCommandAllowed "tree" = hasOpenedProject
 isCommandAllowed "quit" = return True
 isCommandAllowed _ = return False
 
@@ -282,6 +451,7 @@ cmdArgCompletion cmd arg = do
             "exported" -> return (Just [])
             "visible" -> return (Just [])
             "cat" -> declarationNameCompletion arg
+            "tree" -> return (Just [])
             "quit" -> return (Just [])
             x -> error $ "Internal Error: Invalid command " ++ x ++ " was parsed"
 
