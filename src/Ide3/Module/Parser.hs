@@ -86,4 +86,4 @@ parse s p = case parseModuleWithComments parseMode s of
     parseMode = case p of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
-    exts = (EnableExtension LambdaCase) : glasgowExts
+    exts = EnableExtension LambdaCase : glasgowExts

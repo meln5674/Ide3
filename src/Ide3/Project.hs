@@ -15,6 +15,8 @@ module Ide3.Project where
 
 import qualified Data.Map as Map
 
+import Control.Monad
+
 import Ide3.Types
 import qualified Ide3.Module as Module
 
@@ -39,7 +41,7 @@ allDeclarations = concatMap Module.allDeclarations . projectModules
 -- |List every declaration in the project, tagged with the modules they are
 --  present in
 allDeclarationsIn :: Project -> ModuleInfo -> Either (ProjectError u) [ModuleChild DeclarationInfo]
-allDeclarationsIn p mi = getModule p mi >>= return . Module.allDeclarations
+allDeclarationsIn p mi = liftM Module.allDeclarations $ getModule p mi
 
 -- |List every symbol in the project, tagged with the modules they are
 --  present in
@@ -208,7 +210,7 @@ removeExport p mi e = editModule p mi $ \m -> Module.removeExport m e
 exportNothing :: Project
               -> ModuleInfo
               -> Either (ProjectError u) Project
-exportNothing p mi = editModule' p mi $ Module.exportNothing
+exportNothing p mi = editModule' p mi Module.exportNothing
 
 getExports :: Project -> ModuleInfo -> Either (ProjectError u) [ExportId]
 getExports p mi = getModule p mi >>= \m -> return (Module.getExportIds m)
