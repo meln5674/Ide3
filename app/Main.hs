@@ -3,7 +3,6 @@ module Main where
 
 import Data.List
 import Data.Maybe
-import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -14,19 +13,14 @@ import Control.Monad
 
 import System.Console.Haskeline
 
-import Ide3.Monad
 
-import qualified Ide3.Declaration as Declaration
-import qualified Ide3.Module as Module
-
-import Ide3.Types (item, items, body, Module, ModuleInfo(..), Symbol(..), getChild, DeclarationInfo (..), ProjectError (..))
-
-import Ide3.Mechanism.State()
 
 import qualified CmdParser as Cmd
 import CmdParser
+import Command
 import Viewer
 
+{-
 readCmd :: InputT ViewerStateM (Maybe Cmd)
 readCmd = do
     input <- getInputLine ">"
@@ -36,6 +30,9 @@ readCmd = do
             Right cmd -> return $ Just cmd
             Left err -> outputStrLn err >> return Nothing
 
+
+-}
+{-
 printHelp :: String
 printHelp = intercalate "\n"
         [ "Commands: "
@@ -54,220 +51,9 @@ printHelp = intercalate "\n"
         , "tree: Display a tree of the current project's modules and declarations"
         , "quit: exit the program"
         ]
-
-type UserError = ()
-
-printOnError :: ProjectResult ViewerStateM UserError String -> ViewerStateM String
-printOnError f = liftM (either show id) $ runExceptT f
-
-newtype Output a = MkOutput (Either a String)
-
-asShow :: Show a => a -> Output a
-asShow = MkOutput . Left
-asShows :: Show a => [a] -> [Output a]
-asShows = map asShow
-asString :: String -> Output a
-asString = MkOutput . Right
-asStrings :: [String] -> [Output a]
-asStrings = map asString
-
-instance Show a => Show (Output a) where
-    show (MkOutput (Left a)) = show a
-    show (MkOutput (Right a)) = a
-
-withSelectedModule :: Show a => (Module -> ProjectResult ViewerStateM UserError [Output a]) -> ViewerStateM String
-withSelectedModule f = printOnError $ do
-    maybeName <- lift $ gets currentModule
-    case maybeName of
-        Nothing -> throwE $ InvalidOperation "No module currently selected" ""
-        Just name -> do
-            module_ <- getModule (ModuleInfo (Symbol name))
-            xs <- f module_
-            return $ intercalate "\n" $ map show xs
-
-doHelp :: ViewerStateM String
-doHelp = return printHelp
-
-doOpen :: FilePath -> ViewerStateM String
-doOpen path = printOnError $ do
-    lift . lift $ put (ToOpen path)
-    lift $ modify $ \s -> s{currentModule=Nothing}
-    load
-    lift . lift $ put (Opened path)
-    return "Loaded"
-
-doModules :: ViewerStateM String
-doModules = printOnError $ do
-    names <- getModules
-    return $ intercalate "\n" $ map show names
-
-doModule :: String -> ViewerStateM String
-doModule name = printOnError $ do
-    _ <- getModule (ModuleInfo (Symbol name))
-    lift $ modify $ \s -> s{currentModule=Just name}
-    return ""
-
-doDeclarations :: ViewerStateM String
-doDeclarations = withSelectedModule 
-    $ return 
-    . asShows
-    . map Declaration.info
-    . items 
-    . Module.getDeclarations
-
-doImports :: ViewerStateM String
-doImports = withSelectedModule 
-    $ return
-    . asShows
-    . items
-    . Module.getImports
-
-doImported :: ViewerStateM String
-doImported = withSelectedModule
-    $ liftM asShows 
-    . Module.importedSymbols
-    
-doExports :: ViewerStateM String
-doExports = withSelectedModule
-    $ return
-    . asShows
-    . items
-    . Module.getExports
-
-doExported :: ViewerStateM String
-doExported = withSelectedModule
-    $   (return 
-    .   asShows
-    .   map getChild)
-    <=< Module.exportedSymbols 
-
-doVisible :: ViewerStateM String
-doVisible = withSelectedModule $ liftM asShows . Module.internalSymbols
-
-doCat :: String -> ViewerStateM String
-doCat sym = withSelectedModule $ \module_ -> ExceptT $ return $ do
-    decl <- Module.getDeclaration module_ (DeclarationInfo (Symbol sym))
-    let strings :: [Output Bool]
-        strings = asStrings . lines . body . getChild $ decl
-    return strings
-
-doTree :: ViewerStateM String
-doTree = printOnError $ do
-    trees <- makeTree
-    return $ intercalate "\n \n" $ map formatTree trees
-    --return $ show trees
-
-doQuit :: ViewerStateM String
-doQuit = return ""
-
-partitionBy :: Ord k => (a -> k) -> [a] -> Map k [a]
-partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -> Just (x:ys) }) (f x) m) Map.empty
-
-data ModuleTree
-    = OrgNode ModuleInfo [ModuleTree]
-    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree]
-    deriving Show
-
-makeTreeSkeleton :: [ModuleInfo] -> [ModuleTree]
-makeTreeSkeleton = go ""
-  where
-    go knownRoot modInfos = for partitions processPartition
-      where
-        processPartition (rootInfo,subModuleNames) = makeNode rootInfo newRoot toProcess
-          where
-            rootPresent = rootInfo `elem` subModuleNames
-            rootString = case rootInfo of
-                ModuleInfo (Symbol s) -> s
-                UnamedModule (Just p) -> p
-            newRoot = rootString ++ "."
-            toProcess = if rootPresent
-                then delete rootInfo subModuleNames
-                else subModuleNames
-            makeNode x y z = if rootPresent
-                then ModuleNode x [] $ go y z
-                else OrgNode x $ go y z
-        partitions = Map.toList $ partitionBy getRootName modInfos
-        getRootName (ModuleInfo (Symbol s)) = ModuleInfo $ Symbol $ preRoot ++ postRoot
-          where
-            preRoot = take (length knownRoot) s
-            postRoot = takeWhile ('.' /= ) $ drop (length knownRoot) s
-        getRootName x = x
-
-
-{-
-Take a list of module names
-Find all root module names
-Collect module names into lists tagged with the root
-For each list:
-    If the root is present:
-        remove the root
-        Repeat the process on the sub-list, not considering the root as part of the name
-        Collect the result into a ModuleNode with empty declarations
-    If the root is not present:
-        Repeat the process on the sub-list, not considering the root as part of the name
-        Collect the result into an OrgNode
-
 -}
 
-fillTree :: ProjectM m => ModuleTree -> ProjectResult m u ModuleTree
-fillTree (OrgNode i ts) = do
-    ts' <- mapM fillTree ts
-    return $ OrgNode i ts'
-fillTree (ModuleNode i _ ts) = do
-    ds <- getDeclarations i
-    ts' <- mapM fillTree ts
-    return $ ModuleNode i ds ts'
 
-makeTree :: ProjectM m => ProjectResult m u [ModuleTree]
-makeTree = do
-    modules <- getModules
-    let emptyTree = makeTreeSkeleton modules
-    mapM fillTree emptyTree
-    
-formatTree :: ModuleTree -> String
-formatTree = intercalate "\n" . go []
-  where
-    go prefixFlags tree = lines
-      where
-        buildPrefix [] = ""
-        buildPrefix (True:xs)  = buildPrefix xs ++ "|   "
-        buildPrefix (False:xs) = buildPrefix xs ++ "    "
-        prefix = buildPrefix prefixFlags
-        headPrefix = buildPrefix (drop 1 prefixFlags)
-        decls = case tree of 
-            OrgNode{} -> []
-            ModuleNode _ ds _ -> ds
-        subModules = case tree of
-            OrgNode _ ms -> ms
-            ModuleNode _ _ ms -> ms
-        moduleInfo = case tree of
-            OrgNode n _ -> n
-            ModuleNode n _ _ -> n
-        moduleName = case moduleInfo of
-            ModuleInfo (Symbol n) -> n
-            UnamedModule (Just p) -> p
-        firstLine = case prefixFlags of
-            [] -> moduleName
-            [_] -> "+-- " ++ moduleName
-            _ -> headPrefix ++ "+-- " ++ moduleName
-        declLines = case decls of
-            [] -> []
-            ds -> map ((prefix ++) . ("|- " ++) . makeLine) ds
-              where
-                makeLine (DeclarationInfo (Symbol s)) = s
-        subModuleLines = case subModules of
-            [] -> []
-            ms -> firstModuleLines ++ lastModuleLines
-              where
-                firstModules = init ms
-                lastModule = last ms
-                firstModuleLines = concatMap (go (True:prefixFlags)) firstModules
-                lastModuleLines = go (False:prefixFlags) lastModule
-        lines = case (declLines,subModuleLines) of
-            ([],[]) -> [firstLine,prefix]
-            (ds,[]) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix]
-            ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]
-            (ds,ms) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix ++ "|"] ++ ms ++ [prefix]
         
 {-
 A
@@ -316,38 +102,28 @@ PREFIX
 
 -}
 
-repl :: InputT ViewerStateM Bool
-repl = do
-    input <- readCmd
-    response <- case input of
-        Nothing -> return $ Just ""
-        Just Quit -> return Nothing
-        Just cmd -> liftM Just $ lift $ case cmd of
-            Help -> doHelp
-            Open path -> doOpen path
-            Modules -> doModules
-            Module name -> doModule name
-            Declarations -> doDeclarations
-            Imports -> doImports
-            Imported -> doImported
-            Exports -> doExports
-            Exported -> doExported
-            Visible -> doVisible
-            Cat sym -> doCat sym
-            Tree -> doTree
-            Quit -> error "wut?"
-    case response of
-        Just output -> outputStrLn output >> return True
-        Nothing -> return False
 
-runMain :: InputT ViewerStateM ()
+
+repl :: InputT (CommandT UserError ViewerStateM) Bool
+repl = do
+    input <- getInputLine ">"
+    case input of
+        Nothing -> return True
+        Just input -> do
+            response <- lift $ execCommand input ()
+            outputStrLn response
+            continue <- lift $ getExitFlag
+            return continue
+
+runMain :: InputT (CommandT UserError ViewerStateM) ()
 runMain = do
     continue <- repl
     when continue runMain
 
-settings :: Settings ViewerStateM
+settings :: Settings (CommandT UserError ViewerStateM)
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
+{-
 isPrefixOfCommand :: String -> [String]
 isPrefixOfCommand l 
     = mapMaybe
@@ -364,8 +140,6 @@ isCommandPrefixOf l'
         [] -> ("","")
         (x:xs) -> (x,unwords xs)
     
-for :: [a] -> (a -> b) -> [b]
-for xs f = map f xs
 
 
 isCommandAllowed :: String -> ViewerStateM Bool
@@ -393,47 +167,9 @@ cmdPrefixCompletion l =
                           , display = x
                           , isFinished = null $ isPrefixOfCommand x
                           }
+-}
 
-moduleNameCompletion :: String -> ViewerStateM (Maybe [Completion])
-moduleNameCompletion s = do
-    p <- hasOpenedProject
-    if not p
-        then return Nothing
-        else do
-            r <- runExceptT $ do
-                mods <- getModules
-                let modNames = catMaybes $ for mods  $ \m -> case m of
-                        (ModuleInfo (Symbol sym)) -> Just sym
-                        _ -> Nothing
-                let matchingNames = filter (s `isPrefixOf`) modNames
-                return $ Just $ for matchingNames $ \n ->
-                    Completion{ replacement = drop (length s) n
-                              , display = n
-                              , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingNames
-                              }
-            return $ case r of
-                Right x -> x
-                Left _ -> Nothing
-declarationNameCompletion :: String -> ViewerStateM (Maybe [Completion])
-declarationNameCompletion s = do
-    mayben <- gets currentModule
-    case mayben of
-        Nothing -> return Nothing
-        Just n -> do
-            r <- runExceptT $ do
-                m <- getModule (ModuleInfo (Symbol n))
-                let infos = map (Declaration.info . item) $ Module.getDeclarations m
-                let syms = for infos $ \(DeclarationInfo (Symbol sym)) -> sym
-                let matchingSyms = filter (s `isPrefixOf`) syms
-                return $ Just $ for matchingSyms $ \sym -> 
-                    Completion{ replacement = drop (length s) sym
-                              , display = sym
-                              , isFinished = not $ any (\sym' -> sym `isPrefixOf` sym' && sym /= sym') matchingSyms
-                              }    
-            return $ case r of
-                Right x -> x
-                Left _ -> Nothing
-
+{-
 cmdArgCompletion :: String -> String -> ViewerStateM (Maybe [Completion])
 cmdArgCompletion cmd arg = do
     p <- isCommandAllowed cmd
@@ -469,11 +205,29 @@ cmdCompletion (l',_) =
             return (l',cs''')
   where
     l = reverse l'
-      
+-}
+
+commandList =
+    [ helpCmd
+    , openCmd
+    , modulesCmd
+    , moduleCmd
+    , declarationsCmd
+    , importsCmd
+    , importedCmd
+    , exportsCmd
+    , exportedCmd
+    , visibleCmd
+    , catCmd
+    , treeCmd
+    , quitCmd
+    ]
+
 main :: IO ()
 main = void $ 
     runViewerState $
-        runInputT settings $ do
-            outputStrLn "Haskell project viewer"
-            outputStrLn "Type \"help\" for commands"
-            runMain
+        flip runCommandT commandList $ 
+            runInputT settings $ do
+                outputStrLn "Haskell project viewer"
+                outputStrLn "Type \"help\" for commands"
+                runMain

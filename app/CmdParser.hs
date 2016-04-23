@@ -24,17 +24,17 @@ data Cmd
     | Quit
     deriving Show
 
-parseArity0 :: Stream s m Char => String -> v -> ParsecT s u m v
-parseArity0 s v = string s >> return v
+parseArity0 :: Stream s m Char => String -> ParsecT s u m String
+parseArity0 s = string s >> return ""
 
-parseArity1 :: Stream s m Char => String -> (String -> r) -> String -> ParsecT s u m r
-parseArity1 s c e = do
+parseArity1 :: Stream s m Char => String -> String -> ParsecT s u m String
+parseArity1 s e = do
     _ <- string s
     notFollowedBy eof
     _ <- string " " <?> s ++ " expects a " ++ e
     arg <- untilSpaceOrEof <?> s ++ " expects a " ++ e
-    return $ c arg
-
+    return arg
+{-
 parseHelp :: Stream s m Char => ParsecT s u m Cmd
 parseHelp = parseArity0 "help" Help
 
@@ -73,7 +73,7 @@ parseTree = parseArity0 "tree" Tree
 
 parseQuit :: Stream s m Char => ParsecT s u m Cmd
 parseQuit = parseArity0 "quit" Quit
-
+-}
 untilSpaceOrEof :: Stream s m Char => ParsecT s u m String
 untilSpaceOrEof 
     =  (eof >> return [])
@@ -89,7 +89,7 @@ lastError :: ParseError -> String
 lastError p = case errorMessages p of
     [] -> "????"
     ms -> messageString $ last ms
-
+{-
 parseCmd :: Stream s m Char => ParsecT s u m Cmd
 parseCmd =
     try parseHelp
@@ -128,3 +128,4 @@ cmdList =
     , "tree"
     , "quit"
     ]
+-}
