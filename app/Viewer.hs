@@ -1,8 +1,13 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Viewer where
+module Viewer 
+    ( module Viewer
+    , FileSystemProject (..)
+    ) where
 
 import Data.Maybe
+
+import System.Directory
 
 import Control.Monad
 import Control.Monad.Trans
@@ -10,21 +15,48 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Mechanism.State
+import Ide3.Monad hiding (load, new, finalize)
+import qualified Ide3.Monad as M
 import Ide3.Types (Project, ProjectError (..))
 
-import Digest
+
+import ReadOnlyFilesystemProject hiding (hasOpenedProject)
+import qualified ReadOnlyFilesystemProject as ROFSP
+
+import ViewerMonad
 
 data ViewerState = Viewer { currentModule :: Maybe String }
 
-data FileSystemProject
-    = ToOpen FilePath
-    | Unopened
-    | Opened FilePath
-    deriving Show
+type ViewerStateT = StateT ViewerState
 
-type ViewerStateM = StateT ViewerState (StateT FileSystemProject (ProjectStateT IO))
+type ViewerStateM = ViewerStateT (ReadOnlyFilesystemProjectT (ProjectStateT IO))
 
 data ViewerResume = Resume ViewerState FileSystemProject Project
+
+
+instance ProjectStateM m => ProjectStateM (ViewerStateT m) where
+    getProject = lift getProject
+    putProject = lift . putProject
+
+instance ProjectShellM m => ProjectShellM (ViewerStateT m) where
+    new x = ExceptT $ lift $ runExceptT $ new x
+    load = ExceptT $ lift $ runExceptT $ load
+    finalize x = ExceptT $ lift $ runExceptT $ finalize x
+
+
+instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (ViewerStateT m) where
+    setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
+    setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
+    setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
+    hasOpenedProject = lift hasOpenedProject
+--    saveCurrentProject = ExceptT $ lift $ runExceptT $ saveCurrentProject
+
+
+runViewerStateT :: Monad m => ViewerStateT m a -> ViewerState -> m (a,ViewerState)
+runViewerStateT = runStateT
+
+runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
+runNewViewerStateT = flip runViewerStateT $ Viewer Nothing
 
 runViewerState :: ViewerStateM a -> IO (a,ViewerResume)
 runViewerState f = resumeViewerState f (Resume (Viewer Nothing) Unopened initialProject)
@@ -36,33 +68,41 @@ runViewerState f = resumeViewerState f (Resume (Viewer Nothing) Unopened initial
 
 resumeViewerState :: ViewerStateM a -> ViewerResume -> IO (a,ViewerResume)
 resumeViewerState f (Resume viewer fsp proj) = do
-    let runViewer = runStateT f viewer
-        runFSP = runStateT runViewer fsp
-        runProject = runStateT runFSP proj
+    let runViewer = runViewerStateT f viewer
+        runFSP = runReadOnlyFilesystemProjectT runViewer fsp
+        runProject = runProjectStateT runFSP proj
     (((result,viewer'),fsp'),proj') <- runProject
     return (result,Resume viewer' fsp' proj')
-
-hasOpenedProject :: ViewerStateM Bool
-hasOpenedProject = do
-    fsp <- lift get
-    case fsp of
-        Opened _ -> return True
-        _ -> return False
 
 hasCurrentModule :: ViewerStateM Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
-instance ProjectStateM ViewerStateM where
-    getProject = lift (lift get)
-    putProject p = lift (lift (put p))
+openProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
+            => FilePath 
+            -> ProjectResult (ViewerStateT m) u ()
+openProject path = do
+    isFile <- liftIO $ doesFileExist path
+    isDir <- liftIO $ doesDirectoryExist path
+    case (isFile, isDir) of
+        (True, _) -> do
+            setFileToOpen path
+            lift $ modify $ \s -> s{currentModule=Nothing}
+            M.load
+        (_,True) -> do
+            setDirectoryToOpen path
+            lift $ modify $ \s -> s{currentModule=Nothing}
+            M.load
+        (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
-instance ProjectShellM ViewerStateM where
-    new _ = throwE $ Unsupported "Creating new projects is unsupported at this time"
-    load = do
-        fsp <- lift (lift get)
-        case fsp of
-            ToOpen path -> digestProject' path
-            Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened path -> digestProject' path
-    finalize _ = throwE $ Unsupported "Saving projects is unsupported at this time"
-
+saveProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
+            => (Maybe FilePath)
+            -> ProjectResult (ViewerStateT m) u ()
+saveProject maybePath = do
+    cond <- lift hasOpenedProject
+    if cond
+        then do 
+                case maybePath of
+                    Just path -> setTargetPath path
+                    Nothing -> return ()
+                M.finalize
+        else throwE $ InvalidOperation "No project is currently open" ""

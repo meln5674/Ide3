@@ -56,6 +56,8 @@ newtype Symbol = Symbol String
 joinSym :: Symbol -> Symbol -> Symbol
 joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 
+
+
 -- |Information about a project
 data ProjectInfo = ProjectInfo
     deriving (Show, Read, Eq)
@@ -174,6 +176,7 @@ type ExportId = Int
 -- |Information identifying a declaration
 data DeclarationInfo = DeclarationInfo Symbol
     deriving (Show, Read, Eq, Ord)
+
 
 -- |A declaration
 data Declaration
@@ -333,3 +336,14 @@ instance Show u => Show (ProjectError u) where
         = s
     show (UserError u)
         = show u
+
+
+class Qualify a where
+    qual :: ModuleChild a -> Symbol
+ 
+instance Qualify Symbol where
+    qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s)) = Symbol $ m ++ '.' : s
+
+instance Qualify DeclarationInfo where
+    qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
+        = Symbol $ m ++ '.' : s

@@ -24,7 +24,8 @@ module Ide3.Mechanism.State
     , ProjectState
     , initialProject
     , runProjectStateT
-    , runProjectState
+    , runNewProjectStateT
+--    , runProjectState
     , ProjectShellM (..)
     , ProjectStateM (..)
     ) where
@@ -48,12 +49,16 @@ initialProject :: Project
 initialProject = Project.new ProjectInfo
 
 -- | Run a project state operation starting with an empty project
-runProjectStateT :: Monad m => ProjectStateT m a -> m (a,Project)
-runProjectStateT f = runStateT f (Project.new ProjectInfo)
+runProjectStateT :: Monad m => ProjectStateT m a -> Project -> m (a,Project)
+runProjectStateT = runStateT
 
 -- | Run a project state operation starting with an empty project
-runProjectState :: ProjectState a -> (a,Project)
-runProjectState f = runIdentity $ runProjectStateT f
+runNewProjectStateT :: Monad m => ProjectStateT m a -> m (a,Project)
+runNewProjectStateT = flip runProjectStateT (Project.new ProjectInfo)
+
+-- | Run a project state operation starting with an empty project
+--runProjectState :: ProjectState a -> (a,Project)
+--runProjectState f = runIdentity $ runProjectStateT f
 
 {-
 -- | Same as 'modifyEitherR', but the transformation produces no additional result

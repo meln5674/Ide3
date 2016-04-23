@@ -14,6 +14,7 @@ import Control.Applicative (empty)
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State.Strict
 
 import Text.Parsec hiding (parse)
@@ -26,12 +27,25 @@ import Ide3.Monad
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
-import Ide3.Types (item, items, body, Module, ModuleInfo(..), Symbol(..), getChild, DeclarationInfo (..), ProjectError (..))
+import Ide3.Types
+    ( item
+    , items
+    , body
+    , Module
+    , ModuleInfo(..)
+    , Symbol(..)
+    , getChild
+    , DeclarationInfo (..)
+    , ProjectError (..)
+    , ModuleChild (..)
+    , Qualify (..)
+    )
 
 import Ide3.Mechanism.State()
 
 import CmdParser
 import Viewer
+import ViewerMonad
 
 for :: [a] -> (a -> b) -> [b]
 for xs f = map f xs
@@ -149,11 +163,18 @@ doHelp = printHelp
 
 doOpen :: FilePath -> ViewerStateM String
 doOpen path = printOnError $ do
-    lift . lift $ put (ToOpen path)
-    lift $ modify $ \s -> s{currentModule=Nothing}
-    load
-    lift . lift $ put (Opened path)
+    openProject path
     return "Loaded"
+
+doSave :: ViewerStateM String
+doSave = printOnError $ do
+    saveProject Nothing
+    return "Saved"
+
+doSaveAs :: FilePath -> ViewerStateM String
+doSaveAs p = printOnError $ do
+    saveProject $ Just p
+    return "Saved"
 
 doModules :: ViewerStateM String
 doModules = printOnError $ do
@@ -215,6 +236,18 @@ doTree = printOnError $ do
     trees <- makeTree
     return $ intercalate "\n \n" $ map formatTree trees
     --return $ show trees
+
+doSearch :: String -> ViewerStateM String
+doSearch sym = printOnError $ do
+    modules <- getModules
+    let matchingDeclsFrom :: ModuleInfo -> WriterT [ModuleChild DeclarationInfo] (ExceptT (ProjectError u) ViewerStateM) ()
+        matchingDeclsFrom info = do
+            decls <- lift $ getDeclarations info
+            let matches = filter (\(DeclarationInfo (Symbol sym')) -> sym `isInfixOf` sym') decls
+                taggedMatches = map (ModuleChild info) matches
+            tell taggedMatches
+    matchingDecls <- execWriterT $ forM modules matchingDeclsFrom
+    return $ intercalate "\n" $ map (show . qual) matchingDecls
 
 doQuit :: CommandT u ViewerStateM String
 doQuit = do
@@ -403,6 +436,26 @@ openCmd = Command
     , action = liftCmd . doOpen
     }
 
+saveCmd :: Command u ViewerStateM 
+saveCmd = Command
+    { helpLine = "save: save the project at the current path"
+    , root = "save"
+    , parser = parseArity0 "save"
+    , isAllowed = hasOpenedProject
+    , completion = liftM Just . listFiles
+    , action = \_ -> liftCmd doSave
+    }
+
+saveAsCmd :: Command u ViewerStateM
+saveAsCmd = Command
+    { helpLine = "save as PATH: save the project at PATH"
+    , root = "save as"
+    , parser = parseArity1 "save as" "path"
+    , isAllowed = hasOpenedProject
+    , completion = liftM Just . listFiles
+    , action = liftCmd . doSaveAs
+    }
+
 modulesCmd :: Command u ViewerStateM
 modulesCmd = Command
     { helpLine = "modules: show a list of modules in the current project"
@@ -503,6 +556,16 @@ treeCmd = Command
     , action = \_ -> liftCmd doTree
     }
 
+searchCmd :: Command u ViewerStateM
+searchCmd = Command
+    { helpLine = "search SYMBOL: Search all modules for a declaration"
+    , root = "search"
+    , parser = parseArity1 "search" "search string"
+    , isAllowed = hasOpenedProject
+    , completion = \_ -> return $ Just []
+    , action = liftCmd . doSearch
+    }
+
 quitCmd :: Command u ViewerStateM
 quitCmd = Command
     { helpLine = "quit: exit the program"
@@ -576,7 +639,7 @@ cmdPrefixCompletion l = do
 isCommandAllowed :: Monad m => String -> CommandT u m Bool
 isCommandAllowed s = do
     cmds <- getCommands
-    liftMCmd (foldl (&&) True) $ forM cmds $ \cmd -> liftMCmd ((root cmd == s) &&) (liftCmd $ isAllowed cmd)
+    liftMCmd (foldl (||) False) $ forM cmds $ \cmd -> liftMCmd ((root cmd == s) &&) (liftCmd $ isAllowed cmd)
 
 cmdCompletion :: Monad m => (String,String) -> CommandT u m (String, [Completion])
 cmdCompletion (l',_) = do
