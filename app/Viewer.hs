@@ -4,7 +4,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Viewer 
     ( module Viewer
-    , FileSystemProject (..)
     , module ViewerMonad
     ) where
 
@@ -21,9 +20,6 @@ import Ide3.Mechanism.State
 import Ide3.Monad hiding (load, new, finalize)
 import qualified Ide3.Monad as M
 import Ide3.Types (Project, ProjectError (..))
-
-
-import ReadOnlyFilesystemProject
 
 import ViewerMonad
 

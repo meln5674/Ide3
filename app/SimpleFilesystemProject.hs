@@ -1,4 +1,25 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module SimpleFilesystemProject where
+
+import Text.Read (readMaybe)
+
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
+
+import System.IO.Error
+
+import Ide3.Mechanism.State
+import Ide3.Monad (ProjectM)
+import Ide3.Types (Project, ProjectError (..))
+
+import qualified Ide3.Project as Project
+
+import ViewerMonad
+
+import Digest
 
 data FileSystemProject
     = ToOpen FilePath
@@ -26,12 +47,9 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
         fsp <- lift get
         case fsp of
             ToDigest path -> do
-                result <- liftIO $ tryIOError $ digestProject' path
-                case result of
-                    Right p -> do
-                        lift $ put $ Opened Nothing
-                        return p
-                    Left err -> throwE $ InvalidOperation $ "Error on digesting directory: " ++ show err
+                p <- digestProject' path
+                lift $ put $ Opened Nothing
+                return p
             ToOpen path -> do
                 result <- liftIO $ tryIOError $ readFile path
                 case result of
@@ -39,12 +57,12 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
                         Just p -> do
                             lift $ put $ Opened $ Just path
                             return p
-                        Nothing -> throwE $ InvalidOperaton "File did not contain a valid project"
-                    Left err -> throwE $ InvalidOperation $ "Error on opening file: " ++ show err
+                        Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
+                    Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
             Opened (Just path) -> do
-                lift $ put $ ToOpen Path
+                lift $ put $ ToOpen path
                 load
     finalize p = do
         fsp <- lift get

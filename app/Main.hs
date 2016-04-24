@@ -20,7 +20,8 @@ import qualified CmdParser as Cmd
 import CmdParser
 import Command
 import Viewer
-import ReadOnlyFilesystemProject
+import qualified ReadOnlyFilesystemProject as RDONLY
+import qualified SimpleFilesystemProject as RDWR
 
 repl :: (MonadException m, ViewerMonad m) => InputT (CommandT UserError (ViewerStateT m)) Bool
 repl = do
@@ -76,4 +77,5 @@ runWith runFspT unopened = void $
 
 
 main :: IO ()
-main = runWith runReadOnlyFilesystemProjectT Unopened
+--main = runWith RDONLY.runReadOnlyFilesystemProjectT RDONLY.Unopened
+main = runWith RDWR.runSimpleFilesystemProjectT RDWR.Unopened
