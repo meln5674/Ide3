@@ -1,8 +1,11 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 module Viewer 
     ( module Viewer
     , FileSystemProject (..)
+    , module ViewerMonad
     ) where
 
 import Data.Maybe
@@ -20,8 +23,7 @@ import qualified Ide3.Monad as M
 import Ide3.Types (Project, ProjectError (..))
 
 
-import ReadOnlyFilesystemProject hiding (hasOpenedProject)
-import qualified ReadOnlyFilesystemProject as ROFSP
+import ReadOnlyFilesystemProject
 
 import ViewerMonad
 
@@ -29,9 +31,9 @@ data ViewerState = Viewer { currentModule :: Maybe String }
 
 type ViewerStateT = StateT ViewerState
 
-type ViewerStateM = ViewerStateT (ReadOnlyFilesystemProjectT (ProjectStateT IO))
+type ViewerStateM fsp t = ViewerStateT (t (ProjectStateT IO))
 
-data ViewerResume = Resume ViewerState FileSystemProject Project
+data ViewerResume fsp = Resume ViewerState fsp Project
 
 
 instance ProjectStateM m => ProjectStateM (ViewerStateT m) where
@@ -42,6 +44,7 @@ instance ProjectShellM m => ProjectShellM (ViewerStateT m) where
     new x = ExceptT $ lift $ runExceptT $ new x
     load = ExceptT $ lift $ runExceptT $ load
     finalize x = ExceptT $ lift $ runExceptT $ finalize x
+
 
 
 instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (ViewerStateT m) where
@@ -58,26 +61,39 @@ runViewerStateT = runStateT
 runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
 runNewViewerStateT = flip runViewerStateT $ Viewer Nothing
 
-runViewerState :: ViewerStateM a -> IO (a,ViewerResume)
-runViewerState f = resumeViewerState f (Resume (Viewer Nothing) Unopened initialProject)
+runViewerState :: (MonadIO (t (ProjectStateT IO)))
+               => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
+               -> fsp 
+               -> ViewerStateM fsp t a 
+               -> IO (a,ViewerResume fsp)
+runViewerState runFSPT unopened f = resumeViewerState 
+    f 
+    runFSPT
+    (Resume (Viewer Nothing) unopened initialProject)
 {-    let runViewer = runStateT f (Viewer Nothing)
         runFPS = runStateT runViewer Unopened
         runProject = runProjectStateT runFPS
     (((result,viewer),fsp),proj) <- runProject
     return (result,Resume viewer fsp proj)-}
 
-resumeViewerState :: ViewerStateM a -> ViewerResume -> IO (a,ViewerResume)
-resumeViewerState f (Resume viewer fsp proj) = do
+resumeViewerState :: 
+                     (MonadIO (t (ProjectStateT IO)))
+                  => ViewerStateM fsp t a 
+                  -> (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b,fsp))
+                  -> ViewerResume fsp 
+                  -> IO (a,ViewerResume fsp)
+resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     let runViewer = runViewerStateT f viewer
-        runFSP = runReadOnlyFilesystemProjectT runViewer fsp
+        runFSP = runFSPT runViewer fsp
         runProject = runProjectStateT runFSP proj
     (((result,viewer'),fsp'),proj') <- runProject
     return (result,Resume viewer' fsp' proj')
 
-hasCurrentModule :: ViewerStateM Bool
+--hasCurrentModule :: (Monad (t (ProjectStateT IO))) => ViewerStateM fsp t Bool
+hasCurrentModule :: ViewerMonad m => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
-openProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
+openProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m)
             => FilePath 
             -> ProjectResult (ViewerStateT m) u ()
 openProject path = do

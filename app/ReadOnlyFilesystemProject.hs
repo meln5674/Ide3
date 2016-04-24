@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module ReadOnlyFilesystemProject where
 
 import Control.Monad
@@ -22,7 +23,7 @@ data FileSystemProject
     | Opened FilePath
     deriving Show
 
-type ReadOnlyFilesystemProjectT m = StateT FileSystemProject m
+type ReadOnlyFilesystemProjectT = StateT FileSystemProject
 
 runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runReadOnlyFilesystemProjectT = runStateT

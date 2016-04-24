@@ -8,14 +8,6 @@ data FileSystemProject
 
 type SimpleFilesystemProjectT m = StateT FileSystemProject m
 
-hasOpenedProject :: Monad m => SimpleFilesystemProjectT m Bool
-hasOpenedProject = do
-    fsp <- get
-    case fsp of
-        Opened _ -> return True
-        _ -> return False
-
-
 runSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runSimpleFilesystemProjectT = runStateT
 

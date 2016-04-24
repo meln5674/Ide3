@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 module Main where
 
 import Data.List
@@ -13,14 +14,15 @@ import Control.Monad
 
 import System.Console.Haskeline
 
-
+import Ide3.Mechanism.State (ProjectStateT)
 
 import qualified CmdParser as Cmd
 import CmdParser
 import Command
 import Viewer
+import ReadOnlyFilesystemProject
 
-repl :: InputT (CommandT UserError ViewerStateM) Bool
+repl :: (MonadException m, ViewerMonad m) => InputT (CommandT UserError (ViewerStateT m)) Bool
 repl = do
     input <- getInputLine ">"
     case input of
@@ -31,14 +33,15 @@ repl = do
             continue <- lift $ getExitFlag
             return continue
 
-runMain :: InputT (CommandT UserError ViewerStateM) ()
+runMain :: (MonadException m, ViewerMonad m) => InputT (CommandT UserError (ViewerStateT m)) ()
 runMain = do
     continue <- repl
     when continue runMain
 
-settings :: Settings (CommandT UserError ViewerStateM)
+settings :: (MonadException m, ViewerMonad m) => Settings (CommandT UserError (ViewerStateT m))
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
+commandList :: (MonadIO m, ViewerMonad m) => [Command u (ViewerStateT m)]
 commandList =
     [ helpCmd
     , openCmd
@@ -58,11 +61,19 @@ commandList =
     , quitCmd
     ]
 
-main :: IO ()
-main = void $ 
-    runViewerState $
+
+runWith :: (MonadException (t (ProjectStateT IO)), ViewerMonad (t (ProjectStateT IO)))
+        => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
+        -> fsp 
+        -> IO ()
+runWith runFspT unopened = void $ 
+    runViewerState runFspT unopened $
         flip runCommandT commandList $ 
             runInputT settings $ do
                 outputStrLn "Haskell project viewer"
                 outputStrLn "Type \"help\" for commands"
                 runMain
+
+
+main :: IO ()
+main = runWith runReadOnlyFilesystemProjectT Unopened

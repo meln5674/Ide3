@@ -130,7 +130,7 @@ instance MonadException m => MonadException (CommandT u m) where
 
 type UserError = ()
 
-printOnError :: ProjectResult ViewerStateM UserError String -> ViewerStateM String
+printOnError :: ViewerMonad m => ProjectResult (ViewerStateT m) UserError String -> ViewerStateT m String
 printOnError f = liftM (either show id) $ runExceptT f
 
 newtype Output a = MkOutput (Either a String)
@@ -148,7 +148,9 @@ instance Show a => Show (Output a) where
     show (MkOutput (Left a)) = show a
     show (MkOutput (Right a)) = a
 
-withSelectedModule :: Show a => (Module -> ProjectResult ViewerStateM UserError [Output a]) -> ViewerStateM String
+withSelectedModule :: (Show a, ViewerMonad m) 
+                   => (Module -> ProjectResult (ViewerStateT m) UserError [Output a]) 
+                   -> ViewerStateT m String
 withSelectedModule f = printOnError $ do
     maybeName <- lift $ gets currentModule
     case maybeName of
@@ -158,36 +160,36 @@ withSelectedModule f = printOnError $ do
             xs <- f module_
             return $ intercalate "\n" $ map show xs
 
-doHelp :: CommandT u ViewerStateM String
+doHelp :: ViewerMonad m => CommandT u m String
 doHelp = printHelp
 
-doOpen :: FilePath -> ViewerStateM String
+doOpen :: (MonadIO m, ViewerMonad m) => FilePath -> ViewerStateT m String
 doOpen path = printOnError $ do
     openProject path
     return "Loaded"
 
-doSave :: ViewerStateM String
+doSave :: (MonadIO m, ViewerMonad m) => ViewerStateT m String
 doSave = printOnError $ do
     saveProject Nothing
     return "Saved"
 
-doSaveAs :: FilePath -> ViewerStateM String
+doSaveAs :: (MonadIO m, ViewerMonad m) => FilePath -> ViewerStateT m String
 doSaveAs p = printOnError $ do
     saveProject $ Just p
     return "Saved"
 
-doModules :: ViewerStateM String
+doModules :: ViewerMonad m => ViewerStateT m String
 doModules = printOnError $ do
     names <- getModules
     return $ intercalate "\n" $ map show names
 
-doModule :: String -> ViewerStateM String
+doModule :: ViewerMonad m => String -> ViewerStateT m String
 doModule name = printOnError $ do
     _ <- getModule (ModuleInfo (Symbol name))
     lift $ modify $ \s -> s{currentModule=Just name}
     return ""
 
-doDeclarations :: ViewerStateM String
+doDeclarations :: ViewerMonad m => ViewerStateT m String
 doDeclarations = withSelectedModule 
     $ return 
     . asShows
@@ -195,53 +197,52 @@ doDeclarations = withSelectedModule
     . items 
     . Module.getDeclarations
 
-doImports :: ViewerStateM String
+doImports :: ViewerMonad m => ViewerStateT m String
 doImports = withSelectedModule 
     $ return
     . asShows
     . items
     . Module.getImports
 
-doImported :: ViewerStateM String
+doImported :: ViewerMonad m => ViewerStateT m String
 doImported = withSelectedModule
     $ liftM asShows 
     . Module.importedSymbols
     
-doExports :: ViewerStateM String
+doExports :: ViewerMonad m => ViewerStateT m String
 doExports = withSelectedModule
     $ return
     . asShows
     . items
     . Module.getExports
 
-doExported :: ViewerStateM String
+doExported :: ViewerMonad m => ViewerStateT m String
 doExported = withSelectedModule
     $   (return 
     .   asShows
     .   map getChild)
     <=< Module.exportedSymbols 
 
-doVisible :: ViewerStateM String
+doVisible :: ViewerMonad m => ViewerStateT m String
 doVisible = withSelectedModule $ liftM asShows . Module.internalSymbols
 
-doCat :: String -> ViewerStateM String
+doCat :: ViewerMonad m => String -> ViewerStateT m String
 doCat sym = withSelectedModule $ \module_ -> ExceptT $ return $ do
     decl <- Module.getDeclaration module_ (DeclarationInfo (Symbol sym))
     let strings :: [Output Bool]
         strings = asStrings . lines . body . getChild $ decl
     return strings
 
-doTree :: ViewerStateM String
+doTree :: ViewerMonad m => ViewerStateT m String
 doTree = printOnError $ do
     trees <- makeTree
     return $ intercalate "\n \n" $ map formatTree trees
     --return $ show trees
 
-doSearch :: String -> ViewerStateM String
+doSearch :: ViewerMonad m => String -> ViewerStateT m String
 doSearch sym = printOnError $ do
     modules <- getModules
-    let matchingDeclsFrom :: ModuleInfo -> WriterT [ModuleChild DeclarationInfo] (ExceptT (ProjectError u) ViewerStateM) ()
-        matchingDeclsFrom info = do
+    let matchingDeclsFrom info = do
             decls <- lift $ getDeclarations info
             let matches = filter (\(DeclarationInfo (Symbol sym')) -> sym `isInfixOf` sym') decls
                 taggedMatches = map (ModuleChild info) matches
@@ -249,7 +250,7 @@ doSearch sym = printOnError $ do
     matchingDecls <- execWriterT $ forM modules matchingDeclsFrom
     return $ intercalate "\n" $ map (show . qual) matchingDecls
 
-doQuit :: CommandT u ViewerStateM String
+doQuit :: ViewerMonad m => CommandT u (ViewerStateT m) String
 doQuit = do
     setExitFlag
     return "Exiting..."
@@ -363,7 +364,7 @@ formatTree = intercalate "\n" . go []
             ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]
             (ds,ms) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix ++ "|"] ++ ms ++ [prefix]
 
-moduleNameCompletion :: String -> ViewerStateM (Maybe [Completion])
+moduleNameCompletion :: ViewerMonad m => String -> (ViewerStateT m) (Maybe [Completion])
 moduleNameCompletion s = do
     p <- hasOpenedProject
     if not p
@@ -383,7 +384,7 @@ moduleNameCompletion s = do
             return $ case r of
                 Right x -> x
                 Left _ -> Nothing
-declarationNameCompletion :: String -> ViewerStateM (Maybe [Completion])
+declarationNameCompletion :: ViewerMonad m => String -> (ViewerStateT m) (Maybe [Completion])
 declarationNameCompletion s = do
     mayben <- gets currentModule
     case mayben of
@@ -415,7 +416,7 @@ data Command u m
     , action :: String -> CommandT u m String
     }
 
-helpCmd :: Command u ViewerStateM
+helpCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 helpCmd = Command
     { helpLine = "help: show this message"
     , root = "help"
@@ -426,7 +427,7 @@ helpCmd = Command
     }
 
 
-openCmd :: Command u ViewerStateM
+openCmd :: (MonadIO m, ViewerMonad m) => Command u (ViewerStateT m) 
 openCmd = Command
     { helpLine = "open PATH: open a project rooted at PATH"
     , root = "open"
@@ -436,7 +437,7 @@ openCmd = Command
     , action = liftCmd . doOpen
     }
 
-saveCmd :: Command u ViewerStateM 
+saveCmd :: (MonadIO m, ViewerMonad m) => Command u (ViewerStateT m)  
 saveCmd = Command
     { helpLine = "save: save the project at the current path"
     , root = "save"
@@ -446,7 +447,7 @@ saveCmd = Command
     , action = \_ -> liftCmd doSave
     }
 
-saveAsCmd :: Command u ViewerStateM
+saveAsCmd :: (MonadIO m, ViewerMonad m) => Command u (ViewerStateT m) 
 saveAsCmd = Command
     { helpLine = "save as PATH: save the project at PATH"
     , root = "save as"
@@ -456,7 +457,7 @@ saveAsCmd = Command
     , action = liftCmd . doSaveAs
     }
 
-modulesCmd :: Command u ViewerStateM
+modulesCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 modulesCmd = Command
     { helpLine = "modules: show a list of modules in the current project"
     , root = "modules"
@@ -466,7 +467,7 @@ modulesCmd = Command
     , action = \_ -> liftCmd doModules
     }
 
-moduleCmd :: Command u ViewerStateM
+moduleCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 moduleCmd = Command
     { helpLine = "module MODULE: set MODULE as the current module"
     , root = "module"
@@ -476,7 +477,7 @@ moduleCmd = Command
     , action = liftCmd . doModule
     }
 
-declarationsCmd :: Command u ViewerStateM
+declarationsCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 declarationsCmd = Command
     { helpLine = "declarations: list the declarations in the current module"
     , root = "declarations"
@@ -486,7 +487,7 @@ declarationsCmd = Command
     , action = \_ -> liftCmd doDeclarations
     }
 
-importsCmd :: Command u ViewerStateM
+importsCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 importsCmd = Command
     { helpLine = "imports: list the imports in the current module"
     , root = "imports"
@@ -496,7 +497,7 @@ importsCmd = Command
     , action = \_ -> liftCmd doImports
     }
 
-importedCmd :: Command u ViewerStateM
+importedCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 importedCmd = Command
     { helpLine = "imported: list the symbols imported by the current module"
     , root = "imported"
@@ -506,7 +507,7 @@ importedCmd = Command
     , action = \_ -> liftCmd doImported
     }
 
-exportsCmd :: Command u ViewerStateM
+exportsCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 exportsCmd = Command
     { helpLine = "exports: list the exports in the current module"
     , root = "exports"
@@ -516,7 +517,7 @@ exportsCmd = Command
     , action = \_ -> liftCmd doExports
     }
 
-exportedCmd :: Command u ViewerStateM
+exportedCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 exportedCmd = Command
     { helpLine = "exported: list the symbols exported by the current module"
     , root = "exported"
@@ -526,7 +527,7 @@ exportedCmd = Command
     , action = \_ -> liftCmd doExported
     }
 
-visibleCmd :: Command u ViewerStateM
+visibleCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 visibleCmd = Command
     { helpLine = "visible: list the symbols visible at the top level of the current module"
     , root = "visible"
@@ -536,7 +537,7 @@ visibleCmd = Command
     , action = \_ -> liftCmd doVisible
     }
 
-catCmd :: Command u ViewerStateM
+catCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 catCmd = Command
     { helpLine = "cat SYMBOL: show the body of the declaration of SYMBOL"
     , root = "cat"
@@ -546,7 +547,7 @@ catCmd = Command
     , action = liftCmd . doCat
     }
 
-treeCmd :: Command u ViewerStateM
+treeCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 treeCmd = Command
     { helpLine = "tree: Display a tree of the current project's modules and declarations"
     , root = "tree"
@@ -556,7 +557,7 @@ treeCmd = Command
     , action = \_ -> liftCmd doTree
     }
 
-searchCmd :: Command u ViewerStateM
+searchCmd :: ViewerMonad m => Command u (ViewerStateT m)
 searchCmd = Command
     { helpLine = "search SYMBOL: Search all modules for a declaration"
     , root = "search"
@@ -566,7 +567,7 @@ searchCmd = Command
     , action = liftCmd . doSearch
     }
 
-quitCmd :: Command u ViewerStateM
+quitCmd :: ViewerMonad m => Command u (ViewerStateT m) 
 quitCmd = Command
     { helpLine = "quit: exit the program"
     , root = "quit"
