@@ -77,15 +77,16 @@ foldAddExternModule pj i = Project.addExternModule pj (convIface i)
         Just es -> map convExport es
     
 
-digestProject' :: MonadIO m => FilePath -> ProjectResult m u Project
-digestProject' path = do
+digestProject' :: MonadIO m => FilePath -> (Maybe FilePath) -> ProjectResult m u Project
+digestProject' path maybeIfacePath = do
     contents <- liftIO $ enumerateHaskellProject path
-    ifaceFile <- liftIO $ readFile "ifaces" -- TODO: FOR THE LOVE OF GOD FIX THIS SOON
-    let ifaces = read ifaceFile :: [Iface.Interface]
-    let project = do
-            withModules <- foldM foldAddModule Project.empty contents
-            foldM foldAddExternModule withModules ifaces
-    ExceptT $ return project
+    withoutIfaces <- ExceptT $ return $ foldM foldAddModule Project.empty contents
+    case maybeIfacePath of
+        Nothing -> return withoutIfaces
+        Just ifacePath -> do
+            ifaceFile <- liftIO $ readFile ifacePath 
+            let ifaces = read ifaceFile :: [Iface.Interface]
+            ExceptT $ return $ foldM foldAddExternModule withoutIfaces ifaces
 
 digestProject :: (MonadIO m, ProjectM m) => FilePath -> ProjectResult m u ()
 digestProject path = do

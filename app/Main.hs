@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RankNTypes #-}
 module Main where
 
@@ -23,6 +22,8 @@ import Viewer
 import qualified ReadOnlyFilesystemProject as RDONLY
 import qualified SimpleFilesystemProject as RDWR
 
+-- | Run a single iteration of reading input from the user, deciding which command to run,
+-- running it, then printing the response, and indicating if the user wishes to quit
 repl :: (MonadException m, ViewerMonad m) => InputT (CommandT UserError (ViewerStateT m)) Bool
 repl = do
     input <- getInputLine ">"
@@ -34,20 +35,23 @@ repl = do
             continue <- lift $ getExitFlag
             return continue
 
+-- | Run the main program loop forever until the user indicates they wish to quit
 runMain :: (MonadException m, ViewerMonad m) => InputT (CommandT UserError (ViewerStateT m)) ()
 runMain = do
     continue <- repl
     when continue runMain
 
+-- | Settings for the line editor transformer
 settings :: (MonadException m, ViewerMonad m) => Settings (CommandT UserError (ViewerStateT m))
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
+-- | List of commands
 commandList :: (MonadIO m, ViewerMonad m) => [Command u (ViewerStateT m)]
 commandList =
     [ helpCmd
     , openCmd
-    , saveCmd
     , saveAsCmd
+    , saveCmd
     , modulesCmd
     , moduleCmd
     , declarationsCmd
@@ -63,6 +67,7 @@ commandList =
     ]
 
 
+-- | Run the main program using the specified persistance mechanism
 runWith :: (MonadException (t (ProjectStateT IO)), ViewerMonad (t (ProjectStateT IO)))
         => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
         -> fsp 
@@ -75,7 +80,13 @@ runWith runFspT unopened = void $
                 outputStrLn "Type \"help\" for commands"
                 runMain
 
+-- | Run the program with the read-only persistance mechanism
+runWithReadOnlyFilesystemProject :: IO ()
+runWithReadOnlyFilesystemProject = runWith RDONLY.runReadOnlyFilesystemProjectT RDONLY.Unopened
+
+-- | Run the program with the simple persistance mechanism
+runWithSimpleFilesystemProject :: IO ()
+runWithSimpleFilesystemProject = runWith RDWR.runSimpleFilesystemProjectT RDWR.Unopened
 
 main :: IO ()
---main = runWith RDONLY.runReadOnlyFilesystemProjectT RDONLY.Unopened
-main = runWith RDWR.runSimpleFilesystemProjectT RDWR.Unopened
+main = runWithSimpleFilesystemProject

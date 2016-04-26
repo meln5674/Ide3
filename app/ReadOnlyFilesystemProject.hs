@@ -41,11 +41,11 @@ instance MonadIO m => ProjectShellM (ReadOnlyFilesystemProjectT m) where
         fsp <- lift get
         case fsp of
             ToOpen path -> do
-                p <- digestProject' path
+                p <- digestProject' path (Just "ifaces")
                 lift $ put $ Opened path
                 return p
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened path -> digestProject' path
+            Opened path -> digestProject' path (Just "ifaces")
     finalize _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
@@ -58,4 +58,3 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (ReadOnlyFilesystemProjectT
         case fsp of
             Opened _ -> return True
             _ -> return False
-    --saveCurrentProject = throwE $ Unsupported "Cannot save a readonly project"

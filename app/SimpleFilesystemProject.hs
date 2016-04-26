@@ -47,7 +47,7 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
         fsp <- lift get
         case fsp of
             ToDigest path -> do
-                p <- digestProject' path
+                p <- digestProject' path (Just "ifaces") 
                 lift $ put $ Opened Nothing
                 return p
             ToOpen path -> do
@@ -72,13 +72,17 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
                 case result of
                     Right _ -> return ()
                     Left err -> throwE $ InvalidOperation ("Error on writing file: " ++ show err) ""
-    finalize _ = throwE $ InvalidOperation ("Cannot finalize a project without a path to write to") ""
+            _ -> throwE $ InvalidOperation ("Cannot finalize a project without a path to write to") ""
 
 
 instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m) where
     setFileToOpen x = lift $ put $ ToOpen x
     setDirectoryToOpen x = lift $ put $ ToDigest x
-    setTargetPath x = throwE $ Unsupported "Cannot set a target path for a readonly project"
+    setTargetPath x = do
+        fsp <- lift get
+        case fsp of
+            Opened _ -> lift $ put $ Opened (Just x)
+            _ -> throwE $ InvalidOperation "Cannot set target path without open project" ""
     hasOpenedProject = do
         fsp <- get
         case fsp of

@@ -48,7 +48,6 @@ instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (Viewe
     setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
     setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
     hasOpenedProject = lift hasOpenedProject
---    saveCurrentProject = ExceptT $ lift $ runExceptT $ saveCurrentProject
 
 
 runViewerStateT :: Monad m => ViewerStateT m a -> ViewerState -> m (a,ViewerState)
@@ -66,11 +65,6 @@ runViewerState runFSPT unopened f = resumeViewerState
     f 
     runFSPT
     (Resume (Viewer Nothing) unopened initialProject)
-{-    let runViewer = runStateT f (Viewer Nothing)
-        runFPS = runStateT runViewer Unopened
-        runProject = runProjectStateT runFPS
-    (((result,viewer),fsp),proj) <- runProject
-    return (result,Resume viewer fsp proj)-}
 
 resumeViewerState :: 
                      (MonadIO (t (ProjectStateT IO)))
@@ -85,7 +79,6 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     (((result,viewer'),fsp'),proj') <- runProject
     return (result,Resume viewer' fsp' proj')
 
---hasCurrentModule :: (Monad (t (ProjectStateT IO))) => ViewerStateM fsp t Bool
 hasCurrentModule :: ViewerMonad m => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
