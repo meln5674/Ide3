@@ -17,7 +17,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Ide3.Types
                      , Ide3.SrcLoc
-                     , Ide3.HasA
                      , Ide3.Mechanism
                      , Ide3.Mechanism.State
                      , Ide3.Mechanism.Internal
