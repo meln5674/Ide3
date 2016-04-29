@@ -27,7 +27,7 @@ data FileSystemProject
     | Unopened
     | Opened (Maybe FilePath)
 
-type SimpleFilesystemProjectT m = StateT FileSystemProject m
+type SimpleFilesystemProjectT = StateT FileSystemProject
 
 runSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runSimpleFilesystemProjectT = runStateT

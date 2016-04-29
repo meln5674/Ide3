@@ -235,6 +235,32 @@ doCat sym = withSelectedModule $ \module_ -> ExceptT $ return $ do
         strings = asStrings . lines . body . getChild $ decl
     return strings
 
+doAddModule :: ViewerMonad m => String -> ViewerStateT m String
+doAddModule moduleName = printOnError $ do
+    createModule (ModuleInfo (Symbol moduleName))
+    return ""
+    
+doRemoveModule :: ViewerMonad m => String -> ViewerStateT m String
+doRemoveModule moduleName = printOnError $ do
+    removeModule (ModuleInfo (Symbol moduleName))
+    return ""
+
+doAddDeclaration :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> ViewerStateT m String
+doAddDeclaration editor = withSelectedModule $ \module_ -> do
+    newDecl <- ExceptT $ lift $ runExceptT $ runEditor editor ""
+    case newDecl of
+        EditConfirmed newBody -> do
+            toAdd <- ExceptT $ return $ Declaration.parseAndCombine newBody Nothing
+            addDeclaration (Module.info module_) toAdd
+            return [asShow "Added"]
+        DeleteConfirmed -> error "Deleted a new declaration?"
+        EditCanceled -> return [asShow "Add canceled"]
+
+doRemoveDeclaration :: ViewerMonad m => String -> ViewerStateT m String
+doRemoveDeclaration sym = withSelectedModule $ \module_ -> do
+    removeDeclaration (Module.info module_) (DeclarationInfo (Symbol sym))
+    return [asShow "Removed"]
+
 doEdit :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> String -> ViewerStateT m String
 doEdit editor sym = withSelectedModule $ \module_ -> do
     let declInfo = DeclarationInfo (Symbol sym)
@@ -482,7 +508,7 @@ modulesCmd = Command
     , root = "modules"
     , parser = parseArity0 "modules"
     , isAllowed = hasOpenedProject
-    , completion = moduleNameCompletion
+    , completion = \_ -> return $ Just []
     , action = \_ -> liftCmd doModules
     }
 
@@ -492,7 +518,7 @@ moduleCmd = Command
     , root = "module"
     , parser = parseArity1 "module" "module name"
     , isAllowed = hasOpenedProject
-    , completion = \_ -> return $  Just []
+    , completion = moduleNameCompletion
     , action = liftCmd . doModule
     }
 
@@ -564,6 +590,46 @@ catCmd = Command
     , isAllowed = hasCurrentModule
     , completion = declarationNameCompletion
     , action = liftCmd . doCat
+    }
+
+addModuleCmd :: ViewerMonad m => Command u (ViewerStateT m)
+addModuleCmd = Command
+    { helpLine = "add module MODULE: add a new module"
+    , root = "add module"
+    , parser = parseArity1 "add module" "module name"
+    , isAllowed = hasOpenedProject
+    , completion = moduleNameCompletion
+    , action = liftCmd . doAddModule
+    }
+
+removeModuleCmd :: ViewerMonad m => Command u (ViewerStateT m)
+removeModuleCmd = Command
+    { helpLine = "remove module MODULE: remove a module"
+    , root = "add module"
+    , parser = parseArity1 "remove module" "module name"
+    , isAllowed = hasOpenedProject
+    , completion = moduleNameCompletion
+    , action = liftCmd . doRemoveModule
+    }
+
+addDeclarationCmd :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> Command u (ViewerStateT m)
+addDeclarationCmd editor = Command
+    { helpLine = "add decl: add a new declaration"
+    , root = "add decl"
+    , parser = parseArity0 "add decl"
+    , isAllowed = hasCurrentModule
+    , completion = \_ -> return $ Just []
+    , action = \_ -> liftCmd $ doAddDeclaration editor
+    }
+
+removeDeclarationCmd :: ViewerMonad m => Command u (ViewerStateT m)
+removeDeclarationCmd = Command
+    { helpLine = "remove decl DECLARATION: remove a declaration"
+    , root = "remove decl"
+    , parser = parseArity1 "remove decl" "declaration"
+    , isAllowed = hasCurrentModule
+    , completion = declarationNameCompletion
+    , action = liftCmd . doRemoveDeclaration
     }
 
 editCmd :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> Command u (ViewerStateT m)

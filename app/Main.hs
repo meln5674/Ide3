@@ -49,8 +49,8 @@ settings :: (MonadException m, ViewerMonad m) => Settings (CommandT UserError (V
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
 -- | List of commands
-commandList :: (MonadMask m, MonadIO m, ViewerMonad m) => [Command u (ViewerStateT m)]
-commandList =
+commandList :: (MonadMask m, MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> [Command u (ViewerStateT m)]
+commandList editor =
     [ helpCmd
     , openCmd
     , saveAsCmd
@@ -64,7 +64,11 @@ commandList =
     , exportedCmd
     , visibleCmd
     , catCmd
-    , editCmd nanoEditor
+    , addModuleCmd
+    , removeModuleCmd
+    , addDeclarationCmd editor
+    , removeDeclarationCmd
+    , editCmd editor
     , treeCmd
     , searchCmd
     , quitCmd
@@ -78,22 +82,68 @@ runWith :: ( MonadException (t (ProjectStateT IO))
            )
         => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
         -> fsp 
+        -> (forall u . Editor (t (ProjectStateT IO)) u)
         -> IO ()
-runWith runFspT unopened = void $ 
+runWith runFspT unopened editor = void $ 
     runViewerState runFspT unopened $
-        flip runCommandT commandList $ 
+        flip runCommandT (commandList editor) $ 
             runInputT settings $ do
                 outputStrLn "Haskell project viewer"
                 outputStrLn "Type \"help\" for commands"
                 runMain
 
+{-
 -- | Run the program with the read-only persistance mechanism
-runWithReadOnlyFilesystemProject :: IO ()
-runWithReadOnlyFilesystemProject = runWith RDONLY.runReadOnlyFilesystemProjectT RDONLY.Unopened
+runWithReadOnlyFilesystemProject :: (forall u . Editor 
+                                        (RDONLY.ReadOnlyFilesystemProjectT 
+                                            (ProjectStateT IO)
+                                        ) u
+                                    ) -> IO ()
+runWithReadOnlyFilesystemProject editor = runWith RDONLY.runReadOnlyFilesystemProjectT RDONLY.Unopened editor
 
 -- | Run the program with the simple persistance mechanism
-runWithSimpleFilesystemProject :: IO ()
-runWithSimpleFilesystemProject = runWith RDWR.runSimpleFilesystemProjectT RDWR.Unopened
+runWithSimpleFilesystemProject :: (forall u . Editor 
+                                    (RDWR.SimpleFilesystemProjectT 
+                                            (ProjectStateT IO)
+                                    ) u
+                                  ) -> IO ()
+runWithSimpleFilesystemProject editor = runWith RDWR.runSimpleFilesystemProjectT RDWR.Unopened editor
+-}
+
+data AppSetup t fsp u
+    = AppSetup
+    { appEditor :: Editor (t (ProjectStateT IO)) u
+    , appRunFspT :: forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp)
+    , appUnopened :: fsp
+    }
+
+runWithSetup :: ( MonadException (t (ProjectStateT IO))
+                , MonadMask (t (ProjectStateT IO))
+                , ViewerMonad (t (ProjectStateT IO))
+                )
+             => (forall u . AppSetup t fsp u)
+             -> IO ()
+runWithSetup setup = runWith (appRunFspT setup) (appUnopened setup) (appEditor setup)
+
+useNanoEditor :: ( MonadIO (t (ProjectStateT IO))
+                 , MonadMask (t (ProjectStateT IO))
+                 ) => AppSetup t fsp u -> AppSetup t fsp u
+useNanoEditor = \s -> s{appEditor = nanoEditor}
+
+useReadOnlyFilesystemProject :: (forall t . AppSetup t fsp u) -> AppSetup RDONLY.ReadOnlyFilesystemProjectT RDONLY.FileSystemProject u
+useReadOnlyFilesystemProject s = s
+    { appRunFspT = RDONLY.runReadOnlyFilesystemProjectT
+    , appUnopened = RDONLY.Unopened
+    }
+
+useSimpleFilesystemProject :: (forall t . AppSetup t fsp u) -> AppSetup RDWR.SimpleFilesystemProjectT RDWR.FileSystemProject u
+useSimpleFilesystemProject s = s
+    { appRunFspT = RDWR.runSimpleFilesystemProjectT
+    , appUnopened = RDWR.Unopened
+    }
+
+blankSetup :: AppSetup t fsp u
+blankSetup = AppSetup{appRunFspT = undefined, appUnopened = undefined, appEditor = undefined}
 
 main :: IO ()
-main = runWithSimpleFilesystemProject
+main = runWithSetup $ useNanoEditor $ useSimpleFilesystemProject $ blankSetup
