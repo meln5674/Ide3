@@ -238,7 +238,7 @@ removeDeclaration p (ModuleChild i d)
 -- |Apply a transformation to a declaration in a project
 editDeclaration :: Project 
                 -> ModuleChild DeclarationInfo
-                -> (Declaration -> Either (ProjectError u) Declaration)
+                -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
                 -> Either (ProjectError u) Project
 editDeclaration p (ModuleChild i di) f = do
     mi <- Module.info <$> getModule p i
@@ -247,7 +247,7 @@ editDeclaration p (ModuleChild i di) f = do
 -- |Same as `editDeclaration`, but the transformation is garunteed to succeed
 editDeclaration' :: Project
                  -> ModuleChild DeclarationInfo
-                 -> (Declaration -> Declaration)
+                 -> (Declaration -> (WithBody Declaration))
                  -> Either (ProjectError u) Project
 editDeclaration' p m f = editDeclaration p m (return . f)
 

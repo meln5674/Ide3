@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 module Command where
 
 import Data.Maybe
@@ -46,6 +47,7 @@ import Ide3.Mechanism.State()
 import CmdParser
 import Viewer
 import ViewerMonad
+import Editor
 
 for :: [a] -> (a -> b) -> [b]
 for xs f = map f xs
@@ -232,6 +234,23 @@ doCat sym = withSelectedModule $ \module_ -> ExceptT $ return $ do
     let strings :: [Output Bool]
         strings = asStrings . lines . body . getChild $ decl
     return strings
+
+doEdit :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> String -> ViewerStateT m String
+doEdit editor sym = withSelectedModule $ \module_ -> do
+    let declInfo = DeclarationInfo (Symbol sym)
+    let moduleInfo = Module.info module_
+    decl <- ExceptT $ return $ Module.getDeclaration module_ declInfo
+    let declBody = body $ getChild decl
+    newDeclBody <- ExceptT $ lift $ runExceptT $ runEditor editor declBody
+    case newDeclBody of
+        EditConfirmed newBody -> do 
+            editDeclaration moduleInfo declInfo $ \_ -> Declaration.parseAndCombine newBody Nothing
+            return [asShow "Edit completed"]
+        DeleteConfirmed -> do
+            removeDeclaration moduleInfo declInfo
+            return [asShow "Delete completed"]
+        EditCanceled -> return [asShow "Edit canceled"]
+    
 
 doTree :: ViewerMonad m => ViewerStateT m String
 doTree = printOnError $ do
@@ -545,6 +564,16 @@ catCmd = Command
     , isAllowed = hasCurrentModule
     , completion = declarationNameCompletion
     , action = liftCmd . doCat
+    }
+
+editCmd :: (MonadIO m, ViewerMonad m) => (forall u . Editor m u) -> Command u (ViewerStateT m)
+editCmd editor = Command
+    { helpLine = "edit SYMBOL: edit a declaration"
+    , root = "edit"
+    , parser = parseArity1 "edit" "symbol name"
+    , isAllowed = hasCurrentModule
+    , completion = declarationNameCompletion
+    , action = liftCmd . doEdit editor
     }
 
 treeCmd :: ViewerMonad m => Command u (ViewerStateT m) 

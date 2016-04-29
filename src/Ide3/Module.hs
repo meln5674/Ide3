@@ -289,18 +289,18 @@ removeDeclaration m@(Module i ps is es ds) di
 -- |Apply a transformation to a declaration in a module
 editDeclaration :: Module 
                 -> DeclarationInfo
-                -> (Declaration -> Either (ProjectError u) Declaration)
+                -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
                 -> Either (ProjectError u) Module
 editDeclaration m@(Module i ps is es ds) di f = do
     (ModuleChild _ (WithBody d s)) <- getDeclaration m di
-    d' <- WithBody <$> f d <*> pure s
+    d' <- f d
     let ds' = Map.insert di d' ds
     return $ Module i ps is es ds'
 
 -- |Same as 'editDeclaration', but the transformation is garunteed to suceed
 editDeclaration' :: Module
                  -> DeclarationInfo
-                 -> (Declaration -> Declaration)
+                 -> (Declaration -> (WithBody Declaration))
                  -> Either (ProjectError u) Module
 editDeclaration' m d f = editDeclaration m d (return . f)
 

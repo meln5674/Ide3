@@ -49,6 +49,11 @@ executable Ide3-exe
   other-modules:       CmdParser
                      , Digest
                      , Viewer
+                     , ViewerMonad
+                     , Command
+                     , Editor
+                     , ReadOnlyFilesystemProject
+                     , SimpleFilesystemProject
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3
@@ -61,6 +66,9 @@ executable Ide3-exe
                      , haskeline >= 0.7.2.2
                      , containers >= 0.5.6.2
                      , directory >= 1.2.2.0
+                     , process >= 1.2.3.0
+                     , temporary >= 1.2.0.4
+                     , exceptions >= 0.8.2.1
   default-language:    Haskell2010
 
 test-suite Ide3-test

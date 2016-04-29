@@ -44,6 +44,16 @@ partitionBy f ys = go ys Map.empty
             Nothing -> [x]
         m' = Map.insert k v' m
 
+parseAndCombine :: String -> Maybe FilePath -> Either (ProjectError u) (WithBody Declaration)
+parseAndCombine s fp = do 
+    ds <- Parser.parseWithBody s fp
+    let combined = combineMany ds
+    case combined of
+        [d] -> return d
+        [] -> Left $ InvalidOperation "Found no declarations" "Declaration.parseAndCombine"
+        _ -> Left $ InvalidOperation "Found more than 1 declaration" "Declaration.parseAndCombine"
+        
+
 -- | Find declarations that can be merged and merge them
 combineMany :: [WithBody Declaration] -> [WithBody Declaration]
 combineMany ds = ds'

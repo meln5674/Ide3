@@ -6,6 +6,8 @@ import Data.Maybe
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Control.Monad.Catch
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
@@ -21,6 +23,7 @@ import Command
 import Viewer
 import qualified ReadOnlyFilesystemProject as RDONLY
 import qualified SimpleFilesystemProject as RDWR
+import Editor
 
 -- | Run a single iteration of reading input from the user, deciding which command to run,
 -- running it, then printing the response, and indicating if the user wishes to quit
@@ -46,7 +49,7 @@ settings :: (MonadException m, ViewerMonad m) => Settings (CommandT UserError (V
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
 -- | List of commands
-commandList :: (MonadIO m, ViewerMonad m) => [Command u (ViewerStateT m)]
+commandList :: (MonadMask m, MonadIO m, ViewerMonad m) => [Command u (ViewerStateT m)]
 commandList =
     [ helpCmd
     , openCmd
@@ -61,6 +64,7 @@ commandList =
     , exportedCmd
     , visibleCmd
     , catCmd
+    , editCmd nanoEditor
     , treeCmd
     , searchCmd
     , quitCmd
@@ -68,7 +72,10 @@ commandList =
 
 
 -- | Run the main program using the specified persistance mechanism
-runWith :: (MonadException (t (ProjectStateT IO)), ViewerMonad (t (ProjectStateT IO)))
+runWith :: ( MonadException (t (ProjectStateT IO))
+           , MonadMask (t (ProjectStateT IO))
+           , ViewerMonad (t (ProjectStateT IO))
+           )
         => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
         -> fsp 
         -> IO ()

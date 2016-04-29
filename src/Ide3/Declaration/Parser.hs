@@ -22,6 +22,16 @@ import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
+import Language.Haskell.Exts.Parser
+    ( ParseResult(..)
+    , defaultParseMode
+    , parseFilename
+    , extensions
+    , fixities
+    )
+import Language.Haskell.Exts.Extension
+
+
 import Ide3.SrcLoc
 
 import Ide3.Types
@@ -202,10 +212,22 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     isFuncBind (BindDeclaration _ (LocalBindDeclaration _ _)) = True
     isFuncBind _ = False
 
--- | Parse a declaration    
+-- | Parse a declaration
 parse :: String -> Either (ProjectError u) Declaration
 parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
         Nothing -> Left $ Unsupported $ show x
     ParseFailed l msg -> Left $ ParseError l msg ""
+
+
+-- |Take a string and produce the needed information for building a Module
+parseWithBody :: String -> Maybe FilePath -> Either (ProjectError u) [WithBody Declaration]
+parseWithBody s p = case parseModuleWithComments parseMode s of
+    ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
+    ParseFailed l msg -> Left $ ParseError l msg ""
+  where
+    parseMode = case p of
+        Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
+        Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
+    exts = EnableExtension LambdaCase : glasgowExts
