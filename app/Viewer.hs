@@ -2,6 +2,19 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
+{-|
+Module      : Viewer
+Description : Viewer for the demo project
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+This module defines a monad transformer, ViewerStateT, which adds access to the
+state of the program
+-}
 module Viewer 
     ( module Viewer
     , module ViewerMonad
@@ -23,12 +36,17 @@ import Ide3.Types (Project, ProjectError (..))
 
 import ViewerMonad
 
+-- | The state of the program
 data ViewerState = Viewer { currentModule :: Maybe String }
 
+-- | Transformer which adds access to the state of the program
 type ViewerStateT = StateT ViewerState
 
+-- | The ViewerStateT transformer applied to another transformer, applied to
+-- the project state transformer applied to IO
 type ViewerStateM fsp t = ViewerStateT (t (ProjectStateT IO))
 
+-- | A token which can be used to resume the program
 data ViewerResume fsp = Resume ViewerState fsp Project
 
 
@@ -48,11 +66,16 @@ instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (Viewe
     setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
     setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
     hasOpenedProject = lift hasOpenedProject
+    createNewFile x = ExceptT $ lift $ runExceptT $ createNewFile x
+    createNewDirectory x = ExceptT $ lift $ runExceptT $ createNewDirectory x
+    prepareBuild = ExceptT $ lift $ runExceptT $ prepareBuild
 
 
+-- | Run the viewer state transformer with a given state
 runViewerStateT :: Monad m => ViewerStateT m a -> ViewerState -> m (a,ViewerState)
 runViewerStateT = runStateT
 
+-- | Run the viewer state transformer with the initial program state
 runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
 runNewViewerStateT = flip runViewerStateT $ Viewer Nothing
 
@@ -66,6 +89,7 @@ runViewerState runFSPT unopened f = resumeViewerState
     runFSPT
     (Resume (Viewer Nothing) unopened initialProject)
 
+-- | Resume the viewer state transformer
 resumeViewerState :: 
                      (MonadIO (t (ProjectStateT IO)))
                   => ViewerStateM fsp t a 
@@ -79,9 +103,11 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     (((result,viewer'),fsp'),proj') <- runProject
     return (result,Resume viewer' fsp' proj')
 
+-- | Check if the program currently has a module open
 hasCurrentModule :: ViewerMonad m => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
+-- | Open a project at a given path
 openProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m)
             => FilePath 
             -> ProjectResult (ViewerStateT m) u ()
@@ -99,6 +125,7 @@ openProject path = do
             M.load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
+-- | Save the current project, optionally with a new path to save to
 saveProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
             => (Maybe FilePath)
             -> ProjectResult (ViewerStateT m) u ()

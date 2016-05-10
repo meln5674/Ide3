@@ -51,9 +51,13 @@ executable Ide3-exe
                      , Viewer
                      , ViewerMonad
                      , Command
+                     , Command.Trans
+                     , Command.Types
                      , Editor
+                     , Builder
                      , ReadOnlyFilesystemProject
                      , SimpleFilesystemProject
+                     , ModuleTree
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3
