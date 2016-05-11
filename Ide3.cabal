@@ -55,6 +55,7 @@ executable Ide3-exe
                      , Command.Types
                      , Editor
                      , Builder
+                     , Runner
                      , ReadOnlyFilesystemProject
                      , SimpleFilesystemProject
                      , ModuleTree

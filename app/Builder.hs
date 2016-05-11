@@ -2,6 +2,7 @@ module Builder
     ( Builder
     , BuilderResult (..)
     , runBuilder
+    , noBuilder
     , stackBuilder
     )
     where
@@ -27,6 +28,9 @@ newtype Builder m u = MkBuilder { runBuilderInternal :: ProjectResult m u Builde
 
 runBuilder :: Builder m u -> ProjectResult m u BuilderResult
 runBuilder = runBuilderInternal
+
+noBuilder :: Monad m => Builder m u
+noBuilder = MkBuilder $ throwE $ Unsupported "No builder specified"
 
 stackBuilder :: (MonadIO m, MonadMask m) => Builder m u
 stackBuilder = MkBuilder $ ExceptT $ flip catch handleException $ do

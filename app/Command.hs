@@ -23,9 +23,6 @@ module Command where
 import Data.Maybe
 import Data.List
 
-import Data.Map (Map)
-import qualified Data.Map as Map
-
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -64,9 +61,9 @@ import Command.Trans
 import ModuleTree
 import CmdParser
 import Viewer
-import ViewerMonad
 import Editor
 import Builder
+import Runner
 
 -- | Temporary, will be removed
 type UserError = ()
@@ -249,6 +246,13 @@ doBuild builder = printOnError $ do
     case r of
         BuildSucceeded out err -> return $ out ++ err
         BuildFailed out err -> return $ out ++ err
+
+doRun :: (MonadIO m, ViewerMonad m) => (forall u . Runner m u) -> ViewerStateT m String
+doRun runner = printOnError $ do
+    r <- ExceptT $ lift $ runExceptT $ runRunner runner
+    case r of
+        RunSucceeded out err -> return $ out ++ err
+        RunFailed out err -> return $ out ++ err
     
 -- | Action for the tree command
 doTree :: ViewerMonad m => ViewerStateT m String
@@ -584,6 +588,16 @@ buildCmd builder = Command
     , isAllowed = hasOpenedProject
     , completion = \_ -> return $ Just []
     , action = \_ -> liftCmd $ doBuild builder
+    }
+
+runCmd :: (MonadIO m, ViewerMonad m) => (forall u . Runner m u) -> Command u (ViewerStateT m)
+runCmd runner = Command
+    { helpLine = "run: Run the project executable"
+    , root = "run"
+    , parser = parseArity0 "run"
+    , isAllowed = hasOpenedProject
+    , completion = \_ -> return $ Just []
+    , action = \_ -> liftCmd $ doRun runner
     }
 
 -- | The tree command, displays the project as a tree of modules and declarations

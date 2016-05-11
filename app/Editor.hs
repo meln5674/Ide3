@@ -11,7 +11,13 @@ Portability : POSIX
 This module defines the Editor type which represent an action that invokes a
 text editor on a given peice of text
 -}
-module Editor (Editor, runEditor, nanoEditor, EditorResult (..)) where
+module Editor
+    ( Editor
+    , runEditor
+    , nanoEditor
+    , noEditor
+    , EditorResult (..)
+    ) where
 
 import Control.Exception.Base hiding (catch)
 
@@ -41,6 +47,9 @@ newtype Editor m u = MkEditor { runEditorInternal :: String -> ProjectResult m u
 -- | Run an editor on a given string
 runEditor :: Editor m u -> String -> ProjectResult m u EditorResult
 runEditor = runEditorInternal
+
+noEditor :: Monad m => Editor m u
+noEditor = MkEditor $ \_ -> throwE $ Unsupported "No editor specified"
 
 -- | An editor which invokes the nano program
 nanoEditor :: (MonadIO m, MonadMask m) => Editor m u
