@@ -95,24 +95,13 @@ doMain :: forall proxy m p
        -> IO ()
 doMain proxy init = do
     projectMVar <- newMVar (Viewer Nothing, init)
-    makeMainWindowWith $ makeContainerWith $ \container -> do
-        components <- initializeComponents
-        let env = GuiEnv proxy components projectMVar
-        renderer <- makeRenderer
-        projView <- withProjectTree components $ \treeStore ->
-            makeProjView treeStore renderer container renderProjectTreeElem
-        declView <- withEditorBuffer components $ \buffer ->
-            makeDeclView buffer container 
-        openButton <- makeOpenButton container
-        buildButton <- makeBuildButton container
-        buildView <- withBuildBuffer components $ \buffer ->
-            makeBuildView buffer container
-        
-        openButton `on` buttonPressEvent $ onOpenClicked env
-        projView `on` rowActivated $ onDeclClicked env
-        buildButton `on` buttonPressEvent $ onBuildClicked env
-        
-        return ()
+    components <- initializeComponents
+    let env = GuiEnv proxy components projectMVar
+    makeGui env $ \gui -> do
+        withOpenButton gui $ \openButton -> openButton `on` buttonPressEvent $ onOpenClicked env
+        withProjectView gui $ \projView -> projView `on` rowActivated $ onDeclClicked env
+        withBuildButton gui $ \buildButton -> buildButton `on` buttonPressEvent $ onBuildClicked env
+    return ()
 
 
 main :: IO ()
