@@ -42,7 +42,7 @@ import qualified Ide3.Project as Project
 
 --import Ide3.HasA
 
-type ProjectStateT m = StateT Project m
+type ProjectStateT = StateT Project
 type ProjectState = ProjectStateT Identity
 
 initialProject :: Project

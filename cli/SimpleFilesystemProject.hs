@@ -36,12 +36,13 @@ import Ide3.Monad hiding (load)
 import Ide3.Mechanism.State
 import Ide3.Types
 import qualified Ide3.Project as Project
+import Ide3.Digest
+import Ide3.ModuleTree
+
 
 import ViewerMonad
 
-import Digest
 
-import ModuleTree
 
 -- | State of the mechanism
 data FileSystemProject

@@ -54,11 +54,12 @@ import Ide3.Types
     )
 
 import Ide3.Mechanism.State()
+import Ide3.ModuleTree
+
 
 import Command.Types
 import Command.Trans
 
-import ModuleTree
 import CmdParser
 import Viewer
 import Editor

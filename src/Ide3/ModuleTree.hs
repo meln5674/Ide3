@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module ModuleTree where
+module Ide3.ModuleTree where
 
 import Data.List
 

@@ -1,4 +1,4 @@
-module Digest where
+module Ide3.Digest where
 
 import Data.List
 
@@ -8,7 +8,7 @@ import Control.Monad.Trans.Except
 
 import System.Posix.Directory
 import System.Posix.Files
-import System.FilePath.Posix
+import System.FilePath
 
 import qualified HsInterface as Iface
 
@@ -23,6 +23,7 @@ data FileTree
     = Directory FilePath [FileTree]
     | File FilePath
     deriving Show
+
 enumerateDirectory :: String -> IO FileTree
 enumerateDirectory path = do
     isDir <- isDirectory <$> getFileStatus path

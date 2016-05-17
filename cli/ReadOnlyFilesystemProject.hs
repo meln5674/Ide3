@@ -24,10 +24,9 @@ import Control.Monad.Trans.State.Strict
 
 import Ide3.Mechanism.State
 import Ide3.Types (ProjectError (..))
+import Ide3.Digest
 
 import ViewerMonad
-
-import Digest
 
 -- | State of the mechanism
 data FileSystemProject
