@@ -2,6 +2,7 @@ module GuiMonad
     ( GuiComponents
     , withProjectTree
     , withEditorBuffer
+    , withBuildBuffer
     , initializeComponents
     ) where
 
@@ -17,29 +18,39 @@ data GuiComponents buffer
     = GuiComponents
     { projectTree :: TreeStore ProjectTreeElem
     , editorBuffer :: buffer
+    , buildBuffer :: buffer
     }
 
 
 
 makeDeclBuffer = textBufferNew Nothing
 makeTreeStore = treeStoreNew ([] :: [Tree ProjectTreeElem])
+makeBuildBuffer = textBufferNew Nothing
 
 initializeComponents :: (MonadIO m)
                      => m (GuiComponents TextBuffer)
 initializeComponents = liftIO $ do
-    buffer <- makeDeclBuffer
     treeStore <- makeTreeStore
-    return $ GuiComponents treeStore buffer
+    editorBuffer <- makeDeclBuffer
+    buildBuffer <- makeBuildBuffer
+    return $ GuiComponents treeStore editorBuffer buildBuffer
     
 
 withProjectTree :: (TextBufferClass buffer)
                 => GuiComponents buffer 
-                -> (TreeStore ProjectTreeElem -> m a)
-                -> m a
+                -> (TreeStore ProjectTreeElem -> a)
+                -> a
 withProjectTree comp f = f (projectTree comp)
 
 withEditorBuffer :: (TextBufferClass buffer)
                  => GuiComponents buffer
-                 -> (buffer -> m a)
-                 -> m a
+                 -> (buffer -> a)
+                 -> a
 withEditorBuffer comp f = f (editorBuffer comp)
+
+withBuildBuffer :: (TextBufferClass buffer)
+                 => GuiComponents buffer
+                 -> (buffer -> a)
+                 -> a
+withBuildBuffer comp f = f (buildBuffer comp)
+
