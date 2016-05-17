@@ -200,15 +200,15 @@ doMain proxy init = do
                 case r of
                     ResponseAccept -> do
                         Just path <- liftIO $ fileChooserGetFilename dialog
-                        doOpen proxy components path projectMVar
+                        doOpen proxy components projectMVar path
                         liftIO $ widgetDestroy dialog
                     ResponseReject -> liftIO $ widgetDestroy dialog
                     _ -> return ()
             return False
         
-        {-
-        projView `on` rowActivated $ onDeclClicked buffer treeStore projectMVar
-        -}
+        
+        projView `on` rowActivated $ doGetDecl proxy components projectMVar
+        
         
         return ()
 

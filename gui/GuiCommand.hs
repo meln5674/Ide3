@@ -10,6 +10,7 @@ import Control.Concurrent
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
+import Ide3.Types
 import Ide3.Monad
 
 import Viewer
@@ -53,10 +54,32 @@ doOpen :: forall proxy m buffer p
           )
        => proxy m
        -> GuiComponents buffer
-       -> FilePath
        -> MVar (ViewerState,p)
+       -> FilePath
        -> IO ()
-doOpen _ comp path var = dialogOnError var () $ 
+doOpen _ comp var path = dialogOnError var () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
         openProject path
         withProjectTree comp $ populateTree
+
+doGetDecl :: forall proxy m buffer p 
+          . ( MonadIO m
+            , ViewerMonad m
+            , TextBufferClass buffer
+            , InteruptMonad2 p m
+            )
+          => proxy m
+          -> GuiComponents buffer
+          -> MVar (ViewerState,p)
+          -> TreePath
+          -> TreeViewColumn 
+          -> IO ()
+doGetDecl _ comp var path column = dialogOnError var () $ 
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+        index <- liftIO $ withProjectTree comp $ getModuleAndDecl path
+        case index of
+            Just (mi, di) -> do
+                    decl <- getDeclaration mi di
+                    let text = body decl
+                    liftIO $ withEditorBuffer comp $ flip textBufferSetText text
+            _ -> return ()
