@@ -21,6 +21,8 @@ import Ide3.Free (ProjectAST (..))
 import Ide3.Free.State.Classes
 import {-# SOURCE #-} Ide3.Free.State.Helpers
 
+import Ide3.Free.Interpreter
+
 interpret :: forall
              (m :: * -> *) serial err
              project

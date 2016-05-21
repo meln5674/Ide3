@@ -86,7 +86,6 @@ addDeclaration:: ModuleInfo -> DeclarationInfo -> Declaration -> ProjectMonad ()
 addDeclaration mi di d = MkProjectMonad $ liftF (AddDeclaration mi di d ())
 -}
 
-
 createProject pn = MkProjectMonad $ liftF $ CreateProject pn ()
 loadProject pl = MkProjectMonad $ liftF $ LoadProject pl ()
 saveProject ps = MkProjectMonad $ liftF $ SaveProject ps ()
