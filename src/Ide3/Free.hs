@@ -4,7 +4,7 @@ module Ide3.Free where
 import Control.Monad
 import Control.Monad.Free
 
-import Ide3.Types
+--import Ide3.Types
 
 data ProjectAST 
         projectNew projectLoad projectSave
@@ -32,7 +32,7 @@ data ProjectAST
     | RemoveImport moduleKey importKey next
     
     | AddExport moduleKey bodyType ((exportKey,exportVal) -> next)
-    | EditExport moduleKey importKey 
+    | EditExport moduleKey exportKey 
         ((exportKey,exportVal,bodyType) -> (exportKey,exportVal,bodyType)) next
     | RemoveExport moduleKey exportKey next
     | ExportAll moduleKey next
@@ -42,9 +42,9 @@ data ProjectAST
     | GetImports moduleKey ([importKey] -> next)
     | GetExports moduleKey (Maybe [exportKey] -> next)
     
-    | GetDeclaration moduleKey declKey ((declVal,bodyType) -> next)
-    | GetImport moduleKey importKey ((importVal,bodyType) -> next)
-    | GetExport moduleKey exportKey ((exportVal,bodyType) -> next)
+    | GetDeclaration moduleKey declKey ((declKey,declVal,bodyType) -> next)
+    | GetImport moduleKey importKey ((importKey,importVal,bodyType) -> next)
+    | GetExport moduleKey exportKey ((exportKey,exportVal,bodyType) -> next)
     deriving (Functor)
 
 {-
@@ -95,7 +95,10 @@ saveProject ps = MkProjectMonad $ liftF $ SaveProject ps ()
 createModule mk = MkProjectMonad $ liftF $ CreateModule mk () 
 removeModule mk = MkProjectMonad $ liftF $ RemoveModule mk ()
 
-
+{-
+createExternModule mk = MkProjectMonad $ liftF $ CreateExternModule mk ()
+removeExternModule mk = MkProjectMonad $ liftF $ RemoveExternModule mk ()
+-}
 
 createDeclaration mk b = MkProjectMonad $ liftF $ CreateDeclaration mk b id
 editDeclaration mk dk f = MkProjectMonad $ liftF $ EditDeclaration mk dk f ()
@@ -120,6 +123,8 @@ getImport mk ik = MkProjectMonad $ liftF $ GetImport mk ik id
 getExport mk ek = MkProjectMonad $ liftF $ GetExport mk ek id
 
 
+snd3 (_,x,_) = x
+
 getAllDeclarations = do
     mks <- getModules
     declPartitions <- forM mks getDeclarations
@@ -128,11 +133,11 @@ dumpModule mk = do
     dks <- getDeclarations mk 
     iks <- getImports mk
     eks <- getExports mk
-    ds <- forM dks $ liftM snd . getDeclaration mk
-    is <- forM iks $ liftM snd . getImport mk
+    ds <- forM dks $ liftM snd3 . getDeclaration mk
+    is <- forM iks $ liftM snd3 . getImport mk
     es <- case eks of
         Nothing -> return Nothing
-        Just eks -> liftM Just $ forM eks $ liftM snd . getExport mk
+        Just eks -> liftM Just $ forM eks $ liftM snd3 . getExport mk
     return (ds,is,es)
 
 addModule mk ds is es = do
@@ -150,7 +155,7 @@ renameModule mv mk = do
     addModule mk' ds is es
 
 moveDeclaration mksrc mkdest dk = do
-    db <- liftM snd $ getDeclaration mksrc dk
+    db <- liftM snd3 $ getDeclaration mksrc dk
     removeDeclaration mksrc dk
     createDeclaration mkdest db
 

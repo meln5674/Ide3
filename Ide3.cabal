@@ -40,6 +40,10 @@ library
                      , Ide3.Digest
                      , Ide3.Free
                      , Ide3.Free.State
+                     , Ide3.Free.State.Classes
+                     , Ide3.Free.State.Helpers
+                     , Ide3.Free.State.Instances
+                     , Ide3.Free.State.Instances.SimpleProject
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5.6.2
                      , mtl >= 2.2.1
@@ -51,6 +55,7 @@ library
                      , HsInterface
                      , bytestring
                      , cereal
+                     , directory
   default-language:    Haskell2010
 
 executable Ide3-GUI

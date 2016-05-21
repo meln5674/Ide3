@@ -6,15 +6,9 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
-module Ide3.Free.State where
-
-import Text.Read (readEither)
+module Ide3.Free.State (interpret) where
 
 import Data.Proxy
-
-import Data.ByteString
-
-import Data.Serialize (Serialize, encode, decode)
 
 import Control.Monad.Free
 
@@ -22,51 +16,10 @@ import Control.Monad.Trans
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
-import Ide3.Free (ProjectAST (..), ProjectMonad (..))
+import Ide3.Free (ProjectAST (..))
 
-class (Monad m) => InitProject projectInit m project where
-    initProject :: projectInit -> m project
-
-class (Monad m) => LoadProject projectLoad err m serial where
-    loadSerialProject :: projectLoad -> ExceptT err m serial
-
-class (Monad m) => SaveProject projectSave err m serial where
-    saveSerialProject :: projectSave -> serial -> ExceptT err m ()    
-
-class SerializeProject serial project where
-    serializeProject :: project -> serial
-
-class DeserializeProject serial err project where
-    deserializeProject :: serial -> Either err project
-
-class ModuleStructure moduleType 
-                        declKey declVal 
-                        importKey importVal 
-                        exportKey exportVal
-                        bodyType 
-                        err
-                        where
-    createDeclaration :: moduleType -> bodyType -> Either err (moduleType,declKey,declVal)
-    editDeclaration :: moduleType -> declKey -> ((declKey,declVal,bodyType) -> (declKey,declVal,bodyType)) -> Either err moduleType
-    removeDeclaration :: moduleType -> declKey -> Either err moduleType
-
-class ProjectStructure
-            project
-            moduleKey
-            err
-            where
-    createModule :: project -> moduleKey -> Either err project
-    removeModule :: project -> moduleKey -> Either err project
-
-class ProjectEditStructure project moduleKey moduleType err where
-    editModule :: project -> moduleKey -> (moduleType -> Either err moduleType) -> Either err project
-
-bounce :: (Monad m, MonadTrans t, Monad (t m)) => ExceptT e m a -> ExceptT e (t m) a
-bounce = ExceptT . lift . runExceptT
-
-lift2 :: (Monad m, MonadTrans t, MonadTrans t2, Monad (t2 m), Monad (t (t2 m))) 
-      =>  m a -> t (t2 m) a
-lift2 = lift . lift
+import Ide3.Free.State.Classes
+import {-# SOURCE #-} Ide3.Free.State.Helpers
 
 interpret :: forall
              (m :: * -> *) serial err
@@ -80,20 +33,37 @@ interpret :: forall
              r
            . ( ?proxy :: Proxy (serial,err,moduleType)
              , ?proxy_m :: Proxy m
-             , InitProject projectInit m project
+             , InitProject projectInit err m project
              , LoadProject projectLoad err m serial
              , SaveProject projectSave err m serial
              , SerializeProject serial project
              , DeserializeProject serial err project
-             , ModuleStructure moduleType 
+             , DeclarationStructure moduleType 
                                 declKey declVal 
+                                bodyType 
+                                err
+             , DeclarationRemove moduleType declKey err
+             , DeclarationGet moduleType declKey err
+             , ImportStructure moduleType 
                                 importKey importVal 
+                                bodyType 
+                                err
+             , ImportRemove moduleType importKey err
+             , ImportGet moduleType importKey err
+             , ExportStructure moduleType 
                                 exportKey exportVal 
                                 bodyType 
                                 err
+             , ExportRemove moduleType exportKey err
+             , ExportGet moduleType exportKey err
+             , ExportAllStructure moduleType err
              , ProjectStructure project
                                     moduleKey
                                     err
+             {-, ProjectExternStructure project
+                                    moduleKey
+                                    externModuleVal
+                                    err-}
              , ProjectEditStructure project
                                     moduleKey moduleType
                                     err
@@ -108,8 +78,9 @@ interpret :: forall
                      bodyType
                  ) r
           -> ExceptT err (StateT project m) r
+
 interpret (Free (CreateProject projectNew next)) = do
-    project <- lift2 $ initProject projectNew
+    project <- bounce $ initProject projectNew
     lift $ put project
     interpret next
 interpret (Free (LoadProject projectLoad next)) = do
@@ -123,17 +94,65 @@ interpret (Free (SaveProject projectSave next)) = do
     (serial :: serial) <- lift $ gets serializeProject
     bounce $ saveSerialProject projectSave serial
     interpret next
-interpret (Free (CreateModule moduleKey next)) = do
-    project <- lift $ get
-    project' <- ExceptT $ return $ createModule project moduleKey 
-    lift $ put project'
-    interpret next
-interpret (Free (RemoveModule moduleKey next)) = do
-    project <- lift $ get
-    project' <- ExceptT $ return $ removeModule project moduleKey
-    lift $ put project'
-    interpret next
 
+
+interpret (Free (CreateModule moduleKey next))
+    = modifyProject (createModule moduleKey) next
+interpret (Free (RemoveModule moduleKey next))
+    = modifyProject (removeModule moduleKey) next
+{-    
+interpret (Free (CreateExternModule moduleKey next))
+    = modifyProject (createExternModule moduleKey) next
+interpret (Free (RemoveExternModule moduleKey next))
+    = modifyProject (removeExternModule moduleKey) next
+-}
+interpret (Free (CreateDeclaration moduleKey body next))
+    = modifyModule' moduleKey (createDeclaration body) next
+interpret (Free (EditDeclaration moduleKey declKey f next))
+    = modifyModule moduleKey (editDeclaration declKey f) next
+interpret (Free (RemoveDeclaration moduleKey declKey next))
+    = modifyModule moduleKey (removeDeclaration declKey) next
+
+interpret (Free (AddImport moduleKey body next))
+    = modifyModule' moduleKey (createImport body) next
+interpret (Free (EditImport moduleKey importKey f next))
+    = modifyModule moduleKey (editImport importKey f) next
+interpret (Free (RemoveImport moduleKey importKey next))
+    = modifyModule moduleKey (removeImport importKey) next
+
+
+interpret (Free (AddExport moduleKey body next))
+    = modifyModule' moduleKey (createExport body) next
+interpret (Free (EditExport moduleKey exportKey f next))
+    = modifyModule moduleKey (editExport exportKey f) next
+interpret (Free (RemoveExport moduleKey exportKey next)) 
+    = modifyModule moduleKey (removeExport exportKey) next
+interpret (Free (ExportAll moduleKey next)) 
+    = modifyModule moduleKey exportAll next
+
+
+interpret (Free (GetModules next))
+    = queryProject getModules next
+interpret (Free (GetDeclarations moduleKey next)) 
+    = queryModule moduleKey getDeclarations next
+interpret (Free (GetImports moduleKey next))
+    = queryModule moduleKey getImports next
+interpret (Free (GetExports moduleKey next)) 
+    = queryModule moduleKey getExports next
+interpret (Free (GetDeclaration moduleKey declKey next)) 
+    = queryModule moduleKey (getDeclaration declKey) next
+interpret (Free (GetImport moduleKey importKey next)) 
+    = queryModule moduleKey (getImport importKey) next
+interpret (Free (GetExport moduleKey exportKey next)) 
+    = queryModule moduleKey (getExport exportKey) next
+
+interpret (Pure x) = return x
+
+{-    project <- lift $ get
+    result <- exceptPure
+        $ withModule project moduleKey $ f
+    interpret (next result)
+-}
 {-    
 class StringProject err project where
     projectToString :: project -> String
