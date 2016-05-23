@@ -30,26 +30,22 @@ import Ide3.Types
 
 data NewProjectArgs
     = NewProject { projectFile :: FilePath, initInfo :: ProjectInfo, initBuild :: BuildInfo }
-    
-data DigestProjectArgs
-    = DigestProject { digestDirectory :: FilePath, ifaceFile :: Maybe FilePath }
+    | DigestProject { digestDirectory :: FilePath, ifaceFile :: Maybe FilePath }
 
-instance (Monad m) => InitProject NewProjectArgs err m Project where
+instance (MonadIO m) => InitProject NewProjectArgs m Project where
     initProject args@NewProject{} = 
         return $ Project (initInfo args) Map.empty (initBuild args) Map.empty
-
-instance (MonadIO m) => InitProject DigestProjectArgs (ProjectError u) m Project where
     initProject args@DigestProject{} = do
         digestProject' (digestDirectory args) (ifaceFile args)
 
-instance (MonadIO m) => LoadProject FilePath (ProjectError u) m String where
+instance (MonadIO m) => LoadProject FilePath m String where
     loadSerialProject path = do
         r <- liftIO $ tryIOError $ readFile path
         case r of
             Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Right contents -> return contents
 
-instance (MonadIO m) => SaveProject FilePath (ProjectError u) m String where
+instance (MonadIO m) => SaveProject FilePath m String where
     saveSerialProject path contents = do
         r <- liftIO $ tryIOError $ writeFile path contents
         case r of
@@ -59,7 +55,7 @@ instance (MonadIO m) => SaveProject FilePath (ProjectError u) m String where
 instance SerializeProject String Project where
     serializeProject = show
 
-instance DeserializeProject String (ProjectError u) Project where
+instance DeserializeProject String Project where
     deserializeProject contents = case readEither contents of
         Right project -> return project
         Left err -> Left $ InvalidOperation ("Error on parsing project file: " ++ err) ""
@@ -68,17 +64,12 @@ instance DeserializeProject String (ProjectError u) Project where
 
 
 instance (MonadIO m) 
-    => ProjectInterpreter (ExceptT (ProjectError u) (StateT Project m)) () (ProjectError u)
+    => ProjectInterpreter (StateT Project m) token u
                            NewProjectArgs FilePath FilePath
-                           ModuleInfo
-                           DeclarationInfo Declaration
-                           ImportId Import
-                           ExportId Export
-                           String
                            where
-    runInterpreter () ast = ExceptT $ do
-        r <- runExceptT $ interpret ast
-        return $ Right (r,())
+    runInterpreter t ast = do
+        r <- interpret ast
+        return $ (r,t)
       where
-        ?proxy = (undefined :: Proxy (String, (ProjectError u), Module))
+        ?proxy = (undefined :: Proxy (Project, Module, String, NewProjectArgs, FilePath, FilePath))
         ?proxy_m = (undefined :: Proxy m)

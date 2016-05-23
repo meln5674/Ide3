@@ -4,47 +4,42 @@ module Ide3.Free where
 import Control.Monad
 import Control.Monad.Free
 
---import Ide3.Types
+import Ide3.Types
 
 data ProjectAST 
         projectNew projectLoad projectSave
-        moduleKey
-        declKey declVal
-        importKey importVal
-        exportKey exportVal
-        bodyType
         next 
     = CreateProject projectNew next
     | LoadProject projectLoad next
     | SaveProject projectSave next
     
-    | CreateModule moduleKey next
-    | RemoveModule moduleKey next
+    | CreateModule ModuleInfo next
+    | RemoveModule ModuleInfo next
     
-    | CreateDeclaration moduleKey bodyType ((declKey, declVal) -> next)
-    | EditDeclaration moduleKey declKey 
-        ((declKey,declVal,bodyType) -> (declKey,declVal,bodyType)) next
-    | RemoveDeclaration moduleKey declKey next
+    | CreateDeclaration ModuleInfo String ((DeclarationInfo, Declaration) -> next)
+    | EditDeclaration ModuleInfo DeclarationInfo 
+        ((DeclarationInfo,Declaration,String) -> (DeclarationInfo,Declaration,String)) next
+    | RemoveDeclaration ModuleInfo DeclarationInfo next
     
-    | AddImport moduleKey bodyType ((importKey,importVal) -> next)
-    | EditImport moduleKey importKey 
-        ((importKey,importVal,bodyType) -> (importKey,importVal,bodyType)) next
-    | RemoveImport moduleKey importKey next
+    | AddImport ModuleInfo String ((ImportId,Import) -> next)
+    | EditImport ModuleInfo ImportId 
+        ((ImportId,Import,String) -> (ImportId,Import,String)) next
+    | RemoveImport ModuleInfo ImportId next
     
-    | AddExport moduleKey bodyType ((exportKey,exportVal) -> next)
-    | EditExport moduleKey exportKey 
-        ((exportKey,exportVal,bodyType) -> (exportKey,exportVal,bodyType)) next
-    | RemoveExport moduleKey exportKey next
-    | ExportAll moduleKey next
+    | AddExport ModuleInfo String ((ExportId,Export) -> next)
+    | EditExport ModuleInfo ExportId 
+        ((ExportId,Export,String) -> (ExportId,Export,String)) next
+    | RemoveExport ModuleInfo ExportId next
+    | ExportAll ModuleInfo next
     
-    | GetModules ([moduleKey] -> next)
-    | GetDeclarations moduleKey ([declKey] -> next)
-    | GetImports moduleKey ([importKey] -> next)
-    | GetExports moduleKey (Maybe [exportKey] -> next)
+    | GetModules ([ModuleInfo] -> next)
+    | GetDeclarations ModuleInfo ([DeclarationInfo] -> next)
+    | GetImports ModuleInfo ([ImportId] -> next)
+    | GetExports ModuleInfo (Maybe [ExportId] -> next)
     
-    | GetDeclaration moduleKey declKey ((declKey,declVal,bodyType) -> next)
-    | GetImport moduleKey importKey ((importKey,importVal,bodyType) -> next)
-    | GetExport moduleKey exportKey ((exportKey,exportVal,bodyType) -> next)
+    | GetDeclaration ModuleInfo DeclarationInfo ((DeclarationInfo,Declaration,String) -> next)
+    | GetImport ModuleInfo ImportId ((ImportId,Import,String) -> next)
+    | GetExport ModuleInfo ExportId ((ExportId,Export,String) -> next)
     deriving (Functor)
 
 {-
@@ -57,23 +52,13 @@ instance Functor (ProjectAST b) where
   
 newtype ProjectMonad 
         projectNew projectLoad projectSave
-        moduleKey
-        declKey declVal
-        importKey importVal
-        exportKey exportVal
-        bodyType
         r
     = MkProjectMonad
-        ( Free 
+        { runProjectMonad :: Free 
             ( ProjectAST
                 projectNew projectLoad projectSave
-                moduleKey
-                declKey declVal
-                importKey importVal
-                exportKey exportVal
-                bodyType
             ) r
-        )
+        }
     deriving (Functor, Applicative, Monad)
 
 
@@ -86,12 +71,20 @@ addDeclaration:: ModuleInfo -> DeclarationInfo -> Declaration -> ProjectMonad ()
 addDeclaration mi di d = MkProjectMonad $ liftF (AddDeclaration mi di d ())
 -}
 
+createProject :: projectNew -> ProjectMonad projectNew projectLoad projectSave ()
 createProject pn = MkProjectMonad $ liftF $ CreateProject pn ()
+
+loadProject :: projectLoad -> ProjectMonad projectNew projectLoad projectSave ()
 loadProject pl = MkProjectMonad $ liftF $ LoadProject pl ()
+
+saveProject :: projectSave -> ProjectMonad projectNew projectLoad projectSave ()
 saveProject ps = MkProjectMonad $ liftF $ SaveProject ps ()
 
 
+createModule :: ModuleInfo -> ProjectMonad projectNew projectLoad projectSave ()
 createModule mk = MkProjectMonad $ liftF $ CreateModule mk () 
+
+removeModule :: ModuleInfo -> ProjectMonad projectNew projectLoad projectSave ()
 removeModule mk = MkProjectMonad $ liftF $ RemoveModule mk ()
 
 {-
@@ -99,12 +92,31 @@ createExternModule mk = MkProjectMonad $ liftF $ CreateExternModule mk ()
 removeExternModule mk = MkProjectMonad $ liftF $ RemoveExternModule mk ()
 -}
 
+createDeclaration :: ModuleInfo 
+                  -> String 
+                  -> ProjectMonad projectNew projectLoad projectSave (DeclarationInfo, Declaration)
 createDeclaration mk b = MkProjectMonad $ liftF $ CreateDeclaration mk b id
+editDeclaration :: ModuleInfo
+                -> DeclarationInfo
+                -> ((DeclarationInfo, Declaration, String)
+                    -> (DeclarationInfo, Declaration, String))
+                -> ProjectMonad projectNew projectLoad projectSave ()
 editDeclaration mk dk f = MkProjectMonad $ liftF $ EditDeclaration mk dk f ()
+removeDeclaration :: ModuleInfo
+                  -> DeclarationInfo
+                  -> ProjectMonad projectNew projectLoad projectSave ()
 removeDeclaration mk dk = MkProjectMonad $ liftF $ RemoveDeclaration mk dk ()
 
+addImport :: ModuleInfo
+                       -> String
+                       -> ProjectMonad
+                            projectNew projectLoad projectSave (ImportId, Import)
 addImport mk b = MkProjectMonad $ liftF $ AddImport mk b id
-editImport mk ik f = MkProjectMonad $ liftF $ EditImport mk id f ()
+editImport :: ModuleInfo
+                -> ImportId
+                -> ((ImportId, Import, String) -> (ImportId, Import, String))
+                -> ProjectMonad projectNew projectLoad projectSave ()
+editImport mk ik f = MkProjectMonad $ liftF $ EditImport mk ik f ()
 removeImport mk ik = MkProjectMonad $ liftF $ RemoveImport mk ik ()
 
 addExport mk b = MkProjectMonad $ liftF $ AddExport mk b id
@@ -123,20 +135,22 @@ getExport mk ek = MkProjectMonad $ liftF $ GetExport mk ek id
 
 
 snd3 (_,x,_) = x
+trd (_,_,x) = x
 
 getAllDeclarations = do
     mks <- getModules
     declPartitions <- forM mks getDeclarations
     return $ concat declPartitions
+
 dumpModule mk = do
     dks <- getDeclarations mk 
     iks <- getImports mk
     eks <- getExports mk
-    ds <- forM dks $ liftM snd3 . getDeclaration mk
-    is <- forM iks $ liftM snd3 . getImport mk
+    ds <- forM dks $ liftM trd . getDeclaration mk
+    is <- forM iks $ liftM trd . getImport mk
     es <- case eks of
         Nothing -> return Nothing
-        Just eks -> liftM Just $ forM eks $ liftM snd3 . getExport mk
+        Just eks -> liftM Just $ forM eks $ liftM trd . getExport mk
     return (ds,is,es)
 
 addModule mk ds is es = do
@@ -154,7 +168,7 @@ renameModule mv mk = do
     addModule mk' ds is es
 
 moveDeclaration mksrc mkdest dk = do
-    db <- liftM snd3 $ getDeclaration mksrc dk
+    db <- liftM trd $ getDeclaration mksrc dk
     removeDeclaration mksrc dk
     createDeclaration mkdest db
 

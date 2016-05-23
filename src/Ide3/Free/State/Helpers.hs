@@ -15,6 +15,8 @@ import Control.Monad.Trans
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
+import Ide3.Types
+
 import Ide3.Free
 import Ide3.Free.State
 import Ide3.Free.State.Classes
@@ -29,239 +31,37 @@ lift2 = lift . lift
 exceptPure :: (Monad m) => Either e a -> ExceptT e m a
 exceptPure = ExceptT . return
 
-queryProject :: forall
-             (m :: * -> *) serial err
-             project
-             projectInit projectLoad projectSave
-             moduleKey moduleType
-             declKey declVal
-             importKey importVal
-             exportKey exportVal
-             bodyType
-             r
-             t
-           . ( ?proxy :: Proxy (serial,err,moduleType)
-             , ?proxy_m :: Proxy m
-             , InitProject projectInit err m project
-             , LoadProject projectLoad err m serial
-             , SaveProject projectSave err m serial
-             , SerializeProject serial project
-             , DeserializeProject serial err project
-             , DeclarationStructure moduleType 
-                                declKey declVal 
-                                bodyType 
-                                err
-             , DeclarationRemove moduleType declKey err
-             , DeclarationGet moduleType declKey err
-             , ImportStructure moduleType 
-                                importKey importVal 
-                                bodyType 
-                                err
-             , ImportRemove moduleType importKey err
-             , ImportGet moduleType importKey err
-             , ExportStructure moduleType 
-                                exportKey exportVal 
-                                bodyType 
-                                err
-             , ExportRemove moduleType exportKey err
-             , ExportGet moduleType exportKey err
-             , ExportAllStructure moduleType err
-             , ProjectStructure project
-                                    moduleKey
-                                    err
-             , ProjectEditStructure project
-                                    moduleKey moduleType
-                                    err
-             )
-          => (project -> Either err t) 
-          -> (t -> Free
-                 (ProjectAST 
-                     projectInit projectLoad projectSave 
-                     moduleKey
-                     declKey declVal
-                     importKey importVal
-                     exportKey exportVal
-                     bodyType
-                 ) r)
-          -> ExceptT err (StateT project m) r
+queryProject :: (IsAProject m project moduleType serial projectNew projectLoad projectSave)
+             => (project -> Either (ProjectError u) t) 
+             -> (t -> Free (ProjectAST projectNew projectLoad projectSave) r)
+             -> ExceptT (ProjectError u) (StateT project m) r
 queryProject f next = do
     project <- lift $ get
     result <- exceptPure $ f project
     interpret (next result)
 
-queryModule :: forall
-             (m :: * -> *) serial err
-             project
-             projectInit projectLoad projectSave
-             moduleKey moduleType
-             declKey declVal
-             importKey importVal
-             exportKey exportVal
-             bodyType
-             r
-             t
-           . ( ?proxy :: Proxy (serial,err,moduleType)
-             , ?proxy_m :: Proxy m
-             , InitProject projectInit err m project
-             , LoadProject projectLoad err m serial
-             , SaveProject projectSave err m serial
-             , SerializeProject serial project
-             , DeserializeProject serial err project
-             , DeclarationStructure moduleType 
-                                declKey declVal 
-                                bodyType 
-                                err
-             , DeclarationRemove moduleType declKey err
-             , DeclarationGet moduleType declKey err
-             , ImportStructure moduleType 
-                                importKey importVal 
-                                bodyType 
-                                err
-             , ImportRemove moduleType importKey err
-             , ImportGet moduleType importKey err
-             , ExportStructure moduleType 
-                                exportKey exportVal 
-                                bodyType 
-                                err
-             , ExportRemove moduleType exportKey err
-             , ExportGet moduleType exportKey err
-             , ExportAllStructure moduleType err
-             , ProjectStructure project
-                                    moduleKey
-                                    err
-             , ProjectEditStructure project
-                                    moduleKey moduleType
-                                    err
-             )
-          => moduleKey
-          -> (moduleType -> Either err t) 
-          -> (t -> Free
-                 ( ProjectAST 
-                     projectInit projectLoad projectSave 
-                     moduleKey
-                     declKey declVal
-                     importKey importVal
-                     exportKey exportVal
-                     bodyType
-                 ) r)
-          -> ExceptT err (StateT project m) r
+queryModule :: (IsAProject m project moduleType serial projectNew projectLoad projectSave)
+             => ModuleInfo
+            -> (moduleType -> Either (ProjectError u) t)
+            -> (t -> Free (ProjectAST projectNew projectLoad projectSave) r)
+            -> ExceptT (ProjectError u) (StateT project m) r
 queryModule moduleKey f next = queryProject (withModule moduleKey f) next
 
-modifyProject :: forall
-             (m :: * -> *) serial err
-             project
-             projectInit projectLoad projectSave
-             moduleKey moduleType
-             declKey declVal
-             importKey importVal
-             exportKey exportVal
-             bodyType
-             r
-           . ( ?proxy :: Proxy (serial,err,moduleType)
-             , ?proxy_m :: Proxy m
-             , InitProject projectInit err m project
-             , LoadProject projectLoad err m serial
-             , SaveProject projectSave err m serial
-             , SerializeProject serial project
-             , DeserializeProject serial err project
-             , DeclarationStructure moduleType 
-                                declKey declVal 
-                                bodyType 
-                                err
-             , DeclarationRemove moduleType declKey err
-             , DeclarationGet moduleType declKey err
-             , ImportStructure moduleType 
-                                importKey importVal 
-                                bodyType 
-                                err
-             , ImportRemove moduleType importKey err
-             , ImportGet moduleType importKey err
-             , ExportStructure moduleType 
-                                exportKey exportVal 
-                                bodyType 
-                                err
-             , ExportRemove moduleType exportKey err
-             , ExportGet moduleType exportKey err
-             , ExportAllStructure moduleType err
-             , ProjectStructure project
-                                    moduleKey
-                                    err
-             , ProjectEditStructure project
-                                    moduleKey moduleType
-                                    err
-             )
-          => (project -> Either err project) 
-          -> (Free
-                 ( ProjectAST 
-                     projectInit projectLoad projectSave 
-                     moduleKey
-                     declKey declVal
-                     importKey importVal
-                     exportKey exportVal
-                     bodyType
-                 ) r)
-          -> ExceptT err (StateT project m) r
+modifyProject :: (IsAProject m project moduleType serial projectNew projectLoad projectSave)
+              => (project -> Either (ProjectError u) project)
+              -> Free (ProjectAST projectNew projectLoad projectSave) r
+              -> ExceptT (ProjectError u) (StateT project m) r
 modifyProject f next = do
     project <- lift $ get
     project' <- exceptPure $ f project
     lift $ put project'
     interpret next
 
-modifyModule :: forall
-             (m :: * -> *) serial err
-             project
-             projectInit projectLoad projectSave
-             moduleKey moduleType
-             declKey declVal
-             importKey importVal
-             exportKey exportVal
-             bodyType
-             r
-           . ( ?proxy :: Proxy (serial,err,moduleType)
-             , ?proxy_m :: Proxy m
-             , InitProject projectInit err m project
-             , LoadProject projectLoad err m serial
-             , SaveProject projectSave err m serial
-             , SerializeProject serial project
-             , DeserializeProject serial err project
-             , DeclarationStructure moduleType 
-                                declKey declVal 
-                                bodyType 
-                                err
-             , DeclarationRemove moduleType declKey err
-             , DeclarationGet moduleType declKey err
-             , ImportStructure moduleType 
-                                importKey importVal 
-                                bodyType 
-                                err
-             , ImportRemove moduleType importKey err
-             , ImportGet moduleType importKey err
-             , ExportStructure moduleType 
-                                exportKey exportVal 
-                                bodyType 
-                                err
-             , ExportRemove moduleType exportKey err
-             , ExportGet moduleType exportKey err
-             , ExportAllStructure moduleType err
-             , ProjectStructure project
-                                    moduleKey
-                                    err
-             , ProjectEditStructure project
-                                    moduleKey moduleType
-                                    err
-             )
-          => moduleKey
-          -> (moduleType -> Either err (moduleType,()))
-          -> (Free
-                 ( ProjectAST 
-                     projectInit projectLoad projectSave 
-                     moduleKey
-                     declKey declVal
-                     importKey importVal
-                     exportKey exportVal
-                     bodyType
-                 ) r)
-          -> ExceptT err (StateT project m) r
+modifyModule :: (IsAProject m project moduleType serial projectNew projectLoad projectSave)
+             => ModuleInfo 
+             -> (moduleType -> Either (ProjectError u) (moduleType,()))
+             -> Free (ProjectAST projectNew projectLoad projectSave) r
+             -> ExceptT (ProjectError u) (StateT project m) r
 modifyModule moduleKey f next = do
     project <- lift $ get
     (project',()) <- exceptPure
@@ -270,62 +70,12 @@ modifyModule moduleKey f next = do
     lift $ put project'
     interpret next
 
-modifyModule' :: forall
-              (m :: * -> *) serial err
-              project
-              projectInit projectLoad projectSave
-              moduleKey moduleType
-              declKey declVal
-              importKey importVal
-              exportKey exportVal
-              bodyType
-              r
-              t
-            . ( ?proxy :: Proxy (serial,err,moduleType)
-              , ?proxy_m :: Proxy m
-              , InitProject projectInit err m project
-              , LoadProject projectLoad err m serial
-              , SaveProject projectSave err m serial
-              , SerializeProject serial project
-              , DeserializeProject serial err project
-              , DeclarationStructure moduleType 
-                                 declKey declVal 
-                                 bodyType 
-                                 err
-              , DeclarationRemove moduleType declKey err
-              , DeclarationGet moduleType declKey err
-              , ImportStructure moduleType 
-                                 importKey importVal 
-                                 bodyType 
-                                 err
-              , ImportRemove moduleType importKey err
-              , ImportGet moduleType importKey err
-              , ExportStructure moduleType 
-                                 exportKey exportVal 
-                                 bodyType 
-                                 err
-              , ExportRemove moduleType exportKey err
-              , ExportGet moduleType exportKey err
-              , ExportAllStructure moduleType err
-              , ProjectStructure project
-                                     moduleKey
-                                     err
-              , ProjectEditStructure project
-                                     moduleKey moduleType
-                                     err
-              )
-           => moduleKey
-           -> (moduleType -> Either err (moduleType,t))
-           -> (t -> Free
-                  ( ProjectAST 
-                      projectInit projectLoad projectSave 
-                      moduleKey
-                      declKey declVal
-                      importKey importVal
-                      exportKey exportVal
-                      bodyType
-                  ) r)
-           -> ExceptT err (StateT project m) r
+
+modifyModule' :: (IsAProject m project moduleType serial projectNew projectLoad projectSave)
+              => ModuleInfo 
+              -> (moduleType -> Either (ProjectError u) (moduleType,t))
+              -> (t -> Free (ProjectAST projectNew projectLoad projectSave) r)
+              -> ExceptT (ProjectError u) (StateT project m) r
 modifyModule' moduleKey f next = do
     project <- lift $ get
     (project',result) <- exceptPure

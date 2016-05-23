@@ -6,94 +6,133 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Ide3.Free.State.Classes where
+
+import Data.Proxy
+
+import Ide3.Types
 
 import Control.Monad.Trans.Except
 
-class (Monad m) => InitProject projectInit err m project where
-    initProject :: projectInit -> ExceptT err m project
+class (Monad m) => InitProject projectInit m project where
+    initProject :: projectInit -> ExceptT (ProjectError u) m project
 
-class (Monad m) => LoadProject projectLoad err m serial where
-    loadSerialProject :: projectLoad -> ExceptT err m serial
+class (Monad m) => LoadProject projectLoad m serial where
+    loadSerialProject :: projectLoad -> ExceptT (ProjectError u) m serial
 
-class (Monad m) => SaveProject projectSave err m serial where
-    saveSerialProject :: projectSave -> serial -> ExceptT err m ()    
+class (Monad m) => SaveProject projectSave m serial where
+    saveSerialProject :: projectSave -> serial -> ExceptT (ProjectError u) m ()    
 
 class SerializeProject serial project where
     serializeProject :: project -> serial
 
-class DeserializeProject serial err project where
-    deserializeProject :: serial -> Either err project
+class DeserializeProject serial project where
+    deserializeProject :: serial -> Either (ProjectError u) project
 
-class DeclarationStructure moduleType 
-                        declKey declVal 
-                        bodyType 
-                        err
-                        where
-    createDeclaration :: bodyType -> moduleType -> Either err (moduleType,(declKey,declVal))
-    editDeclaration :: declKey -> ((declKey,declVal,bodyType) -> (declKey,declVal,bodyType)) -> moduleType -> Either err (moduleType,())
-    getDeclaration :: declKey -> moduleType -> Either err (declKey,declVal,bodyType)
+class DeclarationStructure moduleType where
+    createDeclaration :: String 
+                      -> moduleType 
+                      -> Either (ProjectError u) (moduleType,(DeclarationInfo,Declaration))
+    editDeclaration :: DeclarationInfo 
+                    -> ((DeclarationInfo,Declaration,String) 
+                        -> (DeclarationInfo,Declaration,String)) 
+                    -> moduleType 
+                    -> Either (ProjectError u) (moduleType,())
+    getDeclaration :: DeclarationInfo 
+                   -> moduleType 
+                   -> Either (ProjectError u) (DeclarationInfo,Declaration,String)
 
-class DeclarationRemove moduleType declKey err where
-    removeDeclaration :: declKey -> moduleType -> Either err (moduleType,())
+class DeclarationRemove moduleType where
+    removeDeclaration :: DeclarationInfo 
+                      -> moduleType 
+                      -> Either (ProjectError u) (moduleType,())
 
-class DeclarationGet moduleType declKey err where
-    getDeclarations :: moduleType -> Either err [declKey]
+class DeclarationGet moduleType where
+    getDeclarations :: moduleType -> Either (ProjectError u) [DeclarationInfo]
 
 
-class ImportStructure moduleType 
-                        importKey importVal 
-                        bodyType 
-                        err
-                        where
-    createImport :: bodyType -> moduleType -> Either err (moduleType,(importKey,importVal))
-    editImport :: importKey -> ((importKey,importVal,bodyType) -> (importKey,importVal,bodyType)) -> moduleType -> Either err (moduleType,())
-    getImport :: importKey -> moduleType -> Either err (importKey,importVal,bodyType)
+class ImportStructure moduleType where
+    createImport :: String 
+                 -> moduleType 
+                 -> Either (ProjectError u) (moduleType,(ImportId,Import))
+    editImport :: ImportId 
+               -> ((ImportId,Import,String) 
+                    -> (ImportId,Import,String)) 
+               -> moduleType 
+               -> Either (ProjectError u) (moduleType,())
+    getImport :: ImportId 
+              -> moduleType 
+              -> Either (ProjectError u) (ImportId,Import,String)
 
-class ImportRemove moduleType importKey err where
-    removeImport :: importKey -> moduleType -> Either err (moduleType,())
+class ImportRemove moduleType where
+    removeImport :: ImportId 
+                 -> moduleType 
+                 -> Either (ProjectError u) (moduleType,())
 
-class ImportGet moduleType importKey err where
-    getImports :: moduleType -> Either err [importKey]
+class ImportGet moduleType  where
+    getImports :: moduleType 
+               -> Either (ProjectError u) [ImportId]
 
-class ExportStructure moduleType 
-                        exportKey exportVal 
-                        bodyType 
-                        err
-                        where
-    createExport :: bodyType -> moduleType -> Either err (moduleType,(exportKey,exportVal))
-    editExport :: exportKey -> ((exportKey,exportVal,bodyType) -> (exportKey,exportVal,bodyType)) -> moduleType -> Either err (moduleType,())
-    getExport :: exportKey -> moduleType -> Either err (exportKey,exportVal,bodyType)
+class ExportStructure moduleType where
+    createExport :: String 
+                 -> moduleType 
+                 -> Either (ProjectError u) (moduleType,(ExportId,Export))
+    editExport :: ExportId 
+               -> ((ExportId,Export,String) 
+               -> (ExportId,Export,String)) 
+               -> moduleType 
+               -> Either (ProjectError u) (moduleType,())
+    getExport :: ExportId 
+              -> moduleType 
+              -> Either (ProjectError u) (ExportId,Export,String)
 
-class ExportRemove moduleType exportKey err where
-    removeExport :: exportKey -> moduleType -> Either err (moduleType,())
+class ExportRemove moduleType where
+    removeExport :: ExportId 
+                 -> moduleType 
+                 -> Either (ProjectError u) (moduleType,())
 
-class ExportGet moduleType exportKey err where
-    getExports :: moduleType -> Either err (Maybe [exportKey])
+class ExportGet moduleType where
+    getExports :: moduleType 
+               -> Either (ProjectError u) (Maybe [ExportId])
 
-class ExportAllStructure moduleType err where
-    exportAll :: moduleType -> Either err (moduleType,())
+class ExportAllStructure moduleType where
+    exportAll :: moduleType 
+              -> Either (ProjectError u) (moduleType,())
 
-class ProjectStructure
-            project
-            moduleKey
-            err
-            where
-    createModule :: moduleKey -> project -> Either err project
-    removeModule :: moduleKey -> project -> Either err project
-    getModules :: project -> Either err [moduleKey]
-{-
-class ProjectExternStructure
-            project
-            moduleKey
-            externModuleVal
-            err
-            where
-    createExternModule :: moduleKey -> externModuleVal -> project -> Either err project
-    removeExternModule :: moduleKey -> project -> Either err project
-    getExternModules :: project -> Either err [moduleKey]
--}
-class ProjectEditStructure project moduleKey moduleType err where
-    editModule :: moduleKey -> (moduleType -> Either err (moduleType,a)) -> project -> Either err (project,a)
-    withModule :: moduleKey -> (moduleType -> Either err a) -> project -> Either err a
+class ProjectStructure project where
+    createModule :: ModuleInfo -> project -> Either (ProjectError u) project
+    removeModule :: ModuleInfo -> project -> Either (ProjectError u) project
+    getModules :: project -> Either (ProjectError u) [ModuleInfo]
 
+class ProjectEditStructure project moduleType where
+    editModule :: ModuleInfo 
+               -> (moduleType -> Either (ProjectError u) (moduleType,a)) 
+               -> project -> Either (ProjectError u) (project,a)
+    withModule :: ModuleInfo 
+               -> (moduleType -> Either (ProjectError u) a) 
+               -> project 
+               -> Either (ProjectError u) a
+
+type IsAProject m project moduleType serial projectNew projectLoad projectSave
+    = ( ?proxy :: Proxy (project,moduleType,serial,projectNew,projectLoad,projectSave)
+      , ?proxy_m :: Proxy m
+      , Monad m
+      , InitProject projectNew m project
+      , LoadProject projectLoad m serial
+      , SaveProject projectSave m serial
+      , SerializeProject serial project
+      , DeserializeProject serial project
+      , DeclarationStructure moduleType 
+      , DeclarationRemove moduleType
+      , DeclarationGet moduleType
+      , ImportStructure moduleType 
+      , ImportRemove moduleType
+      , ImportGet moduleType
+      , ExportStructure moduleType 
+      , ExportRemove moduleType
+      , ExportGet moduleType
+      , ExportAllStructure moduleType
+      , ProjectStructure project
+      , ProjectEditStructure project moduleType
+      )

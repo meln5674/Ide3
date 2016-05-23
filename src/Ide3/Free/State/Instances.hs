@@ -32,7 +32,7 @@ hasExportId m ei = case moduleExports m of
     Nothing -> False
     Just eis -> ei `elem` Map.keys eis
 
-instance ProjectStructure Project ModuleInfo (ProjectError u) where
+instance ProjectStructure Project where
     createModule mi p = do
         if p `hasModuleInfo` mi
             then Left $ DuplicateModule mi "createModule"
@@ -52,7 +52,7 @@ instance ProjectStructure Project ModuleInfo (ProjectError u) where
     getExternModules p = Map.keys $ projectExternModules p
 -}
 
-instance ProjectEditStructure Project ModuleInfo Module (ProjectError u) where
+instance ProjectEditStructure Project Module where
     editModule mi f p = do
         if p `hasModuleInfo` mi
             then do
@@ -65,7 +65,7 @@ instance ProjectEditStructure Project ModuleInfo Module (ProjectError u) where
             then f $ projectModules p ! mi
             else Left $ ModuleNotFound mi "withModule"
 
-instance DeclarationStructure Module DeclarationInfo Declaration String (ProjectError u) where
+instance DeclarationStructure Module where
     createDeclaration b m = do
         (WithBody d b') <- Declaration.parseAndCombine b Nothing
         let di = (Declaration.info d)
@@ -90,7 +90,7 @@ instance DeclarationStructure Module DeclarationInfo Declaration String (Project
                 return (di,d,b)
             else Left $ DeclarationNotFound (Module.info m) di "getDeclaration"
 
-instance DeclarationRemove Module DeclarationInfo (ProjectError u) where
+instance DeclarationRemove Module where
     removeDeclaration di m = do
         if m `hasDeclarationInfo` di
             then do
@@ -99,11 +99,11 @@ instance DeclarationRemove Module DeclarationInfo (ProjectError u) where
                 return (m',())
             else Left $ DeclarationNotFound (Module.info m) di "removeDeclaration"
 
-instance DeclarationGet Module DeclarationInfo (ProjectError u) where
+instance DeclarationGet Module where
     getDeclarations m = Right $ Map.keys $ moduleDeclarations m
 
 
-instance ImportStructure Module ImportId Import String (ProjectError u) where
+instance ImportStructure Module where
     createImport b m = do
         i <- Import.parse b
         let ii = Module.nextImportId m
@@ -128,7 +128,7 @@ instance ImportStructure Module ImportId Import String (ProjectError u) where
                 return (ii,i,b)
             else Left $ InvalidImportId (Module.info m) ii "getImport"
 
-instance ImportRemove Module ImportId (ProjectError u) where
+instance ImportRemove Module where
     removeImport ii m = do
         if m `hasImportId` ii
             then do
@@ -137,11 +137,11 @@ instance ImportRemove Module ImportId (ProjectError u) where
                 return (m',())
             else Left $ InvalidImportId (Module.info m) ii "removeImport"
 
-instance ImportGet Module ImportId (ProjectError u) where
+instance ImportGet Module where
     getImports m = Right $ Map.keys $ moduleImports m
 
 
-instance ExportStructure Module ExportId Export String (ProjectError u) where
+instance ExportStructure Module where
     createExport b m = do
         e <- Export.parse b
         let ei = Module.nextExportId m
@@ -172,7 +172,7 @@ instance ExportStructure Module ExportId Export String (ProjectError u) where
                 return (ei,e,b)
              else Left $ InvalidExportId (Module.info m) ei "getExport"
 
-instance ExportRemove Module ExportId (ProjectError u) where
+instance ExportRemove Module where
     removeExport ei m = do
         if m `hasExportId` ei
             then do
@@ -182,8 +182,8 @@ instance ExportRemove Module ExportId (ProjectError u) where
                 return (m',())
             else Left $ InvalidExportId (Module.info m) ei "removeExport"
             
-instance ExportGet Module ExportId (ProjectError u) where
+instance ExportGet Module where
     getExports m = Right $ liftM Map.keys $ moduleExports m
 
-instance ExportAllStructure Module (ProjectError u) where
+instance ExportAllStructure Module where
     exportAll m = Right $ (m { moduleExports = Nothing },())

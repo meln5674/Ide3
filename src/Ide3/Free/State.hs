@@ -16,6 +16,8 @@ import Control.Monad.Trans
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
+import Ide3.Types
+
 import Ide3.Free (ProjectAST (..))
 
 import Ide3.Free.State.Classes
@@ -23,6 +25,7 @@ import {-# SOURCE #-} Ide3.Free.State.Helpers
 
 import Ide3.Free.Interpreter
 
+{-
 interpret :: forall
              (m :: * -> *) serial err
              project
@@ -80,7 +83,11 @@ interpret :: forall
                      bodyType
                  ) r
           -> ExceptT err (StateT project m) r
-
+-}
+interpret :: forall m project moduleType serial projectNew projectLoad projectSave u r
+           . ( IsAProject m project moduleType serial projectNew projectLoad projectSave )
+          => Free ( ProjectAST projectNew projectLoad projectSave ) r 
+          -> ExceptT (ProjectError u) (StateT project m) r
 interpret (Free (CreateProject projectNew next)) = do
     project <- bounce $ initProject projectNew
     lift $ put project
