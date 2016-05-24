@@ -8,6 +8,7 @@ module MainWindow
     , buildClickedEvent
     , saveClickedEvent
     , saveProjectClickedEvent
+    , windowClosedEvent
     ) where
 
 import Graphics.UI.Gtk
@@ -21,7 +22,8 @@ import Signal
 
 data MainWindow
     = MainWindow
-    { openButton :: MenuItem
+    { window :: Window
+    , openButton :: MenuItem
     , fileMenu :: Menu
     , menuBar :: MenuBar
     , buildButton :: Button
@@ -183,6 +185,7 @@ make env f = withGuiComponents env $ \comp -> do
                 buildButton <- makeBuildButton container
                 buildView <- withBuildBuffer comp $ flip makeBuildView container
                 f $ MainWindow
+                    window
                     openButton
                     fileMenu
                     menuBar
@@ -215,3 +218,5 @@ saveClickedEvent = saveButton `mkGuiSignal` buttonPressEvent
 saveProjectClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
 saveProjectClickedEvent = saveProjectButton `mkGuiSignal` buttonPressEvent
 
+windowClosedEvent :: MainWindowSignal Window (EventM EAny Bool)
+windowClosedEvent = window `mkGuiSignal` deleteEvent
