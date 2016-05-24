@@ -2,6 +2,7 @@
 module GuiCommand where
 
 import System.Directory
+import System.FilePath
 
 import Graphics.UI.Gtk
 
@@ -70,6 +71,7 @@ doNew env projectRoot projectName templateName = dialogOnError env () $ do
             Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
             Just projectRoot -> do
                 liftIO $ setCurrentDirectory projectRoot
+                createNewFile $ projectName ++ ".proj"
                 r <- ExceptT 
                         $ lift 
                         $ runExceptT 
@@ -78,6 +80,7 @@ doNew env projectRoot projectName templateName = dialogOnError env () $ do
                 case r of
                     InitializerSucceeded out err -> do
                         withGuiComponents env $ flip withProjectTree populateTree
+                        saveProject Nothing
                     InitializerFailed out err -> throwE $ InvalidOperation (out ++ err) ""
 
 doOpen :: forall proxy m buffer p 
@@ -162,3 +165,17 @@ doSave env = dialogOnError env () $
                     saveProject Nothing
                 _ -> return ()
                 
+
+doSaveProject :: forall proxy m buffer p 
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          , MonadMask m
+          )
+              => GuiEnv proxy m p buffer
+              -> Maybe FilePath
+              -> IO ()
+doSaveProject env path = dialogOnError env () $
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
+        saveProject path
