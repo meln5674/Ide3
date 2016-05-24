@@ -116,4 +116,4 @@ class Monad m => ProjectM m where
     -- | Set a module to export nothing
     exportNothing :: ModuleInfo -> ProjectResult m u  ()
     -- | Get a list of all of the export ids in a module
-    getExports :: ModuleInfo -> ProjectResult m u [ExportId]
+    getExports :: ModuleInfo -> ProjectResult m u (Maybe [ExportId])

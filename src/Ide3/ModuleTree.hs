@@ -6,6 +6,8 @@ import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Control.Monad
+
 import Ide3.Monad
 
 import Ide3.Types
@@ -22,7 +24,7 @@ partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -
 -- | Data type used by the tree command
 data ModuleTree
     = OrgNode ModuleInfo [ModuleTree]
-    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree]
+    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree] [WithBody Import] (Maybe [WithBody Export])
     deriving Show
 
 -- | Take a list of module infos and produce a module tree with no declarations
@@ -42,7 +44,7 @@ makeTreeSkeleton = go ""
                 then delete rootInfo subModuleNames
                 else subModuleNames
             makeNode x y z = if rootPresent
-                then ModuleNode x [] $ go y z
+                then ModuleNode x [] (go y z) [] Nothing
                 else OrgNode x $ go y z
         partitions = Map.toList $ partitionBy getRootName modInfos
         getRootName (ModuleInfo (Symbol s)) = ModuleInfo $ Symbol $ preRoot ++ postRoot
@@ -72,10 +74,18 @@ fillTree :: ProjectM m => ModuleTree -> ProjectResult m u ModuleTree
 fillTree (OrgNode i ts) = do
     ts' <- mapM fillTree ts
     return $ OrgNode i ts'
-fillTree (ModuleNode i _ ts) = do
+fillTree (ModuleNode i _ ts _ _) = do
     ds <- getDeclarations i
+    iids <- getImports i
+    eids <- getExports i
+    is <- forM iids $ getImport i
+    es <- case eids of
+        Nothing -> return Nothing
+        Just eids -> do
+            x <- forM eids $ getExport i
+            return $ Just x
     ts' <- mapM fillTree ts
-    return $ ModuleNode i ds ts'
+    return $ ModuleNode i ds ts' is es
 
 -- | Make a module tree from the current project
 makeTree :: ProjectM m => ProjectResult m u [ModuleTree]
@@ -97,13 +107,13 @@ formatTree = intercalate "\n" . go []
         headPrefix = buildPrefix (drop 1 prefixFlags)
         decls = case tree of 
             OrgNode{} -> []
-            ModuleNode _ ds _ -> ds
+            ModuleNode _ ds _ _ _ -> ds
         subModules = case tree of
             OrgNode _ ms -> ms
-            ModuleNode _ _ ms -> ms
+            ModuleNode _ _ ms _ _ -> ms
         moduleInfo = case tree of
             OrgNode n _ -> n
-            ModuleNode n _ _ -> n
+            ModuleNode n _ _ _ _ -> n
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
             UnamedModule (Just p) -> p

@@ -212,7 +212,7 @@ exportNothing :: Project
               -> Either (ProjectError u) Project
 exportNothing p mi = editModule' p mi Module.exportNothing
 
-getExports :: Project -> ModuleInfo -> Either (ProjectError u) [ExportId]
+getExports :: Project -> ModuleInfo -> Either (ProjectError u) (Maybe [ExportId])
 getExports p mi = getModule p mi >>= \m -> return (Module.getExportIds m)
 
 getExport :: Project

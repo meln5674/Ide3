@@ -29,11 +29,53 @@ import ProjectTree
 
 import GuiMonad
 import GuiCommand
-import GuiLayout
 import GuiEnv
+
+import Signal
+
+import qualified MainWindow
+import qualified NewProjectDialog
+
+import NewProjectDialog (NewProjectDialog)
 
 import ReadOnlyFilesystemProject
 
+import Initializer
+
+onNewProjectConfirmed :: forall proxy m p buffer
+                       . ( MonadIO m
+                         , ViewerMonad m
+                         , InteruptMonad2 p m
+                         , TextBufferClass buffer
+                         )
+                      => GuiEnv proxy m p buffer
+                      -> NewProjectDialog
+                      -> EventM EButton Bool
+onNewProjectConfirmed env dialog = liftIO $ do
+    putStrLn "confirmed"
+    projectRoot <- NewProjectDialog.getSelectedFolder dialog
+    projectName <- NewProjectDialog.getProjectName dialog
+    templateName <- NewProjectDialog.getTemplateName dialog
+    doNew env projectRoot projectName templateName
+    NewProjectDialog.close dialog
+    return False
+    
+
+onNewClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 )
+              => GuiEnv proxy m p buffer 
+              -> EventM EButton Bool
+onNewClicked env = liftIO $ do
+    dialog <- NewProjectDialog.make $ \gui -> do
+        gui `onGui` NewProjectDialog.confirmClicked $ onNewProjectConfirmed env gui
+        gui `onGui` NewProjectDialog.cancelClicked $ do
+            liftIO $ NewProjectDialog.close gui
+            return False
+    return False
 
 onOpenClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -44,20 +86,22 @@ onOpenClicked :: forall proxy m p buffer
               => GuiEnv proxy m p buffer 
               -> EventM EButton Bool
 onOpenClicked env = liftIO $ do
-        dialog <- liftIO $ fileChooserDialogNew
-            Nothing
-            Nothing
-            FileChooserActionSelectFolder
-            [("Open",ResponseAccept),("Close",ResponseReject)]
-        r <- liftIO $ dialogRun dialog
-        case r of
-            ResponseAccept -> do
-                Just path <- liftIO $ fileChooserGetFilename dialog
-                liftIO $ widgetDestroy dialog
-                doOpen env path
-                liftIO $ setCurrentDirectory path
-            ResponseReject -> liftIO $ widgetDestroy dialog
-        return False    
+    dialog <- liftIO $ fileChooserDialogNew
+        Nothing
+        Nothing
+        FileChooserActionSelectFolder
+        [ ("Close", ResponseReject)
+        , ("Open" , ResponseAccept)
+        ]
+    r <- liftIO $ dialogRun dialog
+    case r of
+        ResponseAccept -> do
+            Just path <- liftIO $ fileChooserGetFilename dialog
+            liftIO $ widgetDestroy dialog
+            doOpen env path
+            liftIO $ setCurrentDirectory path
+        ResponseReject -> liftIO $ widgetDestroy dialog
+    return False    
 
 onDeclClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -83,7 +127,21 @@ onBuildClicked :: forall proxy m p buffer
 onBuildClicked env = do
     liftIO $ doBuild env
     return False
-    
+
+
+onSaveClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnv proxy m p buffer 
+              -> EventM EButton Bool
+onSaveClicked env = do
+    liftIO $ doSave env
+    return False
+
 doMain :: forall proxy m p 
         . ( MonadIO m
           , ViewerMonad m
@@ -94,13 +152,15 @@ doMain :: forall proxy m p
        -> p
        -> IO ()
 doMain proxy init = do
-    projectMVar <- newMVar (Viewer Nothing, init)
+    projectMVar <- newMVar (Viewer Nothing Nothing, init)
     components <- initializeComponents
     let env = GuiEnv proxy components projectMVar
-    makeGui env $ \gui -> do
-        withOpenButton gui $ \openButton -> openButton `on` buttonPressEvent $ onOpenClicked env
-        withProjectView gui $ \projView -> projView `on` rowActivated $ onDeclClicked env
-        withBuildButton gui $ \buildButton -> buildButton `on` buttonPressEvent $ onBuildClicked env
+    MainWindow.make env $ \gui -> do
+        gui `onGui` MainWindow.openClickedEvent $ onOpenClicked env
+        gui `onGui` MainWindow.declClickedEvent $ onDeclClicked env
+        gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
+        gui `onGui` MainWindow.saveClickedEvent $ onSaveClicked env
+        gui `onGui` MainWindow.newClickedEvent $ onNewClicked env
     return ()
 
 

@@ -213,6 +213,7 @@ blankSetup = AppSetup
            , appEditor = noEditor
            , appBuilder = noBuilder
            , appRunner = noRunner
+           , appInitializer = noInitializer
            }
 
 -- | Entry point

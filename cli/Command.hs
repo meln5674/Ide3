@@ -96,7 +96,7 @@ doHelp = printHelp
 
 doNew :: (ViewerMonad m, Args a) => (forall u . Initializer a m u) -> String -> ViewerStateT m String
 doNew initializer arg = printOnError $ do
-    case runInitializer initializer arg of
+    case runInitializerWithInput initializer =<< (parseArityN arg) of
         Left msg -> return msg
         Right action -> do
             r <- ExceptT $ lift $ runExceptT $ action

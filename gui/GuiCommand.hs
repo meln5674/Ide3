@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables, PolyKinds #-}
 module GuiCommand where
 
+import System.Directory
+
 import Graphics.UI.Gtk
 
 import Data.Proxy
@@ -11,11 +13,15 @@ import Control.Concurrent
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict (gets)
 
 import Ide3.Types
 import Ide3.Monad
 
+import qualified Ide3.Declaration as Declaration
+
 import Builder
+import Initializer
 
 import Viewer
 import ViewerMonad2
@@ -46,6 +52,33 @@ dialogOnError env default_ f = withProjectMVar env $ \var -> do
             dialogRun dialog
             widgetDestroy dialog
             return default_
+
+doNew :: forall proxy m buffer p 
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          )
+       => GuiEnv proxy m p buffer
+       -> Maybe FilePath
+       -> String
+       -> Maybe String
+       -> IO ()
+doNew env projectRoot projectName templateName = dialogOnError env () $ do
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+        case projectRoot of
+            Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
+            Just projectRoot -> do
+                liftIO $ setCurrentDirectory projectRoot
+                r <- ExceptT 
+                        $ lift 
+                        $ runExceptT 
+                        $ runInitializer stackInitializer 
+                                        (StackInitializerArgs projectName templateName)
+                case r of
+                    InitializerSucceeded out err -> do
+                        withGuiComponents env $ flip withProjectTree populateTree
+                    InitializerFailed out err -> throwE $ InvalidOperation (out ++ err) ""
 
 doOpen :: forall proxy m buffer p 
         . ( MonadIO m
@@ -80,6 +113,7 @@ doGetDecl env path column = dialogOnError env () $
                         decl <- getDeclaration mi di
                         let text = body decl
                         liftIO $ withEditorBuffer comp $ flip textBufferSetText text
+                        lift $ setCurrentDecl mi di
                 _ -> return ()
 
 doBuild :: forall proxy m buffer p 
@@ -100,3 +134,31 @@ doBuild env = dialogOnError env () $
                     BuildSucceeded out err -> out ++ err
                     BuildFailed out err -> out ++ err
             liftIO $ withBuildBuffer comp $ flip textBufferSetText text
+
+
+
+doSave :: forall proxy m buffer p 
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          , MonadMask m
+          )
+        => GuiEnv proxy m p buffer
+        -> IO ()
+doSave env = dialogOnError env () $ 
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
+        withGuiComponents env $ \comp -> do
+            mod <- lift $ gets currentModule
+            decl <- lift $ gets currentDecl
+            case (mod,decl) of
+                (Just mi, Just di) -> do
+                    text <- liftIO $ withEditorBuffer comp $ \buffer -> do
+                        start <- textBufferGetStartIter buffer
+                        end <- textBufferGetEndIter buffer
+                        textBufferGetText buffer start end False
+                    
+                    editDeclaration mi di (\_ -> Declaration.parseAndCombine text Nothing)
+                    saveProject Nothing
+                _ -> return ()
+                

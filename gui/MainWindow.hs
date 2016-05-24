@@ -1,10 +1,13 @@
 {-# LANGUAGE PolyKinds #-}
-module GuiLayout 
-    ( Gui
-    , makeGui
-    , withOpenButton
-    , withBuildButton
-    , withProjectView
+module MainWindow
+    ( MainWindow
+    , make
+    , newClickedEvent
+    , openClickedEvent
+    , declClickedEvent
+    , buildClickedEvent
+    , saveClickedEvent
+    , saveProjectClickedEvent
     ) where
 
 import Graphics.UI.Gtk
@@ -14,8 +17,10 @@ import GuiMonad
 
 import ProjectTree
 
-data Gui
-    = Gui
+import Signal
+
+data MainWindow
+    = MainWindow
     { openButton :: MenuItem
     , fileMenu :: Menu
     , menuBar :: MenuBar
@@ -23,8 +28,13 @@ data Gui
     , projectView :: TreeView
     , declView :: TextView
     , buildView :: TextView
+    , saveButton :: MenuItem
+    , saveProjectButton :: MenuItem
+    , newButton :: MenuItem
     }
 
+
+makeMainWindowWith :: (Window -> IO a) -> IO ()
 makeMainWindowWith f = do
     initGUI
     window <- windowNew
@@ -47,9 +57,11 @@ makeProjView treeStore renderer container renderFunc = do
     treeViewAppendColumn projView treeViewColumn
     cellLayoutPackStart treeViewColumn renderer False
     cellLayoutSetAttributes treeViewColumn renderer treeStore $ renderFunc
+    scrollWindow <- scrolledWindowNew Nothing Nothing
+    scrollWindow `containerAdd` projView
     tableAttach
         container
-        projView
+        scrollWindow
         0 1
         0 1
         [Expand,Fill] [Expand,Fill] 0 0
@@ -59,9 +71,14 @@ makeProjView treeStore renderer container renderFunc = do
 
 makeDeclView buffer container = do
     declView <- textViewNewWithBuffer buffer
+    monospace <- fontDescriptionNew
+    monospace `fontDescriptionSetFamily` "monospace"
+    declView `widgetModifyFont` Just monospace
+    scrollWindow <- scrolledWindowNew Nothing Nothing
+    scrollWindow `containerAdd` declView
     tableAttach
         container
-        declView
+        scrollWindow
         1 2
         0 1
         [Expand,Fill] [Expand,Fill] 0 0
@@ -95,6 +112,21 @@ makeOpenButton fileMenu = do
     openButton <- menuItemNewWithLabel "Open"
     menuShellAppend fileMenu openButton
     return openButton
+
+makeSaveButton fileMenu = do
+    saveButton <- menuItemNewWithLabel "Save"
+    menuShellAppend fileMenu saveButton
+    return saveButton
+
+makeSaveProjectButton fileMenu = do
+    saveProjectButton <- menuItemNewWithLabel "Save Project"
+    menuShellAppend fileMenu saveProjectButton
+    return saveProjectButton
+
+makeNewButton fileMenu = do
+    newButton <- menuItemNewWithLabel "New Project"
+    menuShellAppend fileMenu newButton
+    return newButton
 
 makeBuildButton container = do
     buildButton <- buttonNew
@@ -131,9 +163,8 @@ makeContainerWith vbox f = do
     boxPackEnd vbox container PackGrow 0
     f container
 
-
-
-makeGui env f = withGuiComponents env $ \comp -> do
+--make :: GuiEnv proxy m p buffer -> (MainWindow -> IO a) -> IO ()
+make env f = withGuiComponents env $ \comp -> do
     makeMainWindowWith $ \window -> 
         makeVBoxWith window $ \vbox -> 
             makeContainerWith vbox $ \container -> do
@@ -145,11 +176,13 @@ makeGui env f = withGuiComponents env $ \comp -> do
                 
                 menuBar <- makeMainMenuBar vbox
                 fileMenu <- makeFileMenu menuBar
+                newButton <- makeNewButton fileMenu
                 openButton <- makeOpenButton fileMenu
+                saveButton <- makeSaveButton fileMenu
+                saveProjectButton <- makeSaveProjectButton fileMenu
                 buildButton <- makeBuildButton container
-                buildView <- withBuildBuffer comp $ \buffer ->
-                    makeBuildView buffer container
-                f $ Gui
+                buildView <- withBuildBuffer comp $ flip makeBuildView container
+                f $ MainWindow
                     openButton
                     fileMenu
                     menuBar
@@ -157,7 +190,28 @@ makeGui env f = withGuiComponents env $ \comp -> do
                     projectView
                     declView
                     buildView
+                    saveButton
+                    saveProjectButton
+                    newButton
 
-withOpenButton gui f = f $ openButton gui
-withBuildButton gui f = f $ buildButton gui
-withProjectView gui f = f $ projectView gui
+type MainWindowSignal = GuiSignal MainWindow
+
+
+newClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+newClickedEvent = newButton `mkGuiSignal` buttonPressEvent
+
+openClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+openClickedEvent = openButton `mkGuiSignal` buttonPressEvent
+
+declClickedEvent :: MainWindowSignal TreeView (TreePath -> TreeViewColumn -> IO ())
+declClickedEvent = projectView `mkGuiSignal` rowActivated
+
+buildClickedEvent :: MainWindowSignal Button (EventM EButton Bool)
+buildClickedEvent = buildButton `mkGuiSignal` buttonPressEvent
+
+saveClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+saveClickedEvent = saveButton `mkGuiSignal` buttonPressEvent
+
+saveProjectClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+saveProjectClickedEvent = saveProjectButton `mkGuiSignal` buttonPressEvent
+
