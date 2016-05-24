@@ -4,10 +4,12 @@ module MainWindow
     , make
     , newClickedEvent
     , openClickedEvent
+    , digestClickedEvent
     , declClickedEvent
-    , buildClickedEvent
     , saveClickedEvent
     , saveProjectClickedEvent
+    , buildClickedEvent
+    , runClickedEvent
     , windowClosedEvent
     ) where
 
@@ -49,33 +51,6 @@ make env f = withGuiComponents env $ \comp -> do
                                                       container
                 buildViewer <- withBuildBuffer comp $ \buffer -> 
                                     makeBuildViewer buffer container
-                
-                {-
-                projectView <- withProjectTree comp $ \treeStore ->
-                    makeProjView treeStore renderer container renderProjectTreeElem
-                declView <- withEditorBuffer comp $ \buffer ->
-                    makeDeclView buffer container 
-                
-                fileMenu <- makeFileMenu menuBar
-                newButton <- makeNewButton fileMenu
-                openButton <- makeOpenButton fileMenu
-                saveButton <- makeSaveButton fileMenu
-                saveProjectButton <- makeSaveProjectButton fileMenu
-                buildButton <- makeBuildButton container
-                buildView <- withBuildBuffer comp $ flip makeBuildView container
-                f $ MainWindow
-                    window
-                    openButton
-                    fileMenu
-                    menuBar
-                    buildButton
-                    projectView
-                    declView
-                    buildView
-                    saveButton
-                    saveProjectButton
-                    newButton
-                -}
                 f $ MainWindow
                          window
                          fileMenu
@@ -159,12 +134,15 @@ makeNewButton fileMenu = do
 data ProjectMenu
     = ProjectMenu
     { buildButton :: MenuItem
+    , runButton :: MenuItem
     }
 
 makeProjectMenu menuBar = makeProjectMenuWith menuBar $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
+    runButton <- makeRunButton projectMenu
     return $ ProjectMenu
              buildButton
+             runButton
 
 makeProjectMenuWith menuBar f = do
     projectMenuItem <- menuItemNewWithLabel "Project"
@@ -177,6 +155,11 @@ makeBuildButton projectMenu = do
     buildButton <- menuItemNewWithLabel "Build"
     menuShellAppend projectMenu buildButton
     return buildButton
+
+makeRunButton projectMenu = do
+    runButton <- menuItemNewWithLabel "Run"
+    menuShellAppend projectMenu runButton
+    return runButton
 
 data ProjectViewer
     = ProjectViewer
@@ -304,6 +287,9 @@ saveProjectClickedEvent = saveProjectButton `mkFileMenuSignal` buttonPressEvent
 
 buildClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
 buildClickedEvent = buildButton `mkProjectMenuSignal` buttonPressEvent
+
+runClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+runClickedEvent = runButton `mkProjectMenuSignal` buttonPressEvent
 
 declClickedEvent :: MainWindowSignal TreeView (TreePath -> TreeViewColumn -> IO ())
 declClickedEvent = projectView `mkProjectViewerSignal` rowActivated

@@ -23,6 +23,7 @@ import qualified Ide3.Declaration as Declaration
 
 import Builder
 import Initializer
+import Runner
 
 import Viewer
 import ViewerMonad2
@@ -138,6 +139,23 @@ doBuild env = dialogOnError env () $
                     BuildFailed out err -> out ++ err
             liftIO $ withBuildBuffer comp $ flip textBufferSetText text
 
+doRun :: forall proxy m buffer p
+       . ( MonadIO m
+         , ViewerMonad m
+         , TextBufferClass buffer
+         , InteruptMonad2 p m
+         , MonadMask m
+         )
+         => GuiEnv proxy m p buffer
+         -> IO ()
+doRun env = dialogOnError env () $
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
+        withGuiComponents env $ \comp -> do
+            r <- ExceptT $ lift $ runExceptT $ runRunner stackRunner
+            let text = case r of
+                    RunSucceeded out err -> out ++ err
+                    RunFailed out err -> out ++ err
+            liftIO $ withBuildBuffer comp $ flip textBufferSetText text
 
 
 doSave :: forall proxy m buffer p 

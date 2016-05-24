@@ -161,6 +161,19 @@ onBuildClicked env = do
     liftIO $ doBuild env
     return False
 
+onRunClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnv proxy m p buffer 
+              -> EventM EButton Bool
+onRunClicked env = do
+    liftIO $ doRun env
+    return False
+
 
 onSaveClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -202,12 +215,14 @@ doMain proxy init = do
     components <- initializeComponents
     let env = GuiEnv proxy components projectMVar
     MainWindow.make env $ \gui -> do
+        gui `onGui` MainWindow.newClickedEvent $ onNewClicked env
         gui `onGui` MainWindow.openClickedEvent $ onOpenClicked env
-        gui `onGui` MainWindow.declClickedEvent $ onDeclClicked env
-        gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
+        gui `onGui` MainWindow.digestClickedEvent $ onDigestClicked env
         gui `onGui` MainWindow.saveClickedEvent $ onSaveClicked env
         gui `onGui` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked env
-        gui `onGui` MainWindow.newClickedEvent $ onNewClicked env
+        gui `onGui` MainWindow.declClickedEvent $ onDeclClicked env
+        gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
+        gui `onGui` MainWindow.runClickedEvent $ onRunClicked env
         gui `onGui` MainWindow.windowClosedEvent $ do
             liftIO $ exitSuccess
             return False
