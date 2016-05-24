@@ -6,6 +6,7 @@ import Data.Proxy
 
 import System.Exit
 import System.Directory
+import System.FilePath
 
 import Control.Monad.Catch
 import Control.Monad.Trans
@@ -39,7 +40,8 @@ import qualified NewProjectDialog
 
 import NewProjectDialog (NewProjectDialog)
 
-import ReadOnlyFilesystemProject
+--import ReadOnlyFilesystemProject
+import SimpleFilesystemProject
 
 import Initializer
 
@@ -48,6 +50,7 @@ onNewProjectConfirmed :: forall proxy m p buffer
                          , ViewerMonad m
                          , InteruptMonad2 p m
                          , TextBufferClass buffer
+                         , MonadMask m
                          )
                       => GuiEnv proxy m p buffer
                       -> NewProjectDialog
@@ -67,6 +70,7 @@ onNewClicked :: forall proxy m p buffer
                  , ViewerMonad m
                  , InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , MonadMask m
                  )
               => GuiEnv proxy m p buffer 
               -> EventM EButton Bool
@@ -87,7 +91,33 @@ onOpenClicked :: forall proxy m p buffer
               => GuiEnv proxy m p buffer 
               -> EventM EButton Bool
 onOpenClicked env = liftIO $ do
-    dialog <- liftIO $ fileChooserDialogNew
+    dialog <- fileChooserDialogNew
+        Nothing
+        Nothing
+        FileChooserActionOpen
+        [ ("Close", ResponseReject)
+        , ("Open" , ResponseAccept)
+        ]
+    r <- liftIO $ dialogRun dialog
+    case r of
+        ResponseAccept -> do
+            Just path <- liftIO $ fileChooserGetFilename dialog
+            liftIO $ widgetDestroy dialog
+            doOpen env path
+            liftIO $ setCurrentDirectory $ takeDirectory path
+        ResponseReject -> liftIO $ widgetDestroy dialog
+    return False
+
+onDigestClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 )
+              => GuiEnv proxy m p buffer 
+              -> EventM EButton Bool
+onDigestClicked env = liftIO $ do
+    dialog <- fileChooserDialogNew
         Nothing
         Nothing
         FileChooserActionSelectFolder
@@ -102,7 +132,9 @@ onOpenClicked env = liftIO $ do
             doOpen env path
             liftIO $ setCurrentDirectory path
         ResponseReject -> liftIO $ widgetDestroy dialog
-    return False    
+    return False
+
+
 
 onDeclClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -143,6 +175,19 @@ onSaveClicked env = do
     liftIO $ doSave env
     return False
 
+onSaveProjectClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnv proxy m p buffer 
+              -> EventM EButton Bool
+onSaveProjectClicked env = do
+    liftIO $ doSaveProject env Nothing
+    return False
+
 doMain :: forall proxy m p 
         . ( MonadIO m
           , ViewerMonad m
@@ -161,6 +206,7 @@ doMain proxy init = do
         gui `onGui` MainWindow.declClickedEvent $ onDeclClicked env
         gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
         gui `onGui` MainWindow.saveClickedEvent $ onSaveClicked env
+        gui `onGui` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked env
         gui `onGui` MainWindow.newClickedEvent $ onNewClicked env
         gui `onGui` MainWindow.windowClosedEvent $ do
             liftIO $ exitSuccess
@@ -169,5 +215,5 @@ doMain proxy init = do
 
 
 main :: IO ()
-main = doMain (Proxy :: Proxy (ReadOnlyFilesystemProjectT (ProjectStateT IO)))
+main = doMain (Proxy :: Proxy (SimpleFilesystemProjectT (ProjectStateT IO)))
               (Unopened, Project.empty)
