@@ -4,6 +4,7 @@ module Main where
 import Data.Tree
 import Data.Proxy
 
+import System.Exit
 import System.Directory
 
 import Control.Monad.Catch
@@ -161,6 +162,9 @@ doMain proxy init = do
         gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
         gui `onGui` MainWindow.saveClickedEvent $ onSaveClicked env
         gui `onGui` MainWindow.newClickedEvent $ onNewClicked env
+        gui `onGui` MainWindow.windowClosedEvent $ do
+            liftIO $ exitSuccess
+            return False
     return ()
 
 
