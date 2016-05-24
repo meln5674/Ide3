@@ -23,10 +23,11 @@ module Command where
 import Data.Maybe
 import Data.List
 
+import qualified Data.Map as Map
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State.Strict
 
@@ -65,6 +66,7 @@ import Viewer
 import Editor
 import Builder
 import Runner
+import Initializer
 
 -- | Temporary, will be removed
 type UserError = ()
@@ -92,10 +94,15 @@ withSelectedModule f = printOnError $ do
 doHelp :: ViewerMonad m => CommandT u m String
 doHelp = printHelp
 
-doNew :: ViewerMonad m => FilePath -> ViewerStateT m String
-doNew path = printOnError $ do
-    createNewFile path
-    return "Created"
+doNew :: (ViewerMonad m, Args a) => (forall u . Initializer a m u) -> String -> ViewerStateT m String
+doNew initializer arg = printOnError $ do
+    case runInitializer initializer arg of
+        Left msg -> return msg
+        Right action -> do
+            r <- ExceptT $ lift $ runExceptT $ action
+            case r of
+                InitializerSucceeded out err -> return $ out ++ err
+                InitializerFailed out err -> return $ out ++ err
 
 -- | Action for the open command
 doOpen :: (MonadIO m, ViewerMonad m) => FilePath -> ViewerStateT m String
@@ -155,8 +162,11 @@ doImported = withSelectedModule
 doExports :: ViewerMonad m => ViewerStateT m String
 doExports = withSelectedModule
     $ return
-    . asShows
-    . items
+    . maybe ([asString "Exports everything"]) id 
+    . liftM (asShows
+            . items
+            . (map snd . Map.toList)
+            )
     . Module.getExports
 
 -- | Action for the exported command
@@ -193,16 +203,18 @@ doRemoveModule moduleName = printOnError $ do
 
 doAddExport :: ViewerMonad m => String -> ViewerStateT m String
 doAddExport export = withSelectedModule $ \module_ -> do
-    addRawExport (Module.info module_) export
+    _ <- addRawExport (Module.info module_) export
     return [asString "Added" :: Output Bool]
 
+doRemoveExport :: ViewerMonad m => String -> ViewerStateT m String
 doRemoveExport = undefined
 
 doAddImport :: ViewerMonad m => String -> ViewerStateT m String
 doAddImport import_ = withSelectedModule $ \module_ -> do
-    addRawImport (Module.info module_) $ "import " ++ import_
+    _ <- addRawImport (Module.info module_) $ "import " ++ import_
     return [asString "Added" :: Output Bool]
 
+doRemoveImport :: ViewerMonad m => String -> ViewerStateT m String
 doRemoveImport = undefined
 
 -- | Action for the add decl command
@@ -339,14 +351,14 @@ helpCmd = Command
     , action = \_ -> doHelp
     }
 
-newCmd :: (MonadIO m, ViewerMonad m) => Command u (ViewerStateT m)
-newCmd = Command
-    { helpLine = "new: create a new project"
+newCmd :: (MonadIO m, ViewerMonad m, Args a) => (forall u . Initializer a m u) -> Command u (ViewerStateT m)
+newCmd initializer = Command
+    { helpLine = "new ARGS: create a new project"
     , root = "new"
-    , parser = parseArity1 "new" "path"
+    , parser = parseArity1 "new" "argument"
     , isAllowed = return True
     , completion = \_ ->    return $ Just []
-    , action = liftCmd . doNew
+    , action = liftCmd . doNew initializer
     }
 
 -- | The open command, takes a path and opens the project at that file or 

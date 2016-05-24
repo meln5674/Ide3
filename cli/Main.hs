@@ -27,6 +27,7 @@ import Control.Monad
 
 import System.Console.Haskeline
 
+import Ide3.Monad (ProjectM)
 import Ide3.Mechanism.State (ProjectStateT)
 
 import qualified CmdParser as Cmd
@@ -37,9 +38,11 @@ import Command
 import Viewer
 import qualified ReadOnlyFilesystemProject as RDONLY
 import qualified SimpleFilesystemProject as RDWR
+
 import Editor
 import Builder
 import Runner
+import Initializer
 
 -- | Run a single iteration of reading input from the user, deciding which command to run,
 -- running it, then printing the response, and indicating if the user wishes to quit
@@ -68,14 +71,15 @@ settings :: (MonadException m, ViewerMonad m)
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
 -- | List of commands, using a specified editor
-commandList :: (MonadMask m, MonadIO m, ViewerMonad m) 
+commandList :: (MonadMask m, MonadIO m, ViewerMonad m, Args a) 
             => (forall u . Editor m u) 
             -> (forall u . Builder m u)
             -> (forall u . Runner m u)
+            -> (forall u . Initializer a m u)
             -> [Command u (ViewerStateT m)]
-commandList editor builder runner =
+commandList editor builder runner initializer =
     [ helpCmd
-    , newCmd
+    , newCmd initializer
     , openCmd
     , saveAsCmd
     , saveCmd
@@ -106,23 +110,25 @@ runWith :: ( MonadException (t (ProjectStateT IO))
            , MonadMask (t (ProjectStateT IO))
            , ViewerMonad (t (ProjectStateT IO))
            , Monad (t (ProjectStateT IO))
+           , Args a
            )
         => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
         -> fsp 
         -> (forall u . Editor (t (ProjectStateT IO)) u)
         -> (forall u . Builder (t (ProjectStateT IO)) u)
         -> (forall u . Runner (t (ProjectStateT IO)) u)
+        -> (forall u . Initializer a (t (ProjectStateT IO)) u)
         -> IO ()
-runWith runFspT unopened editor builder runner = void $ 
+runWith runFspT unopened editor builder runner initializer = void $ 
     runViewerState runFspT unopened $
-        flip runCommandT (commandList editor builder runner) $ 
+        flip runCommandT (commandList editor builder runner initializer) $ 
             runInputT settings $ do
                 outputStrLn "Haskell project viewer"
                 outputStrLn "Type \"help\" for commands"
                 runMain
 
 -- | Data type which contains options for running the application
-data (Monad (t (ProjectStateT IO))) => AppSetup t fsp u
+data (Monad (t (ProjectStateT IO))) => AppSetup a t fsp u
     = AppSetup
     { -- | The editor to use
       appEditor :: Editor (t (ProjectStateT IO)) u
@@ -130,6 +136,8 @@ data (Monad (t (ProjectStateT IO))) => AppSetup t fsp u
     , appBuilder :: Builder (t (ProjectStateT IO)) u
       -- | The runner to use
     , appRunner :: Runner (t (ProjectStateT IO)) u
+      -- | The initializer to use
+    , appInitializer :: Initializer a (t (ProjectStateT IO)) u
       -- | Function for running the persistence mechanism
     , appRunFspT :: forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp)
       -- | Initial state of the persistence mechanism
@@ -141,34 +149,48 @@ runWithSetup :: ( MonadException (t (ProjectStateT IO))
                 , MonadMask (t (ProjectStateT IO))
                 , ViewerMonad (t (ProjectStateT IO))
                 , Monad (t (ProjectStateT IO))
+                , Args a
                 )
-             => (forall u . AppSetup t fsp u)
+             => (forall u . AppSetup a t fsp u)
              -> IO ()
-runWithSetup setup = runWith (appRunFspT setup) (appUnopened setup) (appEditor setup) (appBuilder setup) (appRunner setup)
+runWithSetup setup = runWith 
+    (appRunFspT setup) 
+    (appUnopened setup) 
+    (appEditor setup) 
+    (appBuilder setup) 
+    (appRunner setup) 
+    (appInitializer setup)
 
 -- | Change a setup to use the nano editor
 useNanoEditor :: ( MonadIO (t (ProjectStateT IO))
                  , MonadMask (t (ProjectStateT IO))
                  , Monad (t (ProjectStateT IO))
-                 ) => AppSetup t fsp u -> AppSetup t fsp u
+                 ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useNanoEditor = \s -> s{appEditor = nanoEditor}
 
 useStackBuilder :: ( MonadIO (t (ProjectStateT IO))
                    , MonadMask (t (ProjectStateT IO))
                    , Monad (t (ProjectStateT IO))
-                   ) => AppSetup t fsp u -> AppSetup t fsp u
+                   ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useStackBuilder = \s -> s{appBuilder = stackBuilder}
 
 useStackRunner :: ( MonadIO (t (ProjectStateT IO))
                   , MonadMask (t (ProjectStateT IO))
                   , Monad (t (ProjectStateT IO))
-                  ) => AppSetup t fsp u -> AppSetup t fsp u
+                  ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useStackRunner = \s -> s{appRunner = stackRunner}
+
+useStackInitializer :: ( MonadIO (t (ProjectStateT IO))
+                       , MonadMask (t (ProjectStateT IO))
+                       , Monad (t (ProjectStateT IO))
+                       , ProjectM (t (ProjectStateT IO))
+                       ) => AppSetup a t fsp u -> AppSetup StackInitializerArgs t fsp u
+useStackInitializer = \s -> s{appInitializer = stackInitializer}
 
 -- | Change a setup to use the read-only persistence mechanism
 useReadOnlyFilesystemProject :: (forall t . ( Monad (t (ProjectStateT IO))) 
-                             => AppSetup t fsp u)
-                             -> AppSetup RDONLY.ReadOnlyFilesystemProjectT RDONLY.FileSystemProject u
+                             => AppSetup a t fsp u)
+                             -> AppSetup a RDONLY.ReadOnlyFilesystemProjectT RDONLY.FileSystemProject u
 useReadOnlyFilesystemProject s = s
     { appRunFspT = RDONLY.runReadOnlyFilesystemProjectT
     , appUnopened = RDONLY.Unopened
@@ -176,15 +198,15 @@ useReadOnlyFilesystemProject s = s
 
 -- | Change a setup to use the simple persistence mechanism
 useSimpleFilesystemProject :: (forall t . Monad (t (ProjectStateT IO)) 
-                           => AppSetup t fsp u)
-                           -> AppSetup RDWR.SimpleFilesystemProjectT RDWR.FileSystemProject u
+                           => AppSetup a t fsp u)
+                           -> AppSetup a RDWR.SimpleFilesystemProjectT RDWR.FileSystemProject u
 useSimpleFilesystemProject s = s
     { appRunFspT = RDWR.runSimpleFilesystemProjectT
     , appUnopened = RDWR.Unopened
     }
 
 -- | A setup with all fields set to bottom
-blankSetup :: (Monad (t (ProjectStateT IO))) => AppSetup t fsp u
+blankSetup :: (Monad (t (ProjectStateT IO))) => AppSetup a t fsp u
 blankSetup = AppSetup
            { appRunFspT = error "No file system project defined"
            , appUnopened = error "No default project state defined"
@@ -198,6 +220,7 @@ main :: IO ()
 main = runWithSetup 
      $ useStackBuilder 
      $ useStackRunner
+     $ useStackInitializer
      $ useNanoEditor 
      $ useSimpleFilesystemProject 
      $ blankSetup

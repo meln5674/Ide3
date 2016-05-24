@@ -45,11 +45,11 @@ library
 --                     , Ide3.Free.State.Helpers
 --                     , Ide3.Free.State.Instances
 --                     , Ide3.Free.State.Instances.SimpleProject
-  build-depends:       base >= 4.7 && < 5
-                     , containers >= 0.5.6.2
-                     , mtl >= 2.2.1
-                     , haskell-src-exts >= 1.17.1
-                     , transformers >= 0.4.2.0
+  build-depends:       base
+                     , containers
+                     , mtl
+                     , haskell-src-exts
+                     , transformers
                      , unix
                      , filepath
                      , free
@@ -111,6 +111,7 @@ executable Ide3-CLI
                      , Editor
                      , Builder
                      , Runner
+                     , Initializer
                      , ReadOnlyFilesystemProject
                      , SimpleFilesystemProject
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
