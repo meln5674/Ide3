@@ -19,6 +19,10 @@ import ViewerMonad
 data ProjectTreeElem
     = ModuleElem ModuleInfo
     | DeclElem DeclarationInfo
+    | ImportsElem
+    | ExportsElem
+    | ImportElem (WithBody Import)
+    | ExportElem (WithBody Export)
 
 {-
 newtype PSW a = PSW { unPSW :: ProjectStateT IO a }
@@ -35,10 +39,27 @@ renderProjectTreeElem (ModuleElem (ModuleInfo (Symbol s))) = [cellText := s]
 renderProjectTreeElem (ModuleElem (UnamedModule (Just path))) = [cellText := path]
 renderProjectTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
 renderProjectTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
+renderProjectTreeElem ImportsElem = [cellText := "Imports"]
+renderProjectTreeElem ExportsElem = [cellText := "Exports"]
+renderProjectTreeElem (ImportElem (WithBody _ body)) = [cellText := body] 
+renderProjectTreeElem (ExportElem (WithBody _ body)) = [cellText := body] 
+
+makeImportsNode :: [WithBody Import] -> Tree ProjectTreeElem
+makeImportsNode is = Node ImportsElem $ map (flip Node [] . ImportElem) is
+
+makeExportsNode :: Maybe [WithBody Export] -> Tree ProjectTreeElem
+makeExportsNode (Just es) = Node ExportsElem $ map (flip Node [] . ExportElem) es
+makeExportsNode Nothing = Node ExportsElem []
 
 makeProjectTree :: ModuleTree -> Tree ProjectTreeElem
-makeProjectTree (OrgNode mi ts) = Node (ModuleElem mi) $ map makeProjectTree ts
-makeProjectTree (ModuleNode mi ds ts) = Node (ModuleElem mi) $ map makeProjectTree ts ++ map (flip Node [] . DeclElem) ds 
+makeProjectTree (OrgNode mi ts)
+    = Node (ModuleElem mi) $ map makeProjectTree ts
+makeProjectTree (ModuleNode mi ds ts is es) 
+    = Node (ModuleElem mi) 
+    $ makeImportsNode is 
+    : makeExportsNode es 
+    : map makeProjectTree ts 
+    ++ map (flip Node [] . DeclElem) ds 
     
 
 populateTree :: (MonadIO m, ViewerMonad m) => TreeStore ProjectTreeElem -> ProjectResult m u ()
@@ -53,10 +74,10 @@ getModuleAndDecl :: TreePath -> TreeStore ProjectTreeElem -> IO (Maybe (ModuleIn
 getModuleAndDecl path treeStore = do
     node <- treeStoreGetValue treeStore path 
     case node of
-        ModuleElem _ -> return Nothing
         DeclElem di -> do
             let parentPath = init path
             parentNode <- treeStoreGetValue treeStore parentPath
             case parentNode of
                 ModuleElem mi -> return $ Just (mi,di)
                 _ -> return Nothing 
+        _ -> return Nothing

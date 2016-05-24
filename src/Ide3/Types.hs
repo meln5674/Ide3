@@ -56,8 +56,15 @@ newtype Symbol = Symbol String
 joinSym :: Symbol -> Symbol -> Symbol
 joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 
+{-
+data SolutionInfo = SolutionInfo
 
-
+data Solution
+    = Solution
+    { solutionInfo :: SolutionInfo
+    , solutionProjects :: Map ProjectInfo Project
+    }
+-}
 -- |Information about a project
 data ProjectInfo = ProjectInfo
     deriving (Show, Read, Eq)

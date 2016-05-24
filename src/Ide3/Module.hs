@@ -18,6 +18,7 @@ import Data.List (intercalate, find)
 
 import Control.Monad.Trans.Except
 
+import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Ide3.Types
@@ -84,9 +85,10 @@ getDeclarations :: Module -> [WithBody Declaration]
 getDeclarations (Module _ _ _ _ ds) = Map.elems ds
 
 -- |Get the exports from a module
-getExports :: Module -> [WithBody Export]
-getExports (Module _ _ _ Nothing _) = []
-getExports (Module _ _ _ (Just es) _) = Map.elems es
+getExports :: Module -> Maybe (Map ExportId (WithBody Export))
+--getExports (Module _ _ _ Nothing _) = []
+--getExports (Module _ _ _ (Just es) _) = Map.elems es
+getExports (Module _ _ _ es _) = es
 
 getExport :: Module -> ExportId -> Either (ProjectError u) (WithBody Export)
 getExport (Module mi _ _ (Just es) _) eid = case Map.lookup eid es of
@@ -94,9 +96,8 @@ getExport (Module mi _ _ (Just es) _) eid = case Map.lookup eid es of
     Nothing -> Left $ InvalidExportId mi eid "Module.getExport"
 getExport (Module _ _ _ Nothing _) _ = Left $ InvalidOperation "Can't get export from an export all" "Module.getExport"
 
-getExportIds :: Module -> [ExportId]
-getExportIds (Module _ _ _ Nothing _) = []
-getExportIds (Module _ _ _ (Just es) _) = Map.keys es
+getExportIds :: Module -> Maybe [ExportId]
+getExportIds (Module _ _ _ es _) = Map.keys <$> es
 
 getImportIds :: Module -> [ImportId]
 getImportIds (Module _ _ is _ _) = Map.keys is
@@ -104,9 +105,9 @@ getImportIds (Module _ _ is _ _) = Map.keys is
 
 -- |Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
-getHeaderText m = case bodies $ getExports m of
-    [] -> "module " ++ name ++ " where"
-    es -> "module " ++ name ++ "(" ++ intercalate "," es ++ ") where"
+getHeaderText m = case (map (body . snd) . Map.toList) <$> getExports m of
+    Nothing -> "module " ++ name ++ " where"
+    Just es -> "module " ++ name ++ "(" ++ intercalate "," es ++ ") where"
   where
     ModuleInfo (Symbol name) = info m
 

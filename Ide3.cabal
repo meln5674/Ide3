@@ -78,7 +78,8 @@ executable Ide3-GUI
   main-is:             Main.hs
   other-modules:       ProjectTree
                      , GuiCommand
-                     , GuiLayout
+                     , MainWindow
+                     , NewProjectDialog
                      , GuiMonad
                      , GuiEnv
                      , ReadOnlyFilesystemProject
@@ -86,10 +87,12 @@ executable Ide3-GUI
                      , ViewerMonad
                      , ViewerMonad2
                      , Builder
+                     , Signal
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3
                      , gtk
+                     , glib
                      , transformers
                      , mtl
                      , containers

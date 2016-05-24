@@ -2,8 +2,10 @@ module Initializer
     ( InitializerResult (..)
     , Initializer
     , runInitializer
+    , runInitializerWithInput
     , TemplateName
     , StackInitializerArgs (..)
+    , noInitializer
     , stackInitializer
     , Args (..)
     ) where
@@ -17,11 +19,12 @@ import Data.List
 
 import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.Trans.Except
+
+import Ide3.Types
 
 import Ide3.Monad
 import Ide3.Digest
-
-import CmdParser
 
 class Args a where
     getArgsFrom :: [String] -> Either String a
@@ -33,11 +36,17 @@ data InitializerResult
 newtype Initializer a m u = Initializer
     { runInitializerInternal :: a -> ProjectResult m u InitializerResult }
 
-runInitializer :: (ProjectM m, Args a) 
+runInitializerWithInput :: (ProjectM m, Args a) 
                => Initializer a m u 
-               -> String
+               -> [String]
                -> Either String (ProjectResult m u InitializerResult)
-runInitializer initializer = liftM (runInitializerInternal initializer) . getArgsFrom <=< parseArityN 
+runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
+
+runInitializer :: (ProjectM m, Args a)
+               => Initializer a m u
+               -> a
+               -> ProjectResult m u InitializerResult
+runInitializer = runInitializerInternal
 
 type TemplateName = String
 
@@ -48,6 +57,10 @@ instance Args StackInitializerArgs where
     getArgsFrom [template,path] = Right $ StackInitializerArgs path (Just template)
     getArgsFrom [] = Left $ "new expects at least a path and optionally a template name"
     getArgsFrom _ = Left $ "new expects only a path and optionally a template name"
+
+noInitializer :: Monad m => Initializer a m u
+noInitializer = Initializer $ \_ -> throwE $ Unsupported "No initializer specified"
+
 
 stackInitializer :: (MonadIO m, ProjectM m) => Initializer StackInitializerArgs m u
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
