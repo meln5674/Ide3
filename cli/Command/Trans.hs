@@ -159,7 +159,7 @@ cmdPrefixCompletion l = do
             let replacement' = drop (length l) $ root x
                 display' = root x
             isFinished' <- liftM null $ isPrefixOfCommand (root x)
-            return $ Completion
+            return   Completion
                    { replacement=replacement'
                    , display=display'
                    , isFinished=isFinished'
@@ -169,7 +169,7 @@ cmdPrefixCompletion l = do
 isCommandAllowed :: Monad m => String -> CommandT u m Bool
 isCommandAllowed s = do
     cmds <- getCommands
-    liftMCmd (foldl (||) False) $ forM cmds $ \cmd -> liftMCmd ((root cmd == s) &&) (liftCmd $ isAllowed cmd)
+    liftMCmd or $ forM cmds $ \cmd -> liftMCmd ((root cmd == s) &&) (liftCmd $ isAllowed cmd)
 
 -- | Do command completion for all availible commands
 cmdCompletion :: Monad m => (String,String) -> CommandT u m (String, [Completion])

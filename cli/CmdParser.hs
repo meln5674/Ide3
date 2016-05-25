@@ -5,12 +5,11 @@ module CmdParser where
 import Control.Monad
 
 import Text.Parsec hiding (parse)
-import qualified Text.Parsec as P
 import Text.Parsec.Error
 
 -- | Parse a command taking no arguments
 parseArity0 :: Stream s m Char => String -> ParsecT s u m String
-parseArity0 s = (try $ string s) >> return ""
+parseArity0 s = try (string s) >> return ""
 
 -- | Parse a command taking a single argument
 parseArity1 :: Stream s m Char => String -> String -> ParsecT s u m String
@@ -19,15 +18,14 @@ parseArity1 s e = do
     notFollowedBy eof
     _ <- string " " <?> s ++ " expects a " ++ e
     --arg <- untilSpaceOrEof <?> s ++ " expects a " ++ e
-    arg <- manyTill anyChar eof
-    return arg
+    manyTill anyChar eof
 
 quotedString :: Stream s m Char => ParsecT s u m String
 quotedString = do
     _ <- char '\"'
     liftM concat
         $ manyTill 
-          ((many $ noneOf ['\\', '\"']) 
+          (many (noneOf ['\\', '\"']) 
             <|> string "\\\\" 
             <|> string "\\\""
           )

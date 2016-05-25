@@ -1,11 +1,12 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, TypeSynonymInstances, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-} 
+{-# LANGUAGE FlexibleContexts #-}
 module ViewerMonad2 where
 
 import Control.Monad.Trans.State.Strict
 
 import Control.Concurrent.MVar
-
-import Viewer
 
 {-
 class ViewerMonad (t m) => ViewerMonad2 t m p | t -> p where

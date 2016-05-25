@@ -42,8 +42,7 @@ dialogOnError :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
 dialogOnError env default_ f = withProjectMVar env $ \var -> do
     r <- interupt1 var (runExceptT f)
     case r of
-        Right x -> do
-            return x
+        Right x -> return x
         Left e -> do
             dialog <- messageDialogNew
                 Nothing
@@ -66,8 +65,8 @@ doNew :: forall proxy m buffer p
        -> String
        -> Maybe String
        -> IO ()
-doNew env projectRoot projectName templateName = dialogOnError env () $ do
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+doNew env projectRoot projectName templateName = dialogOnError env () $ 
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
         case projectRoot of
             Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
             Just projectRoot -> do

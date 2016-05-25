@@ -4,7 +4,6 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Reader
 
 import Text.Parsec hiding (parse)
-import qualified Text.Parsec as P
 
 import System.Console.Haskeline
 

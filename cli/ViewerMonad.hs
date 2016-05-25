@@ -38,3 +38,4 @@ class (ProjectStateM m, ProjectShellM m, Monad m) => ViewerMonad m where
     createNewDirectory :: FilePath -> ProjectResult m u ()
     -- | Perform any actions necessary to be able to build using the 'stack build' shell command
     prepareBuild :: ProjectResult m u ()
+

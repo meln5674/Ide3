@@ -10,7 +10,7 @@ import Control.Monad
 
 import Ide3.Monad
 
-import Ide3.Types
+import Ide3.Types hiding (moduleInfo)
 
 -- | Utility function, just map with arguments reversed
 for :: [a] -> (a -> b) -> [b]
@@ -39,6 +39,7 @@ makeTreeSkeleton = go ""
             rootString = case rootInfo of
                 ModuleInfo (Symbol s) -> s
                 UnamedModule (Just p) -> p
+                UnamedModule _ -> error "Cannot make a tree with a pathless unamed module"
             newRoot = rootString ++ "."
             toProcess = if rootPresent
                 then delete rootInfo subModuleNames
@@ -81,8 +82,8 @@ fillTree (ModuleNode i _ ts _ _) = do
     is <- forM iids $ \iid -> liftM ((,) iid) $ getImport i iid
     es <- case eids of
         Nothing -> return Nothing
-        Just eids -> do
-            x <- forM eids $ \eid -> liftM ((,) eid) $ getExport i eid
+        Just eids' -> do
+            x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport i eid
             return $ Just x
     ts' <- mapM fillTree ts
     return $ ModuleNode i ds ts' is es
@@ -98,7 +99,7 @@ makeTree = do
 formatTree :: ModuleTree -> String
 formatTree = intercalate "\n" . go []
   where
-    go prefixFlags tree = lines
+    go prefixFlags tree = allLines
       where
         buildPrefix [] = ""
         buildPrefix (True:xs)  = buildPrefix xs ++ "|   "
@@ -117,6 +118,7 @@ formatTree = intercalate "\n" . go []
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
             UnamedModule (Just p) -> p
+            UnamedModule _ -> error "Cannot make a tree with a pathless unamed module"
         firstLine = case prefixFlags of
             [] -> moduleName
             [_] -> "+-- " ++ moduleName
@@ -134,7 +136,7 @@ formatTree = intercalate "\n" . go []
                 lastModule = last ms
                 firstModuleLines = concatMap (go (True:prefixFlags)) firstModules
                 lastModuleLines = go (False:prefixFlags) lastModule
-        lines = case (declLines,subModuleLines) of
+        allLines = case (declLines,subModuleLines) of
             ([],[]) -> [firstLine,prefix]
             (ds,[]) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix]
             ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]

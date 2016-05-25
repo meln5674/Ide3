@@ -107,7 +107,7 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
                 case result of
                     Right _ -> return ()
                     Left err -> throwE $ InvalidOperation ("Error on writing file: " ++ show err) ""
-            _ -> throwE $ InvalidOperation ("Cannot finalize a project without a path to write to") ""
+            _ -> throwE $ InvalidOperation "Cannot finalize a project without a path to write to" ""
 
 
 moduleNamePath :: String -> FilePath
@@ -155,11 +155,10 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m
             _ -> return False
     createNewFile path = do
         lift $ lift $ putProject $ Project.new ProjectInfo
-        lift $ put $ Opened (Nothing)
+        lift $ put $ Opened Nothing
         setTargetPath path
     createNewDirectory _ = throwE $ Unsupported "Cannot create a directory project using simple"
     prepareBuild = do
         (dirs,files) <- makeFileListing
         liftIO $ forM_ dirs $ createDirectoryIfMissing True
-        liftIO $ forM_ files $ \(path,contents) -> writeFile path contents
-        
+        liftIO $ forM_ files $ uncurry writeFile        

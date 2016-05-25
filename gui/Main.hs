@@ -225,17 +225,16 @@ onDeclViewClicked env gui = do
         pathClicked <- liftIO $ MainWindow.getProjectPathClicked (x',y') gui
         menu <- liftIO $ case pathClicked of
             Nothing -> ProjectContextMenu.makeProjectMenu
-            Just (path, col, p) -> do
-                withGuiComponents env $ \comp -> do
-                    item <- withProjectTree comp $ findAtPath path
-                    case item of
-                        ModuleResult mi -> ProjectContextMenu.makeModuleMenu mi
-                        DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
-                        ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
-                        ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
-                        ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
-                        ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
-                        NoSearchResult -> ProjectContextMenu.makeProjectMenu
+            Just (path, col, p) -> withGuiComponents env $ \comp -> do
+                item <- withProjectTree comp $ findAtPath path
+                case item of
+                    ModuleResult mi -> ProjectContextMenu.makeModuleMenu mi
+                    DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
+                    ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
+                    ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
+                    ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
+                    ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
+                    NoSearchResult -> ProjectContextMenu.makeProjectMenu
         ProjectContextMenu.showMenu menu
     return False    
 
@@ -263,7 +262,7 @@ doMain proxy init = do
         gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
         gui `onGui` MainWindow.runClickedEvent $ onRunClicked env
         gui `onGui` MainWindow.windowClosedEvent $ do
-            liftIO $ exitSuccess
+            liftIO exitSuccess
             return False
     return ()
 

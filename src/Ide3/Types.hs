@@ -350,7 +350,9 @@ class Qualify a where
  
 instance Qualify Symbol where
     qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s)) = Symbol $ m ++ '.' : s
+    qual (ModuleChild (UnamedModule _) _) = error "Cannot qualify with an unnamed module"
 
 instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
+    qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"

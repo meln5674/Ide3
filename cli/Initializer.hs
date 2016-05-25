@@ -13,7 +13,6 @@ module Initializer
 import System.Exit
 import System.Process
 import System.Directory
-import System.FilePath
 
 import Data.List
 
@@ -55,8 +54,8 @@ data StackInitializerArgs = StackInitializerArgs FilePath (Maybe TemplateName)
 instance Args StackInitializerArgs where
     getArgsFrom [path] = Right $ StackInitializerArgs path Nothing
     getArgsFrom [template,path] = Right $ StackInitializerArgs path (Just template)
-    getArgsFrom [] = Left $ "new expects at least a path and optionally a template name"
-    getArgsFrom _ = Left $ "new expects only a path and optionally a template name"
+    getArgsFrom [] = Left "new expects at least a path and optionally a template name"
+    getArgsFrom _ = Left "new expects only a path and optionally a template name"
 
 noInitializer :: Monad m => Initializer a m u
 noInitializer = Initializer $ \_ -> throwE $ Unsupported "No initializer specified"
@@ -75,5 +74,4 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
             dirs <- liftIO $ filterM doesDirectoryExist files
             mapM_ digestProject dirs
             return $ InitializerSucceeded out err
-        ExitFailure _ -> do
-            return $ InitializerFailed out err
+        ExitFailure _ ->  return $ InitializerFailed out err

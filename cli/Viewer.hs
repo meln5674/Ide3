@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-|
 Module      : Viewer
@@ -56,7 +57,7 @@ instance ProjectStateM m => ProjectStateM (ViewerStateT m) where
 
 instance ProjectShellM m => ProjectShellM (ViewerStateT m) where
     new x = ExceptT $ lift $ runExceptT $ new x
-    load = ExceptT $ lift $ runExceptT $ load
+    load = ExceptT $ lift $ runExceptT load
     finalize x = ExceptT $ lift $ runExceptT $ finalize x
 
 
@@ -68,7 +69,7 @@ instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (Viewe
     hasOpenedProject = lift hasOpenedProject
     createNewFile x = ExceptT $ lift $ runExceptT $ createNewFile x
     createNewDirectory x = ExceptT $ lift $ runExceptT $ createNewDirectory x
-    prepareBuild = ExceptT $ lift $ runExceptT $ prepareBuild
+    prepareBuild = ExceptT $ lift $ runExceptT prepareBuild
 
 
 -- | Run the viewer state transformer with a given state
@@ -104,7 +105,8 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     return (result,Resume viewer' fsp' proj')
 
 -- | Check if the program currently has a module open
-hasCurrentModule :: ViewerMonad m => ViewerStateT m Bool
+--hasCurrentModule :: ViewerMonad m => ViewerStateT m Bool
+hasCurrentModule :: (Monad m) => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
 -- | Open a project at a given path
@@ -127,7 +129,7 @@ openProject path = do
 
 -- | Save the current project, optionally with a new path to save to
 saveProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
-            => (Maybe FilePath)
+            => Maybe FilePath
             -> ProjectResult (ViewerStateT m) u ()
 saveProject maybePath = do
     cond <- lift hasOpenedProject

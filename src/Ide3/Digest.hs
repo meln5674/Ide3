@@ -78,7 +78,7 @@ foldAddExternModule pj i = Project.addExternModule pj (convIface i)
         Just es -> map convExport es
     
 
-digestProject' :: MonadIO m => FilePath -> (Maybe FilePath) -> ProjectResult m u Project
+digestProject' :: MonadIO m => FilePath -> Maybe FilePath -> ProjectResult m u Project
 digestProject' path maybeIfacePath = do
     contents <- liftIO $ enumerateHaskellProject path
     withoutIfaces <- ExceptT $ return $ foldM foldAddModule Project.empty contents

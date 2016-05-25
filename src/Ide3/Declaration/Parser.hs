@@ -17,7 +17,6 @@ import Data.Monoid
 import Data.List
 
 import Language.Haskell.Exts.Annotated.Parser
-import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Language.Haskell.Exts.Comments
@@ -225,6 +224,11 @@ parse s = case parseDecl s of
 parseWithBody :: String -> Maybe FilePath -> Either (ProjectError u) [WithBody Declaration]
 parseWithBody s p = case parseModuleWithComments parseMode s of
     ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
+    ParseOk (XmlPage{}, _) -> Left $ Unsupported "Xml pages are not yet supported"
+    ParseOk (XmlHybrid{}, _) -> Left $ Unsupported "Xml pages are not yet supported"
+    ParseOk (Syntax.Module{}, _) -> Left $ InvalidOperation 
+        "Found module head when trying to parse a declaration, use \"Module.parse\" instead" 
+        "Declaration.parseWithBody"
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
     parseMode = case p of

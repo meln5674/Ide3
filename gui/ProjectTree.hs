@@ -1,16 +1,12 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module ProjectTree where
 
 import Data.Tree
 
 import Control.Monad.Trans
-import Control.Monad.Trans.Except
 
 import Ide3.Types
 import Ide3.ModuleTree
 import Ide3.Monad
-import Ide3.Mechanism.State
 
 import Graphics.UI.Gtk
 
@@ -50,8 +46,8 @@ renderProjectTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
 renderProjectTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
 renderProjectTreeElem ImportsElem = [cellText := "Imports"]
 renderProjectTreeElem ExportsElem = [cellText := "Exports"]
-renderProjectTreeElem (ImportElem _ (WithBody _ body)) = [cellText := body] 
-renderProjectTreeElem (ExportElem _ (WithBody _ body)) = [cellText := body] 
+renderProjectTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := importBody] 
+renderProjectTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
 
 makeImportsNode :: [(ImportId,WithBody Import)] -> Tree ProjectTreeElem
 makeImportsNode is = Node ImportsElem $ map (flip Node [] . uncurry ImportElem) is

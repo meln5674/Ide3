@@ -1,4 +1,5 @@
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module MainWindow
     ( MainWindow
     , make
@@ -35,7 +36,9 @@ data MainWindow
 
 
 --make :: GuiEnv proxy m p buffer -> (MainWindow -> IO a) -> IO ()
-make env f = withGuiComponents env $ \comp -> do
+
+make :: TextBufferClass buffer => GuiEnv proxy m p buffer -> (MainWindow -> IO a) -> IO a
+make env f = withGuiComponents env $ \comp ->
     makeMainWindowWith $ \window -> 
         makeVBoxWith window $ \vbox -> 
             makeContainerWith vbox $ \container -> do
@@ -53,26 +56,30 @@ make env f = withGuiComponents env $ \comp -> do
                                                       container
                 buildViewer <- withBuildBuffer comp $ \buffer -> 
                                     makeBuildViewer buffer container
-                f $ MainWindow
-                         window
-                         fileMenu
-                         projectMenu
-                         projectViewer
-                         buildViewer
+                f MainWindow
+                  { window
+                  , fileMenu
+                  , projectMenu
+                  , projectViewer
+                  , buildViewer
+                  }
 
+makeRenderer :: IO CellRendererText
 makeRenderer = cellRendererTextNew
 
+makeVBoxWith :: ContainerClass self => self -> (VBox -> IO b) -> IO b
 makeVBoxWith window f = do
     vbox <- vBoxNew False 0
     window `containerAdd` vbox
     f vbox
 
+makeContainerWith :: BoxClass self => self -> (Table -> IO b) -> IO b
 makeContainerWith vbox f = do
     container <- tableNew 2 3 False
     boxPackEnd vbox container PackGrow 0
     f container
 
-
+makeMainMenuBar :: BoxClass self => self -> IO MenuBar
 makeMainMenuBar vbox = do
     menuBar <- menuBarNew
     boxPackStart vbox menuBar PackNatural 0
@@ -87,34 +94,37 @@ data FileMenu
     , saveProjectButton :: MenuItem
     }
 
+makeFileMenu :: MenuBar -> IO FileMenu
 makeFileMenu = makeFileMenuWith $ \fileMenu -> do
     newButton <- makeNewButton fileMenu
     openButton <- makeOpenButton fileMenu
     digestButton <- makeDigestButton fileMenu
     saveButton <- makeSaveButton fileMenu
     saveProjectButton <- makeSaveProjectButton fileMenu
-    return $ FileMenu
-             newButton
-             openButton
-             digestButton
-             saveButton
-             saveProjectButton
+    return FileMenu
+           { newButton
+           , openButton
+           , digestButton
+           , saveButton
+           , saveProjectButton
+           }
 
+makeFileMenuWith :: (Menu -> IO b) -> MenuBar -> IO b
 makeFileMenuWith = makeMenuWith "File"
 
-{-
-makeFileMenuWith menuBar f = do
-    fileMenuItem <- menuItemNewWithLabel "File"
-    fileMenu <- menuNew
-    menuShellAppend menuBar fileMenuItem
-    menuItemSetSubmenu fileMenuItem fileMenu
-    f fileMenu
--}
-
+makeNewButton :: Menu -> IO MenuItem
 makeNewButton = makeMenuButton "New Project"
+
+makeOpenButton :: Menu -> IO MenuItem
 makeOpenButton = makeMenuButton "Open"
+
+makeDigestButton :: Menu -> IO MenuItem
 makeDigestButton = makeMenuButton "Digest"
+
+makeSaveButton :: Menu -> IO MenuItem
 makeSaveButton = makeMenuButton "Save"
+
+makeSaveProjectButton :: Menu -> IO MenuItem
 makeSaveProjectButton = makeMenuButton "Save Project"
 
  
@@ -124,29 +134,25 @@ data ProjectMenu
     , runButton :: MenuItem
     }
 
+makeProjectMenu :: MenuBar -> IO ProjectMenu
 makeProjectMenu = makeProjectMenuWith $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
     runButton <- makeRunButton projectMenu
-    return $ ProjectMenu
-             buildButton
-             runButton
+    return ProjectMenu
+           { buildButton
+           , runButton
+           }
 
-{-
-makeProjectMenuWith menuBar f = do
-    projectMenuItem <- menuItemNewWithLabel "Project"
-    projectMenu <- menuNew
-    menuShellAppend menuBar projectMenuItem
-    menuItemSetSubmenu projectMenuItem projectMenu
-    f projectMenu
--}
-
+makeProjectMenuWith :: (Menu -> IO b) -> MenuBar -> IO b
 makeProjectMenuWith = makeMenuWith "Project"
 
+makeBuildButton :: MenuShellClass self => self -> IO MenuItem
 makeBuildButton projectMenu = do
     buildButton <- menuItemNewWithLabel "Build"
     menuShellAppend projectMenu buildButton
     return buildButton
 
+makeRunButton :: MenuShellClass self => self -> IO MenuItem
 makeRunButton projectMenu = do
     runButton <- menuItemNewWithLabel "Run"
     menuShellAppend projectMenu runButton
@@ -157,20 +163,41 @@ data ProjectViewer
     { projectView :: TreeView
     , declView :: TextView
     }
-
+makeProjectViewer :: ( TreeModelClass (model row)
+                     , TextBufferClass buffer
+                     , TableClass self
+                     , CellRendererClass cell
+                     , TypedTreeModelClass model
+                     ) 
+                  => model row
+                  -> buffer
+                  -> cell
+                  -> (row -> [AttrOp cell])
+                  -> self
+                  -> IO ProjectViewer
 makeProjectViewer treeStore buffer renderer renderFunc container = do
     projectView <- makeProjView treeStore renderer container renderFunc
     declView <- makeDeclView buffer container
-    return $ ProjectViewer
-             projectView
-             declView
-
+    return ProjectViewer
+           { projectView
+           , declView
+           }
+makeProjView :: ( TreeModelClass (model row)
+                , TableClass self
+                , CellRendererClass cell
+                , TypedTreeModelClass model
+                ) 
+             => model row 
+             -> cell 
+             -> self 
+             -> (row -> [AttrOp cell]) 
+             -> IO TreeView
 makeProjView treeStore renderer container renderFunc = do
     treeViewColumn <- treeViewColumnNew
     projView <- treeViewNewWithModel treeStore
-    treeViewAppendColumn projView treeViewColumn
+    _ <- treeViewAppendColumn projView treeViewColumn
     cellLayoutPackStart treeViewColumn renderer False
-    cellLayoutSetAttributes treeViewColumn renderer treeStore $ renderFunc
+    cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
     scrollWindow <- scrolledWindowNew Nothing Nothing
     scrollWindow `containerAdd` projView
     tableAttach
@@ -183,6 +210,8 @@ makeProjView treeStore renderer container renderFunc = do
 --        [Expand] [Expand] 0 0
     return projView
 
+makeDeclView :: (TextBufferClass buffer, TableClass self) 
+             => buffer -> self -> IO TextView
 makeDeclView buffer container = do
     declView <- textViewNewWithBuffer buffer
     monospace <- fontDescriptionNew
@@ -205,11 +234,16 @@ data BuildViewer
     { buildView :: TextView
     }
 
+makeBuildViewer :: (TextBufferClass buffer, TableClass self) 
+                => buffer -> self -> IO BuildViewer
 makeBuildViewer buffer container = do
     buildView <- makeBuildView buffer container
-    return $ BuildViewer
-             buildView
+    return BuildViewer
+           { buildView
+           }
 
+makeBuildView :: (TextBufferClass buffer, TableClass self) 
+              => buffer -> self -> IO TextView
 makeBuildView buffer container = do
     buildView <- textViewNewWithBuffer buffer
     tableAttach
@@ -222,45 +256,33 @@ makeBuildView buffer container = do
 --        [Expand] [Expand] 0 0
     return buildView
 
-{-
-    { window :: Window
-    , openButton :: MenuItem
-    , fileMenu :: Menu
-    , menuBar :: MenuBar
-    , buildButton :: Button
-    , projectView :: TreeView
-    , declView :: TextView
-    , buildView :: TextView
-    , saveButton :: MenuItem
-    , saveProjectButton :: MenuItem
-    , newButton :: MenuItem
-    }
--}
-
-makeMainWindowWith :: (Window -> IO a) -> IO ()
+makeMainWindowWith :: (Window -> IO a) -> IO a
 makeMainWindowWith f = do
-    initGUI
+    _ <- initGUI
     window <- windowNew
-    f window
+    r <- f window
     widgetShowAll window
     putStrLn "Starting"
     mainGUI
-
-
-
-
-
-
-
+    return r
 
 
 type MainWindowSignal = GuiSignal MainWindow
 
-
+mkFileMenuSignal :: (FileMenu -> object)
+                 -> Signal object handler 
+                 -> MainWindowSignal object handler
 mkFileMenuSignal obj event = (obj . fileMenu) `mkGuiSignal` event
-mkProjectViewerSignal obj event = (obj . projectViewer) `mkGuiSignal` event
---mkProjectViewerSignalWith obj event handler = (obj . projectViewer) `mkGuiSignalWith` event $ handler
+
+mkProjectMenuSignal :: (ProjectMenu -> object)
+                    -> Signal object handler 
+                    -> MainWindowSignal object handler
 mkProjectMenuSignal obj event = (obj . projectMenu) `mkGuiSignal` event
+
+mkProjectViewerSignal :: (ProjectViewer -> object)
+                      -> Signal object handler 
+                      -> MainWindowSignal object handler
+mkProjectViewerSignal obj event = (obj . projectViewer) `mkGuiSignal` event
 
 newClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
 newClickedEvent = newButton `mkFileMenuSignal` buttonPressEvent
@@ -292,5 +314,7 @@ declViewClickedEvent = projectView `mkProjectViewerSignal` buttonPressEvent
 windowClosedEvent :: MainWindowSignal Window (EventM EAny Bool)
 windowClosedEvent = window `mkGuiSignal` deleteEvent
 
---getDeclClicked :: MainWindow -> Point -> (MAybe
+getProjectPathClicked :: Point
+                      -> MainWindow 
+                      -> IO (Maybe (TreePath, TreeViewColumn, Point))
 getProjectPathClicked p = flip treeViewGetPathAtPos p . projectView . projectViewer 

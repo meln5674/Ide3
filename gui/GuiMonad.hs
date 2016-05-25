@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module GuiMonad 
     ( GuiComponents
     , withProjectTree
@@ -22,18 +23,26 @@ data GuiComponents buffer
     }
 
 
-
+makeDeclBuffer :: IO TextBuffer
 makeDeclBuffer = textBufferNew Nothing
+
+makeTreeStore :: IO (TreeStore ProjectTreeElem)
 makeTreeStore = treeStoreNew ([] :: [Tree ProjectTreeElem])
+
+makeBuildBuffer :: IO TextBuffer
 makeBuildBuffer = textBufferNew Nothing
 
 initializeComponents :: (MonadIO m)
                      => m (GuiComponents TextBuffer)
 initializeComponents = liftIO $ do
-    treeStore <- makeTreeStore
+    projectTree <- makeTreeStore
     editorBuffer <- makeDeclBuffer
     buildBuffer <- makeBuildBuffer
-    return $ GuiComponents treeStore editorBuffer buildBuffer
+    return GuiComponents
+           { projectTree
+           , editorBuffer
+           , buildBuffer
+           }
     
 
 withProjectTree :: (TextBufferClass buffer)

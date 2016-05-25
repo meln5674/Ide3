@@ -293,7 +293,7 @@ editDeclaration :: Module
                 -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
                 -> Either (ProjectError u) Module
 editDeclaration m@(Module i ps is es ds) di f = do
-    (ModuleChild _ (WithBody d s)) <- getDeclaration m di
+    (ModuleChild _ (WithBody d _)) <- getDeclaration m di
     d' <- f d
     let ds' = Map.insert di d' ds
     return $ Module i ps is es ds'
@@ -301,7 +301,7 @@ editDeclaration m@(Module i ps is es ds) di f = do
 -- |Same as 'editDeclaration', but the transformation is garunteed to suceed
 editDeclaration' :: Module
                  -> DeclarationInfo
-                 -> (Declaration -> (WithBody Declaration))
+                 -> (Declaration -> WithBody Declaration)
                  -> Either (ProjectError u) Module
 editDeclaration' m d f = editDeclaration m d (return . f)
 
