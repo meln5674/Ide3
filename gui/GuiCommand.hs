@@ -111,9 +111,9 @@ doGetDecl :: forall proxy m buffer p
 doGetDecl env path column = dialogOnError env () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ 
         withGuiComponents env $ \comp -> do
-            index <- liftIO $ withProjectTree comp $ getModuleAndDecl path
+            index <- liftIO $ withProjectTree comp $ findAtPath path
             case index of
-                Just (mi, di) -> do
+                DeclResult mi di -> do
                         decl <- getDeclaration mi di
                         let text = body decl
                         liftIO $ withEditorBuffer comp $ flip textBufferSetText text

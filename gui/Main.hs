@@ -8,6 +8,7 @@ import System.Exit
 import System.Directory
 import System.FilePath
 
+import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -33,12 +34,15 @@ import GuiMonad
 import GuiCommand
 import GuiEnv
 
-import Signal
+import GuiHelpers
+
+import MainWindow (MainWindow)
+import NewProjectDialog (NewProjectDialog)
+import ProjectContextMenu (ContextMenu)
 
 import qualified MainWindow
 import qualified NewProjectDialog
-
-import NewProjectDialog (NewProjectDialog)
+import qualified ProjectContextMenu
 
 --import ReadOnlyFilesystemProject
 import SimpleFilesystemProject
@@ -106,6 +110,7 @@ onOpenClicked env = liftIO $ do
             doOpen env path
             liftIO $ setCurrentDirectory $ takeDirectory path
         ResponseReject -> liftIO $ widgetDestroy dialog
+        _ -> liftIO $ widgetDestroy dialog
     return False
 
 onDigestClicked :: forall proxy m p buffer
@@ -201,6 +206,39 @@ onSaveProjectClicked env = do
     liftIO $ doSaveProject env Nothing
     return False
 
+onDeclViewClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnv proxy m p buffer 
+              -> MainWindow
+              -> EventM EButton Bool
+onDeclViewClicked env gui = do
+    button <- eventButton
+    when (button == RightButton) $ do
+        (x,y) <- eventCoordinates
+        time <- eventTime
+        let (x',y') = (round x, round y)
+        pathClicked <- liftIO $ MainWindow.getProjectPathClicked (x',y') gui
+        menu <- liftIO $ case pathClicked of
+            Nothing -> ProjectContextMenu.makeProjectMenu
+            Just (path, col, p) -> do
+                withGuiComponents env $ \comp -> do
+                    item <- withProjectTree comp $ findAtPath path
+                    case item of
+                        ModuleResult mi -> ProjectContextMenu.makeModuleMenu mi
+                        DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
+                        ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
+                        ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
+                        ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
+                        ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
+                        NoSearchResult -> ProjectContextMenu.makeProjectMenu
+        ProjectContextMenu.showMenu menu
+    return False    
+
 doMain :: forall proxy m p 
         . ( MonadIO m
           , ViewerMonad m
@@ -221,6 +259,7 @@ doMain proxy init = do
         gui `onGui` MainWindow.saveClickedEvent $ onSaveClicked env
         gui `onGui` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked env
         gui `onGui` MainWindow.declClickedEvent $ onDeclClicked env
+        gui `onGui` MainWindow.declViewClickedEvent $ onDeclViewClicked env gui
         gui `onGui` MainWindow.buildClickedEvent $ onBuildClicked env
         gui `onGui` MainWindow.runClickedEvent $ onRunClicked env
         gui `onGui` MainWindow.windowClosedEvent $ do

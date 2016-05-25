@@ -21,8 +21,17 @@ data ProjectTreeElem
     | DeclElem DeclarationInfo
     | ImportsElem
     | ExportsElem
-    | ImportElem (WithBody Import)
-    | ExportElem (WithBody Export)
+    | ImportElem ImportId (WithBody Import)
+    | ExportElem ExportId (WithBody Export)
+
+data TreeSearchResult
+    = ModuleResult ModuleInfo
+    | DeclResult ModuleInfo DeclarationInfo
+    | ImportsResult ModuleInfo
+    | ExportsResult ModuleInfo
+    | ImportResult ModuleInfo ImportId
+    | ExportResult ModuleInfo ExportId
+    | NoSearchResult
 
 {-
 newtype PSW a = PSW { unPSW :: ProjectStateT IO a }
@@ -41,14 +50,14 @@ renderProjectTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
 renderProjectTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
 renderProjectTreeElem ImportsElem = [cellText := "Imports"]
 renderProjectTreeElem ExportsElem = [cellText := "Exports"]
-renderProjectTreeElem (ImportElem (WithBody _ body)) = [cellText := body] 
-renderProjectTreeElem (ExportElem (WithBody _ body)) = [cellText := body] 
+renderProjectTreeElem (ImportElem _ (WithBody _ body)) = [cellText := body] 
+renderProjectTreeElem (ExportElem _ (WithBody _ body)) = [cellText := body] 
 
-makeImportsNode :: [WithBody Import] -> Tree ProjectTreeElem
-makeImportsNode is = Node ImportsElem $ map (flip Node [] . ImportElem) is
+makeImportsNode :: [(ImportId,WithBody Import)] -> Tree ProjectTreeElem
+makeImportsNode is = Node ImportsElem $ map (flip Node [] . uncurry ImportElem) is
 
-makeExportsNode :: Maybe [WithBody Export] -> Tree ProjectTreeElem
-makeExportsNode (Just es) = Node ExportsElem $ map (flip Node [] . ExportElem) es
+makeExportsNode :: Maybe [(ExportId,WithBody Export)] -> Tree ProjectTreeElem
+makeExportsNode (Just es) = Node ExportsElem $ map (flip Node [] . uncurry ExportElem) es
 makeExportsNode Nothing = Node ExportsElem []
 
 makeProjectTree :: ModuleTree -> Tree ProjectTreeElem
@@ -69,7 +78,24 @@ populateTree treeStore = do
     liftIO $ do
         treeStoreClear treeStore
         treeStoreInsertForest treeStore [] 0 trees'
-    
+
+findAtPath :: TreePath -> TreeStore ProjectTreeElem -> IO TreeSearchResult
+findAtPath path treeStore = do
+    let parentPath = case path of
+            [] -> []
+            _ -> init path
+    node <- treeStoreGetValue treeStore path
+    parentNode <- treeStoreGetValue treeStore parentPath
+    case (node, parentNode) of
+        (ModuleElem mi,_) -> return $ ModuleResult mi
+        (DeclElem di,ModuleElem mi) -> return $ DeclResult mi di
+        (ImportsElem,ModuleElem mi) -> return $ ImportsResult mi
+        (ExportsElem,ModuleElem mi) -> return $ ExportsResult mi
+        (ImportElem ii _,ModuleElem mi) -> return $ ImportResult mi ii
+        (ExportElem ei _,ModuleElem mi) -> return $ ExportResult mi ei
+        _ -> return NoSearchResult
+
+{-
 getModuleAndDecl :: TreePath -> TreeStore ProjectTreeElem -> IO (Maybe (ModuleInfo,DeclarationInfo))
 getModuleAndDecl path treeStore = do
     node <- treeStoreGetValue treeStore path 
@@ -81,3 +107,28 @@ getModuleAndDecl path treeStore = do
                 ModuleElem mi -> return $ Just (mi,di)
                 _ -> return Nothing 
         _ -> return Nothing
+
+getModuleAndImport :: TreePath -> TreeStore ProjectTreeElem -> IO (Maybe (ModuleInfo,ImportId))
+getModuleAndImport path treeStore = do
+    node <- treeStoreGetValue treeStore path 
+    case node of
+        ImportElem ii _ -> do
+            let parentPath = init path
+            parentNode <- treeStoreGetValue treeStore parentPath
+            case parentNode of
+                ModuleElem mi -> return $ Just (mi,ii)
+                _ -> return Nothing 
+        _ -> return Nothing
+
+getModuleAndExport :: TreePath -> TreeStore ProjectTreeElem -> IO (Maybe (ModuleInfo,ExportId))
+getModuleAndExport path treeStore = do
+    node <- treeStoreGetValue treeStore path 
+    case node of
+        ExportElem ei _ -> do
+            let parentPath = init path
+            parentNode <- treeStoreGetValue treeStore parentPath
+            case parentNode of
+                ModuleElem mi -> return $ Just (mi,ei)
+                _ -> return Nothing 
+        _ -> return Nothing
+-}

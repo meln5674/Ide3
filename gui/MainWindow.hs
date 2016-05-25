@@ -6,11 +6,13 @@ module MainWindow
     , openClickedEvent
     , digestClickedEvent
     , declClickedEvent
+    , declViewClickedEvent
     , saveClickedEvent
     , saveProjectClickedEvent
     , buildClickedEvent
     , runClickedEvent
     , windowClosedEvent
+    , getProjectPathClicked
     ) where
 
 import Graphics.UI.Gtk
@@ -20,7 +22,7 @@ import GuiMonad
 
 import ProjectTree
 
-import Signal
+import GuiHelpers
 
 data MainWindow
     = MainWindow
@@ -85,7 +87,7 @@ data FileMenu
     , saveProjectButton :: MenuItem
     }
 
-makeFileMenu menuBar = makeFileMenuWith menuBar $ \fileMenu -> do
+makeFileMenu = makeFileMenuWith $ \fileMenu -> do
     newButton <- makeNewButton fileMenu
     openButton <- makeOpenButton fileMenu
     digestButton <- makeDigestButton fileMenu
@@ -98,37 +100,22 @@ makeFileMenu menuBar = makeFileMenuWith menuBar $ \fileMenu -> do
              saveButton
              saveProjectButton
 
+makeFileMenuWith = makeMenuWith "File"
+
+{-
 makeFileMenuWith menuBar f = do
     fileMenuItem <- menuItemNewWithLabel "File"
     fileMenu <- menuNew
     menuShellAppend menuBar fileMenuItem
     menuItemSetSubmenu fileMenuItem fileMenu
     f fileMenu
+-}
 
-makeOpenButton fileMenu = do
-    openButton <- menuItemNewWithLabel "Open"
-    menuShellAppend fileMenu openButton
-    return openButton
-
-makeDigestButton fileMenu = do
-    digestButton <- menuItemNewWithLabel "Digest"
-    menuShellAppend fileMenu digestButton
-    return digestButton
-
-makeSaveButton fileMenu = do
-    saveButton <- menuItemNewWithLabel "Save"
-    menuShellAppend fileMenu saveButton
-    return saveButton
-
-makeSaveProjectButton fileMenu = do
-    saveProjectButton <- menuItemNewWithLabel "Save Project"
-    menuShellAppend fileMenu saveProjectButton
-    return saveProjectButton
-
-makeNewButton fileMenu = do
-    newButton <- menuItemNewWithLabel "New Project"
-    menuShellAppend fileMenu newButton
-    return newButton
+makeNewButton = makeMenuButton "New Project"
+makeOpenButton = makeMenuButton "Open"
+makeDigestButton = makeMenuButton "Digest"
+makeSaveButton = makeMenuButton "Save"
+makeSaveProjectButton = makeMenuButton "Save Project"
 
  
 data ProjectMenu
@@ -137,19 +124,23 @@ data ProjectMenu
     , runButton :: MenuItem
     }
 
-makeProjectMenu menuBar = makeProjectMenuWith menuBar $ \projectMenu -> do
+makeProjectMenu = makeProjectMenuWith $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
     runButton <- makeRunButton projectMenu
     return $ ProjectMenu
              buildButton
              runButton
 
+{-
 makeProjectMenuWith menuBar f = do
     projectMenuItem <- menuItemNewWithLabel "Project"
     projectMenu <- menuNew
     menuShellAppend menuBar projectMenuItem
     menuItemSetSubmenu projectMenuItem projectMenu
     f projectMenu
+-}
+
+makeProjectMenuWith = makeMenuWith "Project"
 
 makeBuildButton projectMenu = do
     buildButton <- menuItemNewWithLabel "Build"
@@ -268,6 +259,7 @@ type MainWindowSignal = GuiSignal MainWindow
 
 mkFileMenuSignal obj event = (obj . fileMenu) `mkGuiSignal` event
 mkProjectViewerSignal obj event = (obj . projectViewer) `mkGuiSignal` event
+--mkProjectViewerSignalWith obj event handler = (obj . projectViewer) `mkGuiSignalWith` event $ handler
 mkProjectMenuSignal obj event = (obj . projectMenu) `mkGuiSignal` event
 
 newClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
@@ -294,5 +286,11 @@ runClickedEvent = runButton `mkProjectMenuSignal` buttonPressEvent
 declClickedEvent :: MainWindowSignal TreeView (TreePath -> TreeViewColumn -> IO ())
 declClickedEvent = projectView `mkProjectViewerSignal` rowActivated
 
+declViewClickedEvent :: MainWindowSignal TreeView (EventM EButton Bool)
+declViewClickedEvent = projectView `mkProjectViewerSignal` buttonPressEvent
+
 windowClosedEvent :: MainWindowSignal Window (EventM EAny Bool)
 windowClosedEvent = window `mkGuiSignal` deleteEvent
+
+--getDeclClicked :: MainWindow -> Point -> (MAybe
+getProjectPathClicked p = flip treeViewGetPathAtPos p . projectView . projectViewer 

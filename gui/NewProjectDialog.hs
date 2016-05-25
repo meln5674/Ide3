@@ -16,7 +16,7 @@ import Control.Monad
 
 import Graphics.UI.Gtk
 
-import Signal
+import GuiHelpers
 
 data NewProjectDialog
     = NewProjectDialog

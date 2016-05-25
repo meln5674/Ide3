@@ -24,7 +24,7 @@ partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -
 -- | Data type used by the tree command
 data ModuleTree
     = OrgNode ModuleInfo [ModuleTree]
-    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree] [WithBody Import] (Maybe [WithBody Export])
+    | ModuleNode ModuleInfo [DeclarationInfo] [ModuleTree] [(ImportId, WithBody Import)] (Maybe [(ExportId,WithBody Export)])
     deriving Show
 
 -- | Take a list of module infos and produce a module tree with no declarations
@@ -78,11 +78,11 @@ fillTree (ModuleNode i _ ts _ _) = do
     ds <- getDeclarations i
     iids <- getImports i
     eids <- getExports i
-    is <- forM iids $ getImport i
+    is <- forM iids $ \iid -> liftM ((,) iid) $ getImport i iid
     es <- case eids of
         Nothing -> return Nothing
         Just eids -> do
-            x <- forM eids $ getExport i
+            x <- forM eids $ \eid -> liftM ((,) eid) $ getExport i eid
             return $ Just x
     ts' <- mapM fillTree ts
     return $ ModuleNode i ds ts' is es
