@@ -13,6 +13,27 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+library
+    hs-source-dirs:    src
+    exposed-modules:   Runner
+                     , Builder
+                     , Initializer
+                     , Editor
+                     , Viewer
+                     , ViewerMonad
+                     , ReadOnlyFilesystemProject
+                     , SimpleFilesystemProject
+    build-depends:     base
+                     , temporary
+                     , directory
+                     , mtl
+                     , transformers
+                     , exceptions
+                     , process
+                     , filepath
+                     , Ide3-base
+    default-language:  Haskell2010
+
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
@@ -22,19 +43,14 @@ executable Ide3-GUI
                      , NewProjectDialog
                      , GuiMonad
                      , GuiEnv
-                     , ReadOnlyFilesystemProject
-                     , SimpleFilesystemProject
                      , Viewer
-                     , ViewerMonad
                      , ViewerMonad2
-                     , Builder
-                     , Initializer
-                     , Runner
                      , GuiHelpers
                      , ProjectContextMenu
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3-base
+                     , Ide3
                      , gtk
                      , glib
                      , transformers
@@ -50,20 +66,13 @@ executable Ide3-CLI
   hs-source-dirs:      cli
   main-is:             Main.hs
   other-modules:       CmdParser
-                     , Viewer
-                     , ViewerMonad
                      , Command
                      , Command.Trans
                      , Command.Types
-                     , Editor
-                     , Builder
-                     , Runner
-                     , Initializer
-                     , ReadOnlyFilesystemProject
-                     , SimpleFilesystemProject
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3-base
+                     , Ide3
                      , unix
                      , mtl
                      , transformers
