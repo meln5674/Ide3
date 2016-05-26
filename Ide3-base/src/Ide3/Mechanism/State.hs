@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-|
 Module      : Ide3.Mechanism.State
 Description : State monad instance of ProjectM
@@ -20,7 +21,7 @@ In addition, this provides an instance of ProjectM for any monad which
 is a MonadState for Projects.
 -}
 module Ide3.Mechanism.State
-    ( ProjectStateT
+    ( ProjectStateT (..)
     , ProjectState
     , initialProject
     , runProjectStateT
@@ -42,7 +43,15 @@ import qualified Ide3.Project as Project
 
 --import Ide3.HasA
 
-type ProjectStateT = StateT Project
+newtype ProjectStateT m a = ProjectStateT { runProjectStateTInternal :: StateT Project m a }
+    deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadTrans
+    , MonadIO
+    )
+
 type ProjectState = ProjectStateT Identity
 
 initialProject :: Project
@@ -50,7 +59,7 @@ initialProject = Project.new ProjectInfo
 
 -- | Run a project state operation starting with an empty project
 runProjectStateT :: Monad m => ProjectStateT m a -> Project -> m (a,Project)
-runProjectStateT = runStateT
+runProjectStateT = runStateT . runProjectStateTInternal
 
 -- | Run a project state operation starting with an empty project
 runNewProjectStateT :: Monad m => ProjectStateT m a -> m (a,Project)
@@ -96,6 +105,10 @@ instance {-# OVERLAPPABLE #-} (MonadState Project m) => ProjectStateM m where
     putProject = put
 -}
 
+instance (ProjectStateM m) => ProjectStateM (StateT s m) where
+    getProject = lift getProject
+    putProject = lift . putProject
+
 getsProject :: ProjectStateM m => (Project -> a) -> m a
 getsProject f = f <$> getProject
 
@@ -116,8 +129,8 @@ modifyProjectER f = do
         Left msg -> throwE msg
 
 instance Monad m => ProjectStateM (ProjectStateT m) where
-    getProject = get
-    putProject = put
+    getProject = ProjectStateT get
+    putProject = ProjectStateT . put
 
 instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
     load = Ide3.Mechanism.State.load >>= lift . putProject

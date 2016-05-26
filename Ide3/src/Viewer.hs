@@ -51,18 +51,20 @@ type ViewerStateM fsp t = ViewerStateT (t (ProjectStateT IO))
 data ViewerResume fsp = Resume ViewerState fsp Project
 
 
-instance ProjectStateM m => ProjectStateM (ViewerStateT m) where
+{-
+instance ProjectStateM m => ProjectStateM (StateT s m) where
     getProject = lift getProject
     putProject = lift . putProject
+-}
 
-instance ProjectShellM m => ProjectShellM (ViewerStateT m) where
+instance ProjectShellM m => ProjectShellM (StateT s m) where
     new x = ExceptT $ lift $ runExceptT $ new x
     load = ExceptT $ lift $ runExceptT load
     finalize x = ExceptT $ lift $ runExceptT $ finalize x
 
 
 
-instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (ViewerStateT m) where
+instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (StateT s m) where
     setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
     setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
     setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x

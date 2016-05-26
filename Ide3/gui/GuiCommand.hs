@@ -2,15 +2,10 @@
 module GuiCommand where
 
 import System.Directory
-import System.FilePath
 
 import Graphics.UI.Gtk
 
-import Data.Proxy
-
 import Control.Monad.Catch
-
-import Control.Concurrent
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -50,7 +45,7 @@ dialogOnError env default_ f = withProjectMVar env $ \var -> do
                 MessageError
                 ButtonsClose
                 (show e)
-            dialogRun dialog
+            _ <- dialogRun dialog
             widgetDestroy dialog
             return default_
 
@@ -65,9 +60,9 @@ doNew :: forall proxy m buffer p
        -> String
        -> Maybe String
        -> IO ()
-doNew env projectRoot projectName templateName = dialogOnError env () $ 
+doNew env maybeProjectRoot projectName templateName = dialogOnError env () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
-        case projectRoot of
+        case maybeProjectRoot of
             Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
             Just projectRoot -> do
                 liftIO $ setCurrentDirectory projectRoot
@@ -78,7 +73,7 @@ doNew env projectRoot projectName templateName = dialogOnError env () $
                         $ runInitializer stackInitializer 
                                         (StackInitializerArgs projectName templateName)
                 case r of
-                    InitializerSucceeded out err -> do
+                    InitializerSucceeded{} -> do
                         withGuiComponents env $ flip withProjectTree populateTree
                         saveProject Nothing
                     InitializerFailed out err -> throwE $ InvalidOperation (out ++ err) ""
@@ -107,7 +102,7 @@ doGetDecl :: forall proxy m buffer p
           -> TreePath
           -> TreeViewColumn 
           -> IO ()
-doGetDecl env path column = dialogOnError env () $ 
+doGetDecl env path _ = dialogOnError env () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ 
         withGuiComponents env $ \comp -> do
             index <- liftIO $ withProjectTree comp $ findAtPath path
@@ -169,9 +164,9 @@ doSave :: forall proxy m buffer p
 doSave env = dialogOnError env () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
         withGuiComponents env $ \comp -> do
-            mod <- lift $ gets currentModule
-            decl <- lift $ gets currentDecl
-            case (mod,decl) of
+            m <- lift $ gets currentModule
+            d <- lift $ gets currentDecl
+            case (m,d) of
                 (Just mi, Just di) -> do
                     text <- liftIO $ withEditorBuffer comp $ \buffer -> do
                         start <- textBufferGetStartIter buffer

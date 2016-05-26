@@ -1,4 +1,10 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, PolyKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Main where
 
 import Data.Tree
@@ -48,6 +54,24 @@ import qualified ProjectContextMenu
 import SimpleFilesystemProject
 
 import Initializer
+
+deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT m)
+deriving instance (InteruptMonad2 x m) => InteruptMonad2 (Project, x) (ProjectStateT m)
+deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT m)
+deriving instance (InteruptMonad0 m) => InteruptMonad2 Project (ProjectStateT m)
+
+deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
+--deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT m)
+
+deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
+--deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT m)
+
+deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
+--deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT m)
+
 
 onNewProjectConfirmed :: forall proxy m p buffer
                        . ( MonadIO m

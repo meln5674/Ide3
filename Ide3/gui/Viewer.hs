@@ -50,9 +50,11 @@ type ViewerStateM fsp t = ViewerStateT (t (ProjectStateT IO))
 data ViewerResume fsp = Resume ViewerState fsp Project
 
 
+{-
 instance ProjectStateM m => ProjectStateM (ViewerStateT m) where
     getProject = lift getProject
     putProject = lift . putProject
+-}
 
 instance ProjectShellM m => ProjectShellM (ViewerStateT m) where
     new x = ExceptT $ lift $ runExceptT $ new x

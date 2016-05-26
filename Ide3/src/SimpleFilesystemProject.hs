@@ -1,5 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-|
 Module      : ReadOnlyFilesystemProject
 Description : Read/Show persistence mechanism
@@ -56,51 +57,71 @@ data FileSystemProject
     | Opened (Maybe FilePath)
 
 -- | State transformer for the mechanism
-type SimpleFilesystemProjectT = StateT FileSystemProject
+newtype SimpleFilesystemProjectT m a
+    = SimpleFilesystemProjectT
+    { runSimpleFilesystemProjectTInternal :: StateT FileSystemProject m a
+    }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadTrans
+    , MonadIO
+    , ProjectStateM 
+    )
 
 -- | Run an action inside the mechanism with the provided state
 runSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
-runSimpleFilesystemProjectT = runStateT
+runSimpleFilesystemProjectT = runStateT . runSimpleFilesystemProjectTInternal
 
 -- | Run an action inside the mechanism 
 runNewSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
 runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
 
+getFsp :: (Monad m) => SimpleFilesystemProjectT m FileSystemProject
+getFsp = SimpleFilesystemProjectT get
+
+putFsp :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT m ()
+putFsp = SimpleFilesystemProjectT . put
+
+
+{-
 instance ProjectStateM m => ProjectStateM (SimpleFilesystemProjectT m) where
     getProject = lift getProject
     putProject = lift . putProject
+-}
 
 instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
     -- | Create a new project
     new i = do
-        lift $ put $ Opened Nothing
+        lift $ putFsp $ Opened Nothing
         return $ Project.new i
     -- | Either digest a directory or open a file and use Read on the contents
     load = do
-        fsp <- lift get
+        fsp <- lift getFsp
         case fsp of
             ToDigest path -> do
                 p <- digestProject' path (Just "ifaces") 
-                lift $ put $ Opened Nothing
+                lift $ putFsp $ Opened Nothing
                 return p
             ToOpen path -> do
                 result <- liftIO $ tryIOError $ readFile path
                 case result of
                     Right contents -> case readMaybe contents of
                         Just p -> do
-                            lift $ put $ Opened $ Just path
+                            lift $ putFsp $ Opened $ Just path
                             return p
                         Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
                     Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
             Opened (Just path) -> do
-                lift $ put $ ToOpen path
+                lift $ putFsp $ ToOpen path
                 load
     -- | Use Show to turn the current project into a string and write it to the
     -- correct file
     finalize p = do
-        fsp <- lift get
+        fsp <- lift getFsp
         case fsp of
             Opened (Just path) -> do
                 result <- liftIO $ tryIOError $ writeFile path $ show p
@@ -138,24 +159,24 @@ makeFileListing = do
 
 instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m) where
     -- | Set the Read file to be opened
-    setFileToOpen path = lift $ put $ ToOpen path
+    setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
-    setDirectoryToOpen path = lift $ put $ ToDigest path
+    setDirectoryToOpen path = lift $ putFsp $ ToDigest path
     -- | Set the path to Show to
     setTargetPath path = do
-        fsp <- lift get
+        fsp <- lift getFsp
         case fsp of
-            Opened _ -> lift $ put $ Opened (Just path)
+            Opened _ -> lift $ putFsp $ Opened (Just path)
             _ -> throwE $ InvalidOperation "Cannot set target path without open project" ""
     -- | Check if either there is a new project, digested path, or Read'd file
     hasOpenedProject = do
-        fsp <- get
+        fsp <- getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False
     createNewFile path = do
         lift $ lift $ putProject $ Project.new ProjectInfo
-        lift $ put $ Opened Nothing
+        lift $ putFsp $ Opened Nothing
         setTargetPath path
     createNewDirectory _ = throwE $ Unsupported "Cannot create a directory project using simple"
     prepareBuild = do

@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-|
 Module      : ReadOnlyFilesystemProject
 Description : Read only persistence mechanism
@@ -39,30 +40,47 @@ data FileSystemProject
     deriving Show
 
 -- | State transformer for the mechanism
-type ReadOnlyFilesystemProjectT = StateT FileSystemProject
+newtype ReadOnlyFilesystemProjectT m a
+    = ReadOnlyFilesystemProjectT { runReadOnlyFilesystemProjectTInternal :: StateT FileSystemProject m a }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadTrans
+    , MonadIO
+    , ProjectStateM
+    )
 
 -- | Run an action inside the mechanism with the provided state
 runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
-runReadOnlyFilesystemProjectT = runStateT
+runReadOnlyFilesystemProjectT = runStateT . runReadOnlyFilesystemProjectTInternal
 
 -- | Run an action inside the mechanism 
 runNewReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> m (a, FileSystemProject)
 runNewReadOnlyFilesystemProjectT = flip runReadOnlyFilesystemProjectT Unopened
 
+getFsp :: (Monad m) => ReadOnlyFilesystemProjectT m FileSystemProject
+getFsp = ReadOnlyFilesystemProjectT get
+
+putFsp :: (Monad m) => FileSystemProject -> ReadOnlyFilesystemProjectT m ()
+putFsp = ReadOnlyFilesystemProjectT . put
+
+{-
 instance ProjectStateM m => ProjectStateM (ReadOnlyFilesystemProjectT m) where
     getProject = lift getProject
     putProject = lift . putProject
+-}
 
 instance MonadIO m => ProjectShellM (ReadOnlyFilesystemProjectT m) where
     -- | Not supported
     new _ = throwE $ Unsupported "Cannot create a new read-only project"
     -- | Digest a project after loading the interface file
     load = do
-        fsp <- lift get
+        fsp <- lift getFsp
         case fsp of
             ToOpen path -> do
                 p <- digestProject' path (Just "ifaces")
-                lift $ put $ Opened path
+                lift $ putFsp $ Opened path
                 return p
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened path -> digestProject' path (Just "ifaces")
@@ -74,12 +92,12 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (ReadOnlyFilesystemProjectT
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
-    setDirectoryToOpen x = lift $ put $ ToOpen x
+    setDirectoryToOpen x = lift $ putFsp $ ToOpen x
     -- | Unsupported
     setTargetPath _ = throwE $ Unsupported "Cannot set a target path for a readonly project"
     -- | Check if a project has been digested
     hasOpenedProject = do
-        fsp <- get
+        fsp <- getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False

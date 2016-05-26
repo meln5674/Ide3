@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-|
 Module      : Main
 Description : Demo project main module
@@ -17,25 +19,18 @@ This is the main module for the demo haskell IDE project
 module Main where
 
 import Data.Proxy
-import Data.List
-import Data.Maybe
-import Data.Map (Map)
-import qualified Data.Map as Map
 
 import Control.Monad.Catch
 
 import Control.Monad.Trans
-import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 import Control.Monad
 
 import System.Console.Haskeline
 
 import Ide3.Monad (ProjectM)
-import Ide3.Mechanism.State (ProjectStateT)
+import Ide3.Mechanism.State (ProjectStateT (..))
 
-import qualified CmdParser as Cmd
-import CmdParser
 import Command.Trans
 import Command.Types
 import Command
@@ -48,6 +43,22 @@ import Builder
 import Runner
 import Initializer
 
+deriving instance (MonadException m) => MonadException (ProjectStateT m)
+deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT m)
+
+deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
+deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadMask m) => MonadMask (RDWR.SimpleFilesystemProjectT m)
+
+deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
+deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadCatch m) => MonadCatch (RDWR.SimpleFilesystemProjectT m)
+
+deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
+deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadThrow m) => MonadThrow (RDWR.SimpleFilesystemProjectT m)
+
 -- | Run a single iteration of reading input from the user, deciding which command to run,
 -- running it, then printing the response, and indicating if the user wishes to quit
 repl :: (MonadException m, ViewerAction m u) 
@@ -56,8 +67,8 @@ repl = do
     input <- getInputLine ">"
     case input of
         Nothing -> return True
-        Just input -> do
-            response <- lift $ execCommand input ()
+        Just inputCmd -> do
+            response <- lift $ execCommand inputCmd ()
             outputStrLn response
             lift getExitFlag
 
