@@ -43,7 +43,6 @@ executable Ide3-GUI
                      , NewProjectDialog
                      , GuiMonad
                      , GuiEnv
-                     , Viewer
                      , ViewerMonad2
                      , GuiHelpers
                      , ProjectContextMenu

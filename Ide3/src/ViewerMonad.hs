@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-|
 Module      : ViewerMonad
 Description : Abstract interface for persistence mechanisms
@@ -15,12 +15,15 @@ for persistence mechanisms usable by the demo IDE.
 -}
 module ViewerMonad where
 
+import Control.Monad.Trans
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
 
-import Ide3.Monad (ProjectResult)
-import Ide3.Mechanism.State (ProjectStateM, ProjectShellM)
+import Ide3.Monad
+import Ide3.Mechanism.State -- (ProjectStateM (..), ProjectShellM (..))
 --import Ide3.Mechanism.State
 
-class (ProjectStateM m, ProjectShellM m, Monad m) => ViewerMonad m where
+class (ProjectM m) => ViewerMonad m where
     -- | Set the file to open so that when ProjectM.load is called, that path is
     -- used to open a project
     setFileToOpen :: FilePath -> ProjectResult m u ()
@@ -39,3 +42,11 @@ class (ProjectStateM m, ProjectShellM m, Monad m) => ViewerMonad m where
     -- | Perform any actions necessary to be able to build using the 'stack build' shell command
     prepareBuild :: ProjectResult m u ()
 
+instance (ViewerMonad m) => ViewerMonad (StateT s m) where
+    setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
+    setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
+    setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
+    hasOpenedProject = lift hasOpenedProject
+    createNewFile x = ExceptT $ lift $ runExceptT $ createNewFile x
+    createNewDirectory x = ExceptT $ lift $ runExceptT $ createNewDirectory x
+    prepareBuild = ExceptT $ lift $ runExceptT prepareBuild

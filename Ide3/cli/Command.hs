@@ -86,11 +86,11 @@ withSelectedModule :: (Show a, ViewerAction m u)
                    => (Module -> ProjectResult (ViewerStateT m) u [Output a]) 
                    -> ViewerStateT m String
 withSelectedModule f = printOnError $ do
-    maybeName <- lift $ gets currentModule
-    case maybeName of
+    maybeModule <- lift $ gets currentModule
+    case maybeModule of
         Nothing -> throwE $ InvalidOperation "No module currently selected" ""
         Just name -> do
-            module_ <- getModule (ModuleInfo (Symbol name))
+            module_ <- getModule name
             xs <- f module_
             return $ intercalate "\n" $ map show xs
 
@@ -135,8 +135,9 @@ doModules = printOnError $ do
 -- | Action for the module command
 doModule :: ViewerAction m u => String -> ViewerStateT m String
 doModule name = printOnError $ do
-    _ <- getModule (ModuleInfo (Symbol name))
-    lift $ modify $ \s -> s{currentModule=Just name}
+    let info = (ModuleInfo (Symbol name))
+    _ <- getModule info
+    lift $ modify $ \s -> s{currentModule=Just info}
     return ""
 
 -- | Action for the declarations command
@@ -325,10 +326,9 @@ declarationNameCompletion :: ViewerAction m u => String -> (ViewerStateT m) (May
 declarationNameCompletion s = do
     mayben <- gets currentModule
     case mayben of
-        Nothing -> return Nothing
-        Just n -> do
+        Just info@(ModuleInfo (Symbol n)) -> do
             r <- runExceptT $ do
-                m <- getModule (ModuleInfo (Symbol n))
+                m <- getModule info
                 let infos = map (Declaration.info . item) $ Module.getDeclarations m
                 let syms = for infos $ \(DeclarationInfo (Symbol sym)) -> sym
                 let matchingSyms = filter (s `isPrefixOf`) syms
@@ -340,6 +340,7 @@ declarationNameCompletion s = do
             return $ case r of
                 Right x -> x
                 Left _ -> Nothing
+        _ -> return Nothing
 
 
 

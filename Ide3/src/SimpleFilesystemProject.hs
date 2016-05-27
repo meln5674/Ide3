@@ -1,6 +1,8 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-|
 Module      : ReadOnlyFilesystemProject
 Description : Read/Show persistence mechanism
@@ -22,6 +24,8 @@ import Data.List
 import Data.Maybe
 
 import Text.Read (readMaybe)
+
+import Control.Monad.Catch
 
 import Control.Monad
 import Control.Monad.Trans
@@ -57,32 +61,67 @@ data FileSystemProject
     | Opened (Maybe FilePath)
 
 -- | State transformer for the mechanism
-newtype SimpleFilesystemProjectT m a
-    = SimpleFilesystemProjectT
-    { runSimpleFilesystemProjectTInternal :: StateT FileSystemProject m a
+newtype SimpleFilesystemProjectT' m a
+    = SimpleFilesystemProjectT'
+    { runSimpleFilesystemProjectT'Internal :: StateT FileSystemProject m a
     }
   deriving
     ( Functor
     , Applicative
     , Monad
-    , MonadTrans
     , MonadIO
-    , ProjectStateM 
+    , ProjectStateM
     )
 
+newtype SimpleFilesystemProjectT m a
+    = SimpleFilesystemProjectT
+    { runSimpleFilesystemProjectTInternal :: StatefulProject (SimpleFilesystemProjectT' m) a
+    }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , ProjectStateM
+    , ProjectM
+    )
+
+instance MonadTrans SimpleFilesystemProjectT' where
+    lift = SimpleFilesystemProjectT' . lift
+
+instance MonadTrans SimpleFilesystemProjectT where
+    lift = SimpleFilesystemProjectT . lift . lift
+
+deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT' m)
+deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT m)
+deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT' m)
+deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT m)
+deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT' m)
+deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT m)
+
 -- | Run an action inside the mechanism with the provided state
-runSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
-runSimpleFilesystemProjectT = runStateT . runSimpleFilesystemProjectTInternal
+runSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
+runSimpleFilesystemProjectT 
+    = runStateT 
+    . runSimpleFilesystemProjectT'Internal 
+    . runStatefulProject 
+    . runSimpleFilesystemProjectTInternal
 
 -- | Run an action inside the mechanism 
-runNewSimpleFilesystemProjectT :: MonadIO m => SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
+runNewSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
 runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
 
+getFsp' :: (Monad m) => SimpleFilesystemProjectT' m FileSystemProject
+getFsp' = SimpleFilesystemProjectT' $ get
+
+putFsp' :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT' m ()
+putFsp' = SimpleFilesystemProjectT' . put
+
 getFsp :: (Monad m) => SimpleFilesystemProjectT m FileSystemProject
-getFsp = SimpleFilesystemProjectT get
+getFsp = SimpleFilesystemProjectT $ lift $ getFsp'
 
 putFsp :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT m ()
-putFsp = SimpleFilesystemProjectT . put
+putFsp = SimpleFilesystemProjectT . lift . putFsp'
 
 
 {-
@@ -91,37 +130,37 @@ instance ProjectStateM m => ProjectStateM (SimpleFilesystemProjectT m) where
     putProject = lift . putProject
 -}
 
-instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT m) where
+instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT' m) where
     -- | Create a new project
     new i = do
-        lift $ putFsp $ Opened Nothing
+        lift $ putFsp' $ Opened Nothing
         return $ Project.new i
     -- | Either digest a directory or open a file and use Read on the contents
     load = do
-        fsp <- lift getFsp
+        fsp <- lift getFsp'
         case fsp of
             ToDigest path -> do
                 p <- digestProject' path (Just "ifaces") 
-                lift $ putFsp $ Opened Nothing
+                lift $ putFsp' $ Opened Nothing
                 return p
             ToOpen path -> do
                 result <- liftIO $ tryIOError $ readFile path
                 case result of
                     Right contents -> case readMaybe contents of
                         Just p -> do
-                            lift $ putFsp $ Opened $ Just path
+                            lift $ putFsp' $ Opened $ Just path
                             return p
                         Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
                     Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
             Opened (Just path) -> do
-                lift $ putFsp $ ToOpen path
+                lift $ putFsp' $ ToOpen path
                 load
     -- | Use Show to turn the current project into a string and write it to the
     -- correct file
     finalize p = do
-        fsp <- lift getFsp
+        fsp <- lift getFsp'
         case fsp of
             Opened (Just path) -> do
                 result <- liftIO $ tryIOError $ writeFile path $ show p

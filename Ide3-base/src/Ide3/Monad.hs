@@ -26,7 +26,9 @@ starting point.
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Ide3.Monad where
 
+import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
 
 import Ide3.Types
 
@@ -117,3 +119,32 @@ class Monad m => ProjectM m where
     exportNothing :: ModuleInfo -> ProjectResult m u  ()
     -- | Get a list of all of the export ids in a module
     getExports :: ModuleInfo -> ProjectResult m u (Maybe [ExportId])
+
+
+bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
+bounce = ExceptT . lift . runExceptT
+
+instance (ProjectM m) => ProjectM (StateT s m) where
+    load = bounce load
+    new = bounce . new
+    finalize = bounce finalize
+    editProjectInfo = bounce . editProjectInfo
+    addModule = bounce . addModule
+    addExternModule = bounce . addExternModule
+    getModules = bounce getModules
+    editModule x = bounce . editModule x
+    removeModule = bounce . removeModule
+    addDeclaration x = bounce . addDeclaration x
+    getDeclaration x = bounce . getDeclaration x
+    getDeclarations = bounce . getDeclarations
+    removeDeclaration x = bounce . removeDeclaration x
+    addImport x = bounce . addImport x
+    getImport x = bounce . getImport x
+    removeImport x = bounce . removeImport x
+    getImports = bounce . getImports
+    addExport x = bounce . addExport x
+    getExport x = bounce . getExport x
+    removeExport x = bounce . removeExport x
+    exportAll = bounce . exportAll
+    exportNothing = bounce . exportNothing
+    getExports = bounce . getExports

@@ -58,6 +58,7 @@ library
                      , bytestring
                      , cereal
                      , directory
+                     , exceptions
   default-language:    Haskell2010
 
 test-suite Ide3-test

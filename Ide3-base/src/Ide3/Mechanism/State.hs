@@ -1,9 +1,10 @@
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-|
 Module      : Ide3.Mechanism.State
 Description : State monad instance of ProjectM
@@ -29,9 +30,13 @@ module Ide3.Mechanism.State
 --    , runProjectState
     , ProjectShellM (..)
     , ProjectStateM (..)
+    , StatefulProject (..)
+    , mkStatefulProject
+    , runStatefulProject
     ) where
 
 import Control.Monad
+import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
 import Control.Monad.Trans.Except
@@ -99,15 +104,14 @@ class Monad m => ProjectStateM m where
     getProject :: m Project
     putProject :: Project -> m ()
 
-{-
-instance {-# OVERLAPPABLE #-} (MonadState Project m) => ProjectStateM m where
-    getProject = get
-    putProject = put
--}
-
 instance (ProjectStateM m) => ProjectStateM (StateT s m) where
     getProject = lift getProject
     putProject = lift . putProject
+
+instance ProjectShellM m => ProjectShellM (StateT s m) where
+    new x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.new x
+    load = ExceptT $ lift $ runExceptT Ide3.Mechanism.State.load
+    finalize x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.finalize x
 
 getsProject :: ProjectStateM m => (Project -> a) -> m a
 getsProject f = f <$> getProject
@@ -132,7 +136,19 @@ instance Monad m => ProjectStateM (ProjectStateT m) where
     getProject = ProjectStateT get
     putProject = ProjectStateT . put
 
-instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
+newtype StatefulProject m a = MkStatefulProject { runStatefulProject :: m a }
+  deriving (Functor, Applicative, Monad, ProjectStateM, ProjectShellM, MonadIO)
+
+instance MonadTrans StatefulProject where
+    lift = MkStatefulProject
+
+mkStatefulProject :: (ProjectShellM m, ProjectStateM m) => m a -> StatefulProject m a
+mkStatefulProject = MkStatefulProject
+
+--liftStatefulProject :: m a -> StatefulProject m a
+--liftStatefulProject 
+
+instance (ProjectShellM m, ProjectStateM m) => ProjectM (StatefulProject m) where
     load = Ide3.Mechanism.State.load >>= lift . putProject
     new i = Ide3.Mechanism.State.new i >>= lift . putProject
     finalize = lift getProject >>= Ide3.Mechanism.State.finalize
@@ -165,6 +181,15 @@ instance (ProjectShellM m, ProjectStateM m) => ProjectM m where
     exportAll mi = modifyProjectE $ \p -> Project.exportAll p mi
     exportNothing mi = modifyProjectE $ \p -> Project.exportNothing p mi
     getExports mi = ExceptT $ getsProject $ \p -> Project.getExports p mi
+
+
+deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
+deriving instance (MonadMask m) => MonadMask (StatefulProject m)
+deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
+deriving instance (MonadCatch m) => MonadCatch (StatefulProject m)
+deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
+deriving instance (MonadThrow m) => MonadThrow (StatefulProject m)
+
 {-
 --instance (ProjectShellM m, MonadState x m, HasA Project x) => ProjectM m where
 instance (ProjectShellM m, HasA Project x) => ProjectM (StateT x m) where

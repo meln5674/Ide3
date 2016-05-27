@@ -1,7 +1,6 @@
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-|
 Module      : Viewer
@@ -33,12 +32,12 @@ import Control.Monad.Trans.State.Strict
 import Ide3.Mechanism.State
 import Ide3.Monad hiding (load, new, finalize)
 import qualified Ide3.Monad as M
-import Ide3.Types (Project, ProjectError (..))
+import Ide3.Types (Project, ProjectError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
 
 -- | The state of the program
-data ViewerState = Viewer { currentModule :: Maybe String }
+data ViewerState = Viewer { currentModule :: Maybe ModuleInfo, currentDecl :: Maybe DeclarationInfo }
 
 -- | Transformer which adds access to the state of the program
 type ViewerStateT = StateT ViewerState
@@ -57,30 +56,13 @@ instance ProjectStateM m => ProjectStateM (StateT s m) where
     putProject = lift . putProject
 -}
 
-instance ProjectShellM m => ProjectShellM (StateT s m) where
-    new x = ExceptT $ lift $ runExceptT $ new x
-    load = ExceptT $ lift $ runExceptT load
-    finalize x = ExceptT $ lift $ runExceptT $ finalize x
-
-
-
-instance (ProjectStateM m, ProjectShellM m, ViewerMonad m) => ViewerMonad (StateT s m) where
-    setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
-    setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
-    setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
-    hasOpenedProject = lift hasOpenedProject
-    createNewFile x = ExceptT $ lift $ runExceptT $ createNewFile x
-    createNewDirectory x = ExceptT $ lift $ runExceptT $ createNewDirectory x
-    prepareBuild = ExceptT $ lift $ runExceptT prepareBuild
-
-
 -- | Run the viewer state transformer with a given state
 runViewerStateT :: Monad m => ViewerStateT m a -> ViewerState -> m (a,ViewerState)
 runViewerStateT = runStateT
 
 -- | Run the viewer state transformer with the initial program state
 runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
-runNewViewerStateT = flip runViewerStateT $ Viewer Nothing
+runNewViewerStateT = flip runViewerStateT $ Viewer Nothing Nothing
 
 runViewerState :: (MonadIO (t (ProjectStateT IO)))
                => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
@@ -90,7 +72,7 @@ runViewerState :: (MonadIO (t (ProjectStateT IO)))
 runViewerState runFSPT unopened f = resumeViewerState 
     f 
     runFSPT
-    (Resume (Viewer Nothing) unopened initialProject)
+    (Resume (Viewer Nothing Nothing) unopened initialProject)
 
 -- | Resume the viewer state transformer
 resumeViewerState :: 
@@ -111,10 +93,11 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
 hasCurrentModule :: (Monad m) => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
+
 -- | Open a project at a given path
-openProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m)
+openProject :: (MonadIO m, ViewerMonad m)
             => FilePath 
-            -> ProjectResult (ViewerStateT m) u ()
+            -> ProjectResult (StateT ViewerState m) u ()
 openProject path = do
     isFile <- liftIO $ doesFileExist path
     isDir <- liftIO $ doesDirectoryExist path
@@ -130,7 +113,7 @@ openProject path = do
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
 -- | Save the current project, optionally with a new path to save to
-saveProject :: (MonadIO m, ViewerMonad m, ProjectStateM m, ProjectShellM m) 
+saveProject :: (MonadIO m, ViewerMonad m) 
             => Maybe FilePath
             -> ProjectResult (ViewerStateT m) u ()
 saveProject maybePath = do
@@ -142,3 +125,6 @@ saveProject maybePath = do
                     Nothing -> return ()
                 M.finalize
         else throwE $ InvalidOperation "No project is currently open" ""
+
+setCurrentDecl :: Monad m => ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
+setCurrentDecl mi di = put $ Viewer (Just mi) (Just di)

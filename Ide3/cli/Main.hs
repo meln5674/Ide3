@@ -29,7 +29,7 @@ import Control.Monad
 import System.Console.Haskeline
 
 import Ide3.Monad (ProjectM)
-import Ide3.Mechanism.State (ProjectStateT (..))
+import Ide3.Mechanism.State
 
 import Command.Trans
 import Command.Types
@@ -44,20 +44,21 @@ import Runner
 import Initializer
 
 deriving instance (MonadException m) => MonadException (ProjectStateT m)
+deriving instance (MonadException m) => MonadException (StatefulProject m)
 deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT' m)
 deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT m)
 
-deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
+
 deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadMask m) => MonadMask (RDWR.SimpleFilesystemProjectT m)
 
-deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
 deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadCatch m) => MonadCatch (RDWR.SimpleFilesystemProjectT m)
 
-deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
+
+
+
 deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadThrow m) => MonadThrow (RDWR.SimpleFilesystemProjectT m)
+
 
 -- | Run a single iteration of reading input from the user, deciding which command to run,
 -- running it, then printing the response, and indicating if the user wishes to quit

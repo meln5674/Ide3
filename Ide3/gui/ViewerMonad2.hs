@@ -15,13 +15,13 @@ class ViewerMonad (t m) => ViewerMonad2 t m p | t -> p where
 -}
 
 
-class InteruptMonad0 m where
+class (Monad m) => InteruptMonad0 m where
     interupt0 :: m a -> IO a
 
-class InteruptMonad1 x m where
+class (Monad m) => InteruptMonad1 x m where
     interupt1 :: x -> m a -> IO a
 
-class InteruptMonad2 x m where
+class (Monad m) => InteruptMonad2 x m where
     interupt2 :: x -> m a -> IO (a,x)
 
 instance InteruptMonad0 IO where

@@ -51,6 +51,8 @@ newtype ReadOnlyFilesystemProjectT m a
     , ProjectStateM
     )
 
+type ReadOnlyFilesystemProjectT' m = StatefulProject (ReadOnlyFilesystemProjectT m)
+
 -- | Run an action inside the mechanism with the provided state
 runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runReadOnlyFilesystemProjectT = runStateT . runReadOnlyFilesystemProjectTInternal
@@ -88,16 +90,16 @@ instance MonadIO m => ProjectShellM (ReadOnlyFilesystemProjectT m) where
     finalize _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (MonadIO m, ProjectStateM m) => ViewerMonad (ReadOnlyFilesystemProjectT m) where
+instance (MonadIO m, ProjectStateM m) => ViewerMonad (StatefulProject (ReadOnlyFilesystemProjectT m)) where
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
-    setDirectoryToOpen x = lift $ putFsp $ ToOpen x
+    setDirectoryToOpen x = lift $ mkStatefulProject $ putFsp $ ToOpen x
     -- | Unsupported
     setTargetPath _ = throwE $ Unsupported "Cannot set a target path for a readonly project"
     -- | Check if a project has been digested
     hasOpenedProject = do
-        fsp <- getFsp
+        fsp <- mkStatefulProject $ getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False

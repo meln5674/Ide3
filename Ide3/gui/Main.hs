@@ -55,23 +55,30 @@ import SimpleFilesystemProject
 
 import Initializer
 
-deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT m)
-deriving instance (InteruptMonad2 x m) => InteruptMonad2 (Project, x) (ProjectStateT m)
-deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT m)
-deriving instance (InteruptMonad0 m) => InteruptMonad2 Project (ProjectStateT m)
 
-deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
---deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT m)
+--deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT' m)
+--deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT m)
+--deriving instance (InteruptMonad2 x m) => InteruptMonad2 (Project, x) (ProjectStateT m)
+--deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (StatefulProject m)
+--deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT' m)
+--deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT m)
+--deriving instance (InteruptMonad0 m) => InteruptMonad2 Project (ProjectStateT m)
+--deriving instance (InteruptMonad0 m) => InteruptMonad0 (StatefulProject m)
 
-deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
---deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT m)
+instance InteruptMonad0 m => InteruptMonad1 (MVar FileSystemProject) (SimpleFilesystemProjectT m) where
+    interupt1 var f = do
+        s <- takeMVar var
+        (x,s') <- interupt0 $ runSimpleFilesystemProjectT f s
+        putMVar var s'
+        return x
 
-deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
---deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT m)
+instance InteruptMonad2 s m => InteruptMonad2 (FileSystemProject,s) (SimpleFilesystemProjectT m) where
+    interupt2 (s,s2) f = do
+        ((x,s'),s2') <- interupt2 s2 $ runSimpleFilesystemProjectT f s
+        return (x,(s',s2'))
 
+instance InteruptMonad0 m => InteruptMonad2 Project (ProjectStateT m) where
+    interupt2 s f = interupt0 $ runProjectStateT f s
 
 onNewProjectConfirmed :: forall proxy m p buffer
                        . ( MonadIO m
