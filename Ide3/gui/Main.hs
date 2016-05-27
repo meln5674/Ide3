@@ -42,12 +42,12 @@ import GuiEnv
 
 import GuiHelpers
 
-import MainWindow (MainWindow)
-import NewProjectDialog (NewProjectDialog)
+import Dialogs.MainWindow (MainWindow)
+import Dialogs.NewProjectDialog (NewProjectDialog)
 import ProjectContextMenu (ContextMenu)
 
-import qualified MainWindow
-import qualified NewProjectDialog
+import qualified Dialogs.MainWindow as MainWindow
+import qualified Dialogs.NewProjectDialog as NewProjectDialog
 import qualified ProjectContextMenu
 
 --import ReadOnlyFilesystemProject

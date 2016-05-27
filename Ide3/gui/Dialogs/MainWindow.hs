@@ -1,6 +1,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
-module MainWindow
+module Dialogs.MainWindow
     ( MainWindow
     , make
     , newClickedEvent

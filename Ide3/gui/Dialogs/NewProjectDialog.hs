@@ -1,5 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
-module NewProjectDialog
+module Dialogs.NewProjectDialog
     ( NewProjectDialog
     , NewProjectDialogSignal
     , make
