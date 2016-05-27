@@ -27,6 +27,8 @@ data ElementMenu
     }
     | DeclMenu
     { declInfo :: ModuleChild DeclarationInfo
+    , exportDeclarationButton :: MenuItem
+    , unExportDeclarationButton :: MenuItem
     , moveDeclarationButton :: MenuItem
     , deleteDeclarationButton :: MenuItem
     }
@@ -90,13 +92,23 @@ makeDeleteModuleButton = makeMenuButton "Delete"
 
 makeDeclMenu :: ModuleInfo -> DeclarationInfo -> IO ContextMenu
 makeDeclMenu mi di = makeMenuWith $ \menu -> do
+    exportDeclarationButton <- makeExportDeclarationButton menu
+    unExportDeclarationButton <- makeUnExportDeclarationButton menu
     moveDeclarationButton <- makeMoveDeclarationButton menu
     deleteDeclarationButton <- makeDeleteDeclarationButton menu
     return DeclMenu
            { declInfo = ModuleChild mi di
+           , exportDeclarationButton
+           , unExportDeclarationButton
            , moveDeclarationButton
            , deleteDeclarationButton
            }
+
+makeExportDeclarationButton :: Menu -> IO MenuItem
+makeExportDeclarationButton = makeMenuButton "Export"
+
+makeUnExportDeclarationButton :: Menu -> IO MenuItem
+makeUnExportDeclarationButton = makeMenuButton "Un-Export"
 
 makeMoveDeclarationButton :: Menu -> IO MenuItem
 makeMoveDeclarationButton = makeMenuButton "Move"
