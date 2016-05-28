@@ -52,7 +52,14 @@ parseAndCombine s fp = do
         [d] -> return d
         [] -> Left $ InvalidOperation "Found no declarations" "Declaration.parseAndCombine"
         _ -> Left $ InvalidOperation "Found more than 1 declaration" "Declaration.parseAndCombine"
-        
+    
+-- | Parse a declaration, but if it fails, return an unparseable declaration
+-- along with the error
+parseAndCombineLenient :: String -> Maybe FilePath -> DeclarationInfo 
+             -> Either (WithBody Declaration, ProjectError u) (WithBody Declaration)
+parseAndCombineLenient s p di = case parseAndCombine s p of
+    Right decl -> Right decl
+    Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
 
 -- | Find declarations that can be merged and merge them
 combineMany :: [WithBody Declaration] -> [WithBody Declaration]
