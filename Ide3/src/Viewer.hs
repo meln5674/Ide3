@@ -13,7 +13,8 @@ Stability   : experimental
 Portability : POSIX
 
 This module defines a monad transformer, ViewerStateT, which adds access to the
-state of the program
+state of the program, and uses the ViewerMonad to wrap around various
+funcitonality.
 -}
 module Viewer 
     ( module Viewer
@@ -127,5 +128,6 @@ saveProject maybePath = do
                 M.finalize
         else throwE $ InvalidOperation "No project is currently open" ""
 
+-- | Set the current declaration of the program
 setCurrentDecl :: Monad m => ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
 setCurrentDecl mi di = put $ Viewer (Just mi) (Just di)

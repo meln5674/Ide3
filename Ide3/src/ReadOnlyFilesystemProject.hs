@@ -17,7 +17,11 @@ of existing standard haskell projects and then viewing/searching them.
 
 Attempting to save/edit/create using this persistence mechanism will result in an error
 -}
-module ReadOnlyFilesystemProject where
+module ReadOnlyFilesystemProject
+    ( ReadOnlyFilesystemProjectT( ReadOnlyFilesystemProjectT )
+    , FileSystemProject (Unopened)
+    , runReadOnlyFilesystemProjectT
+    ) where
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -62,9 +66,11 @@ runReadOnlyFilesystemProjectT = runStateT . runReadOnlyFilesystemProjectTInterna
 runNewReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> m (a, FileSystemProject)
 runNewReadOnlyFilesystemProjectT = flip runReadOnlyFilesystemProjectT Unopened
 
+-- | Get the state of the project
 getFsp :: (Monad m) => ReadOnlyFilesystemProjectT m FileSystemProject
 getFsp = ReadOnlyFilesystemProjectT get
 
+-- | Set the state of the project
 putFsp :: (Monad m) => FileSystemProject -> ReadOnlyFilesystemProjectT m ()
 putFsp = ReadOnlyFilesystemProjectT . put
 
@@ -104,8 +110,12 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (StatefulProject (ReadOnlyF
         case fsp of
             Opened _ -> return True
             _ -> return False
+    -- | Not supported
     createNewFile _ = throwE $ Unsupported "Cannot create a new readonly project"
+    -- | Not supported
     createNewDirectory _ = throwE $ Unsupported "Cannot create a new readonly project"
+    -- | Do nothing, as a read only project cannot make changes, so the project
+    -- must allready be ready to build
     prepareBuild = return ()
 
 

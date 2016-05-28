@@ -48,6 +48,7 @@ newtype Editor m u = MkEditor { runEditorInternal :: String -> ProjectResult m u
 runEditor :: Editor m u -> String -> ProjectResult m u EditorResult
 runEditor = runEditorInternal
 
+-- | An editor which represents no editing capability and will always result in an error
 noEditor :: Monad m => Editor m u
 noEditor = MkEditor $ \_ -> throwE $ Unsupported "No editor specified"
 

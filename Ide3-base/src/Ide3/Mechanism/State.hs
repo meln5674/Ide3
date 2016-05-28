@@ -90,10 +90,12 @@ instance (ProjectStateM m) => ProjectStateM (StateT s m) where
     getProject = lift getProject
     putProject = lift . putProject
 
+{-
 instance ProjectShellM m => ProjectShellM (StateT s m) where
     new x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.Types.new x
     load = ExceptT $ lift $ runExceptT Ide3.Mechanism.State.Types.load
     finalize x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.Types.finalize x
+-}
 
 instance Monad m => ProjectStateM (ProjectStateT m) where
     getProject = ProjectStateT get

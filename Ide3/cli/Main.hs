@@ -48,7 +48,6 @@ deriving instance (MonadException m) => MonadException (ProjectStateT m)
 deriving instance (MonadException m) => MonadException (StatefulProject m)
 deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemProjectT m)
 deriving instance (MonadException m) => MonadException (Cabal.CabalProject m)
-deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT' m)
 deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT m)
 
 

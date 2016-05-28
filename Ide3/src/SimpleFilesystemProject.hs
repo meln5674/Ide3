@@ -19,7 +19,11 @@ as ReadOnlyFilesystemProject can, but also can read and save projects from a
 single file using the Read/Show instances for the Project type.
 
 -}
-module SimpleFilesystemProject where
+module SimpleFilesystemProject
+    ( SimpleFilesystemProjectT (SimpleFilesystemProjectT)
+    , FileSystemProject (Unopened)
+    , runSimpleFilesystemProjectT
+    ) where
 
 import Data.List
 import Data.Maybe
@@ -44,7 +48,7 @@ import Ide3.Types
 import qualified Ide3.Project as Project
 import Ide3.Digest
 import Ide3.ModuleTree
-
+import Ide3.Utils
 
 import ViewerMonad
 import PseudoState
@@ -61,6 +65,7 @@ data FileSystemProject
     -- | A digested path or dump file is opened if Just, a new project if Nothing
     | Opened (Maybe FilePath)
 
+{-
 -- | State transformer for the mechanism
 newtype SimpleFilesystemProjectT' m a
     = SimpleFilesystemProjectT'
@@ -73,38 +78,41 @@ newtype SimpleFilesystemProjectT' m a
     , MonadIO
     , ProjectStateM
     )
+-}
 
+-- | Type wrapper for using a file as the project store
 newtype SimpleFilesystemProjectT m a
     = SimpleFilesystemProjectT
-    { runSimpleFilesystemProjectTInternal :: StatefulProject (SimpleFilesystemProjectT' m) a
+    { runSimpleFilesystemProjectTInternal :: StatefulProject (StateT FileSystemProject m) a
     }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadIO
-    , ProjectStateM
     , ProjectM
     )
 
+{-
 instance MonadTrans SimpleFilesystemProjectT' where
     lift = SimpleFilesystemProjectT' . lift
+-}
 
 instance MonadTrans SimpleFilesystemProjectT where
     lift = SimpleFilesystemProjectT . lift . lift
 
-deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT' m)
+--deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT' m)
 deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT m)
-deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT' m)
+--deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT' m)
 deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT m)
-deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT' m)
+--deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT' m)
 deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT m)
 
 -- | Run an action inside the mechanism with the provided state
 runSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runSimpleFilesystemProjectT 
     = runStateT 
-    . runSimpleFilesystemProjectT'Internal 
+--    . runSimpleFilesystemProjectT'Internal 
     . runStatefulProject 
     . runSimpleFilesystemProjectTInternal
 
@@ -112,18 +120,33 @@ runSimpleFilesystemProjectT
 runNewSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
 runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
 
+{-
+-- | Get the project state from the inner type
 getFsp' :: (Monad m) => SimpleFilesystemProjectT' m FileSystemProject
 getFsp' = SimpleFilesystemProjectT' $ get
 
+-- | Set the project state from the inner type
 putFsp' :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT' m ()
 putFsp' = SimpleFilesystemProjectT' . put
+-}
 
+-- | Get the project state from the inner type
+getFsp' :: (Monad m) => StateT FileSystemProject m FileSystemProject
+getFsp' = get
+
+-- | Set the project state from the inner type
+putFsp' :: (Monad m) => FileSystemProject -> StateT FileSystemProject m ()
+putFsp' = put
+
+-- | Get the project state from the outer type
 getFsp :: (Monad m) => SimpleFilesystemProjectT m FileSystemProject
-getFsp = SimpleFilesystemProjectT $ lift $ getFsp'
+--getFsp = SimpleFilesystemProjectT $ lift $ getFsp'
+getFsp = SimpleFilesystemProjectT $ lift $ get
 
+-- | Set the project state from the outer type
 putFsp :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT m ()
-putFsp = SimpleFilesystemProjectT . lift . putFsp'
-
+--putFsp = SimpleFilesystemProjectT . lift . putFsp'
+putFsp = SimpleFilesystemProjectT . lift . put
 
 {-
 instance ProjectStateM m => ProjectStateM (SimpleFilesystemProjectT m) where
@@ -131,7 +154,8 @@ instance ProjectStateM m => ProjectStateM (SimpleFilesystemProjectT m) where
     putProject = lift . putProject
 -}
 
-instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT' m) where
+--instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT' m) where
+instance MonadIO m => ProjectShellM (StateT FileSystemProject m) where
     -- | Create a new project
     new i = do
         lift $ putFsp' $ Opened Nothing
@@ -170,17 +194,33 @@ instance MonadIO m => ProjectShellM (SimpleFilesystemProjectT' m) where
                     Left err -> throwE $ InvalidOperation ("Error on writing file: " ++ show err) ""
             _ -> throwE $ InvalidOperation "Cannot finalize a project without a path to write to" ""
 
-
+-- | Get the for a module name
 moduleNamePath :: String -> FilePath
 moduleNamePath [] = []
 moduleNamePath ('/':xs) = '.' : moduleNamePath xs
 moduleNamePath (x:xs) = x : moduleNamePath xs
 
+-- | Get the path for a module info
 modulePath :: ModuleInfo -> Maybe FilePath
 modulePath (ModuleInfo (Symbol s)) = Just $ "src/" ++ moduleNamePath s ++ ".hs"
 modulePath (UnamedModule path) = path
 
-makeFileListing :: ProjectM m => ProjectResult m u ([FilePath],[(FilePath,String)])
+-- | A pair of filename and file contents to write to disc
+data OutputPair
+    = OutputPair
+    { filePath :: FilePath
+    , fileContents :: String
+    }
+
+-- | A list of directories to create and files to write
+data FileListing
+    = FileListing
+    { directoriesNeeded :: [FilePath]
+    , outputs :: [OutputPair]
+    }
+
+-- | Make a listing of files to write out
+makeFileListing :: ProjectM m => ProjectResult m u FileListing
 makeFileListing = do
     t <- makeTree
     let dirs (OrgNode i ts) =  (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
@@ -193,9 +233,22 @@ makeFileListing = do
         ds <- forM dis $ getDeclaration mi
         case modulePath mi of
             Nothing -> return Nothing 
-            Just p -> return $ Just (p, intercalate "\n" $ map body ds)
+            Just p -> return $ Just $ OutputPair p $ intercalate "\n" $ map body ds
     let decls = catMaybes declGroups
-    return (dirs', decls)
+    return FileListing
+           { directoriesNeeded = dirs'
+           , outputs = decls
+           }
+
+-- | Write an output pair to disc
+writeOutputPair :: (MonadIO m) => OutputPair -> ProjectResult m u ()
+writeOutputPair pair = wrapIOError $ writeFile (filePath pair) (fileContents pair)
+
+-- | Create the directories needed and write the files to be written
+executeFileListing :: (MonadIO m) => FileListing -> ProjectResult m u ()
+executeFileListing listing = do
+    wrapIOError $ forM_ (directoriesNeeded listing) $ createDirectoryIfMissing True
+    forM_ (outputs listing) $ writeOutputPair
 
 instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m) where
     -- | Set the Read file to be opened
@@ -214,15 +267,16 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m
         case fsp of
             Opened _ -> return True
             _ -> return False
+    -- | Create a new file project
     createNewFile path = do
         lift $ lift $ putProject $ Project.new ProjectInfo
         lift $ putFsp $ Opened Nothing
         setTargetPath path
+    -- | Unsupported
     createNewDirectory _ = throwE $ Unsupported "Cannot create a directory project using simple"
-    prepareBuild = do
-        (dirs,files) <- makeFileListing
-        liftIO $ forM_ dirs $ createDirectoryIfMissing True
-        liftIO $ forM_ files $ uncurry writeFile        
+    -- | Get a list of files and directories needed and then create them
+    prepareBuild = makeFileListing >>= executeFileListing
 
 instance PseudoStateT SimpleFilesystemProjectT FileSystemProject where
-    runPseudoStateT = runStateT . runSimpleFilesystemProjectT'Internal . runStatefulProject . runSimpleFilesystemProjectTInternal
+--    runPseudoStateT = runStateT . runSimpleFilesystemProjectT'Internal . runStatefulProject . runSimpleFilesystemProjectTInternal
+    runPseudoStateT = runStateT . runStatefulProject . runSimpleFilesystemProjectTInternal

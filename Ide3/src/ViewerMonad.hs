@@ -28,6 +28,7 @@ import Ide3.Mechanism.State -- (ProjectStateM (..), ProjectShellM (..))
 
 import PseudoState
 
+-- | Provides methods for features of a persistance mechanism
 class (ProjectM m) => ViewerMonad m where
     -- | Set the file to open so that when ProjectM.load is called, that path is
     -- used to open a project
