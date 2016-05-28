@@ -67,6 +67,7 @@ info :: Declaration -> DeclarationInfo
 info (TypeDeclaration i _) = i
 info (BindDeclaration i _) = i
 info (ModifierDeclaration i _) = i
+info (UnparseableDeclaration i) = i
 
 -- | Get a a list of all symbols provided by a declaration
 symbolsProvided :: Declaration -> [Symbol]

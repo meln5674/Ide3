@@ -8,13 +8,10 @@
 module Ide3.Mechanism.State.Helpers where
 
 import Control.Monad.Trans
-import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
 import Control.Monad.Trans.Except
 import Control.Monad.Identity
 
-import Ide3.Monad
 import Ide3.Types
-import qualified Ide3.Project as Project
 
 import Ide3.Mechanism.State.Types
 

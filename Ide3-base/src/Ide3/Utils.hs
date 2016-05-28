@@ -2,7 +2,6 @@ module Ide3.Utils where
 
 import System.IO.Error
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
@@ -15,9 +14,9 @@ wrapIOError = wrapIOErrorWithMsg ""
 
 wrapIOErrorWithMsg :: (MonadIO m) => String -> IO a -> ProjectResult m u a
 wrapIOErrorWithMsg msg f = do
-    x <- liftIO $ tryIOError f
-    case x of
-        Right x -> return x
+    r <- liftIO $ tryIOError f
+    case r of
+        Right result -> return result
         Left err -> throwE $ InvalidOperation (show err) msg
 
 wrapReadFile :: (MonadIO m) => FilePath -> ProjectResult m u String

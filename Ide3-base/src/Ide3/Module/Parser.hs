@@ -94,7 +94,7 @@ parseMain s p = case parseModuleWithComments parseMode s of
         Extracted i ps es is ds <- extract s x
         case i of
             UnamedModule _ -> return $ Extracted (ModuleInfo (Symbol "Main")) ps es is ds
-            i -> return $ Extracted i ps es is ds
+            info -> return $ Extracted info ps es is ds
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
     parseMode = case p of

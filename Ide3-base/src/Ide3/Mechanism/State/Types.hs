@@ -15,13 +15,11 @@ module Ide3.Mechanism.State.Types
 
 
 import Control.Monad.Trans
-import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
+import Control.Monad.Trans.State.Strict (StateT)
 import Control.Monad.Trans.Except
 import Control.Monad.Identity
 
-import Ide3.Monad
 import Ide3.Types
-import qualified Ide3.Project as Project
 
 newtype ProjectStateT m a = ProjectStateT { runProjectStateTInternal :: StateT Project m a }
     deriving

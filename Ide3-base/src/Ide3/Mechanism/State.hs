@@ -27,17 +27,14 @@ module Ide3.Mechanism.State
     , runNewProjectStateT
 --    , runProjectState
     , mkStatefulProject
-    , runStatefulProject
     , module Ide3.Mechanism.State.Types
     , module Ide3.Mechanism.State.Helpers
     ) where
 
-import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
 import Control.Monad.Trans.Except
-import Control.Monad.Identity
 
 import Ide3.Monad
 import Ide3.Types

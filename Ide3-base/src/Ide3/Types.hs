@@ -195,6 +195,7 @@ data Declaration
     | BindDeclaration DeclarationInfo BindDeclaration
     -- |A modifier declaration provides some property of an existing declaration
     | ModifierDeclaration DeclarationInfo ModifierDeclaration
+    | UnparseableDeclaration DeclarationInfo
     deriving (Show, Read, Eq)
 
 
