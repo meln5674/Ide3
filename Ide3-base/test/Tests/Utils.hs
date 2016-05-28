@@ -15,7 +15,7 @@ import Ide3.Mechanism.State
 
 import qualified Ide3.Project as Project
 
-instance Monad m => ProjectShellM (StateT s m) where
+instance Monad m => ProjectShellM (ProjectStateT m) where
     load = error "CAN'T LOAD"
     new = return . Project.new
     finalize = error "CAN'T FINALIZE"
@@ -23,36 +23,38 @@ instance Monad m => ProjectShellM (StateT s m) where
 failedTestName :: (?loc :: CallStack) => String
 failedTestName = fst . last . getCallStack $ ?loc
 
-runExceptProject :: ProjectResult ProjectState () a -> ProjectState (Either (ProjectError ()) a)
-runExceptProject = runExceptT
+runExceptProject :: ProjectResult (StatefulProject ProjectState) () a 
+                 -> ProjectState (Either (ProjectError ()) a)
+runExceptProject = runStatefulProject . runExceptT
 
-runExceptProjectT :: Monad m => ProjectResult (ProjectStateT m) () a -> ProjectStateT m (Either (ProjectError ()) a)
-runExceptProjectT = runExceptT
+runExceptProjectT :: Monad m => ProjectResult (StatefulProject (ProjectStateT m)) () a 
+                  -> ProjectStateT m (Either (ProjectError ()) a)
+runExceptProjectT = runStatefulProject . runExceptT
 
 expectFailure :: (?loc :: CallStack)
               => (Show a) 
-              => ProjectResult (ProjectStateT IO) () a 
+              => ProjectResult (StatefulProject (ProjectStateT IO)) () a 
               -> Test
 expectFailure f = TestCase $ do
-    (result,_) <- runProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewProjectStateT $ runExceptProjectT f
     case result of
         Left _ -> assertString ""
         Right x -> assertFailure $ failedTestName ++ ": Expected to fail but got: " ++ show x
 
 expectSuccess :: (?loc :: CallStack)
               => (Show a)
-              => ProjectResult (ProjectStateT IO) () a -> Test
+              => ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
 expectSuccess f = TestCase $ do
-    (result,_) <- runProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewProjectStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right _ -> assertString ""
 
 expectResult :: (?loc :: CallStack)
              => (Show a, Eq a) 
-             => a -> ProjectResult (ProjectStateT IO) () a -> Test
+             => a -> ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
 expectResult expected f = TestCase $ do
-    (result,_) <- runProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewProjectStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right actual | expected == actual -> assertString ""
@@ -65,9 +67,9 @@ expectResult expected f = TestCase $ do
 
 expectPredicate :: (?loc :: CallStack)
                 => (Show a, Eq a)
-                => (a -> Bool) -> ProjectResult (ProjectStateT IO) () a -> Test
+                => (a -> Bool) -> ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
 expectPredicate predicate f = TestCase $ do
-    (result,_) <- runProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewProjectStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got : " ++ show err
         Right actual | predicate actual -> assertString ""

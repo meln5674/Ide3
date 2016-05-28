@@ -24,7 +24,8 @@ test_removeDeclarationFromNonExistentModule :: (?loc :: CallStack) => Test
 test_removeDeclarationFromNonExistentModule = expectFailure $ removeDeclaration nonExistentModuleInfo newDeclarationInfo
 
 test_editDeclarationInNonExistentModule :: (?loc :: CallStack) => Test    
-test_editDeclarationInNonExistentModule = expectFailure $ editDeclaration nonExistentModuleInfo newDeclarationInfo Right
+test_editDeclarationInNonExistentModule = expectFailure $ 
+    editDeclaration nonExistentModuleInfo newDeclarationInfo undefined
 
 test_removeNonExistentDeclaration :: (?loc :: CallStack) => Test    
 test_removeNonExistentDeclaration = expectFailure $ do
@@ -34,4 +35,4 @@ test_removeNonExistentDeclaration = expectFailure $ do
 test_editNonExistentDeclaration :: (?loc :: CallStack) => Test    
 test_editNonExistentDeclaration = expectFailure $ do
     createModule newModuleInfo
-    editDeclaration newModuleInfo nonExistentDeclarationInfo Right
+    editDeclaration newModuleInfo nonExistentDeclarationInfo undefined
