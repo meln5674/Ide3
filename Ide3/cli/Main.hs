@@ -90,12 +90,18 @@ commandList :: (MonadMask m, ViewerIOAction m u, Args a)
             -> [Command () (ViewerStateT m)]
 commandList editor builder runner initializer =
     [ helpCmd
+    , cdCmd
+    , shellCmd
     , newCmd initializer
     , openCmd
     , saveAsCmd
     , saveCmd
     , modulesCmd
     , moduleCmd
+    , addImportCmd
+    , removeImportCmd
+    , addExportCmd
+    , removeExportCmd
     , declarationsCmd
     , importsCmd
     , importedCmd
@@ -139,7 +145,7 @@ runWith runFspT unopened editor builder runner initializer = void $
                 runMain
 
 -- | Data type which contains options for running the application
-data (Monad (t (ProjectStateT IO))) => AppSetup a t fsp u
+data {- (Monad (t (ProjectStateT IO))) => -} AppSetup a t fsp u
     = AppSetup
     { -- | The editor to use
       appEditor :: Editor (t (ProjectStateT IO)) u

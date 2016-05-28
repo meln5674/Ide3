@@ -29,6 +29,9 @@ import Data.List
 
 import qualified Data.Map as Map
 
+import System.Process
+import System.Directory
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -44,6 +47,7 @@ import Ide3.Monad
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
 
+import Ide3.Utils
 import Ide3.Types
     ( item
     , items
@@ -98,6 +102,17 @@ withSelectedModule f = printOnError $ do
 -- | Action for the help command
 doHelp :: ViewerAction m u => CommandT u' m String
 doHelp = printHelp
+
+doShell :: ViewerIOAction m u => String -> ViewerStateT m String
+doShell cmd = printOnError $ do
+    let p = shell cmd
+    (_, out, err) <- liftIO $ readCreateProcessWithExitCode p ""
+    return $ out ++ err
+
+doCd :: ViewerIOAction m u => FilePath -> ViewerStateT m String
+doCd path = printOnError $ do
+    liftIO $ setCurrentDirectory path
+    return ""
 
 doNew :: (ViewerAction m u, Args a) => Initializer a m u -> String -> ViewerStateT m String
 doNew initializer arg = printOnError $ do
@@ -242,7 +257,7 @@ doRemoveDeclaration sym = withSelectedModule $ \module_ -> do
     return [asString "Removed" :: Output Bool]
 
 -- | Action for the edit command
-doEdit :: (ViewerIOAction m u) => Editor m u -> String -> ViewerStateT m String
+doEdit :: forall m u . (ViewerIOAction m u) => Editor m u -> String -> ViewerStateT m String
 doEdit editor sym = withSelectedModule $ \module_ -> do
     let declInfo = DeclarationInfo (Symbol sym)
     let moduleInfo = Module.info module_
@@ -251,8 +266,14 @@ doEdit editor sym = withSelectedModule $ \module_ -> do
     newDeclBody <- ExceptT $ lift $ runExceptT $ runEditor editor declBody
     case newDeclBody of
         EditConfirmed newBody -> do 
-            editDeclaration moduleInfo declInfo $ \_ -> Declaration.parseAndCombine newBody Nothing
-            return [asShow "Edit completed"]
+            let r = Declaration.parseAndCombineLenient newBody Nothing declInfo
+            case r of
+                Right decl -> do
+                    editDeclaration moduleInfo declInfo $ \_ -> Right decl
+                    return [asShow "Edit completed"]
+                Left (decl,err) -> do
+                    editDeclaration moduleInfo declInfo $ \_ -> Right decl
+                    return [asShow $ show (err :: ProjectError u)]
         DeleteConfirmed -> do
             removeDeclaration moduleInfo declInfo
             return [asShow "Delete completed"]
@@ -298,6 +319,11 @@ doQuit = do
     setExitFlag
     return "Exiting..."
 
+
+fileNameCompletion :: ViewerIOAction m u => String -> (ViewerStateT m) (Maybe [Completion])
+fileNameCompletion s = do
+    comps <- listFiles s
+    return $ Just $ flip map comps $ \comp -> comp{replacement = drop (length s) $ replacement comp }
 
 -- | Given a prefix, find module names that have that prefix
 moduleNameCompletion :: ViewerAction m u => String -> (ViewerStateT m) (Maybe [Completion])
@@ -357,6 +383,26 @@ helpCmd = Command
     , action = \_ -> doHelp
     }
 
+shellCmd :: ViewerIOAction m u => Command u' (ViewerStateT m)
+shellCmd = Command
+    { helpLine = "shell CMD: execute a command in the shell"
+    , root = "shell"
+    , parser = parseArity1 "shell" "command"
+    , isAllowed = return True
+    , completion = \_ -> return $ Just []
+    , action = liftCmd . doShell
+    }
+
+cdCmd :: ViewerIOAction m u => Command u' (ViewerStateT m)
+cdCmd = Command
+    { helpLine = "cd PATH: Change the current directory"
+    , root = "cd"
+    , parser = parseArity1 "cd" "path"
+    , isAllowed = return True
+    , completion = fileNameCompletion
+    , action = liftCmd . doCd
+    }
+
 newCmd :: (ViewerIOAction m u, Args a, Show u) => Initializer a m u -> Command u' (ViewerStateT m)
 newCmd initializer = Command
     { helpLine = "new ARGS: create a new project"
@@ -375,7 +421,7 @@ openCmd = Command
     , root = "open"
     , parser = parseArity1 "open" "directory path"
     , isAllowed = return True
-    , completion =  liftM Just . listFiles
+    , completion =  fileNameCompletion
     , action = liftCmd . doOpen
     }
 
@@ -386,7 +432,7 @@ saveCmd = Command
     , root = "save"
     , parser = parseArity0 "save"
     , isAllowed = hasOpenedProject
-    , completion = liftM Just . listFiles
+    , completion = fileNameCompletion
     , action = \_ -> liftCmd doSave
     }
 
@@ -397,7 +443,7 @@ saveAsCmd = Command
     , root = "save as"
     , parser = parseArity1 "save as" "path"
     , isAllowed = hasOpenedProject
-    , completion = liftM Just . listFiles
+    , completion = fileNameCompletion
     , action = liftCmd . doSaveAs
     }
 
