@@ -267,7 +267,10 @@ writeModule m = do -- withOpenedProject $ \_ (CabalConfiguration desc) -> do
     let text = Module.toFile m
     root <- getProjectSourceRoot
     let modulePath = root </> path ++ ".hs"
-    wrapIOError $ writeFile modulePath text
+    let moduleDir = takeDirectory modulePath
+    wrapIOError $ do
+        createDirectoryIfMissing True moduleDir
+        writeFile modulePath text
 
 -- | Add a module to a project's list of modules
 addModuleToConfig :: (ProjectStateM m) => ModuleInfo -> ProjectResult (CabalProject m) u ()
