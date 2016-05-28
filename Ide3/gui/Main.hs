@@ -245,6 +245,50 @@ onSaveProjectClicked env = do
     liftIO $ doSaveProject env Nothing
     return False
 
+onNewModuleClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnv proxy m p buffer 
+              -> Maybe String
+              -> EventM EButton Bool
+onNewModuleClicked env modName = liftIO $ do
+        NewModuleDialog.make modName $ \dialog -> liftIO $ do
+            dialog `onGui` NewModuleDialog.confirmClickedEvent $ liftIO $ do
+                moduleName <- NewModuleDialog.getModuleName dialog
+                case moduleName of
+                    "" -> dialogOnError env () $ do
+                        throwE $ InvalidOperation "Please enter a module name" ""
+                    name -> do
+                        doAddModule env (ModuleInfo (Symbol moduleName))
+                        NewModuleDialog.close dialog
+                return False
+            dialog `onGui` NewModuleDialog.cancelClickedEvent $ liftIO $ do
+                NewModuleDialog.close dialog
+                return False
+        return False
+
+setupModuleContextMenu :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 ) 
+                 => GuiEnv proxy m p buffer
+                 -> ModuleInfo
+                 -> IO ContextMenu
+setupModuleContextMenu env mi = do
+    menu <- ProjectContextMenu.makeModuleMenu mi
+    menu `onGui` ProjectContextMenu.newSubModuleClickedEvent $ do
+        onNewModuleClicked env $ case mi of
+            mi@(ModuleInfo (Symbol prefix)) -> (Just prefix)
+            mi -> Nothing
+    return menu
+
 onDeclViewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
@@ -265,28 +309,13 @@ onDeclViewClicked env gui = do
         menu <- liftIO $ case pathClicked of
             Nothing -> do 
                 menu <- ProjectContextMenu.makeProjectMenu
-                liftIO $ menu `onGui` ProjectContextMenu.newModuleClickedEvent $ liftIO $ do
-                    NewModuleDialog.make Nothing $ \dialog -> liftIO $ do
-                        dialog `onGui` NewModuleDialog.confirmClickedEvent $ liftIO $ do
-                            moduleName <- NewModuleDialog.getModuleName dialog
-                            case moduleName of
-                                "" -> dialogOnError env () $ do
-                                    throwE $ InvalidOperation "Please enter a module name" ""
-                                name -> do
-                                    doAddModule env (ModuleInfo (Symbol moduleName))
-                                    NewModuleDialog.close dialog
-                            return False
-                        dialog `onGui` NewModuleDialog.cancelClickedEvent $ liftIO $ do
-                            NewModuleDialog.close dialog
-                            return False
-                    return False
+                liftIO $ menu `onGui` ProjectContextMenu.newModuleClickedEvent $ do
+                    onNewModuleClicked env Nothing
                 return menu
             Just (path, col, p) -> withGuiComponents env $ \comp -> do
                 item <- withProjectTree comp $ findAtPath path
                 case item of
-                    ModuleResult mi -> do
-                        menu <- ProjectContextMenu.makeModuleMenu mi
-                        return menu
+                    ModuleResult mi -> setupModuleContextMenu env mi
                     DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
                     ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
                     ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
@@ -294,6 +323,8 @@ onDeclViewClicked env gui = do
                     ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
                     NoSearchResult -> do
                         menu <- ProjectContextMenu.makeProjectMenu
+                        liftIO $ menu `onGui` ProjectContextMenu.newModuleClickedEvent $ do
+                            onNewModuleClicked env Nothing
                         return menu
         ProjectContextMenu.showMenu menu
     return False    

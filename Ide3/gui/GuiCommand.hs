@@ -12,6 +12,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict (gets)
 
 import Ide3.Types
+import Ide3.Utils
 import Ide3.Monad
 
 import qualified Ide3.Declaration as Declaration
@@ -65,7 +66,7 @@ doNew env maybeProjectRoot projectName templateName = dialogOnError env () $
         case maybeProjectRoot of
             Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
             Just projectRoot -> do
-                liftIO $ setCurrentDirectory projectRoot
+                wrapIOError $ setCurrentDirectory projectRoot
                 createNewFile $ projectName ++ ".proj"
                 r <- ExceptT 
                         $ lift 
@@ -105,12 +106,12 @@ doGetDecl :: forall proxy m buffer p
 doGetDecl env path _ = dialogOnError env () $ 
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ 
         withGuiComponents env $ \comp -> do
-            index <- liftIO $ withProjectTree comp $ findAtPath path
+            index <- wrapIOError $ withProjectTree comp $ findAtPath path
             case index of
                 DeclResult mi di -> do
                         decl <- getDeclaration mi di
                         let text = body decl
-                        liftIO $ withEditorBuffer comp $ flip textBufferSetText text
+                        wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
                         lift $ setCurrentDecl mi di
                 _ -> return ()
 
@@ -131,7 +132,7 @@ doBuild env = dialogOnError env () $
             let text = case r of
                     BuildSucceeded out err -> out ++ err
                     BuildFailed out err -> out ++ err
-            liftIO $ withBuildBuffer comp $ flip textBufferSetText text
+            wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
 
 doRun :: forall proxy m buffer p
        . ( MonadIO m
@@ -149,7 +150,7 @@ doRun env = dialogOnError env () $
             let text = case r of
                     RunSucceeded out err -> out ++ err
                     RunFailed out err -> out ++ err
-            liftIO $ withBuildBuffer comp $ flip textBufferSetText text
+            wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
 
 
 doSave :: forall proxy m buffer p 
@@ -168,7 +169,7 @@ doSave env = dialogOnError env () $
             d <- lift $ gets currentDecl
             case (m,d) of
                 (Just mi, Just di) -> do
-                    text <- liftIO $ withEditorBuffer comp $ \buffer -> do
+                    text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
                         start <- textBufferGetStartIter buffer
                         end <- textBufferGetEndIter buffer
                         textBufferGetText buffer start end False
@@ -222,3 +223,20 @@ doRemoveModule env mi = dialogOnError env () $ do
         removeModule mi
         withGuiComponents env $ \comp -> withProjectTree comp populateTree
 
+
+doAddDeclaration :: forall proxy m buffer p
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          , MonadMask m
+          )
+              => GuiEnv proxy m p buffer
+              -> ModuleInfo
+              -> DeclarationInfo
+              -> IO ()
+doAddDeclaration env mi di = dialogOnError env () $ do
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+        let newdecl = WithBody (UnparseableDeclaration di) ""
+        addDeclaration mi newdecl
+    
