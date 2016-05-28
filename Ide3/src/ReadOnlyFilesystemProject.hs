@@ -27,6 +27,7 @@ import Ide3.Mechanism.State
 import Ide3.Types (ProjectError (..))
 import Ide3.Digest
 
+import PseudoState
 import ViewerMonad
 
 -- | State of the mechanism
@@ -106,3 +107,7 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (StatefulProject (ReadOnlyF
     createNewFile _ = throwE $ Unsupported "Cannot create a new readonly project"
     createNewDirectory _ = throwE $ Unsupported "Cannot create a new readonly project"
     prepareBuild = return ()
+
+
+instance PseudoStateT ReadOnlyFilesystemProjectT FileSystemProject where
+    runPseudoStateT = runStateT . runReadOnlyFilesystemProjectTInternal

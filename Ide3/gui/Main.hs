@@ -44,14 +44,19 @@ import GuiHelpers
 
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewProjectDialog (NewProjectDialog)
+import Dialogs.NewModuleDialog (NewModuleDialog)
 import ProjectContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
+import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified ProjectContextMenu
 
+import PseudoState
+
 --import ReadOnlyFilesystemProject
-import SimpleFilesystemProject
+--import SimpleFilesystemProject
+import CabalFilesystemProject
 
 import Initializer
 
@@ -65,6 +70,7 @@ import Initializer
 --deriving instance (InteruptMonad0 m) => InteruptMonad2 Project (ProjectStateT m)
 --deriving instance (InteruptMonad0 m) => InteruptMonad0 (StatefulProject m)
 
+{-
 instance InteruptMonad0 m => InteruptMonad1 (MVar FileSystemProject) (SimpleFilesystemProjectT m) where
     interupt1 var f = do
         s <- takeMVar var
@@ -79,6 +85,8 @@ instance InteruptMonad2 s m => InteruptMonad2 (FileSystemProject,s) (SimpleFiles
 
 instance InteruptMonad0 m => InteruptMonad2 Project (ProjectStateT m) where
     interupt2 s f = interupt0 $ runProjectStateT f s
+-}
+
 
 onNewProjectConfirmed :: forall proxy m p buffer
                        . ( MonadIO m
@@ -255,17 +263,38 @@ onDeclViewClicked env gui = do
         let (x',y') = (round x, round y)
         pathClicked <- liftIO $ MainWindow.getProjectPathClicked (x',y') gui
         menu <- liftIO $ case pathClicked of
-            Nothing -> ProjectContextMenu.makeProjectMenu
+            Nothing -> do 
+                menu <- ProjectContextMenu.makeProjectMenu
+                liftIO $ menu `onGui` ProjectContextMenu.newModuleClickedEvent $ liftIO $ do
+                    NewModuleDialog.make Nothing $ \dialog -> liftIO $ do
+                        dialog `onGui` NewModuleDialog.confirmClickedEvent $ liftIO $ do
+                            moduleName <- NewModuleDialog.getModuleName dialog
+                            case moduleName of
+                                "" -> dialogOnError env () $ do
+                                    throwE $ InvalidOperation "Please enter a module name" ""
+                                name -> do
+                                    doAddModule env (ModuleInfo (Symbol moduleName))
+                                    NewModuleDialog.close dialog
+                            return False
+                        dialog `onGui` NewModuleDialog.cancelClickedEvent $ liftIO $ do
+                            NewModuleDialog.close dialog
+                            return False
+                    return False
+                return menu
             Just (path, col, p) -> withGuiComponents env $ \comp -> do
                 item <- withProjectTree comp $ findAtPath path
                 case item of
-                    ModuleResult mi -> ProjectContextMenu.makeModuleMenu mi
+                    ModuleResult mi -> do
+                        menu <- ProjectContextMenu.makeModuleMenu mi
+                        return menu
                     DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
                     ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
                     ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
                     ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
                     ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
-                    NoSearchResult -> ProjectContextMenu.makeProjectMenu
+                    NoSearchResult -> do
+                        menu <- ProjectContextMenu.makeProjectMenu
+                        return menu
         ProjectContextMenu.showMenu menu
     return False    
 
@@ -299,5 +328,5 @@ doMain proxy init = do
 
 
 main :: IO ()
-main = doMain (Proxy :: Proxy (SimpleFilesystemProjectT (ProjectStateT IO)))
+main = doMain (Proxy :: Proxy (CabalProject (ProjectStateT IO)))
               (Unopened, Project.empty)

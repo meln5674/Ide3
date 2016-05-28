@@ -29,6 +29,7 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
+import Ide3.Types
 import Ide3.Mechanism.State
 import Ide3.Monad hiding (load, new, finalize)
 import qualified Ide3.Monad as M

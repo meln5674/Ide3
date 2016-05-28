@@ -56,6 +56,7 @@ import Ide3.Types
     , ProjectError (..)
     , ModuleChild (..)
     , Qualify (..)
+    , ProjectResult
     )
 
 import Ide3.Mechanism.State()

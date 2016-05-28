@@ -37,6 +37,7 @@ import Command
 import Viewer
 import qualified ReadOnlyFilesystemProject as RDONLY
 import qualified SimpleFilesystemProject as RDWR
+import qualified CabalFilesystemProject as Cabal
 
 import Editor
 import Builder
@@ -46,17 +47,13 @@ import Initializer
 deriving instance (MonadException m) => MonadException (ProjectStateT m)
 deriving instance (MonadException m) => MonadException (StatefulProject m)
 deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadException m) => MonadException (Cabal.CabalProject m)
 deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT' m)
 deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT m)
 
 
 deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
-
 deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
-
-
-
-
 deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
 
 
@@ -220,6 +217,13 @@ useSimpleFilesystemProject s = s
     , appUnopened = RDWR.Unopened
     }
 
+useCabalFilesystemProject :: (forall t . Monad (t (ProjectStateT IO))
+                          => AppSetup a t fsp u)
+                          -> AppSetup a Cabal.CabalProject Cabal.FileSystemProject u
+useCabalFilesystemProject s = s
+    { appRunFspT = Cabal.runCabalProject
+    , appUnopened = Cabal.Unopened
+    }
 -- | A setup with all fields set to bottom
 blankSetup :: (Monad (t (ProjectStateT IO))) => AppSetup a t fsp u
 blankSetup = AppSetup
@@ -238,7 +242,7 @@ main = runWithSetup
      $ useStackRunner
      $ useStackInitializer
      $ useNanoEditor 
-     $ useSimpleFilesystemProject 
+     $ useCabalFilesystemProject 
        blankSetup
   where
     ?proxy = undefined :: Proxy ()

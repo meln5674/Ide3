@@ -191,3 +191,34 @@ doSaveProject :: forall proxy m buffer p
 doSaveProject env path = dialogOnError env () $
     flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
         saveProject path
+
+doAddModule :: forall proxy m buffer p
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          , MonadMask m
+          )
+              => GuiEnv proxy m p buffer            
+              -> ModuleInfo
+              -> IO ()
+doAddModule env mi = dialogOnError env () $ do
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+        createModule mi
+        withGuiComponents env $ \comp -> withProjectTree comp populateTree
+
+doRemoveModule :: forall proxy m buffer p
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          , MonadMask m
+          )
+              => GuiEnv proxy m p buffer            
+              -> ModuleInfo
+              -> IO ()
+doRemoveModule env mi = dialogOnError env () $ do
+    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+        removeModule mi
+        withGuiComponents env $ \comp -> withProjectTree comp populateTree
+

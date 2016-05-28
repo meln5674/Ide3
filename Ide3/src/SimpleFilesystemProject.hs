@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -46,7 +47,7 @@ import Ide3.ModuleTree
 
 
 import ViewerMonad
-
+import PseudoState
 
 
 -- | State of the mechanism
@@ -222,3 +223,6 @@ instance (MonadIO m, ProjectStateM m) => ViewerMonad (SimpleFilesystemProjectT m
         (dirs,files) <- makeFileListing
         liftIO $ forM_ dirs $ createDirectoryIfMissing True
         liftIO $ forM_ files $ uncurry writeFile        
+
+instance PseudoStateT SimpleFilesystemProjectT FileSystemProject where
+    runPseudoStateT = runStateT . runSimpleFilesystemProjectT'Internal . runStatefulProject . runSimpleFilesystemProjectTInternal

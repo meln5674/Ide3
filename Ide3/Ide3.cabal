@@ -23,6 +23,8 @@ library
                      , ViewerMonad
                      , ReadOnlyFilesystemProject
                      , SimpleFilesystemProject
+                     , CabalFilesystemProject
+                     , PseudoState
     build-depends:     base
                      , temporary
                      , directory
@@ -32,6 +34,7 @@ library
                      , process
                      , filepath
                      , Ide3-base
+                     , Cabal
     default-language:  Haskell2010
 
 executable Ide3-GUI
@@ -41,6 +44,7 @@ executable Ide3-GUI
                      , GuiCommand
                      , Dialogs.MainWindow
                      , Dialogs.NewProjectDialog
+                     , Dialogs.NewModuleDialog
                      , GuiMonad
                      , GuiEnv
                      , ViewerMonad2

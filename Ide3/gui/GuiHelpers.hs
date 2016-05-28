@@ -1,6 +1,7 @@
 module GuiHelpers 
     ( makeMenuWith
     , makeMenuButton
+    , makeWindowWith
     , GuiSignal
     , onGui
     , mkGuiSignal
@@ -20,6 +21,14 @@ makeMenuWith label f menuBar = do
     menuShellAppend menuBar menuItem
     menuItemSetSubmenu menuItem subMenu
     f subMenu    
+
+makeWindowWith :: (Window -> IO b) -> IO b
+makeWindowWith f = do
+    window <- windowNew
+    windowSetModal window True
+    r <- f window
+    widgetShowAll window
+    return r
 
 {-
 makeMenu label menuBar = makeProjectMenuWith menuBar $ \projectMenu -> do

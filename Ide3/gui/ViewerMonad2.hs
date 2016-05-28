@@ -2,11 +2,14 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-} 
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverlappingInstances #-}
 module ViewerMonad2 where
 
 import Control.Monad.Trans.State.Strict
 
 import Control.Concurrent.MVar
+
+import PseudoState
 
 {-
 class ViewerMonad (t m) => ViewerMonad2 t m p | t -> p where
@@ -35,26 +38,26 @@ instance InteruptMonad2 a IO where
         a <- f
         return (a,x)
 
-instance InteruptMonad0 m => InteruptMonad1 (MVar s) (StateT s m) where
+instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad1 (MVar s) (t m) where
     interupt1 var f = do  
         s <- takeMVar var
-        (x,s') <- interupt0 $ runStateT f s
+        (x,s') <- interupt0 $ runPseudoStateT f s
         putMVar var s'
         return x
 
-instance InteruptMonad0 m => InteruptMonad2 s (StateT s m) where
-    interupt2 s f = interupt0 $ runStateT f s 
+instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad2 s (t m) where
+    interupt2 s f = interupt0 $ runPseudoStateT f s 
         
         
 
-instance InteruptMonad2 s' m => InteruptMonad1 (MVar (s,s')) (StateT s m) where
+instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad1 (MVar (s,s')) (t m) where
     interupt1 var f = do
         (s,s2) <- takeMVar var
-        ((x,s'),s2') <- interupt2 s2 $ runStateT f s
+        ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
         putMVar var (s',s2')
         return x
 
-instance InteruptMonad2 s' m => InteruptMonad2 (s,s') (StateT s m) where
+instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad2 (s,s') (t m) where
     interupt2 (s,s2) f = do
-        ((x,s'),s2') <- interupt2 s2 $ runStateT f s
+        ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
         return (x,(s',s2'))

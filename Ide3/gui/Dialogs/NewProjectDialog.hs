@@ -56,14 +56,6 @@ getTemplateName = liftM f . flip get entryBufferText . templateNameBuffer
 close :: NewProjectDialog -> IO ()
 close = widgetDestroy . window
 
-makeWindowWith :: (Window -> IO b) -> IO b
-makeWindowWith f = do
-    window <- windowNew
-    windowSetModal window True
-    r <- f window
-    widgetShowAll window
-    return r
-
 makeVBoxWith :: ContainerClass self => self -> (VBox -> IO b) -> IO b
 makeVBoxWith window f = do
     vbox <- vBoxNew False 0
