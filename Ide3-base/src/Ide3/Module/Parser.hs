@@ -88,3 +88,16 @@ parse s p = case parseModuleWithComments parseMode s of
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
     exts = EnableExtension LambdaCase : glasgowExts
 
+parseMain :: String -> Maybe FilePath -> Either (ProjectError u) ExtractionResults
+parseMain s p = case parseModuleWithComments parseMode s of
+    ParseOk x -> do
+        Extracted i ps es is ds <- extract s x
+        case i of
+            UnamedModule _ -> return $ Extracted (ModuleInfo (Symbol "Main")) ps es is ds
+            i -> return $ Extracted i ps es is ds
+    ParseFailed l msg -> Left $ ParseError l msg ""
+  where
+    parseMode = case p of
+        Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
+        Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
+    exts = EnableExtension LambdaCase : glasgowExts

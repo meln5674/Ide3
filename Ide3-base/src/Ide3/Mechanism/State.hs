@@ -22,17 +22,14 @@ In addition, this provides an instance of ProjectM for any monad which
 is a MonadState for Projects.
 -}
 module Ide3.Mechanism.State
-    ( ProjectStateT (..)
-    , ProjectState
-    , initialProject
+    ( initialProject
     , runProjectStateT
     , runNewProjectStateT
 --    , runProjectState
-    , ProjectShellM (..)
-    , ProjectStateM (..)
-    , StatefulProject (..)
     , mkStatefulProject
     , runStatefulProject
+    , module Ide3.Mechanism.State.Types
+    , module Ide3.Mechanism.State.Helpers
     ) where
 
 import Control.Monad
@@ -46,18 +43,11 @@ import Ide3.Monad
 import Ide3.Types
 import qualified Ide3.Project as Project
 
+import Ide3.Mechanism.State.Types
+import Ide3.Mechanism.State.Helpers
+
 --import Ide3.HasA
 
-newtype ProjectStateT m a = ProjectStateT { runProjectStateTInternal :: StateT Project m a }
-    deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadTrans
-    , MonadIO
-    )
-
-type ProjectState = ProjectStateT Identity
 
 initialProject :: Project
 initialProject = Project.new ProjectInfo
@@ -95,49 +85,20 @@ class HasProject a where
     modifyProject :: Project -> a -> a
 -}    
 
-class Monad m => ProjectShellM m where
-    load :: ProjectResult m u Project
-    new :: ProjectInfo -> ProjectResult m u Project
-    finalize :: Project -> ProjectResult m u ()
-
-class Monad m => ProjectStateM m where
-    getProject :: m Project
-    putProject :: Project -> m ()
 
 instance (ProjectStateM m) => ProjectStateM (StateT s m) where
     getProject = lift getProject
     putProject = lift . putProject
 
 instance ProjectShellM m => ProjectShellM (StateT s m) where
-    new x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.new x
-    load = ExceptT $ lift $ runExceptT Ide3.Mechanism.State.load
-    finalize x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.finalize x
-
-getsProject :: ProjectStateM m => (Project -> a) -> m a
-getsProject f = f <$> getProject
-
-modifyProject :: ProjectStateM m => (Project -> Project) -> m ()
-modifyProject f = liftM f getProject >>= putProject
-
-modifyProjectE :: ProjectStateM m => (Project -> Either (ProjectError u) Project) -> ProjectResult m u ()
-modifyProjectE f = modifyProjectER $ \p -> do
-    p' <- f p
-    return (p',())
-
-modifyProjectER :: ProjectStateM m => (Project -> Either (ProjectError u) (Project,a)) -> ProjectResult m u a
-modifyProjectER f = do
-    p <- lift getProject
-    case f p of
-        Right (p',r) -> do lift $ putProject p'
-                           return r
-        Left msg -> throwE msg
+    new x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.Types.new x
+    load = ExceptT $ lift $ runExceptT Ide3.Mechanism.State.Types.load
+    finalize x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.Types.finalize x
 
 instance Monad m => ProjectStateM (ProjectStateT m) where
     getProject = ProjectStateT get
     putProject = ProjectStateT . put
 
-newtype StatefulProject m a = MkStatefulProject { runStatefulProject :: m a }
-  deriving (Functor, Applicative, Monad, ProjectStateM, ProjectShellM, MonadIO)
 
 instance MonadTrans StatefulProject where
     lift = MkStatefulProject
@@ -149,9 +110,9 @@ mkStatefulProject = MkStatefulProject
 --liftStatefulProject 
 
 instance (ProjectShellM m, ProjectStateM m) => ProjectM (StatefulProject m) where
-    load = Ide3.Mechanism.State.load >>= lift . putProject
-    new i = Ide3.Mechanism.State.new i >>= lift . putProject
-    finalize = lift getProject >>= Ide3.Mechanism.State.finalize
+    load = Ide3.Mechanism.State.Types.load >>= lift . putProject
+    new i = Ide3.Mechanism.State.Types.new i >>= lift . putProject
+    finalize = lift getProject >>= Ide3.Mechanism.State.Types.finalize
 
     editProjectInfo f = lift $ modifyProject $ \p -> p{projectInfo = f $ projectInfo p} 
 

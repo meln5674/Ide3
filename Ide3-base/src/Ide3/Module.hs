@@ -22,7 +22,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Ide3.Types
-import Ide3.Monad (ProjectM, ProjectResult)
+import Ide3.Monad (ProjectM)
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Export as Export
 import qualified Ide3.Import as Import
@@ -55,6 +55,23 @@ foldlRes f x (y:ys) =
 --  created, along with each of the export and import ids created
 parse :: String -> Maybe FilePath -> Either (ProjectError u) (Module,[ExportId],[ImportId])
 parse s p = case Parser.parse s p of
+    Right (Extracted minfo pragmas exports imports decls) -> Right (withDecls, eids, iids)
+      where
+        newModule = new $ case minfo of
+            UnamedModule Nothing -> UnamedModule p
+            x -> x
+        withPragmas = foldl addPragma newModule pragmas
+        (withExports,eids) = case exports of
+            Just exportList -> foldlRes addExport withPragmas exportList
+            Nothing -> (Ide3.Module.exportAll withPragmas,[])
+        (withImports,iids) = foldlRes addImport withExports imports
+        withDecls = foldl addDeclaration withImports decls
+    Left msg -> Left msg
+
+-- |Parse a complete module from a string, returning the Module data structure
+--  created, along with each of the export and import ids created
+parseMain :: String -> Maybe FilePath -> Either (ProjectError u) (Module,[ExportId],[ImportId])
+parseMain s p = case Parser.parseMain s p of
     Right (Extracted minfo pragmas exports imports decls) -> Right (withDecls, eids, iids)
       where
         newModule = new $ case minfo of

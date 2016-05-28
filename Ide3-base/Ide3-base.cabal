@@ -39,6 +39,7 @@ library
                      , Ide3.Constructor
                      , Ide3.ModuleTree
                      , Ide3.Digest
+                     , Ide3.Utils
 --                     , Ide3.Free
 --                     , Ide3.Free.Interpreter
 --                     , Ide3.Free.State
@@ -46,6 +47,9 @@ library
 --                     , Ide3.Free.State.Helpers
 --                     , Ide3.Free.State.Instances
 --                     , Ide3.Free.State.Instances.SimpleProject
+  other-modules:       Ide3.Mechanism.State.Types
+                     , Ide3.Mechanism.State.Helpers
+
   build-depends:       base
                      , containers
                      , mtl

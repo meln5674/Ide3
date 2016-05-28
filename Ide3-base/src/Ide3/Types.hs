@@ -14,6 +14,8 @@ modules, each of which contain exports, imports, and declarations.
 -}
 module Ide3.Types where
 
+import Control.Monad.Trans.Except
+
 import Language.Haskell.Exts.Pretty
 
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
@@ -356,3 +358,6 @@ instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
+
+
+type ProjectResult m u = ExceptT (ProjectError u) m

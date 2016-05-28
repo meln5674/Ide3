@@ -32,8 +32,6 @@ import Control.Monad.Trans.State.Strict
 
 import Ide3.Types
 
-type ProjectResult m u = ExceptT (ProjectError u) m
-
 -- |Abstract interface to a project
 class Monad m => ProjectM m where
     -- |Load a project.
@@ -129,6 +127,7 @@ instance (ProjectM m) => ProjectM (StateT s m) where
     new = bounce . new
     finalize = bounce finalize
     editProjectInfo = bounce . editProjectInfo
+    createModule = bounce . createModule
     addModule = bounce . addModule
     addExternModule = bounce . addExternModule
     getModules = bounce getModules
