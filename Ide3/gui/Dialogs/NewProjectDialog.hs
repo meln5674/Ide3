@@ -11,12 +11,15 @@ module Dialogs.NewProjectDialog
     , getTemplateName
     ) where
 
+import Control.Monad
+import Control.Monad.Trans
+
 import System.Glib.UTFString
 
-import Control.Monad
 
 import Graphics.UI.Gtk
 
+import GuiEnv
 import GuiHelpers
 
 data NewProjectDialog
@@ -33,7 +36,7 @@ data NewProjectDialog
     , cancelButton :: Button
     }
 
-type NewProjectDialogSignal = GuiSignal NewProjectDialog
+type NewProjectDialogSignal object handler = GuiSignal NewProjectDialog object handler
 
 confirmClicked :: GuiSignal NewProjectDialog Button (EventM EButton Bool)
 confirmClicked = confirmButton `mkGuiSignal` buttonPressEvent
@@ -41,93 +44,93 @@ confirmClicked = confirmButton `mkGuiSignal` buttonPressEvent
 cancelClicked :: GuiSignal NewProjectDialog Button (EventM EButton Bool)
 cancelClicked = cancelButton `mkGuiSignal` buttonPressEvent
 
-getSelectedFolder :: NewProjectDialog -> IO (Maybe FilePath)
-getSelectedFolder = fileChooserGetFilename . fileChooser
+getSelectedFolder :: (MonadIO m) => NewProjectDialog -> m (Maybe FilePath)
+getSelectedFolder = liftIO . fileChooserGetFilename . fileChooser
 
-getProjectName :: (GlibString string) => NewProjectDialog -> IO string
-getProjectName = flip get entryBufferText . projectNameBuffer
+getProjectName :: (MonadIO m, GlibString string) => NewProjectDialog -> m string
+getProjectName = liftIO . flip get entryBufferText . projectNameBuffer
 
-getTemplateName :: NewProjectDialog -> IO (Maybe String)
-getTemplateName = liftM f . flip get entryBufferText . templateNameBuffer
+getTemplateName :: MonadIO m => NewProjectDialog -> m (Maybe String)
+getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuffer
   where
     f "" = Nothing
     f x = Just x
 
-close :: NewProjectDialog -> IO ()
-close = widgetDestroy . window
+close :: MonadIO m => NewProjectDialog -> m ()
+close = liftIO . widgetDestroy . window
 
-makeVBoxWith :: ContainerClass self => self -> (VBox -> IO b) -> IO b
+makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
 makeVBoxWith window f = do
-    vbox <- vBoxNew False 0
-    window `containerAdd` vbox
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ window `containerAdd` vbox
     f vbox
 
-makeFileChooser :: BoxClass self => self -> IO FileChooserWidget
-makeFileChooser vbox = do
+makeFileChooser :: (MonadIO m, BoxClass self) => self -> m FileChooserWidget
+makeFileChooser vbox = liftIO $ do
     fileChooser <- fileChooserWidgetNew FileChooserActionSelectFolder
     boxPackStart vbox fileChooser PackGrow 0 
     return fileChooser
 
-makeHBoxWith :: BoxClass self => self -> (HBox -> IO b) -> IO b
+makeHBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b
 makeHBoxWith vbox f = do
-    hbox <- hBoxNew False 0
-    boxPackEnd vbox hbox PackNatural 0
+    hbox <- liftIO $ hBoxNew False 0
+    liftIO $ boxPackEnd vbox hbox PackNatural 0
     f hbox
 
-makeProjectBoxWith :: BoxClass self => self -> (HBox -> IO b) -> IO b    
+makeProjectBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
 makeProjectBoxWith = makeHBoxWith
 
-makeTemplateBoxWith :: BoxClass self => self -> (HBox -> IO b) -> IO b    
+makeTemplateBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
 makeTemplateBoxWith = makeHBoxWith
 
-makeButtonBoxWith :: BoxClass self => self -> (HBox -> IO b) -> IO b    
+makeButtonBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
 makeButtonBoxWith = makeHBoxWith
 
-makeProjectNameLabel :: BoxClass self => self -> IO Label
-makeProjectNameLabel hbox = do
-    projectNameLabel <- labelNew (Just "Project Name")
+makeProjectNameLabel :: (MonadIO m, BoxClass self) => self -> m Label
+makeProjectNameLabel hbox = liftIO $ do
+    projectNameLabel <- liftIO $ labelNew (Just "Project Name")
     boxPackStart hbox projectNameLabel PackNatural 0
     return projectNameLabel
 
-makeProjectNameBox :: (EntryBufferClass buffer, BoxClass self) 
-                   => self -> buffer -> IO Entry
-makeProjectNameBox hbox buffer = do
+makeProjectNameBox :: (MonadIO m, EntryBufferClass buffer, BoxClass self) 
+                   => self -> buffer -> m Entry
+makeProjectNameBox hbox buffer = liftIO $ do
     projectNameBox <- entryNewWithBuffer buffer
     boxPackEnd hbox projectNameBox PackGrow 0
     return projectNameBox
 
-makeTemplateNameLabel :: BoxClass self => self -> IO Label
-makeTemplateNameLabel hbox = do
+makeTemplateNameLabel :: (MonadIO m, BoxClass self) => self -> m Label
+makeTemplateNameLabel hbox = liftIO $ do
     templateNameLabel <- labelNew (Just "Template Name (Optional)")
     boxPackStart hbox templateNameLabel PackNatural 0
     return templateNameLabel
 
-makeTemplateNameBox :: (EntryBufferClass buffer, BoxClass self) 
-                    => self -> buffer -> IO Entry
-makeTemplateNameBox hbox buffer = do
+makeTemplateNameBox :: (MonadIO m, EntryBufferClass buffer, BoxClass self) 
+                    => self -> buffer -> m Entry
+makeTemplateNameBox hbox buffer = liftIO $ do
     templateNameBox <- entryNewWithBuffer buffer
     boxPackEnd hbox templateNameBox PackGrow 0
     return templateNameBox
 
-makeConfirmButton :: BoxClass self => self -> IO Button
-makeConfirmButton hbox = do
+makeConfirmButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeConfirmButton hbox = liftIO $ do
     confirmButton <- buttonNewWithLabel "Confirm"
     boxPackEnd hbox confirmButton PackGrow 0
     return confirmButton
 
-makeCancelButton :: BoxClass self => self -> IO Button
-makeCancelButton hbox = do
+makeCancelButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeCancelButton hbox = liftIO $ do
     cancelButton <- buttonNewWithLabel "Cancel"
     boxPackEnd hbox cancelButton PackGrow 0
     return cancelButton
 
-make :: (NewProjectDialog -> IO b) -> IO b
-make f = makeWindowWith 
+make :: (MonadIO m) => (NewProjectDialog -> m b) -> m b
+make f = makeWindowWith
     $ \window -> makeVBoxWith window
     $ \vbox -> do
         fileChooser <- makeFileChooser vbox
-        projectNameBuffer <- entryBufferNew (Nothing :: Maybe String)
-        templateNameBuffer <- entryBufferNew (Nothing :: Maybe String)
+        projectNameBuffer <- liftIO $ entryBufferNew (Nothing :: Maybe String)
+        templateNameBuffer <- liftIO $ entryBufferNew (Nothing :: Maybe String)
         (projectNameBox, projectNameLabel) <- makeProjectBoxWith vbox $ \hbox -> do
             projectNameLabel <- makeProjectNameLabel hbox
             projectNameBox <- makeProjectNameBox hbox projectNameBuffer
@@ -152,5 +155,4 @@ make f = makeWindowWith
           , confirmButton
           , cancelButton
           }
-            
     

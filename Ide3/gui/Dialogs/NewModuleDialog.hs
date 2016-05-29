@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, PolyKinds #-}
 module Dialogs.NewModuleDialog 
     ( NewModuleDialog
     , make
@@ -12,9 +12,12 @@ module Dialogs.NewModuleDialog
 import System.Glib.UTFString
 
 import Control.Monad
+import Control.Monad.Trans
 
 import Graphics.UI.Gtk
 
+
+import GuiEnv
 import GuiHelpers
 
 data NewModuleDialog
@@ -26,42 +29,42 @@ data NewModuleDialog
     , cancelButton :: Button    
     }
 
-makeVBoxWith :: ContainerClass self => self -> (VBox -> IO b) -> IO b
+makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
 makeVBoxWith window f = do
-    vbox <- vBoxNew False 0
-    window `containerAdd` vbox
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ window `containerAdd` vbox
     f vbox
 
-makeHBoxWith :: BoxClass self => self -> (HBox -> IO b) -> IO b
+makeHBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b
 makeHBoxWith vbox f = do
-    hbox <- hBoxNew False 0
-    boxPackEnd vbox hbox PackNatural 0
+    hbox <- liftIO $ hBoxNew False 0
+    liftIO $ boxPackEnd vbox hbox PackNatural 0
     f hbox
 
 
-makeModuleNameBox :: BoxClass self => self -> EntryBuffer -> IO Entry
-makeModuleNameBox vbox buffer = do
+makeModuleNameBox :: (MonadIO m, BoxClass self) => self -> EntryBuffer -> m Entry
+makeModuleNameBox vbox buffer = liftIO $ do
     moduleNameBox <- entryNewWithBuffer buffer
     boxPackStart vbox moduleNameBox PackGrow 0
     return moduleNameBox
 
-makeConfirmButton :: BoxClass self => self -> IO Button
-makeConfirmButton hbox = do
+makeConfirmButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeConfirmButton hbox = liftIO $ do
     confirmButton <- buttonNewWithLabel "Confirm"
     boxPackStart hbox confirmButton PackGrow 0
     return confirmButton
 
-makeCancelButton :: BoxClass self => self -> IO Button
-makeCancelButton hbox = do
+makeCancelButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeCancelButton hbox = liftIO $ do
     cancelButton <- buttonNewWithLabel "Cancel"
     boxPackEnd hbox cancelButton PackGrow 0
     return cancelButton
 
-make :: Maybe String -> (NewModuleDialog -> IO a) -> IO a
+make :: (MonadIO m) => Maybe String -> (NewModuleDialog -> m a) -> m a
 make name f = makeWindowWith
     $ \window ->  makeVBoxWith window 
     $ \vbox -> do
-        moduleNameBuffer <- entryBufferNew name
+        moduleNameBuffer <- liftIO $ entryBufferNew name
         moduleNameBox <- makeModuleNameBox vbox moduleNameBuffer
         (confirmButton,cancelButton) <- makeHBoxWith vbox $ \hbox -> do
             confirmButton <- makeConfirmButton hbox
@@ -75,19 +78,20 @@ make name f = makeWindowWith
           , cancelButton
           }
 
-close :: NewModuleDialog -> IO ()
-close = widgetDestroy . window
+close :: (MonadIO m) => NewModuleDialog -> m ()
+close = liftIO . widgetDestroy . window
 
-getModuleName :: NewModuleDialog -> IO String
-getModuleName = flip get entryBufferText . moduleNameBuffer
+getModuleName :: (MonadIO m) => NewModuleDialog -> m String
+getModuleName = liftIO . flip get entryBufferText . moduleNameBuffer
 
-type NewModuleDialogSignal = GuiSignal NewModuleDialog
+type NewModuleDialogSignal proxy m' p buffer m object m'' a
+    = GuiEnvSignal proxy m' p buffer m NewModuleDialog object m'' a
 
 
 
-confirmClickedEvent :: NewModuleDialogSignal Button (EventM EButton Bool)
-confirmClickedEvent = confirmButton `mkGuiSignal` buttonPressEvent
+confirmClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+confirmClickedEvent = confirmButton `mkGuiEnvSignal` buttonPressEvent
 
-cancelClickedEvent :: NewModuleDialogSignal Button (EventM EButton Bool)
-cancelClickedEvent = cancelButton `mkGuiSignal` buttonPressEvent
+cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+cancelClickedEvent = cancelButton `mkGuiEnvSignal` buttonPressEvent
 

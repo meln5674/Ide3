@@ -30,25 +30,41 @@ import ProjectTree
 
 type UserError = ()
 
+type DialogOnErrorArg proxy m p buffer a
+    = GuiEnvT proxy m p buffer (ProjectResult (ViewerStateT m) UserError) a
+
 dialogOnError :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
-              => GuiEnv proxy m p buffer
-              -> a
-              -> ProjectResult (ViewerStateT m) UserError a
-              -> IO a
-dialogOnError env default_ f = withProjectMVar env $ \var -> do
-    r <- interupt1 var (runExceptT f)
-    case r of
-        Right x -> return x
-        Left e -> do
-            dialog <- messageDialogNew
-                Nothing
-                []
-                MessageError
-                ButtonsClose
-                (show e)
-            _ <- dialogRun dialog
-            widgetDestroy dialog
-            return default_
+              => a
+              -> DialogOnErrorArg proxy m p buffer a
+              -> GuiEnvT proxy m p buffer IO a
+dialogOnError default_ f = do
+    env <- getEnv
+    withProjectMVar $ \var -> liftIO $ do
+        r <- interupt1 var $ runExceptT $ runGuiEnvT f env
+        case r of
+            Right x -> return x
+            Left e -> do
+                dialog <- messageDialogNew
+                    Nothing
+                    []
+                    MessageError
+                    ButtonsClose
+                    (show e)
+                _ <- dialogRun dialog
+                widgetDestroy dialog
+                return default_
+
+doError :: forall proxy m buffer p 
+        . ( MonadIO m
+          , ViewerMonad m
+          , TextBufferClass buffer
+          , InteruptMonad2 p m
+          )
+        => ProjectError UserError
+        -> GuiEnvT proxy m p buffer IO ()
+doError e = dialogOnError () $
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
+        lift $ throwE e
 
 doNew :: forall proxy m buffer p 
         . ( MonadIO m
@@ -56,28 +72,29 @@ doNew :: forall proxy m buffer p
           , TextBufferClass buffer
           , InteruptMonad2 p m
           )
-       => GuiEnv proxy m p buffer
-       -> Maybe FilePath
+       => Maybe FilePath
        -> String
        -> Maybe String
-       -> IO ()
-doNew env maybeProjectRoot projectName templateName = dialogOnError env () $ 
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
+       -> GuiEnvT proxy m p buffer IO ()
+doNew maybeProjectRoot projectName templateName = dialogOnError () $ 
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
         case maybeProjectRoot of
-            Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
+            Nothing -> lift $ throwE $ InvalidOperation "Please choose a directory" ""
             Just projectRoot -> do
-                wrapIOError $ setCurrentDirectory projectRoot
-                createNewFile $ projectName ++ ".proj"
-                r <- ExceptT 
+                lift $ do
+                    wrapIOError $ setCurrentDirectory projectRoot
+                    createNewFile $ projectName ++ ".proj"
+                r <- lift 
+                        $ ExceptT 
                         $ lift 
                         $ runExceptT 
                         $ runInitializer stackInitializer 
                                         (StackInitializerArgs projectName templateName)
                 case r of
                     InitializerSucceeded{} -> do
-                        withGuiComponents env $ flip withProjectTree populateTree
-                        saveProject Nothing
-                    InitializerFailed out err -> throwE $ InvalidOperation (out ++ err) ""
+                        withGuiComponents $ lift . flip withProjectTree populateTree
+                        lift $ saveProject Nothing
+                    InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
 
 doOpen :: forall proxy m buffer p 
         . ( MonadIO m
@@ -85,13 +102,12 @@ doOpen :: forall proxy m buffer p
           , TextBufferClass buffer
           , InteruptMonad2 p m
           )
-       => GuiEnv proxy m p buffer
-       -> FilePath
-       -> IO ()
-doOpen env path = dialogOnError env () $ 
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
-        openProject path
-        withGuiComponents env $ flip withProjectTree populateTree
+       => FilePath
+       -> GuiEnvT proxy m p buffer IO ()
+doOpen path = dialogOnError () $ 
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        lift $ openProject path
+        withGuiComponents $ lift . flip withProjectTree populateTree
 
 doGetDecl :: forall proxy m buffer p 
           . ( MonadIO m
@@ -99,20 +115,19 @@ doGetDecl :: forall proxy m buffer p
             , TextBufferClass buffer
             , InteruptMonad2 p m
             )
-          => GuiEnv proxy m p buffer
-          -> TreePath
+          => TreePath
           -> TreeViewColumn 
-          -> IO ()
-doGetDecl env path _ = dialogOnError env () $ 
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ 
-        withGuiComponents env $ \comp -> do
-            index <- wrapIOError $ withProjectTree comp $ findAtPath path
+          -> GuiEnvT proxy m p buffer IO ()
+doGetDecl path _ = dialogOnError () $ 
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ 
+        withGuiComponents $ \comp -> do
+            index <- lift $ wrapIOError $ withProjectTree comp $ findAtPath path
             case index of
                 DeclResult mi di -> do
-                        decl <- getDeclaration mi di
+                        decl <- lift $ getDeclaration mi di
                         let text = body decl
-                        wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
-                        lift $ setCurrentDecl mi di
+                        lift $ wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
+                        lift $ lift $ setCurrentDecl mi di
                 _ -> return ()
 
 doBuild :: forall proxy m buffer p 
@@ -122,11 +137,10 @@ doBuild :: forall proxy m buffer p
            , InteruptMonad2 p m
            , MonadMask m
            )
-         => GuiEnv proxy m p buffer
-         -> IO ()
-doBuild env = dialogOnError env () $ 
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ 
-        withGuiComponents env $ \comp -> do
+         => GuiEnvT proxy m p buffer IO ()
+doBuild = dialogOnError () $ 
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ 
+        withGuiComponents $ \comp -> lift $ do
             prepareBuild
             r <- ExceptT $ lift $ runExceptT $ runBuilder stackBuilder
             let text = case r of
@@ -141,11 +155,10 @@ doRun :: forall proxy m buffer p
          , InteruptMonad2 p m
          , MonadMask m
          )
-         => GuiEnv proxy m p buffer
-         -> IO ()
-doRun env = dialogOnError env () $
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
-        withGuiComponents env $ \comp -> do
+      => GuiEnvT proxy m p buffer IO ()
+doRun = dialogOnError () $
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
+        withGuiComponents $ \comp -> lift $ do
             r <- ExceptT $ lift $ runExceptT $ runRunner stackRunner
             let text = case r of
                     RunSucceeded out err -> out ++ err
@@ -160,11 +173,10 @@ doSave :: forall proxy m buffer p
           , InteruptMonad2 p m
           , MonadMask m
           )
-        => GuiEnv proxy m p buffer
-        -> IO ()
-doSave env = dialogOnError env () $ 
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
-        withGuiComponents env $ \comp -> do
+        => GuiEnvT proxy m p buffer IO ()
+doSave = dialogOnError () $ 
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
+        withGuiComponents $ \comp -> lift $ do
             m <- lift $ gets currentModule
             d <- lift $ gets currentDecl
             case (m,d) of
@@ -186,12 +198,11 @@ doSaveProject :: forall proxy m buffer p
           , InteruptMonad2 p m
           , MonadMask m
           )
-              => GuiEnv proxy m p buffer
-              -> Maybe FilePath
-              -> IO ()
-doSaveProject env path = dialogOnError env () $
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $
-        saveProject path
+              => Maybe FilePath
+              -> GuiEnvT proxy m p buffer IO ()
+doSaveProject path = dialogOnError () $
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
+        lift $ saveProject path
 
 doAddModule :: forall proxy m buffer p
         . ( MonadIO m
@@ -200,13 +211,12 @@ doAddModule :: forall proxy m buffer p
           , InteruptMonad2 p m
           , MonadMask m
           )
-              => GuiEnv proxy m p buffer            
-              -> ModuleInfo
-              -> IO ()
-doAddModule env mi = dialogOnError env () $ do
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
-        createModule mi
-        withGuiComponents env $ \comp -> withProjectTree comp populateTree
+              => ModuleInfo
+              -> GuiEnvT proxy m p buffer IO ()
+doAddModule mi = dialogOnError () $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        lift $ createModule mi
+        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
 
 doRemoveModule :: forall proxy m buffer p
         . ( MonadIO m
@@ -215,13 +225,12 @@ doRemoveModule :: forall proxy m buffer p
           , InteruptMonad2 p m
           , MonadMask m
           )
-              => GuiEnv proxy m p buffer            
-              -> ModuleInfo
-              -> IO ()
-doRemoveModule env mi = dialogOnError env () $ do
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
-        removeModule mi
-        withGuiComponents env $ \comp -> withProjectTree comp populateTree
+              => ModuleInfo
+              -> GuiEnvT proxy m p buffer IO ()
+doRemoveModule mi = dialogOnError () $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        lift $ removeModule mi
+        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
 
 
 doAddDeclaration :: forall proxy m buffer p
@@ -231,12 +240,11 @@ doAddDeclaration :: forall proxy m buffer p
           , InteruptMonad2 p m
           , MonadMask m
           )
-              => GuiEnv proxy m p buffer
-              -> ModuleInfo
+              => ModuleInfo
               -> DeclarationInfo
-              -> IO ()
-doAddDeclaration env mi di = dialogOnError env () $ do
-    flip asTypeOf (undefined :: ProjectResult (ViewerStateT m) UserError ()) $ do
+              -> GuiEnvT proxy m p buffer IO ()
+doAddDeclaration mi di = dialogOnError () $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ lift $ do
         let newdecl = WithBody (UnparseableDeclaration di) ""
         addDeclaration mi newdecl
     

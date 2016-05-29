@@ -16,7 +16,12 @@ module Dialogs.MainWindow
     , getProjectPathClicked
     ) where
 
+import Data.Functor.Compose
+
+import Control.Monad.Trans
+
 import Graphics.UI.Gtk
+
 
 import GuiEnv
 import GuiMonad
@@ -35,54 +40,50 @@ data MainWindow
     }  
 
 
---make :: GuiEnv proxy m p buffer -> (MainWindow -> IO a) -> IO ()
+--make :: GuiEnv proxy m p buffer -> (MainWindow -> m a) -> m ()
 
-make :: TextBufferClass buffer => GuiEnv proxy m p buffer -> (MainWindow -> IO a) -> IO a
-make env f = withGuiComponents env $ \comp ->
-    makeMainWindowWith $ \window -> 
-        makeVBoxWith window $ \vbox -> 
-            makeContainerWith vbox $ \container -> do
-                renderer <- makeRenderer
-                menuBar <- makeMainMenuBar vbox
-                
-                fileMenu <- makeFileMenu menuBar
-                projectMenu <- makeProjectMenu menuBar
-                projectViewer <- withProjectTree comp $ \treeStore -> 
-                                 withEditorBuffer comp $ \buffer -> 
-                                    makeProjectViewer treeStore 
-                                                      buffer 
-                                                      renderer 
-                                                      renderProjectTreeElem
-                                                      container
-                buildViewer <- withBuildBuffer comp $ \buffer -> 
-                                    makeBuildViewer buffer container
-                f MainWindow
-                  { window
-                  , fileMenu
-                  , projectMenu
-                  , projectViewer
-                  , buildViewer
-                  }
+make :: (TextBufferClass buffer, MonadIO m)
+     => (MainWindow -> GuiEnvT proxy m' p buffer m a) 
+     -> GuiEnvT proxy m' p buffer m a
+make f = makeMainWindowWith $ \window -> 
+    makeVBoxWith window $ \vbox -> 
+        makeContainerWith vbox $ \container -> do
+            renderer <- makeRenderer
+            menuBar <- makeMainMenuBar vbox
+            
+            fileMenu <- makeFileMenu menuBar
+            projectMenu <- makeProjectMenu menuBar
+            projectViewer <- makeProjectViewer renderer 
+                                               renderProjectTreeElem
+                                               container
+            buildViewer <- makeBuildViewer container
+            f MainWindow
+              { window
+              , fileMenu
+              , projectMenu
+              , projectViewer
+              , buildViewer
+              }
 
-makeRenderer :: IO CellRendererText
-makeRenderer = cellRendererTextNew
+makeRenderer :: (MonadIO m) => GuiEnvT proxy m' p buffer m CellRendererText
+makeRenderer = liftIO cellRendererTextNew
 
-makeVBoxWith :: ContainerClass self => self -> (VBox -> IO b) -> IO b
+makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> GuiEnvT proxy m' p buffer m b) -> GuiEnvT proxy m' p buffer m b
 makeVBoxWith window f = do
-    vbox <- vBoxNew False 0
-    window `containerAdd` vbox
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ window `containerAdd` vbox
     f vbox
 
-makeContainerWith :: BoxClass self => self -> (Table -> IO b) -> IO b
+makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT proxy m' p buffer m b) -> GuiEnvT proxy m' p buffer m b
 makeContainerWith vbox f = do
-    container <- tableNew 2 3 False
-    boxPackEnd vbox container PackGrow 0
+    container <- liftIO $ tableNew 2 3 False
+    liftIO $ boxPackEnd vbox container PackGrow 0
     f container
 
-makeMainMenuBar :: BoxClass self => self -> IO MenuBar
+makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT proxy m' p buffer m MenuBar
 makeMainMenuBar vbox = do
-    menuBar <- menuBarNew
-    boxPackStart vbox menuBar PackNatural 0
+    menuBar <- liftIO $ menuBarNew
+    liftIO $ boxPackStart vbox menuBar PackNatural 0
     return menuBar
 
 data FileMenu
@@ -94,7 +95,7 @@ data FileMenu
     , saveProjectButton :: MenuItem
     }
 
-makeFileMenu :: MenuBar -> IO FileMenu
+makeFileMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p buffer m FileMenu
 makeFileMenu = makeFileMenuWith $ \fileMenu -> do
     newButton <- makeNewButton fileMenu
     openButton <- makeOpenButton fileMenu
@@ -109,22 +110,22 @@ makeFileMenu = makeFileMenuWith $ \fileMenu -> do
            , saveProjectButton
            }
 
-makeFileMenuWith :: (Menu -> IO b) -> MenuBar -> IO b
+makeFileMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p buffer m b) -> MenuBar -> GuiEnvT proxy m' p buffer m b
 makeFileMenuWith = makeMenuWith "File"
 
-makeNewButton :: Menu -> IO MenuItem
+makeNewButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
 makeNewButton = makeMenuButton "New Project"
 
-makeOpenButton :: Menu -> IO MenuItem
+makeOpenButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
 makeOpenButton = makeMenuButton "Open"
 
-makeDigestButton :: Menu -> IO MenuItem
+makeDigestButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
 makeDigestButton = makeMenuButton "Digest"
 
-makeSaveButton :: Menu -> IO MenuItem
+makeSaveButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
 makeSaveButton = makeMenuButton "Save"
 
-makeSaveProjectButton :: Menu -> IO MenuItem
+makeSaveProjectButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
 makeSaveProjectButton = makeMenuButton "Save Project"
 
  
@@ -134,7 +135,7 @@ data ProjectMenu
     , runButton :: MenuItem
     }
 
-makeProjectMenu :: MenuBar -> IO ProjectMenu
+makeProjectMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p buffer m ProjectMenu
 makeProjectMenu = makeProjectMenuWith $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
     runButton <- makeRunButton projectMenu
@@ -143,64 +144,57 @@ makeProjectMenu = makeProjectMenuWith $ \projectMenu -> do
            , runButton
            }
 
-makeProjectMenuWith :: (Menu -> IO b) -> MenuBar -> IO b
+makeProjectMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p buffer m b) -> MenuBar -> GuiEnvT proxy m' p buffer m b
 makeProjectMenuWith = makeMenuWith "Project"
 
-makeBuildButton :: MenuShellClass self => self -> IO MenuItem
-makeBuildButton projectMenu = do
-    buildButton <- menuItemNewWithLabel "Build"
-    menuShellAppend projectMenu buildButton
-    return buildButton
+makeBuildButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p buffer m MenuItem
+makeBuildButton = makeMenuButton "Build"
 
-makeRunButton :: MenuShellClass self => self -> IO MenuItem
-makeRunButton projectMenu = do
-    runButton <- menuItemNewWithLabel "Run"
-    menuShellAppend projectMenu runButton
-    return runButton
+makeRunButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p buffer m MenuItem
+makeRunButton = makeMenuButton "Run"
 
 data ProjectViewer
     = ProjectViewer
     { projectView :: TreeView
     , declView :: TextView
     }
-makeProjectViewer :: ( TreeModelClass (model row)
-                     , TextBufferClass buffer
+
+makeProjectViewer :: (MonadIO m
                      , TableClass self
                      , CellRendererClass cell
-                     , TypedTreeModelClass model
+                     , TextBufferClass buffer
                      ) 
-                  => model row
-                  -> buffer
-                  -> cell
-                  -> (row -> [AttrOp cell])
+                  => cell
+                  -> (ProjectTreeElem -> [AttrOp cell])
                   -> self
-                  -> IO ProjectViewer
-makeProjectViewer treeStore buffer renderer renderFunc container = do
-    projectView <- makeProjView treeStore renderer container renderFunc
-    declView <- makeDeclView buffer container
+                  -> GuiEnvT proxy m' p buffer m ProjectViewer
+makeProjectViewer renderer renderFunc container = do
+    projectView <- makeProjView renderer container renderFunc
+    declView <- makeDeclView container
     return ProjectViewer
            { projectView
            , declView
            }
-makeProjView :: ( TreeModelClass (model row)
+
+makeProjView :: ( MonadIO m
                 , TableClass self
                 , CellRendererClass cell
-                , TypedTreeModelClass model
+                , TextBufferClass buffer
                 ) 
-             => model row 
-             -> cell 
+             => cell 
              -> self 
-             -> (row -> [AttrOp cell]) 
-             -> IO TreeView
-makeProjView treeStore renderer container renderFunc = do
-    treeViewColumn <- treeViewColumnNew
-    projView <- treeViewNewWithModel treeStore
-    _ <- treeViewAppendColumn projView treeViewColumn
-    cellLayoutPackStart treeViewColumn renderer False
-    cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
-    scrollWindow <- scrolledWindowNew Nothing Nothing
-    scrollWindow `containerAdd` projView
-    tableAttach
+             -> (ProjectTreeElem -> [AttrOp cell]) 
+             -> GuiEnvT proxy m' p buffer m TreeView
+makeProjView renderer container renderFunc = do
+    treeViewColumn <- liftIO treeViewColumnNew
+    projView <- withGuiComponents $ flip withProjectTree $ liftIO . treeViewNewWithModel
+    _ <- liftIO $ treeViewAppendColumn projView treeViewColumn
+    liftIO $ cellLayoutPackStart treeViewColumn renderer False
+    withGuiComponents $ flip withProjectTree $ \treeStore -> 
+        liftIO $ cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
+    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
+    liftIO $ scrollWindow `containerAdd` projView
+    liftIO $ tableAttach
         container
         scrollWindow
         0 1
@@ -210,16 +204,19 @@ makeProjView treeStore renderer container renderFunc = do
 --        [Expand] [Expand] 0 0
     return projView
 
-makeDeclView :: (TextBufferClass buffer, TableClass self) 
-             => buffer -> self -> IO TextView
-makeDeclView buffer container = do
-    declView <- textViewNewWithBuffer buffer
-    monospace <- fontDescriptionNew
-    monospace `fontDescriptionSetFamily` "monospace"
-    declView `widgetModifyFont` Just monospace
-    scrollWindow <- scrolledWindowNew Nothing Nothing
-    scrollWindow `containerAdd` declView
-    tableAttach
+makeDeclView :: ( MonadIO m
+                , TableClass self
+                , TextBufferClass buffer
+                ) 
+             => self -> GuiEnvT proxy m' p buffer m TextView
+makeDeclView container = do
+    declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . textViewNewWithBuffer
+    monospace <- liftIO fontDescriptionNew
+    liftIO $ monospace `fontDescriptionSetFamily` "monospace"
+    liftIO $ declView `widgetModifyFont` Just monospace
+    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
+    liftIO $ scrollWindow `containerAdd` declView
+    liftIO $ tableAttach
         container
         scrollWindow
         1 2
@@ -234,19 +231,25 @@ data BuildViewer
     { buildView :: TextView
     }
 
-makeBuildViewer :: (TextBufferClass buffer, TableClass self) 
-                => buffer -> self -> IO BuildViewer
-makeBuildViewer buffer container = do
-    buildView <- makeBuildView buffer container
+makeBuildViewer :: ( MonadIO m
+                   , TextBufferClass buffer
+                   , TableClass self
+                   ) 
+                => self -> GuiEnvT proxy m' p buffer m BuildViewer
+makeBuildViewer container = do
+    buildView <- makeBuildView container
     return BuildViewer
            { buildView
            }
 
-makeBuildView :: (TextBufferClass buffer, TableClass self) 
-              => buffer -> self -> IO TextView
-makeBuildView buffer container = do
-    buildView <- textViewNewWithBuffer buffer
-    tableAttach
+makeBuildView :: ( MonadIO m
+                 , TextBufferClass buffer
+                 , TableClass self
+                 ) 
+              => self -> GuiEnvT proxy m' p buffer m TextView
+makeBuildView container = do
+    buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
+    liftIO $ tableAttach
         container
         buildView
         0 2
@@ -256,65 +259,93 @@ makeBuildView buffer container = do
 --        [Expand] [Expand] 0 0
     return buildView
 
-makeMainWindowWith :: (Window -> IO a) -> IO a
+makeMainWindowWith :: (MonadIO m) => (Window -> GuiEnvT proxy m' p buffer m a) -> GuiEnvT proxy m' p buffer m a
 makeMainWindowWith f = do
-    _ <- initGUI
-    window <- windowNew
+    window <- liftIO $ do
+        _ <- initGUI
+        windowNew
     r <- f window
-    widgetShowAll window
-    putStrLn "Starting"
-    mainGUI
+    liftIO $ do
+        widgetShowAll window
+        mainGUI
     return r
 
 
-type MainWindowSignal = GuiSignal MainWindow
+type MainWindowSignal proxy m' p buffer m object m'' a
+    = GuiEnvSignal proxy m' p buffer m MainWindow object m'' a
 
-mkFileMenuSignal :: (FileMenu -> object)
-                 -> Signal object handler 
-                 -> MainWindowSignal object handler
-mkFileMenuSignal obj event = (obj . fileMenu) `mkGuiSignal` event
+type MainWindowSignal2 proxy m' p buffer m object f m'' a
+    = GuiEnvSignal2 proxy m' p buffer m MainWindow object f m'' a
 
-mkProjectMenuSignal :: (ProjectMenu -> object)
-                    -> Signal object handler 
-                    -> MainWindowSignal object handler
-mkProjectMenuSignal obj event = (obj . projectMenu) `mkGuiSignal` event
+mkFileMenuSignal :: (Monad m, MonadIO m'')
+                 => (FileMenu -> object)
+                 -> Signal object (m'' a)
+                 -> MainWindowSignal proxy m' p buffer m object m'' a
+mkFileMenuSignal = mkGuiEnvSignalFor fileMenu
 
-mkProjectViewerSignal :: (ProjectViewer -> object)
-                      -> Signal object handler 
-                      -> MainWindowSignal object handler
-mkProjectViewerSignal obj event = (obj . projectViewer) `mkGuiSignal` event
+mkProjectMenuSignal :: (Monad m, MonadIO m'')
+                 => (ProjectMenu -> object)
+                 -> Signal object (m'' a)
+                 -> MainWindowSignal proxy m' p buffer m object m'' a
+mkProjectMenuSignal = mkGuiEnvSignalFor projectMenu
 
-newClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+mkProjectViewerSignal :: (Monad m, MonadIO m'')
+                 => (ProjectViewer -> object)
+                 -> Signal object (m'' a)
+                 -> MainWindowSignal proxy m' p buffer m object m'' a
+mkProjectViewerSignal = mkGuiEnvSignalFor projectViewer
+
+mkProjectViewerSignal2 :: (Monad m, MonadIO m'', Functor f)
+                 => (ProjectViewer -> object)
+                 -> Signal object (f (m'' a))
+                 -> MainWindowSignal2 proxy m' p buffer m object f m'' a
+mkProjectViewerSignal2 = mkGuiEnvSignal2For projectViewer
+
+newClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 newClickedEvent = newButton `mkFileMenuSignal` buttonPressEvent
 
-openClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+
+openClickedEvent :: (Monad m) 
+                 => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 openClickedEvent = openButton `mkFileMenuSignal` buttonPressEvent
 
-digestClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+digestClickedEvent :: (Monad m) 
+                   => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 digestClickedEvent = digestButton `mkFileMenuSignal` buttonPressEvent
 
-saveClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+saveClickedEvent :: (Monad m) 
+                 => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 saveClickedEvent = saveButton `mkFileMenuSignal` buttonPressEvent
 
-saveProjectClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+saveProjectClickedEvent :: (Monad m) 
+                        => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 saveProjectClickedEvent = saveProjectButton `mkFileMenuSignal` buttonPressEvent
 
-buildClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+buildClickedEvent :: (Monad m) 
+                  => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 buildClickedEvent = buildButton `mkProjectMenuSignal` buttonPressEvent
 
-runClickedEvent :: MainWindowSignal MenuItem (EventM EButton Bool)
+runClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 runClickedEvent = runButton `mkProjectMenuSignal` buttonPressEvent
 
-declClickedEvent :: MainWindowSignal TreeView (TreePath -> TreeViewColumn -> IO ())
-declClickedEvent = projectView `mkProjectViewerSignal` rowActivated
+declClickedEvent :: (Monad m) 
+                 => MainWindowSignal2 proxy m' p buffer m TreeView 
+                          (Compose ((->) TreePath) ((->) TreeViewColumn)) IO ()
+declClickedEvent = projectView `mkProjectViewerSignal2` (editSignal rowActivated getCompose)
 
-declViewClickedEvent :: MainWindowSignal TreeView (EventM EButton Bool)
+declViewClickedEvent :: (Monad m) 
+                     => MainWindowSignal proxy m' p buffer m TreeView (EventM EButton) Bool
 declViewClickedEvent = projectView `mkProjectViewerSignal` buttonPressEvent
 
-windowClosedEvent :: MainWindowSignal Window (EventM EAny Bool)
-windowClosedEvent = window `mkGuiSignal` deleteEvent
+windowClosedEvent :: (Monad m) 
+                  => MainWindowSignal proxy m' p buffer m Window (EventM EAny) Bool
+windowClosedEvent = window `mkGuiEnvSignal` deleteEvent
 
-getProjectPathClicked :: Point
+getProjectPathClicked :: (MonadIO m)
+                      => Point
                       -> MainWindow 
-                      -> IO (Maybe (TreePath, TreeViewColumn, Point))
-getProjectPathClicked p = flip treeViewGetPathAtPos p . projectView . projectViewer 
+                      -> m (Maybe (TreePath, TreeViewColumn, Point))
+getProjectPathClicked p = liftIO . flip treeViewGetPathAtPos p . projectView . projectViewer 
+
