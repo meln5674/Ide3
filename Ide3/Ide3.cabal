@@ -42,6 +42,7 @@ executable Ide3-GUI
   main-is:             Main.hs
   other-modules:       ProjectTree
                      , GuiCommand
+                     , GuiCommand.Internal
                      , Dialogs.MainWindow
                      , Dialogs.NewProjectDialog
                      , Dialogs.NewModuleDialog

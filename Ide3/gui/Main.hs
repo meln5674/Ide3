@@ -323,16 +323,17 @@ onEditImportClicked mi ii = do
             return False
 
 
-setupModuleContextMenu :: forall proxy m p buffer
+setupModuleContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
                  , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , MonadIO m'
                  ) 
                  => ModuleInfo
-                 -> GuiEnvT proxy m p buffer IO ContextMenu
-setupModuleContextMenu mi = do
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupModuleContextMenu mi = mapGuiEnv liftIO $ do
     menu <- ProjectContextMenu.makeModuleMenu mi
     menu `onGuiM` ProjectContextMenu.newSubModuleClickedEvent $ do
         onNewModuleClicked $ case mi of
@@ -344,15 +345,16 @@ setupModuleContextMenu mi = do
     return menu
 
 
-setupProjectContextMenu :: forall proxy m p buffer
+setupProjectContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
                  , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , MonadIO m'
                  ) 
-                 => GuiEnvT proxy m p buffer IO ContextMenu
-setupProjectContextMenu = do
+                 => GuiEnvT proxy m p buffer m' ContextMenu
+setupProjectContextMenu = mapGuiEnv liftIO $ do
     menu <- ProjectContextMenu.makeProjectMenu
     menu `onGuiM` ProjectContextMenu.newModuleClickedEvent $ do
         onNewModuleClicked Nothing
@@ -375,11 +377,11 @@ onDeclViewClicked gui = do
         let (x',y') = (round x, round y)
         pathClicked <- MainWindow.getProjectPathClicked (x',y') gui
         menu <- case pathClicked of
-            Nothing -> mapGuiEnv liftIO $ setupProjectContextMenu
+            Nothing -> setupProjectContextMenu
             Just (path, col, p) -> withGuiComponents $ \comp -> do
                 item <- withProjectTree comp $ liftIO . findAtPath path
                 case item of
-                    ModuleResult mi -> mapGuiEnv liftIO $ setupModuleContextMenu mi
+                    ModuleResult mi -> setupModuleContextMenu mi
                     DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
                     ImportsResult mi -> do
                         menu <- ProjectContextMenu.makeImportsMenu mi
@@ -396,7 +398,7 @@ onDeclViewClicked gui = do
                             return False
                         return menu
                     ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
-                    NoSearchResult -> mapGuiEnv liftIO $ setupProjectContextMenu
+                    NoSearchResult -> setupProjectContextMenu
         lift $ ProjectContextMenu.showMenu menu
     return False    
 

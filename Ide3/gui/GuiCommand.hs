@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, PolyKinds #-}
+{-# LANGUAGE PolyKinds, ConstraintKinds #-}
 module GuiCommand where
 
 import System.Directory
@@ -29,10 +29,9 @@ import GuiEnv
 import GuiMonad
 import ProjectTree
 
-type UserError = ()
+import qualified GuiCommand.Internal as Internal
+import GuiCommand.Internal (UserError, DialogOnErrorArg, GuiCommand )
 
-type DialogOnErrorArg proxy m p buffer a
-    = GuiEnvT proxy m p buffer (ProjectResult (ViewerStateT m) UserError) a
 
 dialogOnError :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
               => a
@@ -55,272 +54,96 @@ dialogOnError default_ f = do
                 widgetDestroy dialog
                 return default_
                 
-doError :: forall proxy m buffer p 
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          )
+doError :: ( GuiCommand m p buffer )
         => ProjectError UserError
         -> GuiEnvT proxy m p buffer IO ()
-doError e = dialogOnError () $
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
-        lift $ throwE e
+doError e = dialogOnError () $ Internal.doError e
 
-doNew :: forall proxy m buffer p 
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          )
-       => Maybe FilePath
-       -> String
-       -> Maybe String
-       -> GuiEnvT proxy m p buffer IO ()
-doNew maybeProjectRoot projectName templateName = dialogOnError () $ 
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
-        case maybeProjectRoot of
-            Nothing -> lift $ throwE $ InvalidOperation "Please choose a directory" ""
-            Just projectRoot -> do
-                lift $ do
-                    wrapIOError $ setCurrentDirectory projectRoot
-                    createNewFile $ projectName ++ ".proj"
-                r <- lift 
-                        $ ExceptT 
-                        $ lift 
-                        $ runExceptT 
-                        $ runInitializer stackInitializer 
-                                        (StackInitializerArgs projectName templateName)
-                case r of
-                    InitializerSucceeded{} -> do
-                        withGuiComponents $ lift . flip withProjectTree populateTree
-                        lift $ saveProject Nothing
-                    InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
+doNew :: ( GuiCommand m p buffer )
+      => Maybe FilePath
+      -> String
+      -> Maybe String
+      -> GuiEnvT proxy m p buffer IO ()
+doNew maybeProjectRoot projectName templateName 
+    = dialogOnError () $ Internal.doNew maybeProjectRoot projectName templateName 
 
-doOpen :: forall proxy m buffer p 
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          )
+doOpen :: ( GuiCommand m p buffer )
        => FilePath
        -> GuiEnvT proxy m p buffer IO ()
-doOpen path = dialogOnError () $ 
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        lift $ openProject path
-        withGuiComponents $ lift . flip withProjectTree populateTree
+doOpen path = dialogOnError () $ Internal.doOpen path
 
-doGetDecl :: forall proxy m buffer p 
-          . ( MonadIO m
-            , ViewerMonad m
-            , TextBufferClass buffer
-            , InteruptMonad2 p m
-            )
+doGetDecl :: ( GuiCommand m p buffer )
           => TreePath
           -> TreeViewColumn 
           -> GuiEnvT proxy m p buffer IO ()
-doGetDecl path _ = dialogOnError () $ 
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ 
-        withGuiComponents $ \comp -> do
-            index <- lift $ wrapIOError $ withProjectTree comp $ findAtPath path
-            case index of
-                DeclResult mi di -> do
-                        decl <- lift $ getDeclaration mi di
-                        let text = body decl
-                        lift $ wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
-                        lift $ lift $ setCurrentDecl mi di
-                _ -> return ()
+doGetDecl path col = dialogOnError () $ Internal.doGetDecl path col
 
-doBuild :: forall proxy m buffer p 
-         . ( MonadIO m
-           , ViewerMonad m
-           , TextBufferClass buffer
-           , InteruptMonad2 p m
+doBuild :: ( GuiCommand m p buffer
            , MonadMask m
            )
-         => GuiEnvT proxy m p buffer IO ()
-doBuild = dialogOnError () $ 
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ 
-        withGuiComponents $ \comp -> lift $ do
-            prepareBuild
-            r <- ExceptT $ lift $ runExceptT $ runBuilder stackBuilder
-            let text = case r of
-                    BuildSucceeded out err -> out ++ err
-                    BuildFailed out err -> out ++ err
-            wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+        => GuiEnvT proxy m p buffer IO ()
+doBuild = dialogOnError () $ Internal.doBuild
 
-doRun :: forall proxy m buffer p
-       . ( MonadIO m
-         , ViewerMonad m
-         , TextBufferClass buffer
-         , InteruptMonad2 p m
+doRun :: ( GuiCommand m p buffer
          , MonadMask m
          )
       => GuiEnvT proxy m p buffer IO ()
-doRun = dialogOnError () $
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
-        withGuiComponents $ \comp -> lift $ do
-            r <- ExceptT $ lift $ runExceptT $ runRunner stackRunner
-            let text = case r of
-                    RunSucceeded out err -> out ++ err
-                    RunFailed out err -> out ++ err
-            wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+doRun = dialogOnError () $ Internal.doRun
 
 
-doSave :: forall proxy m buffer p 
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
+doSave :: ( GuiCommand m p buffer
           , MonadMask m
           )
         => GuiEnvT proxy m p buffer IO ()
-doSave = dialogOnError () $ 
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
-        withGuiComponents $ \comp -> lift $ do
-            m <- lift $ gets currentModule
-            d <- lift $ gets currentDecl
-            case (m,d) of
-                (Just mi, Just di) -> do
-                    text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
-                        start <- textBufferGetStartIter buffer
-                        end <- textBufferGetEndIter buffer
-                        textBufferGetText buffer start end False
-                    
-                    editDeclaration mi di (\_ -> Declaration.parseAndCombine text Nothing)
-                    withProjectTree comp populateTree
-                    saveProject Nothing
-                _ -> return ()
+doSave = dialogOnError () $ Internal.doSave
                 
 
-doSaveProject :: forall proxy m buffer p 
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          , MonadMask m
-          )
+doSaveProject :: ( GuiCommand m p buffer
+                 , MonadMask m
+                 )
               => Maybe FilePath
               -> GuiEnvT proxy m p buffer IO ()
-doSaveProject path = dialogOnError () $
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $
-        lift $ saveProject path
+doSaveProject path = dialogOnError () $ Internal.doSaveProject path
 
-doAddModule :: forall proxy m buffer p
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          , MonadMask m
-          )
-              => ModuleInfo
-              -> GuiEnvT proxy m p buffer IO ()
-doAddModule mi = dialogOnError () $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        lift $ createModule mi
-        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+doAddModule :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> GuiEnvT proxy m p buffer IO ()
+doAddModule mi = dialogOnError () $ Internal.doAddModule mi
 
-doRemoveModule :: forall proxy m buffer p
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          , MonadMask m
-          )
-              => ModuleInfo
-              -> GuiEnvT proxy m p buffer IO ()
-doRemoveModule mi = dialogOnError () $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        lift $ removeModule mi
-        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+doRemoveModule :: ( GuiCommand m p buffer )
+               => ModuleInfo
+               -> GuiEnvT proxy m p buffer IO ()
+doRemoveModule mi = dialogOnError () $ Internal.doRemoveModule mi
 
 
-doAddDeclaration :: forall proxy m buffer p
-        . ( MonadIO m
-          , ViewerMonad m
-          , TextBufferClass buffer
-          , InteruptMonad2 p m
-          , MonadMask m
-          )
-              => ModuleInfo
-              -> DeclarationInfo
-              -> GuiEnvT proxy m p buffer IO ()
-doAddDeclaration mi di = dialogOnError () $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        let newdecl = WithBody (UnparseableDeclaration di) ""
-        lift $ addDeclaration mi newdecl
-        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+doAddDeclaration :: ( GuiCommand m p buffer )
+                 => ModuleInfo
+                 -> DeclarationInfo
+                 -> GuiEnvT proxy m p buffer IO ()
+doAddDeclaration mi di = dialogOnError () $ Internal.doAddDeclaration mi di
 
-doAddImport :: forall proxy m buffer p
-            . ( MonadIO m
-              , ViewerMonad m
-              , TextBufferClass buffer
-              , InteruptMonad2 p m
-              , MonadMask m
-              )
+doAddImport :: ( GuiCommand m p buffer )
             => ModuleInfo
             -> String
             -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doAddImport mi importStr = dialogOnError Nothing $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        case Import.parse importStr of
-            Right newImport -> do
-                lift $ addImport mi (WithBody newImport importStr)
-                withGuiComponents $ lift . flip withProjectTree populateTree
-                return Nothing
-            Left parseError -> case parseError of
-                err@ParseError{} -> return $ Just err
-                err -> lift $ throwE err
+doAddImport mi importStr = dialogOnError Nothing $ Internal.doAddImport mi importStr
 
-doRemoveImport :: forall proxy m buffer p
-            . ( MonadIO m
-              , ViewerMonad m
-              , TextBufferClass buffer
-              , InteruptMonad2 p m
-              , MonadMask m
-              )
+doRemoveImport :: ( GuiCommand m p buffer )
                => ModuleInfo
                -> ImportId
                -> GuiEnvT proxy m p buffer IO ()
-doRemoveImport mi ii = dialogOnError () $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        lift $ removeImport mi ii
-        withGuiComponents $ lift . flip withProjectTree populateTree        
+doRemoveImport mi ii = dialogOnError () $ Internal.doRemoveImport mi ii
 
 
-doGetImport :: forall proxy m buffer p
-              . ( MonadIO m
-                , ViewerMonad m
-                , TextBufferClass buffer
-                , InteruptMonad2 p m
-                , MonadMask m
-                )
-             => ModuleInfo
-             -> ImportId
-             -> GuiEnvT proxy m p buffer IO (Maybe String)
-doGetImport mi ii = dialogOnError Nothing $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
-        (WithBody _ b) <- lift $ getImport mi ii
-        return $ Just b
+doGetImport :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> ImportId
+            -> GuiEnvT proxy m p buffer IO (Maybe String)
+doGetImport mi ii = dialogOnError Nothing $ Internal.doGetImport mi ii
 
-doEditImport :: forall proxy m buffer p
-              . ( MonadIO m
-                , ViewerMonad m
-                , TextBufferClass buffer
-                , InteruptMonad2 p m
-                , MonadMask m
-                )
+doEditImport :: ( GuiCommand m p buffer )
              => ModuleInfo
              -> ImportId
              -> String
              -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doEditImport mi ii importStr = dialogOnError Nothing $ do
-    case Import.parse importStr of
-        Right newImport -> do
-            lift $ removeImport mi ii
-            lift $ addImport mi (WithBody newImport importStr)
-            withGuiComponents $ lift . flip withProjectTree populateTree
-            return Nothing
-        Left parseError -> case parseError of
-            err@ParseError{} -> return $ Just err
-            err -> lift $ throwE err
+doEditImport mi ii importStr = dialogOnError Nothing $ Internal.doEditImport mi ii importStr
