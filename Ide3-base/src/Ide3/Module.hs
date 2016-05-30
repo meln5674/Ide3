@@ -312,7 +312,8 @@ editDeclaration :: Module
 editDeclaration m@(Module i ps is es ds) di f = do
     (ModuleChild _ (WithBody d _)) <- getDeclaration m di
     d' <- f d
-    let ds' = Map.insert di d' ds
+    let ds' = Map.insert (Declaration.info $ item d') d'
+            $ Map.delete di ds
     return $ Module i ps is es ds'
 
 -- |Same as 'editDeclaration', but the transformation is garunteed to suceed
