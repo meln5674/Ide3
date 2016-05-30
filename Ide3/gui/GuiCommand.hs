@@ -187,6 +187,7 @@ doSave = dialogOnError () $
                         textBufferGetText buffer start end False
                     
                     editDeclaration mi di (\_ -> Declaration.parseAndCombine text Nothing)
+                    withProjectTree comp populateTree
                     saveProject Nothing
                 _ -> return ()
                 
@@ -244,7 +245,7 @@ doAddDeclaration :: forall proxy m buffer p
               -> DeclarationInfo
               -> GuiEnvT proxy m p buffer IO ()
 doAddDeclaration mi di = dialogOnError () $ do
-    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ lift $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
         let newdecl = WithBody (UnparseableDeclaration di) ""
-        addDeclaration mi newdecl
-    
+        lift $ addDeclaration mi newdecl
+        withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree

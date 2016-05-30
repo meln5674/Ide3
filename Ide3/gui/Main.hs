@@ -277,6 +277,9 @@ setupModuleContextMenu mi = do
         onNewModuleClicked $ case mi of
             mi@(ModuleInfo (Symbol prefix)) -> (Just prefix)
             mi -> Nothing
+    menu `onGuiM` ProjectContextMenu.newDeclClickedEvent $ do
+        mapGuiEnv liftIO $ doAddDeclaration mi (DeclarationInfo (Symbol "New Declaration"))
+        return False
     return menu
 
 
