@@ -20,6 +20,33 @@ import Graphics.UI.Gtk
 import GuiEnv
 import GuiHelpers
 
+import Dialogs.GenericNewDialog ( GenericNewDialog, GenericNewDialogSignal, NewDialog )
+import qualified Dialogs.GenericNewDialog as Generic
+
+newtype NewModuleDialog = NewModuleDialog { getGenericDialog :: GenericNewDialog }
+
+instance NewDialog NewModuleDialog where
+    getGenericDialog = Dialogs.NewModuleDialog.getGenericDialog
+
+make :: (MonadIO m) => Maybe String -> (NewModuleDialog -> m a) -> m a
+make = Generic.make NewModuleDialog "New Module Name" 
+
+close :: (MonadIO m) => NewModuleDialog -> m ()
+close = Generic.close
+
+type NewModuleDialogSignal proxy m' p buffer m object m'' a
+    = GenericNewDialogSignal proxy m' p buffer m NewModuleDialog object m'' a
+
+getModuleName :: (MonadIO m) => NewModuleDialog -> m String
+getModuleName = Generic.getEnteredText
+
+confirmClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+confirmClickedEvent = Generic.confirmClickedEvent
+
+cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+cancelClickedEvent = Generic.cancelClickedEvent
+
+{-
 data NewModuleDialog
     = NewModuleDialog
     { window :: Window
@@ -94,4 +121,4 @@ confirmClickedEvent = confirmButton `mkGuiEnvSignal` buttonPressEvent
 
 cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
 cancelClickedEvent = cancelButton `mkGuiEnvSignal` buttonPressEvent
-
+-}
