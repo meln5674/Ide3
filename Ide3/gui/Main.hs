@@ -46,11 +46,13 @@ import GuiHelpers
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewProjectDialog (NewProjectDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
+import Dialogs.NewImportDialog (NewImportDialog)
 import ProjectContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
 import qualified Dialogs.NewModuleDialog as NewModuleDialog
+import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified ProjectContextMenu
 
 import PseudoState
@@ -262,6 +264,33 @@ onNewModuleClicked modName = do
             return False
     return False
 
+onNewImportClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => ModuleInfo
+              -> GuiEnvT proxy m p buffer (EventM EButton) Bool
+onNewImportClicked mi = do
+    NewImportDialog.makeNew $ \dialog -> do
+        dialog `onGuiM` NewImportDialog.confirmClickedEvent $ do
+            import_ <- NewImportDialog.getImport dialog
+            case import_ of
+                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an import" ""
+                import_ -> do
+                    maybeError <- mapGuiEnv liftIO $ doAddImport mi import_
+                    case maybeError of
+                        Just err -> mapGuiEnv liftIO $ doError err
+                        Nothing -> NewImportDialog.close dialog
+            return False
+        dialog `onGuiM` NewImportDialog.cancelClickedEvent $ do
+            NewImportDialog.close dialog
+            return False
+    return False
+
+
 setupModuleContextMenu :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
@@ -320,7 +349,10 @@ onDeclViewClicked gui = do
                 case item of
                     ModuleResult mi -> mapGuiEnv liftIO $ setupModuleContextMenu mi
                     DeclResult mi di -> ProjectContextMenu.makeDeclMenu mi di
-                    ImportsResult mi -> ProjectContextMenu.makeImportsMenu mi
+                    ImportsResult mi -> do
+                        menu <- ProjectContextMenu.makeImportsMenu mi
+                        menu `onGuiM` ProjectContextMenu.newImportClickedEvent $ onNewImportClicked mi
+                        return menu
                     ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
                     ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
                     ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei

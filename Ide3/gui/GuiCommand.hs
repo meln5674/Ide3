@@ -16,6 +16,7 @@ import Ide3.Utils
 import Ide3.Monad
 
 import qualified Ide3.Declaration as Declaration
+import qualified Ide3.Import as Import
 
 import Builder
 import Initializer
@@ -249,3 +250,24 @@ doAddDeclaration mi di = dialogOnError () $ do
         let newdecl = WithBody (UnparseableDeclaration di) ""
         lift $ addDeclaration mi newdecl
         withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+
+doAddImport :: forall proxy m buffer p u
+            . ( MonadIO m
+              , ViewerMonad m
+              , TextBufferClass buffer
+              , InteruptMonad2 p m
+              , MonadMask m
+              )
+            => ModuleInfo
+            -> String
+            -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
+doAddImport mi importStr = dialogOnError Nothing $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        case Import.parse importStr of
+            Right newImport -> do
+                lift $ addImport mi (WithBody newImport importStr)
+                withGuiComponents $ lift . flip withProjectTree populateTree
+                return Nothing
+            Left parseError -> case parseError of
+                err@ParseError{} -> return $ Just err
+                err -> lift $ throwE err
