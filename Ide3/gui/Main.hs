@@ -291,6 +291,38 @@ onNewImportClicked mi = do
     return False
 
 
+onEditImportClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => ModuleInfo
+              -> ImportId
+              -> GuiEnvT proxy m p buffer (EventM EButton) Bool
+onEditImportClicked mi ii = do
+    getResult <- mapGuiEnv liftIO $ doGetImport mi ii
+    case getResult of
+        Nothing -> return False
+        Just importStr -> do
+            NewImportDialog.makeEdit importStr $ \dialog -> do
+                dialog `onGuiM` NewImportDialog.confirmClickedEvent $ do
+                    import_ <- NewImportDialog.getImport dialog
+                    case import_ of
+                        "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an import" ""
+                        import_ -> do
+                            maybeError <- mapGuiEnv liftIO $ doEditImport mi ii import_
+                            case maybeError of
+                                Just err -> mapGuiEnv liftIO $ doError err
+                                Nothing -> NewImportDialog.close dialog
+                    return False
+                dialog `onGuiM` NewImportDialog.cancelClickedEvent $ do
+                    NewImportDialog.close dialog
+                    return False
+            return False
+
+
 setupModuleContextMenu :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
@@ -354,7 +386,15 @@ onDeclViewClicked gui = do
                         menu `onGuiM` ProjectContextMenu.newImportClickedEvent $ onNewImportClicked mi
                         return menu
                     ExportsResult mi -> ProjectContextMenu.makeExportsMenu mi
-                    ImportResult mi ii -> ProjectContextMenu.makeImportMenu mi ii
+                    ImportResult mi ii -> do
+                        menu <- ProjectContextMenu.makeImportMenu mi ii
+                        menu `onGuiM` ProjectContextMenu.deleteImportClickedEvent $ mapGuiEnv liftIO $ do
+                            doRemoveImport mi ii
+                            return False
+                        menu `onGuiM` ProjectContextMenu.editImportClickedEvent $ do
+                            onEditImportClicked mi ii
+                            return False
+                        return menu
                     ExportResult mi ei -> ProjectContextMenu.makeExportMenu mi ei
                     NoSearchResult -> mapGuiEnv liftIO $ setupProjectContextMenu
         lift $ ProjectContextMenu.showMenu menu

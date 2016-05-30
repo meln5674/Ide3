@@ -54,7 +54,7 @@ dialogOnError default_ f = do
                 _ <- dialogRun dialog
                 widgetDestroy dialog
                 return default_
-
+                
 doError :: forall proxy m buffer p 
         . ( MonadIO m
           , ViewerMonad m
@@ -251,7 +251,7 @@ doAddDeclaration mi di = dialogOnError () $ do
         lift $ addDeclaration mi newdecl
         withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
 
-doAddImport :: forall proxy m buffer p u
+doAddImport :: forall proxy m buffer p
             . ( MonadIO m
               , ViewerMonad m
               , TextBufferClass buffer
@@ -271,3 +271,56 @@ doAddImport mi importStr = dialogOnError Nothing $ do
             Left parseError -> case parseError of
                 err@ParseError{} -> return $ Just err
                 err -> lift $ throwE err
+
+doRemoveImport :: forall proxy m buffer p
+            . ( MonadIO m
+              , ViewerMonad m
+              , TextBufferClass buffer
+              , InteruptMonad2 p m
+              , MonadMask m
+              )
+               => ModuleInfo
+               -> ImportId
+               -> GuiEnvT proxy m p buffer IO ()
+doRemoveImport mi ii = dialogOnError () $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        lift $ removeImport mi ii
+        withGuiComponents $ lift . flip withProjectTree populateTree        
+
+
+doGetImport :: forall proxy m buffer p
+              . ( MonadIO m
+                , ViewerMonad m
+                , TextBufferClass buffer
+                , InteruptMonad2 p m
+                , MonadMask m
+                )
+             => ModuleInfo
+             -> ImportId
+             -> GuiEnvT proxy m p buffer IO (Maybe String)
+doGetImport mi ii = dialogOnError Nothing $ do
+    flip asTypeOf (undefined :: DialogOnErrorArg proxy m p buffer a) $ do
+        (WithBody _ b) <- lift $ getImport mi ii
+        return $ Just b
+
+doEditImport :: forall proxy m buffer p
+              . ( MonadIO m
+                , ViewerMonad m
+                , TextBufferClass buffer
+                , InteruptMonad2 p m
+                , MonadMask m
+                )
+             => ModuleInfo
+             -> ImportId
+             -> String
+             -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
+doEditImport mi ii importStr = dialogOnError Nothing $ do
+    case Import.parse importStr of
+        Right newImport -> do
+            lift $ removeImport mi ii
+            lift $ addImport mi (WithBody newImport importStr)
+            withGuiComponents $ lift . flip withProjectTree populateTree
+            return Nothing
+        Left parseError -> case parseError of
+            err@ParseError{} -> return $ Just err
+            err -> lift $ throwE err

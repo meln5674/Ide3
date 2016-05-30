@@ -80,15 +80,20 @@ findAtPath path treeStore = do
     let parentPath = case path of
             [] -> []
             _ -> init path
+        grandparentPath = case path of
+            [] -> []
+            [x] -> [x]
+            _ -> init $ init path
     node <- treeStoreGetValue treeStore path
     parentNode <- treeStoreGetValue treeStore parentPath
-    case (node, parentNode) of
-        (ModuleElem mi,_) -> return $ ModuleResult mi
-        (DeclElem di,ModuleElem mi) -> return $ DeclResult mi di
-        (ImportsElem,ModuleElem mi) -> return $ ImportsResult mi
-        (ExportsElem,ModuleElem mi) -> return $ ExportsResult mi
-        (ImportElem ii _,ModuleElem mi) -> return $ ImportResult mi ii
-        (ExportElem ei _,ModuleElem mi) -> return $ ExportResult mi ei
+    grandparentNode <- treeStoreGetValue treeStore grandparentPath
+    case (node, parentNode,grandparentNode) of
+        (ModuleElem mi,_,_) -> return $ ModuleResult mi
+        (DeclElem di,ModuleElem mi,_) -> return $ DeclResult mi di
+        (ImportsElem,ModuleElem mi,_) -> return $ ImportsResult mi
+        (ExportsElem,ModuleElem mi,_) -> return $ ExportsResult mi
+        (ImportElem ii _,_,ModuleElem mi) -> return $ ImportResult mi ii
+        (ExportElem ei _,_,ModuleElem mi) -> return $ ExportResult mi ei
         _ -> return NoSearchResult
 
 {-
