@@ -216,6 +216,12 @@ renameModuleClickedEvent = renameModuleButton `mkMenuSignal` buttonPressEvent
 deleteModuleClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 deleteModuleClickedEvent = deleteModuleButton `mkMenuSignal` buttonPressEvent
 
+exportDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
+exportDeclarationClickedEvent = exportDeclarationButton `mkMenuSignal` buttonPressEvent
+
+unExportDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
+unExportDeclarationClickedEvent = unExportDeclarationButton `mkMenuSignal` buttonPressEvent
+
 moveDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
 moveDeclarationClickedEvent = moveDeclarationButton `mkMenuSignal` buttonPressEvent
 

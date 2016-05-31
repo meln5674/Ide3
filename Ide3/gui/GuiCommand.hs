@@ -123,11 +123,16 @@ doAddDeclaration :: ( GuiCommand m p buffer )
 doAddDeclaration mi di = dialogOnError () $ Internal.doAddDeclaration mi di
 
 doRemoveDeclaration :: ( GuiCommand m p buffer )
-                 => ModuleInfo
-                 -> DeclarationInfo
-                 -> GuiEnvT proxy m p buffer IO ()
+                    => ModuleInfo
+                    -> DeclarationInfo
+                    -> GuiEnvT proxy m p buffer IO ()
 doRemoveDeclaration mi di = dialogOnError () $ Internal.doRemoveDeclaration mi di
 
+doUnExportDeclaration :: ( GuiCommand m p buffer )
+                      => ModuleInfo
+                      -> DeclarationInfo
+                      -> GuiEnvT proxy m p buffer IO ()
+doUnExportDeclaration mi di = dialogOnError () $ Internal.doUnExportDeclaration mi di
 
 doAddImport :: ( GuiCommand m p buffer )
             => ModuleInfo
@@ -140,7 +145,6 @@ doRemoveImport :: ( GuiCommand m p buffer )
                -> ImportId
                -> GuiEnvT proxy m p buffer IO ()
 doRemoveImport mi ii = dialogOnError () $ Internal.doRemoveImport mi ii
-
 
 doGetImport :: ( GuiCommand m p buffer )
             => ModuleInfo

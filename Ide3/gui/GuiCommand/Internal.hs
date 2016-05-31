@@ -7,6 +7,7 @@ import Graphics.UI.Gtk
 
 import Control.Monad.Catch
 
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict (gets)
@@ -176,6 +177,33 @@ doRemoveDeclaration mi di = do
     lift $ removeDeclaration mi di
     withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
 
+doUnExportDeclaration :: ( GuiCommand m p buffer )
+                    => ModuleInfo
+                    -> DeclarationInfo
+                    -> DialogOnErrorArg proxy m p buffer ()
+doUnExportDeclaration mi (DeclarationInfo sym) = do
+    matches <- lift $ do
+        es <- do
+            m <- getModule mi
+            maybeEis <- getExports mi
+            case maybeEis of
+                Nothing -> throwE $ InvalidOperation "All symbols are exported" ""
+                Just eis -> 
+                    forM eis $ \ei -> do
+                        (WithBody e _) <- getExport mi ei
+                        syms <- Export.symbolsProvided m e
+                        return (ei,syms)
+        return $ flip filter es $ \(_,syms) -> sym `elem` syms
+    case matches of
+        [] -> lift $ throwE $ SymbolNotExported mi sym ""
+        [(ei,syms)] -> do
+            case syms of
+                [] -> lift $ throwE $ InvalidOperation "Internal Error" "doUnExportDeclaration"
+                [_] -> do
+                    lift $ removeExport mi ei
+                    withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+                _ -> lift $ throwE $ Unsupported "Symbol is exported with other symbols, please remove export manually"
+        _ -> lift $ throwE $ Unsupported "Multiple exports found, please remove exports manually"
 
 doAddImport :: ( GuiCommand m p buffer )
             => ModuleInfo
@@ -184,7 +212,7 @@ doAddImport :: ( GuiCommand m p buffer )
 doAddImport mi importStr = do
     case Import.parse importStr of
         Right newImport -> do
-            lift $ addImport mi (WithBody newImport importStr)
+            _ <- lift $ addImport mi (WithBody newImport importStr)
             withGuiComponents $ lift . flip withProjectTree populateTree
             return Nothing
         Left parseError -> case parseError of
@@ -217,7 +245,7 @@ doEditImport mi ii importStr = do
     case Import.parse importStr of
         Right newImport -> do
             lift $ removeImport mi ii
-            lift $ addImport mi (WithBody newImport importStr)
+            _ <- lift $ addImport mi (WithBody newImport importStr)
             withGuiComponents $ lift . flip withProjectTree populateTree
             return Nothing
         Left parseError -> case parseError of
@@ -231,7 +259,7 @@ doAddExport :: ( GuiCommand m p buffer )
 doAddExport mi exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
-            lift $ addExport mi (WithBody newExport exportStr)
+            _ <- lift $ addExport mi (WithBody newExport exportStr)
             withGuiComponents $ lift . flip withProjectTree populateTree
             return Nothing
         Left parseError -> case parseError of
@@ -264,7 +292,7 @@ doEditExport mi ei exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
             lift $ removeExport mi ei
-            lift $ addExport mi (WithBody newExport exportStr)
+            _ <- lift $ addExport mi (WithBody newExport exportStr)
             withGuiComponents $ lift . flip withProjectTree populateTree
             return Nothing
         Left parseError -> case parseError of

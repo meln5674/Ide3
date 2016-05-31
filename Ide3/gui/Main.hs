@@ -382,6 +382,33 @@ onEditExportClicked mi ii = do
                     return False
             return False
 
+onExportDeclarationClicked :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => ModuleInfo
+              -> DeclarationInfo
+              -> GuiEnvT proxy m p buffer (EventM EButton) Bool
+onExportDeclarationClicked mi (DeclarationInfo (Symbol declStr)) = do
+    NewExportDialog.makeEdit declStr $ \dialog -> do
+        dialog `onGuiM` NewExportDialog.confirmClickedEvent $ do
+            export_ <- NewExportDialog.getExport dialog
+            case export_ of
+                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an export" ""
+                export_ -> do
+                    maybeError <- mapGuiEnv liftIO $ doAddExport mi export_
+                    case maybeError of
+                        Just err -> mapGuiEnv liftIO $ doError err
+                        Nothing -> NewExportDialog.close dialog
+            return False
+        dialog `onGuiM` NewExportDialog.cancelClickedEvent $ do
+            NewExportDialog.close dialog
+            return False
+    return False
+
 
 setupModuleContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
@@ -449,6 +476,11 @@ onDeclViewClicked gui = do
                         menu <- ProjectContextMenu.makeDeclMenu mi di
                         menu `onGuiM` ProjectContextMenu.deleteDeclarationClickedEvent $ mapGuiEnv liftIO $ do
                             doRemoveDeclaration mi di
+                            return False
+                        menu `onGuiM` ProjectContextMenu.exportDeclarationClickedEvent $ do
+                            onExportDeclarationClicked mi di
+                        menu `onGuiM` ProjectContextMenu.unExportDeclarationClickedEvent $ mapGuiEnv liftIO $ do
+                            doUnExportDeclaration mi di
                             return False
                         return menu
                     ImportsResult mi -> do
