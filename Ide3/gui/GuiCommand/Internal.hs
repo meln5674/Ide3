@@ -17,6 +17,7 @@ import Ide3.Monad
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Import as Import
+import qualified Ide3.Export as Export
 
 import Builder
 import Initializer
@@ -167,6 +168,15 @@ doAddDeclaration mi di = do
     lift $ addDeclaration mi newdecl
     withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
 
+doRemoveDeclaration :: ( GuiCommand m p buffer )
+                    => ModuleInfo
+                    -> DeclarationInfo
+                    -> DialogOnErrorArg proxy m p buffer ()
+doRemoveDeclaration mi di = do
+    lift $ removeDeclaration mi di
+    withGuiComponents $ \comp -> lift $ withProjectTree comp populateTree
+
+
 doAddImport :: ( GuiCommand m p buffer )
             => ModuleInfo
             -> String
@@ -208,6 +218,53 @@ doEditImport mi ii importStr = do
         Right newImport -> do
             lift $ removeImport mi ii
             lift $ addImport mi (WithBody newImport importStr)
+            withGuiComponents $ lift . flip withProjectTree populateTree
+            return Nothing
+        Left parseError -> case parseError of
+            err@ParseError{} -> return $ Just err
+            err -> lift $ throwE err
+
+doAddExport :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> String
+            -> DialogOnErrorArg proxy m p buffer (Maybe (ProjectError UserError))
+doAddExport mi exportStr = do
+    case Export.parse exportStr of
+        Right newExport -> do
+            lift $ addExport mi (WithBody newExport exportStr)
+            withGuiComponents $ lift . flip withProjectTree populateTree
+            return Nothing
+        Left parseError -> case parseError of
+            err@ParseError{} -> return $ Just err
+            err -> lift $ throwE err
+
+doRemoveExport :: ( GuiCommand m p buffer )
+               => ModuleInfo
+               -> ExportId
+               -> DialogOnErrorArg proxy m p buffer ()
+doRemoveExport mi ei = do
+    lift $ removeExport mi ei
+    withGuiComponents $ lift . flip withProjectTree populateTree
+
+
+doGetExport :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> ExportId
+            -> DialogOnErrorArg proxy m p buffer (Maybe String)
+doGetExport mi ei = do
+    (WithBody _ b) <- lift $ getExport mi ei
+    return $ Just b
+
+doEditExport :: ( GuiCommand m p buffer )
+             => ModuleInfo
+             -> ExportId
+             -> String
+             -> DialogOnErrorArg proxy m p buffer (Maybe (ProjectError UserError))
+doEditExport mi ei exportStr = do
+    case Export.parse exportStr of
+        Right newExport -> do
+            lift $ removeExport mi ei
+            lift $ addExport mi (WithBody newExport exportStr)
             withGuiComponents $ lift . flip withProjectTree populateTree
             return Nothing
         Left parseError -> case parseError of

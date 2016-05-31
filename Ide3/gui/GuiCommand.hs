@@ -122,6 +122,13 @@ doAddDeclaration :: ( GuiCommand m p buffer )
                  -> GuiEnvT proxy m p buffer IO ()
 doAddDeclaration mi di = dialogOnError () $ Internal.doAddDeclaration mi di
 
+doRemoveDeclaration :: ( GuiCommand m p buffer )
+                 => ModuleInfo
+                 -> DeclarationInfo
+                 -> GuiEnvT proxy m p buffer IO ()
+doRemoveDeclaration mi di = dialogOnError () $ Internal.doRemoveDeclaration mi di
+
+
 doAddImport :: ( GuiCommand m p buffer )
             => ModuleInfo
             -> String
@@ -147,3 +154,29 @@ doEditImport :: ( GuiCommand m p buffer )
              -> String
              -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
 doEditImport mi ii importStr = dialogOnError Nothing $ Internal.doEditImport mi ii importStr
+
+doAddExport :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> String
+            -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
+doAddExport mi exportStr = dialogOnError Nothing $ Internal.doAddExport mi exportStr
+
+doRemoveExport :: ( GuiCommand m p buffer )
+               => ModuleInfo
+               -> ExportId
+               -> GuiEnvT proxy m p buffer IO ()
+doRemoveExport mi ei = dialogOnError () $ Internal.doRemoveExport mi ei
+
+
+doGetExport :: ( GuiCommand m p buffer )
+            => ModuleInfo
+            -> ExportId
+            -> GuiEnvT proxy m p buffer IO (Maybe String)
+doGetExport mi ei = dialogOnError Nothing $ Internal.doGetExport mi ei
+
+doEditExport :: ( GuiCommand m p buffer )
+             => ModuleInfo
+             -> ExportId
+             -> String
+             -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
+doEditExport mi ei importStr = dialogOnError Nothing $ Internal.doEditExport mi ei importStr

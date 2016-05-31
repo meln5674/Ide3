@@ -47,6 +47,7 @@ executable Ide3-GUI
                      , Dialogs.NewProjectDialog
                      , Dialogs.NewModuleDialog
                      , Dialogs.NewImportDialog
+                     , Dialogs.NewExportDialog
                      , Dialogs.GenericNewDialog
                      , GuiMonad
                      , GuiEnv
