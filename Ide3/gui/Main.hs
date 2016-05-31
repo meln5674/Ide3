@@ -342,6 +342,9 @@ setupModuleContextMenu mi = mapGuiEnv liftIO $ do
     menu `onGuiM` ProjectContextMenu.newDeclClickedEvent $ do
         mapGuiEnv liftIO $ doAddDeclaration mi (DeclarationInfo (Symbol "New Declaration"))
         return False
+    menu `onGuiM` ProjectContextMenu.deleteModuleClickedEvent $ do
+        mapGuiEnv liftIO $ doRemoveModule mi
+        return False
     return menu
 
 
