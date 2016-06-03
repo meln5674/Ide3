@@ -101,14 +101,13 @@ onNewProjectConfirmed :: forall proxy m p buffer
                          , MonadMask m
                          )
                       => NewProjectDialog
-                      -> GuiEnvT proxy m p buffer (EventM EButton) Bool
+                      -> GuiEnvT proxy m p buffer IO ()
 onNewProjectConfirmed dialog = do
     projectRoot <- liftIO $ NewProjectDialog.getSelectedFolder dialog
     projectName <- liftIO $ NewProjectDialog.getProjectName dialog
     templateName <- liftIO $ NewProjectDialog.getTemplateName dialog
     mapGuiEnv liftIO $ doNew projectRoot projectName templateName
     liftIO $ NewProjectDialog.close dialog
-    return False
     
 
 onNewClicked :: forall proxy m p buffer
@@ -118,16 +117,17 @@ onNewClicked :: forall proxy m p buffer
                  , TextBufferClass buffer
                  , MonadMask m
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
+              => GuiEnvT proxy m p buffer IO ()
 onNewClicked = do
-    dialog <- NewProjectDialog.make $ \gui -> do
-    {-
-        gui `onGui` NewProjectDialog.confirmClicked $ onNewProjectConfirmed gui
-        gui `onGui` NewProjectDialog.cancelClicked $ do
-            liftIO $ NewProjectDialog.close gui -}
+    env <- getEnv
+    NewProjectDialog.make $ \gui -> do
+        liftIO $ gui `onGui` NewProjectDialog.confirmClicked $ do
+            liftIO $ runGuiEnvT (onNewProjectConfirmed gui) env
             return False
-    return False
-
+        liftIO $ gui `onGui` NewProjectDialog.cancelClicked $ do
+            liftIO $ NewProjectDialog.close gui
+            return False
+    return ()
 
 onOpenClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -135,7 +135,7 @@ onOpenClicked :: forall proxy m p buffer
                  , InteruptMonad2 p m
                  , TextBufferClass buffer
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
+              => GuiEnvT proxy m p buffer IO ()
 onOpenClicked = do
     dialog <- liftIO $ fileChooserDialogNew
         Nothing
@@ -153,7 +153,6 @@ onOpenClicked = do
             liftIO $ setCurrentDirectory $ takeDirectory path
         ResponseReject -> liftIO $ widgetDestroy dialog
         _ -> liftIO $ widgetDestroy dialog
-    return False
 
 onDigestClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -161,7 +160,7 @@ onDigestClicked :: forall proxy m p buffer
                  , InteruptMonad2 p m
                  , TextBufferClass buffer
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
+              => GuiEnvT proxy m p buffer IO ()
 onDigestClicked = do
     dialog <- liftIO $ fileChooserDialogNew
         Nothing
@@ -178,7 +177,6 @@ onDigestClicked = do
             mapGuiEnv liftIO $ doOpen path
             liftIO $ setCurrentDirectory path
         ResponseReject -> liftIO $ widgetDestroy dialog
-    return False
 
 
 
@@ -200,10 +198,8 @@ onBuildClicked :: forall proxy m p buffer
                  , TextBufferClass buffer
                  , MonadMask m
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
-onBuildClicked = do
-    mapGuiEnv liftIO $ doBuild
-    return False
+              => GuiEnvT proxy m p buffer IO ()
+onBuildClicked = mapGuiEnv liftIO $ doBuild
 
 onRunClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -212,10 +208,8 @@ onRunClicked :: forall proxy m p buffer
                  , TextBufferClass buffer
                  , MonadMask m
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
-onRunClicked = do
-    mapGuiEnv liftIO $ doRun
-    return False
+              => GuiEnvT proxy m p buffer IO ()
+onRunClicked = mapGuiEnv liftIO $ doRun
 
 
 onSaveClicked :: forall proxy m p buffer
@@ -225,10 +219,8 @@ onSaveClicked :: forall proxy m p buffer
                  , TextBufferClass buffer
                  , MonadMask m
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
-onSaveClicked = do
-    mapGuiEnv liftIO $ doSave
-    return False
+              => GuiEnvT proxy m p buffer IO ()
+onSaveClicked = mapGuiEnv liftIO $ doSave
 
 onSaveProjectClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -237,10 +229,8 @@ onSaveProjectClicked :: forall proxy m p buffer
                  , TextBufferClass buffer
                  , MonadMask m
                  )
-              => GuiEnvT proxy m p buffer (EventM EButton) Bool
-onSaveProjectClicked = do
-    mapGuiEnv liftIO $ doSaveProject Nothing
-    return False
+              => GuiEnvT proxy m p buffer IO ()
+onSaveProjectClicked = mapGuiEnv liftIO $ doSaveProject Nothing
 
 onNewModuleClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -525,6 +515,8 @@ doMain :: forall proxy m p
 doMain proxy init = do
     projectMVar <- newMVar (Viewer Nothing Nothing, init)
     components <- initializeComponents
+    manager <- uiManagerNew
+    group <- uiManagerGetAccelGroup manager
     let env = GuiEnv proxy components projectMVar
     flip runGuiEnvT env $ MainWindow.make $ \gui -> do
         gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
@@ -539,6 +531,21 @@ doMain proxy init = do
         gui `onGuiM` MainWindow.windowClosedEvent $ do
             liftIO exitSuccess
             return False
+        liftIO $ do
+            gui `MainWindow.addAccelGroup` group
+            MainWindow.addNewClickedEventAccelerator gui group
+                "n" [Control, Shift] [AccelVisible]
+            MainWindow.addOpenClickedEventAccelerator gui group
+                "o" [Control] [AccelVisible]
+            MainWindow.addDigestClickedEventAccelerator gui group
+                "o" [Control, Shift] [AccelVisible]
+            MainWindow.addSaveClickedEventAccelerator gui group
+                "s" [Control] [AccelVisible]
+            MainWindow.addSaveProjectClickedEventAccelerator gui group
+                "s" [Control,Shift] [AccelVisible]
+            MainWindow.addBuildClickedEventAccelerator gui group
+                "F5" [] [AccelVisible]
+            
     return ()
 
 

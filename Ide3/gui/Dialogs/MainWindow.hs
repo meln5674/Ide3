@@ -1,5 +1,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{- LANGUAGE PartialTypeSignatures -}
 module Dialogs.MainWindow
     ( MainWindow
     , make
@@ -14,7 +15,17 @@ module Dialogs.MainWindow
     , runClickedEvent
     , windowClosedEvent
     , getProjectPathClicked
+    , addAccelGroup
+    , addNewClickedEventAccelerator
+    , addOpenClickedEventAccelerator
+    , addDigestClickedEventAccelerator
+    , addSaveClickedEventAccelerator
+    , addSaveProjectClickedEventAccelerator
+    , addBuildClickedEventAccelerator
+    , addRunClickedEventAccelerator
     ) where
+
+import Data.Text
 
 import Data.Functor.Compose
 
@@ -37,6 +48,7 @@ data MainWindow
     , projectMenu :: ProjectMenu
     , projectViewer :: ProjectViewer
     , buildViewer :: BuildViewer
+    , actionGroup :: ActionGroup
     }  
 
 
@@ -302,33 +314,33 @@ mkProjectViewerSignal2 :: (Monad m, MonadIO m'', Functor f)
 mkProjectViewerSignal2 = mkGuiEnvSignal2For projectViewer
 
 newClickedEvent :: (Monad m) 
-                => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-newClickedEvent = newButton `mkFileMenuSignal` buttonPressEvent
+                => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+newClickedEvent = newButton `mkFileMenuSignal` menuItemActivated
 
 
 openClickedEvent :: (Monad m) 
-                 => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-openClickedEvent = openButton `mkFileMenuSignal` buttonPressEvent
+                 => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+openClickedEvent = openButton `mkFileMenuSignal` menuItemActivated
 
 digestClickedEvent :: (Monad m) 
-                   => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-digestClickedEvent = digestButton `mkFileMenuSignal` buttonPressEvent
+                   => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+digestClickedEvent = digestButton `mkFileMenuSignal` menuItemActivated
 
 saveClickedEvent :: (Monad m) 
-                 => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-saveClickedEvent = saveButton `mkFileMenuSignal` buttonPressEvent
+                 => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+saveClickedEvent = saveButton `mkFileMenuSignal` menuItemActivated
 
 saveProjectClickedEvent :: (Monad m) 
-                        => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-saveProjectClickedEvent = saveProjectButton `mkFileMenuSignal` buttonPressEvent
+                        => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+saveProjectClickedEvent = saveProjectButton `mkFileMenuSignal` menuItemActivated
 
 buildClickedEvent :: (Monad m) 
-                  => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-buildClickedEvent = buildButton `mkProjectMenuSignal` buttonPressEvent
+                  => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+buildClickedEvent = buildButton `mkProjectMenuSignal` menuItemActivated
 
 runClickedEvent :: (Monad m) 
-                => MainWindowSignal proxy m' p buffer m MenuItem (EventM EButton) Bool
-runClickedEvent = runButton `mkProjectMenuSignal` buttonPressEvent
+                => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+runClickedEvent = runButton `mkProjectMenuSignal` menuItemActivated
 
 declClickedEvent :: (Monad m) 
                  => MainWindowSignal2 proxy m' p buffer m TreeView 
@@ -349,3 +361,37 @@ getProjectPathClicked :: (MonadIO m)
                       -> m (Maybe (TreePath, TreeViewColumn, Point))
 getProjectPathClicked p = liftIO . flip treeViewGetPathAtPos p . projectView . projectViewer 
 
+{-addAccel :: (WidgetClass object, MonadIO m) 
+         => (MainWindow -> object) 
+         -> String 
+         -> MainWindow 
+         -> _ 
+         -> String 
+         -> [Modifier] 
+         -> [AccelFlags] 
+         -> m ()-}
+addAccel f e w g kn ms fs = do
+    k <- keyvalFromName $ pack kn
+    widgetAddAccelerator (f w) e g k ms fs
+
+{-addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()-}
+addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g
+
+addFileMenuAccelerator f e = (f . fileMenu) `addAccel` e
+addProjectMenuAccelerator f e = (f . projectMenu) `addAccel` e
+
+{-addNewClickedEventAccelerator :: (MonadIO m)
+                              => MainWindow 
+                              -> _
+                              -> String 
+                              -> [Modifier] 
+                              -> [AccelFlags] 
+                              -> m ()-}
+addNewClickedEventAccelerator = newButton `addFileMenuAccelerator` "activate"
+addOpenClickedEventAccelerator = openButton `addFileMenuAccelerator` "activate"
+addDigestClickedEventAccelerator = digestButton `addFileMenuAccelerator` "activate"
+addSaveClickedEventAccelerator = saveButton `addFileMenuAccelerator` "activate"
+addSaveProjectClickedEventAccelerator = saveProjectButton `addFileMenuAccelerator` "activate"
+
+addBuildClickedEventAccelerator = buildButton `addProjectMenuAccelerator` "activate"
+addRunClickedEventAccelerator = runButton `addProjectMenuAccelerator` "activate"
