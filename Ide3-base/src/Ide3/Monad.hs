@@ -118,6 +118,11 @@ class Monad m => ProjectM m where
     -- | Get a list of all of the export ids in a module
     getExports :: ModuleInfo -> ProjectResult m u (Maybe [ExportId])
 
+    addPragma :: ModuleInfo -> Pragma -> ProjectResult m u ()
+    
+    removePragma :: ModuleInfo -> Pragma -> ProjectResult m u ()
+    
+    getPragmas :: ModuleInfo -> ProjectResult m u [Pragma]
 
 bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
 bounce = ExceptT . lift . runExceptT
@@ -150,3 +155,6 @@ instance (ProjectM m) => ProjectM (StateT s m) where
     exportAll = bounce . exportAll
     exportNothing = bounce . exportNothing
     getExports = bounce . getExports
+    addPragma x = bounce . addPragma x
+    removePragma x = bounce . removePragma x
+    getPragmas = bounce . getPragmas

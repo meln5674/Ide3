@@ -199,7 +199,7 @@ onBuildClicked :: forall proxy m p buffer
                  , MonadMask m
                  )
               => GuiEnvT proxy m p buffer IO ()
-onBuildClicked = mapGuiEnv liftIO $ doBuild
+onBuildClicked = void $ mapGuiEnv liftIO $ doBuild
 
 onRunClicked :: forall proxy m p buffer
                . ( MonadIO m
@@ -518,6 +518,7 @@ doMain proxy init = do
     manager <- uiManagerNew
     group <- uiManagerGetAccelGroup manager
     let env = GuiEnv proxy components projectMVar
+    flip runGuiEnvT env $ withGuiComponents $ liftIO . applyDeclBufferAttrs defaultTextAttrs
     flip runGuiEnvT env $ MainWindow.make $ \gui -> do
         gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
         gui `onGuiM` MainWindow.openClickedEvent $ onOpenClicked

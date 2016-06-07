@@ -62,6 +62,11 @@ importedModuleName i = fromMaybe name rename
     name = moduleName i
     rename = renamed i        
 
+editModuleName :: (Symbol -> Symbol) -> (WithBody Import) -> (WithBody Import)
+editModuleName f (WithBody (ModuleImport sym a b) s) = WithBody (ModuleImport (f sym) a b) $ error "TODO"
+editModuleName f (WithBody (WhitelistImport sym a b c) s) = WithBody (WhitelistImport (f sym) a b c) $ error "TODO"
+editModuleName f (WithBody (BlacklistImport sym a b c) s) = WithBody (BlacklistImport (f sym) a b c) $ error "TODO"
+
 -- | Find the symbols to import from a module using a whitelist import
 whitelistTree :: ProjectM m
               => EitherModule   -- ^ Module symbols are being imported from

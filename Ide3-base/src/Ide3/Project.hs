@@ -183,7 +183,7 @@ getImport :: Project
 getImport p mi iid = getModule p mi >>= \m -> Module.getImport m iid
 
 getImports :: Project -> ModuleInfo -> Either (ProjectError u) [ImportId]
-getImports p mi = getModule p mi >>= \m -> return (Module.getImportIds m)
+getImports p mi = getModule p mi >>= return . Module.getImportIds
 
 
 -- |Set a module to export all of its symbols
@@ -275,3 +275,11 @@ getDeclaration' :: Project
 getDeclaration' p (ModuleChild i di)
   = getModule p i >>= (`Module.getDeclaration'` di)
 
+addPragma :: Project -> ModuleInfo -> Pragma -> Either (ProjectError u) Project
+addPragma p mi pr = editModule' p mi (flip Module.addPragma pr)
+
+removePragma :: Project -> ModuleInfo -> Pragma -> Either (ProjectError u) Project
+removePragma p mi pr = editModule' p mi (flip Module.removePragma pr)
+
+getPragmas :: Project -> ModuleInfo -> Either (ProjectError u) [Pragma]
+getPragmas p mi = getModule p mi >>= return . Module.getPragmas

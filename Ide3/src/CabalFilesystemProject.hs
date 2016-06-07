@@ -423,6 +423,10 @@ instance (MonadIO m, ProjectStateM m) => ProjectM (CabalProject m) where
         ExceptT $ getsProject $ \p -> Project.getExports p mi
 
 
+    addPragma mi pr = modifyProjectE $ \p -> Project.addPragma p mi pr
+    removePragma mi pr = modifyProjectE $ \p -> Project.removePragma p mi pr
+    getPragmas mi = ExceptT $ getsProject $ \p -> Project.getPragmas p mi
+            
 
 instance (MonadIO m, ProjectStateM m) => ViewerMonad (CabalProject m) where
     -- | Set the Read file to be opened

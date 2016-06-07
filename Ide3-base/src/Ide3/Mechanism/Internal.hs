@@ -72,3 +72,20 @@ getExternalSymbols i = do
 -- | Get the symbols availible at the top level of a module
 getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]
 getInternalSymbols m = getModule m >>= Module.internalSymbols
+
+{-
+
+renameModule :: ProjectM m => ModuleInfo -> ModuleInfo -> ProjectResult m u ()
+renameModule (ModuleInfo src) (ModuleInfo dest) = do
+    editModule src $ \(Module _ ps es is ds) -> Right $ Module dest ps es is ds
+    allModules <- getModules
+    forM_ allModules $ \mi -> do
+        allImports <- getImports mi
+        forM_ allImports $ \ii -> do
+            i <- getImport mi ii
+            when (Import.moduleName i == src) $ do
+                let i' = Import.editModuleName (const dest) i
+                removeImport mi ii
+                addImport mi i'
+renameModule _ _ = throwE $ InvalidOperation "Cannot rename from or to an unnamed module"
+-}

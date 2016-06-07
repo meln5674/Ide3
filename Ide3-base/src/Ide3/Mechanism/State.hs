@@ -142,6 +142,9 @@ instance (ProjectShellM m, ProjectStateM m) => ProjectM (StatefulProject m) wher
     exportNothing mi = modifyProjectE $ \p -> Project.exportNothing p mi
     getExports mi = ExceptT $ getsProject $ \p -> Project.getExports p mi
 
+    addPragma mi pr = modifyProjectE $ \p -> Project.addPragma p mi pr
+    removePragma mi pr = modifyProjectE $ \p -> Project.removePragma p mi pr
+    getPragmas mi = ExceptT $ getsProject $ \p -> Project.getPragmas p mi
 
 deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
 deriving instance (MonadMask m) => MonadMask (StatefulProject m)

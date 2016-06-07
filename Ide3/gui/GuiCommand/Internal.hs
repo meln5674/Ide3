@@ -7,6 +7,8 @@ import Graphics.UI.Gtk
 
 import Control.Monad.Catch
 
+import Control.Concurrent
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -79,7 +81,6 @@ doOpen path = do
     withGuiComponents $ lift . flip withProjectTree populateTree
 
 
-
 doGetDecl :: ( GuiCommand m p buffer )
           => TreePath
           -> TreeViewColumn 
@@ -90,7 +91,8 @@ doGetDecl path _ = withGuiComponents $ \comp -> do
         DeclResult mi di -> do
                 decl <- lift $ getDeclaration mi di
                 let text = body decl
-                lift $ wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
+                --lift $ wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
+                lift $ wrapIOError $ comp `setDeclBufferText` text
                 lift $ lift $ setCurrentDecl mi di
         _ -> return ()
 

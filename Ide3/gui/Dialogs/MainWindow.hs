@@ -48,7 +48,6 @@ data MainWindow
     , projectMenu :: ProjectMenu
     , projectViewer :: ProjectViewer
     , buildViewer :: BuildViewer
-    , actionGroup :: ActionGroup
     }  
 
 

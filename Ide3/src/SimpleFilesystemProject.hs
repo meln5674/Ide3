@@ -224,9 +224,9 @@ makeFileListing :: ProjectM m => ProjectResult m u FileListing
 makeFileListing = do
     t <- makeTree
     let dirs (OrgNode i ts) =  (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
-        dirs (ModuleNode i _ ts _ _) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
+        dirs (ModuleNode i ts _ _ _ _) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
         declInfos (OrgNode _ ts) = concatMap declInfos ts
-        declInfos (ModuleNode i ds ts _ _) = (i, ds) : concatMap declInfos ts
+        declInfos (ModuleNode i ts _ ds _ _) = (i, ds) : concatMap declInfos ts
         dirs' = concat $ mapMaybe dirs t
         declInfos' = concatMap declInfos t
     declGroups <- forM declInfos' $ \(mi, dis) -> do

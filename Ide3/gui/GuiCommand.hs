@@ -7,6 +7,8 @@ import Graphics.UI.Gtk
 
 import Control.Monad.Catch
 
+import Control.Concurrent
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict (gets)
@@ -53,6 +55,25 @@ dialogOnError default_ f = do
                 _ <- dialogRun dialog
                 widgetDestroy dialog
                 return default_
+
+dialogOnErrorConc :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
+                  => DialogOnErrorArg proxy m p buffer ()
+                  -> GuiEnvT proxy m p buffer IO ThreadId
+dialogOnErrorConc f = do
+    env <- getEnv
+    withProjectMVar $ \var -> liftIO $ forkIO $ do
+        r <- interupt1 var $ runExceptT $ runGuiEnvT f env
+        case r of
+            Right () -> return ()
+            Left e -> do
+                dialog <- messageDialogNew
+                    Nothing
+                    []
+                    MessageError
+                    ButtonsClose
+                    (show e)
+                _ <- dialogRun dialog
+                widgetDestroy dialog
                 
 doError :: ( GuiCommand m p buffer )
         => ProjectError UserError
@@ -81,8 +102,8 @@ doGetDecl path col = dialogOnError () $ Internal.doGetDecl path col
 doBuild :: ( GuiCommand m p buffer
            , MonadMask m
            )
-        => GuiEnvT proxy m p buffer IO ()
-doBuild = dialogOnError () $ Internal.doBuild
+        => GuiEnvT proxy m p buffer IO ThreadId
+doBuild = dialogOnErrorConc $ Internal.doBuild
 
 doRun :: ( GuiCommand m p buffer
          , MonadMask m

@@ -14,7 +14,7 @@ for working with the Module data type.
 module Ide3.Module where
 
 import Data.Maybe
-import Data.List (intercalate, find)
+import Data.List (intercalate, find, delete)
 
 import Control.Monad.Trans.Except
 
@@ -235,6 +235,9 @@ nextImportId (Module _ _ is _ _) = 1 + maximum (-1 : Map.keys is)
 
 addPragma :: Module -> Pragma -> Module
 addPragma (Module mi ps is es ds) p = Module mi (p:ps) is es ds
+
+removePragma :: Module -> Pragma -> Module
+removePragma (Module mi ps is es ds) p = Module mi (delete p ps) is es ds
 
 -- |Add an import to a module
 addImport :: Module -> WithBody Import -> (Module, ImportId)

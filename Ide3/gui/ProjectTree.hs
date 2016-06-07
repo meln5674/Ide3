@@ -17,16 +17,20 @@ data ProjectTreeElem
     | DeclElem DeclarationInfo
     | ImportsElem
     | ExportsElem
+    | PragmasElem
     | ImportElem ImportId (WithBody Import)
     | ExportElem ExportId (WithBody Export)
+    | PragmaElem Pragma
 
 data TreeSearchResult
     = ModuleResult ModuleInfo
     | DeclResult ModuleInfo DeclarationInfo
     | ImportsResult ModuleInfo
     | ExportsResult ModuleInfo
+    | PramgasResult ModuleInfo
     | ImportResult ModuleInfo ImportId
     | ExportResult ModuleInfo ExportId
+    | PragmaResult ModuleInfo Pragma
     | NoSearchResult
 
 {-
@@ -46,8 +50,14 @@ renderProjectTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
 renderProjectTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
 renderProjectTreeElem ImportsElem = [cellText := "Imports"]
 renderProjectTreeElem ExportsElem = [cellText := "Exports"]
+renderProjectTreeElem PragmasElem = [cellText := "Pragmas"]
 renderProjectTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := importBody] 
 renderProjectTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
+renderProjectTreeElem (PragmaElem p) = [cellText := p]
+
+
+makePragmasNode :: [Pragma] -> Tree ProjectTreeElem
+makePragmasNode ps = Node PragmasElem $ map (flip Node [] . PragmaElem) ps
 
 makeImportsNode :: [(ImportId,WithBody Import)] -> Tree ProjectTreeElem
 makeImportsNode is = Node ImportsElem $ map (flip Node [] . uncurry ImportElem) is
@@ -59,9 +69,10 @@ makeExportsNode Nothing = Node ExportsElem []
 makeProjectTree :: ModuleTree -> Tree ProjectTreeElem
 makeProjectTree (OrgNode mi ts)
     = Node (ModuleElem mi) $ map makeProjectTree ts
-makeProjectTree (ModuleNode mi ds ts is es) 
+makeProjectTree (ModuleNode mi ts ps ds is es) 
     = Node (ModuleElem mi) 
-    $ makeImportsNode is 
+    $ makePragmasNode ps
+    : makeImportsNode is 
     : makeExportsNode es 
     : map makeProjectTree ts 
     ++ map (flip Node [] . DeclElem) ds 
