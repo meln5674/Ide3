@@ -8,7 +8,7 @@ module Dialogs.MainWindow
     , openClickedEvent
     , digestClickedEvent
     , declClickedEvent
-    , declViewClickedEvent
+    , projectViewClickedEvent
     , saveClickedEvent
     , saveProjectClickedEvent
     , buildClickedEvent
@@ -346,9 +346,9 @@ declClickedEvent :: (Monad m)
                           (Compose ((->) TreePath) ((->) TreeViewColumn)) IO ()
 declClickedEvent = projectView `mkProjectViewerSignal2` (editSignal rowActivated getCompose)
 
-declViewClickedEvent :: (Monad m) 
+projectViewClickedEvent :: (Monad m) 
                      => MainWindowSignal proxy m' p buffer m TreeView (EventM EButton) Bool
-declViewClickedEvent = projectView `mkProjectViewerSignal` buttonPressEvent
+projectViewClickedEvent = projectView `mkProjectViewerSignal` buttonPressEvent
 
 windowClosedEvent :: (Monad m) 
                   => MainWindowSignal proxy m' p buffer m Window (EventM EAny) Bool
@@ -394,3 +394,5 @@ addSaveProjectClickedEventAccelerator = saveProjectButton `addFileMenuAccelerato
 
 addBuildClickedEventAccelerator = buildButton `addProjectMenuAccelerator` "activate"
 addRunClickedEventAccelerator = runButton `addProjectMenuAccelerator` "activate"
+
+

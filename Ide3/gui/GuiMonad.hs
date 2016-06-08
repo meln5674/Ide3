@@ -8,6 +8,7 @@ module GuiMonad
     , applyDeclBufferAttrs
     , defaultTextAttrs
     , setDeclBufferText
+    , updateDeclBufferText
     ) where
 
 import Data.Text
@@ -33,13 +34,14 @@ data GuiComponents buffer
 
 
 defaultTextAttrs :: SyntaxComponent -> [AttrOp TextTag]
-defaultTextAttrs VarId = [textTagForeground := "navy"]
-defaultTextAttrs ConId = [textTagForeground := "purple4"]
---defaultTextAttrs VarSym = [textTagForeground := ???]
-defaultTextAttrs Keyword = [textTagForeground := "blue1"]
+defaultTextAttrs VarId = [textTagForeground := "navy", textTagWeight := 600]
+defaultTextAttrs ConId = [textTagForeground := "purple4", textTagWeight := 800]
+defaultTextAttrs VarSym = [textTagForeground := "grey"]
+defaultTextAttrs Keyword = [textTagForeground := "blue1", textTagWeight := 600]
 defaultTextAttrs Pragma = [textTagForeground := "red1"]
-defaultTextAttrs Literal = [textTagForeground := "LimeGreen"]
-defaultTextAttrs _ = []
+defaultTextAttrs Literal = [textTagForeground := "lime green"]
+defaultTextAttrs Comment = [textTagForeground := "forest green", textTagWeight := 400]
+defaultTextAttrs _ = [textTagForeground := "black"]
 
 makeDeclBuffer :: IO TextBuffer
 makeDeclBuffer = do
@@ -110,6 +112,9 @@ setDeclBufferText comp text = withEditorBuffer comp $ \buffer -> do
     end <- textBufferGetEndIter buffer
     textBufferRemoveAllTags buffer start end
     buffer `textBufferSetText` text
+    start <- textBufferGetStartIter buffer
+    end <- textBufferGetEndIter buffer
+    textBufferApplyTagByName buffer (pack $ show Comment) start end
     maybeHs <- runExceptT $ getHighlights text (textBufferGetIterAtLineOffset buffer)
     case maybeHs of
         Right hs -> do
@@ -121,12 +126,16 @@ updateDeclBufferText :: TextBufferClass self => GuiComponents self -> IO ()
 updateDeclBufferText comp = withEditorBuffer comp $ \buffer -> do
     start <- textBufferGetStartIter buffer
     end <- textBufferGetEndIter buffer
-    textBufferRemoveAllTags buffer start end
     text <- textBufferGetText buffer start end False
     maybeHs <- runExceptT $ getHighlights text (textBufferGetIterAtLineOffset buffer)
     case maybeHs of
         Right hs -> do
+            textBufferRemoveAllTags buffer start end
+            start <- textBufferGetStartIter buffer
+            end <- textBufferGetEndIter buffer
+            textBufferApplyTagByName buffer (pack $ show Comment) start end
             forM_ hs $ \(HighlightInst tag start' end') -> do
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
         Left _ -> return ()
+
 

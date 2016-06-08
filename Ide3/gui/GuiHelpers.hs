@@ -8,6 +8,9 @@ module GuiHelpers
     , onGui
     , onGuiM
     , onGuiF
+    , afterGui
+    , afterGuiM
+    , afterGuiF
     , mkGuiSignal
     , mkGuiSignalWith
     , editSignal
@@ -75,6 +78,10 @@ onGui :: gui -> GuiSignal gui object handler -> handler -> IO (ConnectId object)
 onGui gui (GuiSignal2 (Signal f) getter modifier)
     = getter gui `on` (Signal $ \b object handler -> f b object (modifier handler))
 
+afterGui :: gui -> GuiSignal gui object handler -> handler -> IO (ConnectId object)
+afterGui gui (GuiSignal2 (Signal f) getter modifier)
+    = getter gui `after` (Signal $ \b object handler -> f b object (modifier handler))
+
 {-
 onGuiEnv :: (MonadIO m, Monad m'') => gui 
          -> GuiEnvT proxy m' p buffer m (GuiSignal gui object (GuiEnvT proxy m' p buffer m'' a) (m'' a)) 
@@ -103,6 +110,31 @@ onGuiF gui sigM callback = do
     let obj = getter gui
     let sig' = Signal $ \b object handler -> f b object (modifier handler)
     liftIO $ obj `on` sig' $ callback
+
+
+afterGuiM :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'') 
+       => gui 
+       -> t m (GuiSignal2 gui object (t m'' a) (m'' a)) 
+       -> t m'' a
+       -> t m (ConnectId object)
+afterGuiM gui sigM callback = do
+    (GuiSignal2 (Signal f) getter modifier) <- sigM
+    let obj = getter gui
+    let sig' = Signal $ \b object handler -> f b object (modifier handler)
+    liftIO $ obj `after` sig' $ callback
+
+
+afterGuiF :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'', Functor f)
+       => gui
+       -> t m (GuiSignal2 gui object (f (t m'' a)) (f (m'' a)))
+       -> f (t m'' a)
+       -> t m (ConnectId object)
+afterGuiF gui sigM callback = do
+    (GuiSignal2 (Signal f) getter modifier) <- sigM
+    let obj = getter gui
+    let sig' = Signal $ \b object handler -> f b object (modifier handler)
+    liftIO $ obj `after` sig' $ callback
+
 
 {-
 mkGuiSignal :: (gui -> object) -> Signal object handler -> GuiSignal gui object handler

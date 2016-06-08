@@ -14,7 +14,8 @@ import Graphics.UI.Gtk
 import Ide3.Types (ProjectError(..))
 
 data SyntaxComponent
-    = VarId
+    = Comment
+    | VarId
     | VarSym
     | ConId
     | ConSym
@@ -22,10 +23,9 @@ data SyntaxComponent
     | Keyword
     | Pragma
     | Literal
-    | Comment
   deriving (Eq,Ord,Enum,Read,Show)
 
-allSyntaxComponents = [VarId .. Comment]
+allSyntaxComponents = [Comment .. Literal]
 
 data HighlightInst = HighlightInst SyntaxComponent TextIter TextIter
 

@@ -93,6 +93,9 @@ instance InteruptMonad0 m => InteruptMonad2 Project (ProjectStateT m) where
 -}
 
 
+declBufferEdited :: (TextBufferClass buffer) => GuiEnvSignal proxy m' p buffer IO (GuiComponents buffer) buffer IO ()
+declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
+
 onNewProjectConfirmed :: forall proxy m p buffer
                        . ( MonadIO m
                          , ViewerMonad m
@@ -440,7 +443,7 @@ setupProjectContextMenu = mapGuiEnv liftIO $ do
         onNewModuleClicked Nothing
     return menu
 
-onDeclViewClicked :: forall proxy m p buffer
+onProjectViewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
                  , InteruptMonad2 p m
@@ -449,7 +452,7 @@ onDeclViewClicked :: forall proxy m p buffer
                  )
               => MainWindow
               -> GuiEnvT proxy m p buffer (EventM EButton) Bool
-onDeclViewClicked gui = do
+onProjectViewClicked gui = do
     button <- lift $ eventButton
     when (button == RightButton) $ do
         (x,y) <- lift $ eventCoordinates
@@ -503,6 +506,18 @@ onDeclViewClicked gui = do
         lift $ ProjectContextMenu.showMenu menu
     return False    
 
+
+onDeclEdited :: forall proxy m p buffer
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 )
+              => GuiEnvT proxy m p buffer IO ()
+onDeclEdited = withGuiComponents $ liftIO . updateDeclBufferText
+
+
 doMain :: forall proxy m p 
         . ( MonadIO m
           , ViewerMonad m
@@ -526,12 +541,16 @@ doMain proxy init = do
         gui `onGuiM` MainWindow.saveClickedEvent $ onSaveClicked
         gui `onGuiM` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked
         gui `onGuiF` MainWindow.declClickedEvent $ Compose onDeclClicked
-        gui `onGuiM` MainWindow.declViewClickedEvent $ onDeclViewClicked gui
+        gui `onGuiM` MainWindow.projectViewClickedEvent $ onProjectViewClicked gui
         gui `onGuiM` MainWindow.buildClickedEvent $ onBuildClicked
         gui `onGuiM` MainWindow.runClickedEvent $ onRunClicked
         gui `onGuiM` MainWindow.windowClosedEvent $ do
             liftIO exitSuccess
             return False
+        withGuiComponents $ \comp  -> do
+            comp `afterGuiM` declBufferEdited $ do
+                onDeclEdited
+
         liftIO $ do
             gui `MainWindow.addAccelGroup` group
             MainWindow.addNewClickedEventAccelerator gui group
