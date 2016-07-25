@@ -56,15 +56,15 @@ newtype ReadOnlyFilesystemProjectT m a
     , ProjectStateM
     )
 
-type ReadOnlyFilesystemProjectT' m = StatefulProject (ReadOnlyFilesystemProjectT m)
+--type ReadOnlyFilesystemProjectT' m = StatefulProject (ReadOnlyFilesystemProjectT m)
 
 -- | Run an action inside the mechanism with the provided state
 runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
 runReadOnlyFilesystemProjectT = runStateT . runReadOnlyFilesystemProjectTInternal
 
 -- | Run an action inside the mechanism 
-runNewReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> m (a, FileSystemProject)
-runNewReadOnlyFilesystemProjectT = flip runReadOnlyFilesystemProjectT Unopened
+--runNewReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> m (a, FileSystemProject)
+--runNewReadOnlyFilesystemProjectT = flip runReadOnlyFilesystemProjectT Unopened
 
 -- | Get the state of the project
 getFsp :: (Monad m) => ReadOnlyFilesystemProjectT m FileSystemProject

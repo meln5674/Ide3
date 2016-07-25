@@ -59,39 +59,9 @@ import qualified ProjectContextMenu
 
 import PseudoState
 
---import ReadOnlyFilesystemProject
---import SimpleFilesystemProject
 import CabalFilesystemProject
 
 import Initializer
-
-
---deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT' m)
---deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (SimpleFilesystemProjectT m)
---deriving instance (InteruptMonad2 x m) => InteruptMonad2 (Project, x) (ProjectStateT m)
---deriving instance (InteruptMonad2 x m) => InteruptMonad2 (FileSystemProject, x) (StatefulProject m)
---deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT' m)
---deriving instance (InteruptMonad0 m) => InteruptMonad2 FileSystemProject (SimpleFilesystemProjectT m)
---deriving instance (InteruptMonad0 m) => InteruptMonad2 Project (ProjectStateT m)
---deriving instance (InteruptMonad0 m) => InteruptMonad0 (StatefulProject m)
-
-{-
-instance InteruptMonad0 m => InteruptMonad1 (MVar FileSystemProject) (SimpleFilesystemProjectT m) where
-    interupt1 var f = do
-        s <- takeMVar var
-        (x,s') <- interupt0 $ runSimpleFilesystemProjectT f s
-        putMVar var s'
-        return x
-
-instance InteruptMonad2 s m => InteruptMonad2 (FileSystemProject,s) (SimpleFilesystemProjectT m) where
-    interupt2 (s,s2) f = do
-        ((x,s'),s2') <- interupt2 s2 $ runSimpleFilesystemProjectT f s
-        return (x,(s',s2'))
-
-instance InteruptMonad0 m => InteruptMonad2 Project (ProjectStateT m) where
-    interupt2 s f = interupt0 $ runProjectStateT f s
--}
-
 
 declBufferEdited :: (TextBufferClass buffer) => GuiEnvSignal proxy m' p buffer IO (GuiComponents buffer) buffer IO ()
 declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
@@ -443,6 +413,102 @@ setupProjectContextMenu = mapGuiEnv liftIO $ do
         onNewModuleClicked Nothing
     return menu
 
+setupDeclContextMenu :: forall proxy m p buffer m'
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 , MonadIO m'
+                 ) 
+                 => ModuleInfo
+                 -> DeclarationInfo
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupDeclContextMenu mi di = mapGuiEnv liftIO $ do
+    menu <- ProjectContextMenu.makeDeclMenu mi di
+    menu `onGuiM` ProjectContextMenu.deleteDeclarationClickedEvent $ mapGuiEnv liftIO $ do
+        doRemoveDeclaration mi di
+        return False
+    menu `onGuiM` ProjectContextMenu.exportDeclarationClickedEvent $ do
+        onExportDeclarationClicked mi di
+    menu `onGuiM` ProjectContextMenu.unExportDeclarationClickedEvent $ mapGuiEnv liftIO $ do
+        doUnExportDeclaration mi di
+        return False
+    return menu
+
+setupImportsContextMenu :: forall proxy m p buffer m'
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 , MonadIO m'
+                 ) 
+                 => ModuleInfo
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupImportsContextMenu mi = mapGuiEnv liftIO $ do
+    menu <- ProjectContextMenu.makeImportsMenu mi
+    menu `onGuiM` ProjectContextMenu.newImportClickedEvent $ onNewImportClicked mi
+    return menu
+
+
+setupExportsContextMenu :: forall proxy m p buffer m'
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 , MonadIO m'
+                 ) 
+                 => ModuleInfo
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupExportsContextMenu mi = mapGuiEnv liftIO $ do
+    menu <- ProjectContextMenu.makeExportsMenu mi
+    menu `onGuiM` ProjectContextMenu.newExportClickedEvent $ onNewExportClicked mi
+    return menu
+
+setupImportContextMenu :: forall proxy m p buffer m'
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 , MonadIO m'
+                 ) 
+                 => ModuleInfo
+                 -> ImportId
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupImportContextMenu mi ii = mapGuiEnv liftIO $ do
+    menu <- ProjectContextMenu.makeImportMenu mi ii
+    menu `onGuiM` ProjectContextMenu.deleteImportClickedEvent $ mapGuiEnv liftIO $ do
+        doRemoveImport mi ii
+        return False
+    menu `onGuiM` ProjectContextMenu.editImportClickedEvent $ do
+        onEditImportClicked mi ii
+        return False
+    return menu
+
+setupExportContextMenu :: forall proxy m p buffer m'
+               . ( MonadIO m
+                 , ViewerMonad m
+                 , InteruptMonad2 p m
+                 , TextBufferClass buffer
+                 , MonadMask m
+                 , MonadIO m'
+                 ) 
+                 => ModuleInfo
+                 -> ExportId
+                 -> GuiEnvT proxy m p buffer m' ContextMenu
+setupExportContextMenu mi ei = mapGuiEnv liftIO $ do
+    menu <- ProjectContextMenu.makeExportMenu mi ei
+    menu `onGuiM` ProjectContextMenu.deleteExportClickedEvent $ mapGuiEnv liftIO $ do
+        doRemoveExport mi ei
+        return False
+    menu `onGuiM` ProjectContextMenu.editExportClickedEvent $ do
+        onEditExportClicked mi ei
+        return False
+    return menu                        
+
 onProjectViewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
@@ -465,43 +531,11 @@ onProjectViewClicked gui = do
                 item <- withProjectTree comp $ liftIO . findAtPath path
                 case item of
                     ModuleResult mi -> setupModuleContextMenu mi
-                    DeclResult mi di -> do
-                        menu <- ProjectContextMenu.makeDeclMenu mi di
-                        menu `onGuiM` ProjectContextMenu.deleteDeclarationClickedEvent $ mapGuiEnv liftIO $ do
-                            doRemoveDeclaration mi di
-                            return False
-                        menu `onGuiM` ProjectContextMenu.exportDeclarationClickedEvent $ do
-                            onExportDeclarationClicked mi di
-                        menu `onGuiM` ProjectContextMenu.unExportDeclarationClickedEvent $ mapGuiEnv liftIO $ do
-                            doUnExportDeclaration mi di
-                            return False
-                        return menu
-                    ImportsResult mi -> do
-                        menu <- ProjectContextMenu.makeImportsMenu mi
-                        menu `onGuiM` ProjectContextMenu.newImportClickedEvent $ onNewImportClicked mi
-                        return menu
-                    ExportsResult mi -> do
-                        menu <- ProjectContextMenu.makeExportsMenu mi
-                        menu `onGuiM` ProjectContextMenu.newExportClickedEvent $ onNewExportClicked mi
-                        return menu
-                    ImportResult mi ii -> do
-                        menu <- ProjectContextMenu.makeImportMenu mi ii
-                        menu `onGuiM` ProjectContextMenu.deleteImportClickedEvent $ mapGuiEnv liftIO $ do
-                            doRemoveImport mi ii
-                            return False
-                        menu `onGuiM` ProjectContextMenu.editImportClickedEvent $ do
-                            onEditImportClicked mi ii
-                            return False
-                        return menu
-                    ExportResult mi ei -> do
-                        menu <- ProjectContextMenu.makeExportMenu mi ei
-                        menu `onGuiM` ProjectContextMenu.deleteExportClickedEvent $ mapGuiEnv liftIO $ do
-                            doRemoveExport mi ei
-                            return False
-                        menu `onGuiM` ProjectContextMenu.editExportClickedEvent $ do
-                            onEditExportClicked mi ei
-                            return False
-                        return menu                        
+                    DeclResult mi di -> setupDeclContextMenu mi di
+                    ImportsResult mi -> setupImportsContextMenu mi
+                    ExportsResult mi -> setupExportsContextMenu mi
+                    ImportResult mi ii -> setupImportContextMenu mi ii
+                    ExportResult mi ei -> setupExportContextMenu mi ei
                     NoSearchResult -> setupProjectContextMenu
         lift $ ProjectContextMenu.showMenu menu
     return False    
@@ -517,6 +551,37 @@ onDeclEdited :: forall proxy m p buffer
               => GuiEnvT proxy m p buffer IO ()
 onDeclEdited = withGuiComponents $ liftIO . updateDeclBufferText
 
+setupSignals gui = do
+    gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
+    gui `onGuiM` MainWindow.openClickedEvent $ onOpenClicked
+    gui `onGuiM` MainWindow.digestClickedEvent $ onDigestClicked
+    gui `onGuiM` MainWindow.saveClickedEvent $ onSaveClicked
+    gui `onGuiM` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked
+    gui `onGuiF` MainWindow.declClickedEvent $ Compose onDeclClicked
+    gui `onGuiM` MainWindow.projectViewClickedEvent $ onProjectViewClicked gui
+    gui `onGuiM` MainWindow.buildClickedEvent $ onBuildClicked
+    gui `onGuiM` MainWindow.runClickedEvent $ onRunClicked
+    gui `onGuiM` MainWindow.windowClosedEvent $ do
+        liftIO exitSuccess
+        return False
+    withGuiComponents $ \comp  -> do
+        comp `afterGuiM` declBufferEdited $ do
+            onDeclEdited
+
+setupKeyboardShortcuts gui group = liftIO $ do
+    gui `MainWindow.addAccelGroup` group
+    MainWindow.addNewClickedEventAccelerator gui group
+        "n" [Control, Shift] [AccelVisible]
+    MainWindow.addOpenClickedEventAccelerator gui group
+        "o" [Control] [AccelVisible]
+    MainWindow.addDigestClickedEventAccelerator gui group
+        "o" [Control, Shift] [AccelVisible]
+    MainWindow.addSaveClickedEventAccelerator gui group
+        "s" [Control] [AccelVisible]
+    MainWindow.addSaveProjectClickedEventAccelerator gui group
+        "s" [Control,Shift] [AccelVisible]
+    MainWindow.addBuildClickedEventAccelerator gui group
+        "F5" [] [AccelVisible]
 
 doMain :: forall proxy m p 
         . ( MonadIO m
@@ -533,39 +598,11 @@ doMain proxy init = do
     manager <- uiManagerNew
     group <- uiManagerGetAccelGroup manager
     let env = GuiEnv proxy components projectMVar
-    flip runGuiEnvT env $ withGuiComponents $ liftIO . applyDeclBufferAttrs defaultTextAttrs
-    flip runGuiEnvT env $ MainWindow.make $ \gui -> do
-        gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
-        gui `onGuiM` MainWindow.openClickedEvent $ onOpenClicked
-        gui `onGuiM` MainWindow.digestClickedEvent $ onDigestClicked
-        gui `onGuiM` MainWindow.saveClickedEvent $ onSaveClicked
-        gui `onGuiM` MainWindow.saveProjectClickedEvent $ onSaveProjectClicked
-        gui `onGuiF` MainWindow.declClickedEvent $ Compose onDeclClicked
-        gui `onGuiM` MainWindow.projectViewClickedEvent $ onProjectViewClicked gui
-        gui `onGuiM` MainWindow.buildClickedEvent $ onBuildClicked
-        gui `onGuiM` MainWindow.runClickedEvent $ onRunClicked
-        gui `onGuiM` MainWindow.windowClosedEvent $ do
-            liftIO exitSuccess
-            return False
-        withGuiComponents $ \comp  -> do
-            comp `afterGuiM` declBufferEdited $ do
-                onDeclEdited
-
-        liftIO $ do
-            gui `MainWindow.addAccelGroup` group
-            MainWindow.addNewClickedEventAccelerator gui group
-                "n" [Control, Shift] [AccelVisible]
-            MainWindow.addOpenClickedEventAccelerator gui group
-                "o" [Control] [AccelVisible]
-            MainWindow.addDigestClickedEventAccelerator gui group
-                "o" [Control, Shift] [AccelVisible]
-            MainWindow.addSaveClickedEventAccelerator gui group
-                "s" [Control] [AccelVisible]
-            MainWindow.addSaveProjectClickedEventAccelerator gui group
-                "s" [Control,Shift] [AccelVisible]
-            MainWindow.addBuildClickedEventAccelerator gui group
-                "F5" [] [AccelVisible]
-            
+    flip runGuiEnvT env $ do
+        withGuiComponents $ liftIO . applyDeclBufferAttrs defaultTextAttrs
+        MainWindow.make $ \gui -> do
+            setupSignals gui
+            setupKeyboardShortcuts gui group
     return ()
 
 

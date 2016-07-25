@@ -117,8 +117,8 @@ runSimpleFilesystemProjectT
     . runSimpleFilesystemProjectTInternal
 
 -- | Run an action inside the mechanism 
-runNewSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
-runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
+--runNewSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
+--runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
 
 {-
 -- | Get the project state from the inner type

@@ -90,9 +90,7 @@ doGetDecl path _ = withGuiComponents $ \comp -> do
     case index of
         DeclResult mi di -> do
                 decl <- lift $ getDeclaration mi di
-                let text = body decl
-                --lift $ wrapIOError $ withEditorBuffer comp $ flip textBufferSetText text
-                lift $ wrapIOError $ comp `setDeclBufferText` text
+                lift $ wrapIOError $ comp `setDeclBufferText` body decl
                 lift $ lift $ setCurrentDecl mi di
         _ -> return ()
 
@@ -134,9 +132,11 @@ doSave = withGuiComponents $ \comp -> lift $ do
                 end <- textBufferGetEndIter buffer
                 textBufferGetText buffer start end False
             
-            editDeclaration mi di (\_ -> Declaration.parseAndCombine text Nothing)
+            di' <- editDeclaration mi di $ const $ Declaration.parseAndCombine text Nothing
             withProjectTree comp populateTree
             saveProject Nothing
+            when (di /= di') $ do
+                lift $ setCurrentDecl mi di'
         _ -> return ()
         
 

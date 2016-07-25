@@ -35,6 +35,7 @@ import Control.Monad.Trans.State.Strict
 
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.Verbosity
+import Distribution.Package
 import Distribution.PackageDescription
 import Distribution.PackageDescription.Parse
 import Distribution.PackageDescription.Configuration
@@ -151,9 +152,16 @@ getInternalModules = do
     
     
 -- | Get the external modules used by a cabal project. * INCOMPLETE *
-getExternalModules :: (MonadIO m) => CabalConfiguration -> m [ExternModule]
-getExternalModules _ = return []
-
+getExternalModules :: (MonadIO m) => ProjectResult (CabalProject m) u [ExternModule]
+getExternalModules = return []
+{-
+getExternalModules = do
+    ptype <- getProjectType
+    let binfo = case ptype of
+            LibraryProject lib -> libBuildInfo lib
+            ExecutableProject exe -> buildInfo exe
+        depends = buildDepends binfo
+-}    
 -- | Parse a string as a cabal project configuration
 parseCabalConfiguration :: String -> Either (ProjectError u) CabalConfiguration
 parseCabalConfiguration s = case parsePackageDescription s of
@@ -342,7 +350,7 @@ instance (MonadIO m, ProjectStateM m) => ProjectM (CabalProject m) where
                                     >>= ExceptT . return . parseCabalConfiguration
                 lift $ putFsp $ Opened $ Just $ CabalProjectInfo cabalDirectory cabalConfig
                 internalModules <- getInternalModules
-                externalModules <- getExternalModules cabalConfig
+                externalModules <- getExternalModules
                 lift $ putProject $ Project.new $ makeProjectInfo cabalDirectory cabalConfig
                 forM_ internalModules $  \m -> modifyProjectE $ \p -> Project.addModule p m
                 mapM_ addExternModule externalModules
@@ -396,7 +404,7 @@ instance (MonadIO m, ProjectStateM m) => ProjectM (CabalProject m) where
     getDeclarations i = do
         ExceptT $ getsProject $ \p -> map getChild <$> Project.allDeclarationsIn p i
     editDeclaration i di f = do
-        modifyProjectE $ \p -> Project.editDeclaration p (ModuleChild i di) f
+        modifyProjectER $ \p -> Project.editDeclaration p (ModuleChild i di) f
     removeDeclaration i di = do
         modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
 

@@ -23,10 +23,10 @@ import Control.Monad.Trans.State.Strict
 import Ide3.Types
 
 import Ide3.Monad
-import Ide3.Mechanism.State -- (ProjectStateM (..), ProjectShellM (..))
+--import Ide3.Mechanism.State -- (ProjectStateM (..), ProjectShellM (..))
 --import Ide3.Mechanism.State
 
-import PseudoState
+--import PseudoState
 
 -- | Provides methods for features of a persistance mechanism
 class (ProjectM m) => ViewerMonad m where
