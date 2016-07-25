@@ -24,14 +24,15 @@ import Control.Monad.Trans.Except
 
 
 
-import {-# SOURCE #-} Ide3.Module ( allSymbols
-                                  , exportedSymbols
-                                  , importsModule
-                                  , symbolTree
-                                  , infoMatches
-                                  , internalSymbols
-                                  , info
-                                  )
+import {-# SOURCE #-} Ide3.Module 
+    ( allSymbols
+    , exportedSymbols
+    , importsModule
+    , symbolTree
+    , infoMatches
+    , internalSymbols
+    , info
+    )
 
 import Ide3.Monad
 import Ide3.Export.Parser

@@ -239,16 +239,16 @@ removeDeclaration p (ModuleChild i d)
 editDeclaration :: Project 
                 -> ModuleChild DeclarationInfo
                 -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
-                -> Either (ProjectError u) Project
+                -> Either (ProjectError u) (Project,DeclarationInfo)
 editDeclaration p (ModuleChild i di) f = do
     mi <- Module.info <$> getModule p i
-    editModule p mi (\m -> Module.editDeclaration m di f)
+    editModuleR p mi (\m -> Module.editDeclaration m di f)
 
 -- |Same as `editDeclaration`, but the transformation is garunteed to succeed
 editDeclaration' :: Project
                  -> ModuleChild DeclarationInfo
                  -> (Declaration -> (WithBody Declaration))
-                 -> Either (ProjectError u) Project
+                 -> Either (ProjectError u) (Project,DeclarationInfo)
 editDeclaration' p m f = editDeclaration p m (return . f)
 
 -- |Move a declaration from one module to another

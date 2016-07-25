@@ -127,7 +127,7 @@ instance (ProjectShellM m, ProjectStateM m) => ProjectM (StatefulProject m) wher
     addDeclaration i d = modifyProjectE $ \p -> Project.addDeclaration p i d
     getDeclaration i di = ExceptT $ getsProject $ \p -> getChild <$> Project.getDeclaration p (ModuleChild i di)
     getDeclarations i = ExceptT $ getsProject $ \p -> map getChild <$> Project.allDeclarationsIn p i
-    editDeclaration i di f = modifyProjectE $ \p -> Project.editDeclaration p (ModuleChild i di) f
+    editDeclaration i di f = modifyProjectER $ \p -> Project.editDeclaration p (ModuleChild i di) f
     removeDeclaration i di = modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
 
     addImport mi i = modifyProjectER $ \p -> Project.addImport p mi i

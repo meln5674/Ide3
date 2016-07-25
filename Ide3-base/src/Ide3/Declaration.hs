@@ -7,8 +7,6 @@ License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
-
-TODO
 -}
 module Ide3.Declaration
     ( module Ide3.Declaration
@@ -44,6 +42,8 @@ partitionBy f ys = go ys Map.empty
             Nothing -> [x]
         m' = Map.insert k v' m
 
+-- | Parse a string containing either a single declaration or multiple
+-- declarations which can be combined into a single declaration
 parseAndCombine :: String -> Maybe FilePath -> Either (ProjectError u) (WithBody Declaration)
 parseAndCombine s fp = do 
     ds <- Parser.parseWithBody s fp

@@ -311,19 +311,20 @@ removeDeclaration m@(Module i ps is es ds) di
 editDeclaration :: Module 
                 -> DeclarationInfo
                 -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
-                -> Either (ProjectError u) Module
+                -> Either (ProjectError u) (Module, DeclarationInfo)
 editDeclaration m@(Module i ps is es ds) di f = do
     (ModuleChild _ (WithBody d _)) <- getDeclaration m di
     d' <- f d
-    let ds' = Map.insert (Declaration.info $ item d') d'
+    let di' = Declaration.info $ item d'
+        ds' = Map.insert di' d'
             $ Map.delete di ds
-    return $ Module i ps is es ds'
+    return $ (Module i ps is es ds', di')
 
 -- |Same as 'editDeclaration', but the transformation is garunteed to suceed
 editDeclaration' :: Module
                  -> DeclarationInfo
                  -> (Declaration -> WithBody Declaration)
-                 -> Either (ProjectError u) Module
+                 -> Either (ProjectError u) (Module, DeclarationInfo)
 editDeclaration' m d f = editDeclaration m d (return . f)
 
 -- |Get a declaration from a module

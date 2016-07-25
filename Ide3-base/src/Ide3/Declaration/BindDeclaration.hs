@@ -14,6 +14,7 @@ module Ide3.Declaration.BindDeclaration where
 
 import Ide3.Types
 
+-- | Get the symbols this bind creates
 symbolsCreated :: BindDeclaration -> [Symbol]
 symbolsCreated (LocalBindDeclaration ss _) = ss
 symbolsCreated (ForeignBindDeclaration s _ _) = [s]

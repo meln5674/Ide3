@@ -29,6 +29,7 @@ import Ide3.Monad
 import Ide3.Import.Parser
 
 import {-# SOURCE #-} Ide3.Mechanism.Internal
+
 -- | Get the name of the module being imported, pre-rename
 moduleName :: Import -> Symbol
 moduleName (ModuleImport sym _ _) = sym
@@ -62,6 +63,7 @@ importedModuleName i = fromMaybe name rename
     name = moduleName i
     rename = renamed i        
 
+-- | Apply a transformation to the name of the module being imported
 editModuleName :: (Symbol -> Symbol) -> (WithBody Import) -> (WithBody Import)
 editModuleName f (WithBody (ModuleImport sym a b) s) = WithBody (ModuleImport (f sym) a b) $ error "TODO"
 editModuleName f (WithBody (WhitelistImport sym a b c) s) = WithBody (WhitelistImport (f sym) a b c) $ error "TODO"
@@ -94,7 +96,6 @@ blacklistTree :: ProjectM m
 blacklistTree m i = do
     whitelistSyms <- whitelistTree m i
     allSyms <- map getChild <$> Module.exportedSymbols m
---    ExceptT $ return $ Right $ filter (not . (`elem` whitelistSyms)) allSyms
     return $ filter (not . (`elem` whitelistSyms)) allSyms
 
 -- | Get the symbols provided by an import, ignoring qualification

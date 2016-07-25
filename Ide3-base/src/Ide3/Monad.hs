@@ -88,7 +88,7 @@ class Monad m => ProjectM m where
     editDeclaration :: ModuleInfo 
                     -> DeclarationInfo 
                     -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
-                    -> ProjectResult m u ()
+                    -> ProjectResult m u DeclarationInfo
     -- | Remove a declaration from a module
     removeDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u ()
 
