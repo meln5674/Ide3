@@ -19,27 +19,33 @@ tests_basicModule = TestList
     ]
 
 test_addModule :: (?loc :: CallStack) => Test    
-test_addModule = expectSuccess $ createModule newModuleInfo
+test_addModule = expectSuccess $ do
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
 
 test_addAndRetreiveModule :: (?loc :: CallStack) => Test    
 test_addAndRetreiveModule = expectResult (Module.new newModuleInfo) $ do
-    createModule newModuleInfo
-    getModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    getModule newProjectInfo newModuleInfo
 
 test_addAndRemoveModule :: (?loc :: CallStack) => Test    
 test_addAndRemoveModule = expectSuccess $ do
-    createModule newModuleInfo
-    removeModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    removeModule newProjectInfo newModuleInfo
 
 test_addRemoveAndRetreiveModule :: (?loc :: CallStack) => Test    
 test_addRemoveAndRetreiveModule = expectFailure $ do
-    createModule newModuleInfo
-    removeModule newModuleInfo
-    getModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    removeModule newProjectInfo newModuleInfo
+    getModule newProjectInfo newModuleInfo
 
 test_addRemoveAndReAddModule :: (?loc :: CallStack) => Test    
 test_addRemoveAndReAddModule = expectSuccess $ do
-    createModule newModuleInfo
-    removeModule newModuleInfo
-    createModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    removeModule newProjectInfo newModuleInfo
+    createModule newProjectInfo newModuleInfo
 

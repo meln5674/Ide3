@@ -37,7 +37,7 @@ convertWithBody :: Spannable a => String -> ExportSpec a -> WithBody Export
 convertWithBody str export = WithBody (convert export) (ann export >< str)
 
 -- | Parse an export
-parse :: String -> Either (ProjectError u) Export
+parse :: String -> Either (SolutionError u) Export
 parse s = case result of
     ParseOk ok -> Right $ convert export
       where 

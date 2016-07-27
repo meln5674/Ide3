@@ -5,6 +5,13 @@ import Ide3.Monad
 
 type EitherModule = Either Module ExternModule
 
-exportedSymbols :: ProjectM m => EitherModule -> ProjectResult m u [ModuleChild Symbol]
+exportedSymbols :: SolutionM m 
+                => ProjectInfo
+                -> EitherModule 
+                -> SolutionResult m u [ModuleChild Symbol]
 
-symbolTree :: ProjectM m => EitherModule -> Symbol -> ProjectResult m u [ModuleChild Symbol]
+symbolTree :: SolutionM m 
+           => ProjectInfo
+           -> EitherModule 
+           -> Symbol 
+           -> SolutionResult m u [ModuleChild Symbol]

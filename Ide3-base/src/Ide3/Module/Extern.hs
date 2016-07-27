@@ -20,7 +20,7 @@ exportedSymbols (ExternModule i es) = do
     syms <- map exportSymbols es
     map (ModuleChild i) syms
 
-symbolTree :: ProjectM m => ExternModule -> Symbol -> ProjectResult m u [ModuleChild Symbol]
+symbolTree :: SolutionM m => ExternModule -> Symbol -> SolutionResult m u [ModuleChild Symbol]
 symbolTree (ExternModule i es) s = case getFirst $ mconcat $ map look es of
     Just ss -> return $ map (ModuleChild i) ss
     Nothing -> throwE $ SymbolNotExported i s "Extern.symbolTree"

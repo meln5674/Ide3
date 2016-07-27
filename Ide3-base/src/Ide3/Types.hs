@@ -12,6 +12,8 @@ This module contains all of the top level types which are used throughout this
 project. The structures here describe a haskell project as a collection of
 modules, each of which contain exports, imports, and declarations.
 -}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Ide3.Types where
 
 import Control.Monad.Trans.Except
@@ -58,18 +60,20 @@ newtype Symbol = Symbol String
 joinSym :: Symbol -> Symbol -> Symbol
 joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 
-{-
-data SolutionInfo = SolutionInfo
 
+-- | Information on a solution
+data SolutionInfo = SolutionInfo String
+
+-- | A solution, a collection of projects
 data Solution
     = Solution
     { solutionInfo :: SolutionInfo
     , solutionProjects :: Map ProjectInfo Project
     }
--}
+
 -- |Information about a project
-data ProjectInfo = ProjectInfo
-    deriving (Show, Read, Eq)
+data ProjectInfo = ProjectInfo String
+    deriving (Show, Read, Eq, Ord)
 -- |Information on how to build a project
 data BuildInfo = BuildInfo
     deriving (Show, Read, Eq)
@@ -127,10 +131,10 @@ data ExternExport
 --  are availible
 data ExternModule
     = ExternModule
-            ModuleInfo
-            [ExternExport]
+    { externModuleInfo :: ModuleInfo
+    , externModuleExports :: [ExternExport]
+    }
     deriving (Show, Eq, Read, Ord)
-
 
 -- |A value which is tagged as belonging to a module
 data ModuleChild a = ModuleChild ModuleInfo a
@@ -142,6 +146,7 @@ getChild (ModuleChild _ a) = a
 
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi (f x)
+
 
 -- |An import statement. The first three fields of each are:
 --  The module being imported
@@ -300,7 +305,7 @@ instance ToSym (DeclHead a) where
     toSym (DHApp _ h _) = toSym h
 
 -- |Errors that can arrise during modifying and querying a project
-data ProjectError u
+data SolutionError u
     = ModuleNotFound ModuleInfo String
     | DeclarationNotFound ModuleInfo DeclarationInfo String
     | SymbolNotFound ModuleInfo Symbol String
@@ -312,12 +317,14 @@ data ProjectError u
     | InvalidExportId ModuleInfo ExportId String
     | InvalidOperation String String
     | DuplicateModule ModuleInfo String
+    | DuplicateProject ProjectInfo String
+    | ProjectNotFound ProjectInfo String
     | ParseError SrcLoc String String
     | Unsupported String
     | UserError u
     deriving Eq
 
-instance Show u => Show (ProjectError u) where
+instance Show u => Show (SolutionError u) where
     show (ModuleNotFound i s)
         = printf "%s: module \"%s\" not found" s (show i)
     show (DeclarationNotFound mi di s)
@@ -361,4 +368,87 @@ instance Qualify DeclarationInfo where
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
 
 
-type ProjectResult m u = ExceptT (ProjectError u) m
+
+type SolutionResult m u = ExceptT (SolutionError u) m
+
+
+
+
+data ProjectParam a = ProjectParam ProjectInfo a
+
+data ModuleParam a = ModuleParam ProjectInfo ModuleInfo a
+
+data DeclarationParam a = DeclarationParam ProjectInfo ModuleInfo DeclarationInfo a
+
+instance Functor ProjectParam where
+    fmap f (ProjectParam a x) = ProjectParam a $ f x
+
+instance Functor ModuleParam where
+    fmap f (ModuleParam a b x) = ModuleParam a b $ f x
+
+instance Functor DeclarationParam where
+    fmap f (DeclarationParam a b c x) = DeclarationParam a b c $ f x
+
+class ParamClass f a where
+    getParam :: f a -> a
+    setParam :: f b -> a -> f a
+
+class ProjectParamClass f where
+    getProjectInfo :: f a -> ProjectInfo
+    
+class ModuleParamClass f where
+    getModuleInfo :: f a -> ModuleInfo
+
+class DeclarationParamClass f where
+    getDeclarationInfo :: f a -> DeclarationInfo
+
+class UnwrapProject f where
+    unwrapProject :: f a -> ProjectParam ModuleInfo
+
+class UnwrapModule f where
+    unwrapModule :: f a -> ModuleParam DeclarationInfo
+
+instance UnwrapProject ModuleParam where
+    unwrapProject (ModuleParam a b _) = ProjectParam a b
+
+instance UnwrapProject DeclarationParam where
+    unwrapProject (DeclarationParam a b _ _) = ProjectParam a b
+
+instance UnwrapModule DeclarationParam where
+    unwrapModule (DeclarationParam a b c _) = ModuleParam a b c
+
+wrapProject :: ProjectParam ModuleInfo -> a -> ModuleParam a
+wrapProject (ProjectParam a b) c = ModuleParam a b c
+
+wrapModule :: ModuleParam DeclarationInfo -> a -> DeclarationParam a
+wrapModule (ModuleParam a b c) d = DeclarationParam a b c d
+
+instance ParamClass ProjectParam a where
+    getParam (ProjectParam _ x) = x
+    setParam (ProjectParam a _) x = ProjectParam a x
+
+instance ParamClass ModuleParam a where
+    getParam (ModuleParam _ _ x) = x
+    setParam (ModuleParam a b _) x = ModuleParam a b x
+
+instance ParamClass DeclarationParam a where
+    getParam (DeclarationParam _ _ _ x) = x
+    setParam (DeclarationParam a b c _) x = DeclarationParam a b c x
+    
+instance ProjectParamClass ProjectParam where
+    getProjectInfo (ProjectParam x _) = x
+
+instance ProjectParamClass ModuleParam where
+    getProjectInfo (ModuleParam x _ _) = x
+
+instance ProjectParamClass DeclarationParam where
+    getProjectInfo (DeclarationParam x _ _ _) = x
+
+instance ModuleParamClass ModuleParam where
+    getModuleInfo (ModuleParam _ x _) = x
+
+instance ModuleParamClass DeclarationParam where
+    getModuleInfo (DeclarationParam _ x _ _) = x
+
+instance DeclarationParamClass DeclarationParam where
+    getDeclarationInfo (DeclarationParam _ _ x _) = x

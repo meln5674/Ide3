@@ -42,7 +42,7 @@ convertWithBody str x = WithBody import_ body
     import_ = convert x
 
 -- | Parse an import statement
-parse :: String -> Either (ProjectError u) Import
+parse :: String -> Either (SolutionError u) Import
 parse s = case parseImportDecl s of
     ParseOk x -> Right $ convert x
     ParseFailed l msg -> Left $ ParseError l msg ""

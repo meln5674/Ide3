@@ -8,7 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-This module provides the ProjectM class, which is an abstract interface to
+This module provides the SolutionM class, which is an abstract interface to
 a Project. Instances must provide the ability to create, save, load, and query
 a project, as well as add and remove modules, exports, imports, and declarations.
 
@@ -33,7 +33,7 @@ import Control.Monad.Trans.State.Strict
 import Ide3.Types
 
 -- |Abstract interface to a project
-class Monad m => ProjectM m where
+class Monad m => SolutionM m where
     -- |Load a project.
     --  This function takes no arguments, and this is by design. Instances will
     --  need to be able to encode information on how to load in their own type.
@@ -41,120 +41,135 @@ class Monad m => ProjectM m where
     --  constructors, this means that new methods of loading can be added without
     --  breaking the interface, and does not require every instance to support
     --  all methods of loading.
-    load :: ProjectResult m u ()
+    load :: SolutionResult m u ()
     -- |Create a new project
     --  See 'load' for discussion of lack of additional parameters
-    new :: ProjectInfo -> ProjectResult m u ()
+    new :: SolutionInfo -> SolutionResult m u ()
     -- |Perform what ever actions are necessary to be able to load the current
     --  project at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
-    finalize :: ProjectResult m u ()
+    finalize :: SolutionResult m u ()
 
+    -- | Edit the solution's info
+    editSolutionInfo :: (SolutionInfo -> SolutionInfo) -> SolutionResult m u ()
 
-    -- |Apply a transformation to the projects identifying information
-    editProjectInfo :: (ProjectInfo -> ProjectInfo) -> ProjectResult m u ()
+    -- | Add a new project to the solution
+    addProject :: ProjectInfo -> SolutionResult m u ()
+    -- | Remove a project from the solution
+    removeProject :: ProjectInfo -> SolutionResult m u ()
+    -- | Get a list of the project infos in the solution
+    getProjects :: SolutionResult m u [ProjectInfo]
+    -- | Apply a transformation to a project's identifying information
+    editProjectInfo :: ProjectInfo -> (ProjectInfo -> ProjectInfo) -> SolutionResult m u ()
 
-
+    
     -- |Add a module
-    addModule :: Module -> ProjectResult m u ()
+    addModule :: ProjectInfo -> Module -> SolutionResult m u ()
     -- | Add an external module
-    addExternModule :: ExternModule -> ProjectResult m u ()
+    addExternModule :: ProjectInfo -> ExternModule -> SolutionResult m u ()
     -- |Create a new module
-    createModule :: ModuleInfo -> ProjectResult m u ()
+    createModule :: ProjectInfo -> ModuleInfo -> SolutionResult m u ()
     -- |Retrieve a module
-    getModule :: ModuleInfo -> ProjectResult m u Module
+    getModule :: ProjectInfo -> ModuleInfo -> SolutionResult m u Module
     -- | Retrieve an external module
-    getExternModule :: ModuleInfo -> ProjectResult m u ExternModule
+    getExternModule :: ProjectInfo -> ModuleInfo -> SolutionResult m u ExternModule
     -- |Get a list of all the availible modules
-    getModules :: ProjectResult m u [ModuleInfo]
+    getModules :: ProjectInfo -> SolutionResult m u [ModuleInfo]
     -- | Apply a transformation to a module
-    editModule :: ModuleInfo -> (Module -> Either (ProjectError u) Module) -> ProjectResult m u ()
-    -- |Remove a module
+    editModule :: ProjectInfo -> ModuleInfo
+               -> (Module -> Either (SolutionError u) Module) 
+               -> SolutionResult m u ()
+    -- | Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
-    removeModule :: ModuleInfo -> ProjectResult m u ()
+    removeModule :: ProjectInfo -> ModuleInfo -> SolutionResult m u ()
     
 
 
     -- |Add a declaration to a module
-    addDeclaration :: ModuleInfo -> WithBody Declaration -> ProjectResult m u ()
+    addDeclaration :: ProjectInfo -> ModuleInfo -> WithBody Declaration -> SolutionResult m u ()
     -- | Get a declaration in a module from its info
-    getDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u (WithBody Declaration)
+    getDeclaration :: ProjectInfo -> ModuleInfo -> DeclarationInfo -> SolutionResult m u (WithBody Declaration)
     -- | Get all info on all declarations in a module
-    getDeclarations :: ModuleInfo -> ProjectResult m u [DeclarationInfo]
+    getDeclarations :: ProjectInfo -> ModuleInfo -> SolutionResult m u [DeclarationInfo]
     -- | Apply a transformation to a declaration in a module
-    editDeclaration :: ModuleInfo 
-                    -> DeclarationInfo 
-                    -> (Declaration -> Either (ProjectError u) (WithBody Declaration))
-                    -> ProjectResult m u DeclarationInfo
+    editDeclaration :: ProjectInfo 
+                    -> ModuleInfo 
+                    -> DeclarationInfo
+                    -> (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    -> SolutionResult m u DeclarationInfo
     -- | Remove a declaration from a module
-    removeDeclaration :: ModuleInfo -> DeclarationInfo -> ProjectResult m u ()
+    removeDeclaration :: ProjectInfo -> ModuleInfo -> DeclarationInfo -> SolutionResult m u ()
 
     -- |Add an import to a module
-    addImport :: ModuleInfo -> WithBody Import -> ProjectResult m u ImportId
+    addImport :: ProjectInfo -> ModuleInfo -> WithBody Import -> SolutionResult m u ImportId
     -- | Get an import from a module
-    getImport :: ModuleInfo -> ImportId -> ProjectResult m u (WithBody Import)
+    getImport :: ProjectInfo -> ModuleInfo -> ImportId -> SolutionResult m u (WithBody Import)
     -- |Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
-    removeImport :: ModuleInfo -> ImportId -> ProjectResult m u ()
+    removeImport :: ProjectInfo -> ModuleInfo -> ImportId -> SolutionResult m u ()
     -- | Get a list of all of the import ids in a module
-    getImports :: ModuleInfo -> ProjectResult m u [ImportId]
+    getImports :: ProjectInfo -> ModuleInfo -> SolutionResult m u [ImportId]
 
 
     -- |Add an export to a module
-    addExport :: ModuleInfo -> WithBody Export -> ProjectResult m u ExportId
+    addExport :: ProjectInfo -> ModuleInfo ->  (WithBody Export) -> SolutionResult m u ExportId
     -- | Get an export from a module
-    getExport :: ModuleInfo -> ExportId -> ProjectResult m u (WithBody Export)
+    getExport :: ProjectInfo -> ModuleInfo ->  ExportId -> SolutionResult m u (WithBody Export)
     -- |Remove an export from a module
     --  Instances are expected to return a Left value if a matching export is not found
-    removeExport :: ModuleInfo -> ExportId -> ProjectResult m u ()
+    removeExport :: ProjectInfo -> ModuleInfo ->  ExportId -> SolutionResult m u ()
     -- |Set a module to export all of its symbols
-    exportAll :: ModuleInfo -> ProjectResult m u ()
+    exportAll :: ProjectInfo -> ModuleInfo -> SolutionResult m u ()
     -- | Set a module to export nothing
-    exportNothing :: ModuleInfo -> ProjectResult m u  ()
+    exportNothing :: ProjectInfo -> ModuleInfo -> SolutionResult m u  ()
     -- | Get a list of all of the export ids in a module
-    getExports :: ModuleInfo -> ProjectResult m u (Maybe [ExportId])
+    getExports :: ProjectInfo -> ModuleInfo -> SolutionResult m u (Maybe [ExportId])
 
-    addPragma :: ModuleInfo -> Pragma -> ProjectResult m u ()
+    addPragma :: ProjectInfo -> ModuleInfo ->  Pragma -> SolutionResult m u ()
     
-    removePragma :: ModuleInfo -> Pragma -> ProjectResult m u ()
+    removePragma :: ProjectInfo -> ModuleInfo ->  Pragma -> SolutionResult m u ()
     
-    getPragmas :: ModuleInfo -> ProjectResult m u [Pragma]
+    getPragmas :: ProjectInfo -> ModuleInfo -> SolutionResult m u [Pragma]
 
 bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
 bounce = ExceptT . lift . runExceptT
 
-instance (ProjectM m) => ProjectM (StateT s m) where
+instance (SolutionM m) => SolutionM (StateT s m) where
     load = bounce load
     new = bounce . new
     finalize = bounce finalize
-    editProjectInfo = bounce . editProjectInfo
-    createModule = bounce . createModule
-    getModule = bounce . getModule
-    getExternModule = bounce . getExternModule
-    editDeclaration x y = bounce . editDeclaration x y
-    addModule = bounce . addModule
-    addExternModule = bounce . addExternModule
-    getModules = bounce getModules
-    editModule x = bounce . editModule x
-    removeModule = bounce . removeModule
-    addDeclaration x = bounce . addDeclaration x
-    getDeclaration x = bounce . getDeclaration x
-    getDeclarations = bounce . getDeclarations
-    removeDeclaration x = bounce . removeDeclaration x
-    addImport x = bounce . addImport x
-    getImport x = bounce . getImport x
-    removeImport x = bounce . removeImport x
-    getImports = bounce . getImports
-    addExport x = bounce . addExport x
-    getExport x = bounce . getExport x
-    removeExport x = bounce . removeExport x
-    exportAll = bounce . exportAll
-    exportNothing = bounce . exportNothing
-    getExports = bounce . getExports
-    addPragma x = bounce . addPragma x
-    removePragma x = bounce . removePragma x
-    getPragmas = bounce . getPragmas
+    editSolutionInfo = bounce . editSolutionInfo
+    addProject = bounce . addProject
+    removeProject = bounce . removeProject
+    getProjects = bounce getProjects
+    editProjectInfo x = bounce . editProjectInfo x
+    createModule x = bounce . createModule x
+    getModule x = bounce . getModule x
+    getExternModule x = bounce . getExternModule x
+    editDeclaration x y z = bounce . editDeclaration x y z
+    addModule x = bounce . addModule x
+    addExternModule x = bounce . addExternModule x
+    getModules = bounce . getModules
+    editModule x y = bounce . editModule x y
+    removeModule x = bounce . removeModule x
+    addDeclaration x y = bounce . addDeclaration x y
+    getDeclaration x y = bounce . getDeclaration x y
+    getDeclarations x = bounce . getDeclarations x
+    removeDeclaration x y = bounce . removeDeclaration x y
+    addImport x y = bounce . addImport x y
+    getImport x y = bounce . getImport x y
+    removeImport x y = bounce . removeImport x y
+    getImports x = bounce . getImports x
+    addExport x y = bounce . addExport x y
+    getExport x y = bounce . getExport x y
+    removeExport x y = bounce . removeExport x y
+    exportAll x = bounce . exportAll x
+    exportNothing x = bounce . exportNothing x
+    getExports x = bounce . getExports x
+    addPragma x y = bounce . addPragma x y
+    removePragma x y = bounce . removePragma x y
+    getPragmas x = bounce . getPragmas x

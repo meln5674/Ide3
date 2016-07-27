@@ -22,47 +22,55 @@ tests_basicExport = TestList
 
 test_addExport :: (?loc :: CallStack) => Test
 test_addExport = expectSuccess $ do
-    createModule newModuleInfo
-    addExport newModuleInfo newExport
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addExport newProjectInfo newModuleInfo newExport
 
 test_addAndRetreiveExport :: (?loc :: CallStack) => Test
 test_addAndRetreiveExport = expectResult newExport $ do
-    createModule newModuleInfo
-    exportId <- addExport newModuleInfo newExport
-    getExport newModuleInfo exportId
+    addProject newProjectInfo
+    createModule newProjectInfo  newModuleInfo
+    exportId <- addExport newProjectInfo newModuleInfo newExport
+    getExport newProjectInfo newModuleInfo exportId
 
 test_exportAll :: (?loc :: CallStack) => Test    
 test_exportAll = expectSuccess $ do
-    createModule newModuleInfo
-    exportAll newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportAll newProjectInfo newModuleInfo
 
 test_exportNothing :: (?loc :: CallStack) => Test    
 test_exportNothing = expectSuccess $ do
-    createModule newModuleInfo
-    exportNothing newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportNothing newProjectInfo newModuleInfo
 
 test_exportAllThenRemove :: (?loc :: CallStack) => Test    
 test_exportAllThenRemove = expectFailure $ do
-    createModule newModuleInfo
-    exportAll newModuleInfo
-    removeExport newModuleInfo nonExistentExportId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportAll newProjectInfo newModuleInfo
+    removeExport newProjectInfo newModuleInfo nonExistentExportId
 
 test_addAndRemoveExport :: (?loc :: CallStack) => Test    
 test_addAndRemoveExport = expectSuccess $ do
-    createModule newModuleInfo
-    exportId <- addExport newModuleInfo newExport
-    removeExport newModuleInfo exportId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportId <- addExport newProjectInfo newModuleInfo newExport
+    removeExport newProjectInfo newModuleInfo exportId
 
 test_addRemoveAndRetreiveExport :: (?loc :: CallStack) => Test
 test_addRemoveAndRetreiveExport = expectFailure $ do
-    createModule newModuleInfo
-    exportId <- addExport newModuleInfo newExport
-    removeExport newModuleInfo exportId
-    getExport newModuleInfo exportId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportId <- addExport newProjectInfo newModuleInfo newExport
+    removeExport newProjectInfo newModuleInfo exportId
+    getExport newProjectInfo newModuleInfo exportId
     
 test_addRemoveAndReaddExport :: (?loc :: CallStack) => Test
 test_addRemoveAndReaddExport = expectSuccess $ do
-    createModule newModuleInfo
-    exportId <- addExport newModuleInfo newExport
-    removeExport newModuleInfo exportId
-    addExport newModuleInfo newExport
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    exportId <- addExport newProjectInfo newModuleInfo newExport
+    removeExport newProjectInfo newModuleInfo exportId
+    addExport newProjectInfo newModuleInfo newExport

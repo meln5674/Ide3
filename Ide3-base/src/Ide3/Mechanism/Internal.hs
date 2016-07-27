@@ -32,50 +32,55 @@ f p s = case p of
     Left e -> throwE e
 -}
 -- | Parse an import and add it to a module
-addRawImport :: ProjectM m => ModuleInfo -> String -> ProjectResult m u ImportId
-addRawImport mi s = case Import.parse s of
-    Right i -> addImport mi (WithBody i s)
+addRawImport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ImportId
+addRawImport pi mi str = case Import.parse str of
+    Right i -> addImport pi mi $ WithBody i str
     Left err -> throwE err 
 
 -- | Parse an export and add it to a module
-addRawExport :: ProjectM m => ModuleInfo -> String -> ProjectResult m u  ExportId
-addRawExport mi s = case Export.parse s of
-    Right e -> addExport mi (WithBody e s)
+addRawExport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ExportId
+addRawExport pi mi str = case Export.parse str of
+    Right e -> addExport pi mi $ WithBody e str
     Left err -> throwE err
 
 -- | Parse a declaration and add it to a module
-addRawDeclaration :: ProjectM m => ModuleInfo -> String -> ProjectResult m u ()
-addRawDeclaration i s = case Declaration.parse s of
-    Right d -> void $ addDeclaration i (WithBody d s)
+addRawDeclaration :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ()
+addRawDeclaration pi mi str = case Declaration.parse str of
+    Right d -> addDeclaration pi mi $ WithBody d str
     Left err -> throwE err
-    
+
 -- | Parse an entire module and add it to the project
-addRawModule :: ProjectM m => String -> Maybe FilePath -> ProjectResult m u  ModuleInfo
-addRawModule s p = case Module.parse s p of
+addRawModule :: SolutionM m => ProjectInfo -> String -> Maybe FilePath -> SolutionResult m u ModuleInfo
+addRawModule pi str p = case Module.parse str p of
     Right (m,_,_) -> do
-        addModule m
+        addModule pi m
         return $ Module.info m
     Left err -> throwE err
 
 -- | Get either an internal or external module
-getAnyModule :: ProjectM m => ModuleInfo -> ProjectResult m u EitherModule
-getAnyModule i = catchE (liftM Left $ getModule i) $ \_ -> liftM Right $ getExternModule i
+getAnyModule :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u EitherModule
+getAnyModule pi mi = catchE (liftM Left $ getModule pi mi) $ \_ -> liftM Right $ getExternModule pi mi
 
 -- | Get the symbols exported by a module
-getExternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]
-getExternalSymbols i = do
-    m <- getAnyModule i
+getExternalSymbols :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u  [Symbol]
+getExternalSymbols pi mi = do
+    m <- getAnyModule pi mi
     case m of
-        Left lm -> liftM (map getChild) $ Module.exportedSymbols lm
+        Left lm -> liftM (map getChild) $ Module.exportedSymbols pi lm
         Right em -> return $ map getChild $ ExternModule.exportedSymbols em
 
 -- | Get the symbols availible at the top level of a module
-getInternalSymbols :: ProjectM m => ModuleInfo -> ProjectResult m u  [Symbol]
-getInternalSymbols m = getModule m >>= Module.internalSymbols
+getInternalSymbols :: SolutionM m 
+                   => ProjectInfo 
+                   -> ModuleInfo 
+                   -> SolutionResult m u  [Symbol]
+getInternalSymbols pi mi
+    = getModule pi mi 
+    >>= Module.internalSymbols pi
 
 {-
 
-renameModule :: ProjectM m => ModuleInfo -> ModuleInfo -> ProjectResult m u ()
+renameModule :: SolutionM m => ModuleInfo -> ModuleInfo -> SolutionResult m u ()
 renameModule (ModuleInfo src) (ModuleInfo dest) = do
     editModule src $ \(Module _ ps es is ds) -> Right $ Module dest ps es is ds
     allModules <- getModules

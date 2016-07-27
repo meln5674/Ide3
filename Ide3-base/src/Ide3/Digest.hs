@@ -12,8 +12,8 @@ Provides functions which can enumerate the haskell source files in a project
 tree and construct a project from them
 -}
 module Ide3.Digest
-    ( digestProject
-    , digestProject'
+    ( {-digestProject
+    , digestProject'-}
     ) where
 
 import Data.List
@@ -86,14 +86,17 @@ enumerateHaskellProject path = do
     let haskellTree = findHaskellFiles fileTree
     getFilesInTree haskellTree
 
+{-
 -- | Parse and add a module to a project
-foldAddModule :: Project -> (FilePath,String) -> Either (ProjectError u) Project
+foldAddModule :: Project -> (FilePath,String) -> Either (SolutionError u) Project
 foldAddModule pj (p,c) = do
     (module_,_,_) <- Module.parse c (Just p)
     Project.addModule pj module_
+-}
 
+{-
 -- | Add an interface to a project as an external module
-foldAddExternModule :: Project -> Iface.Interface -> Either (ProjectError u) Project
+foldAddExternModule :: Project -> Iface.Interface -> Either (SolutionError u) Project
 foldAddExternModule pj i = Project.addExternModule pj (convIface i)
   where
     convExport (Iface.SingleExport s) = SingleExternExport (Symbol s)
@@ -101,11 +104,12 @@ foldAddExternModule pj i = Project.addExternModule pj (convIface i)
     convIface iface = ExternModule (ModuleInfo $ Symbol $ Iface.modName i) $ case Iface.exports iface of
         Nothing -> []
         Just es -> map convExport es
-    
+-}  
 
+{-
 -- | Take a path to a directory and opitonally an interface file and create a new
 -- project structure from the haskell files in it
-digestProject' :: MonadIO m => FilePath -> Maybe FilePath -> ProjectResult m u Project
+digestProject' :: MonadIO m => FilePath -> Maybe FilePath -> SolutionResult m u Project
 digestProject' path maybeIfacePath = do
     contents <- liftIO $ enumerateHaskellProject path
     withoutIfaces <- ExceptT $ return $ foldM foldAddModule Project.empty contents
@@ -117,7 +121,8 @@ digestProject' path maybeIfacePath = do
             ExceptT $ return $ foldM foldAddExternModule withoutIfaces ifaces
 
 -- | Take a path to a directory and the modules there to the current project
-digestProject :: (MonadIO m, ProjectM m) => FilePath -> ProjectResult m u ()
-digestProject path = do
-    contents <- liftIO $ enumerateHaskellProject path
-    forM_ contents $  \(p,c) -> addRawModule c (Just p)
+digestProject :: (MonadIO m, SolutionM m) => ProjectParam FilePath -> SolutionResult m u ()
+digestProject arg = do
+    contents <- liftIO $ enumerateHaskellProject $ getParam path
+    forM_ contents $  \(p,c) -> addRawModule (setParam arg c) (Just p)
+-}

@@ -70,65 +70,77 @@ editModuleName f (WithBody (WhitelistImport sym a b c) s) = WithBody (WhitelistI
 editModuleName f (WithBody (BlacklistImport sym a b c) s) = WithBody (BlacklistImport (f sym) a b c) $ error "TODO"
 
 -- | Find the symbols to import from a module using a whitelist import
-whitelistTree :: ProjectM m
-              => EitherModule   -- ^ Module symbols are being imported from
+whitelistTree :: SolutionM m
+              => ProjectInfo
+              -> EitherModule  -- ^ Module symbols are being imported from
               -> ImportKind     -- ^ Specific import to search for
-              -> ProjectResult m u [Symbol]
-whitelistTree m i = do
-    exSyms <- map getChild <$> Module.exportedSymbols m
+              -> SolutionResult m u [Symbol]
+whitelistTree pi m i = do
+    exSyms <- map getChild <$> Module.exportedSymbols pi m
     case i of
-        NameImport s | s `elem` exSyms -> return [s]
-                     | otherwise -> throwE $ SymbolNotExported (Module.info m) s "Import.whitelistTree"
+        NameImport s
+            | s `elem` exSyms -> return [s]
+            | otherwise -> throwE 
+                         $ SymbolNotExported 
+                            (Module.info m)
+                            s 
+                            "Import.whitelistTree"
         AbsImport _ _ -> error "FOUND AN ABS IMPORT"
-        AggregateImport s Nothing -> map getChild <$> Module.symbolTree m s
+        AggregateImport s Nothing -> map getChild <$> Module.symbolTree pi m s
         AggregateImport s (Just ss) -> do
-            ls <- Module.symbolTree m s
+            ls <- Module.symbolTree pi m s
             let ls' = map getChild ls
             case find (not . (`elem` ls')) ss of
                 Just s' -> throwE $ NotSubSymbol s s' "Import.whitelistTree"
                 Nothing -> return (s:ss)
 
 -- | Find the symbosl to import from a module using a blacklist import
-blacklistTree :: ProjectM m 
-              => EitherModule   -- ^ Module symbols are being imported from
+blacklistTree :: SolutionM m 
+              => ProjectInfo
+              -> EitherModule   -- ^ Module symbols are being imported from
               -> ImportKind     -- ^ Import to blacklist
-              -> ProjectResult m u [Symbol]
-blacklistTree m i = do
-    whitelistSyms <- whitelistTree m i
-    allSyms <- map getChild <$> Module.exportedSymbols m
+              -> SolutionResult m u [Symbol]
+blacklistTree pi m i = do
+    whitelistSyms <- whitelistTree pi m i
+    allSyms <- map getChild <$> Module.exportedSymbols pi m
     return $ filter (not . (`elem` whitelistSyms)) allSyms
 
 -- | Get the symbols provided by an import, ignoring qualification
-unqualSymbolsProvided :: ProjectM m => Import -> ProjectResult m u [Symbol]
-unqualSymbolsProvided (ModuleImport sym _ _) = getExternalSymbols (ModuleInfo sym)
-unqualSymbolsProvided (WhitelistImport sym _ _ specs) = do
-    module_ <- getAnyModule (ModuleInfo sym)
-    symbolsFromEach <- mapM (whitelistTree module_) specs
-    return $ concat symbolsFromEach
-unqualSymbolsProvided (BlacklistImport sym _ _ specs) = do
-    module_ <- getAnyModule (ModuleInfo sym)
-    symbolsFromEach <- mapM (blacklistTree module_) specs
-    return $ concat symbolsFromEach
+unqualSymbolsProvided :: SolutionM m => ProjectInfo -> Import -> SolutionResult m u [Symbol]
+unqualSymbolsProvided pi i = case i of
+    (ModuleImport sym _ _) -> getExternalSymbols pi (ModuleInfo sym)
+    (WhitelistImport sym _ _ specs) -> do
+        module_ <- getAnyModule pi (ModuleInfo sym)
+        symbolsFromEach <- mapM (whitelistTree pi module_) specs
+        return $ concat symbolsFromEach
+    (BlacklistImport sym _ _ specs) -> do
+        module_ <- getAnyModule pi (ModuleInfo sym)
+        symbolsFromEach <- mapM (blacklistTree pi module_) specs
+        return $ concat symbolsFromEach
 
 -- | Get the symbols provided by an import
-symbolsProvided :: ProjectM m => Import -> ProjectResult m u [Symbol]
-symbolsProvided i = qualifySymbols (importedModuleName i)
-                                     (isQualified i) 
-                                 <$> unqualSymbolsProvided i
+symbolsProvided :: SolutionM m => ProjectInfo -> Import -> SolutionResult m u [Symbol]
+symbolsProvided pi i = qualifySymbols
+    qualification
+    shouldQualify
+    <$> unqualSymbolsProvided pi i
+  where
+    qualification = importedModuleName i
+    shouldQualify = isQualified i
 
 -- | Test if an import provides a symbol
-providesSymbol :: ProjectM m => Import -> Symbol -> ProjectResult m u Bool
-providesSymbol i s = do
-    syms <- symbolsProvided i
+providesSymbol :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u Bool
+providesSymbol pi i s = do
+    syms <- symbolsProvided pi i
     return $ s `elem` syms
 
 -- | If this import provides a symbol, get all of the other symbols it provides
-otherSymbols :: ProjectM m => Import -> Symbol -> ProjectResult m u (Maybe [Symbol])
-otherSymbols i s = do
-    p <- i `providesSymbol` s
+otherSymbols :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u (Maybe [Symbol])
+otherSymbols pi i s = do
+    p <- providesSymbol pi i s
     if p
         then do
-            syms <- symbolsProvided i
+            syms <- symbolsProvided pi i
             return $ Just $ delete s syms
         else
             return Nothing
@@ -136,7 +148,7 @@ otherSymbols i s = do
 -- | Given a sub-symbol (class method, data constructor, etc...), find the other
 -- sub-symbols and the parent symbol from this import
 -- See 'Ide3.Module.symbolTree'
-symbolTree :: ProjectM m => Import -> Symbol -> ProjectResult m u [Symbol]
-symbolTree i s = do
-    module_ <- getAnyModule (ModuleInfo (moduleName i))
-    map getChild <$> Module.symbolTree module_ s
+symbolTree :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u [Symbol]
+symbolTree pi i s = do
+    module_ <- getAnyModule pi $ ModuleInfo $ moduleName i
+    map getChild <$> Module.symbolTree pi module_ s

@@ -7,7 +7,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-|
 Module      : Ide3.Mechanism.State
-Description : State monad instance of ProjectM
+Description : State monad instance of SolutionM
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -15,18 +15,18 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-This module provides the ProjectStateT and ProjectState types.
-These are simply StateT and State with a Project as their state type.
+This module provides the SolutionStateT and SolutionState types.
+These are simply StateT and State with a Solution as their state type.
 
-In addition, this provides an instance of ProjectM for any monad which
-is a MonadState for Projects.
+In addition, this provides an instance of SolutionM for any monad which
+is a MonadState for Solutions.
 -}
 module Ide3.Mechanism.State
-    ( initialProject
-    , runProjectStateT
-    , runNewProjectStateT
---    , runProjectState
-    , mkStatefulProject
+    ( initialSolution
+    , runSolutionStateT
+    , runNewSolutionStateT
+--    , runSolutionState
+    , mkStatefulSolution
     , module Ide3.Mechanism.State.Types
     , module Ide3.Mechanism.State.Helpers
     ) where
@@ -37,29 +37,31 @@ import Control.Monad.Trans.State.Strict (StateT, runStateT, get, put)
 import Control.Monad.Trans.Except
 
 import Ide3.Monad
-import Ide3.Types
-import qualified Ide3.Project as Project
+import Ide3.Types hiding ( getChild )
+import qualified Ide3.Env.Solution as Solution
 
 import Ide3.Mechanism.State.Types
 import Ide3.Mechanism.State.Helpers
 
+import Ide3.Env
+
 --import Ide3.HasA
 
 
-initialProject :: Project
-initialProject = Project.new ProjectInfo
+initialSolution :: Solution
+initialSolution = Solution.new (SolutionInfo "")
 
--- | Run a project state operation starting with an empty project
-runProjectStateT :: Monad m => ProjectStateT m a -> Project -> m (a,Project)
-runProjectStateT = runStateT . runProjectStateTInternal
+-- | Run a Solution state operation starting with an empty Solution
+runSolutionStateT :: Monad m => SolutionStateT m a -> Solution -> m (a,Solution)
+runSolutionStateT = runStateT . runSolutionStateTInternal
 
--- | Run a project state operation starting with an empty project
-runNewProjectStateT :: Monad m => ProjectStateT m a -> m (a,Project)
-runNewProjectStateT = flip runProjectStateT (Project.new ProjectInfo)
+-- | Run a Solution state operation starting with an empty Solution
+runNewSolutionStateT :: Monad m => SolutionStateT m a -> m (a,Solution)
+runNewSolutionStateT = flip runSolutionStateT initialSolution
 
 -- | Run a project state operation starting with an empty project
 --runProjectState :: ProjectState a -> (a,Project)
---runProjectState f = runIdentity $ runProjectStateT f
+--runProjectState f = runIdentity $ runSolutionStateT f
 
 {-
 -- | Same as 'modifyEitherR', but the transformation produces no additional result
@@ -79,13 +81,13 @@ modifyEitherR f = do
 {-
 class HasProject a where
     getProject :: a -> Project
-    modifyProject :: Project -> a -> a
+    modifySolution :: Project -> a -> a
 -}    
 
 
-instance (ProjectStateM m) => ProjectStateM (StateT s m) where
-    getProject = lift getProject
-    putProject = lift . putProject
+instance (SolutionStateM m) => SolutionStateM (StateT s m) where
+    getSolution = lift getSolution
+    putSolution = lift . putSolution
 
 {-
 instance ProjectShellM m => ProjectShellM (StateT s m) where
@@ -94,83 +96,88 @@ instance ProjectShellM m => ProjectShellM (StateT s m) where
     finalize x = ExceptT $ lift $ runExceptT $ Ide3.Mechanism.State.Types.finalize x
 -}
 
-instance Monad m => ProjectStateM (ProjectStateT m) where
-    getProject = ProjectStateT get
-    putProject = ProjectStateT . put
+instance Monad m => SolutionStateM (SolutionStateT m) where
+    getSolution = SolutionStateT get
+    putSolution = SolutionStateT . put
 
 
-instance MonadTrans StatefulProject where
-    lift = MkStatefulProject
+instance MonadTrans StatefulSolution where
+    lift = MkStatefulSolution
 
-mkStatefulProject :: (ProjectShellM m, ProjectStateM m) => m a -> StatefulProject m a
-mkStatefulProject = MkStatefulProject
+mkStatefulSolution :: (SolutionShellM m, SolutionStateM m) => m a -> StatefulSolution m a
+mkStatefulSolution = MkStatefulSolution
 
---liftStatefulProject :: m a -> StatefulProject m a
---liftStatefulProject 
+--liftStatefulSolution :: m a -> StatefulSolution m a
+--liftStatefulSolution 
 
-instance (ProjectShellM m, ProjectStateM m) => ProjectM (StatefulProject m) where
-    load = Ide3.Mechanism.State.Types.load >>= lift . putProject
-    new i = Ide3.Mechanism.State.Types.new i >>= lift . putProject
-    finalize = lift getProject >>= Ide3.Mechanism.State.Types.finalize
-
-    editProjectInfo f = lift $ modifyProject $ \p -> p{projectInfo = f $ projectInfo p} 
-
-    addModule m = modifyProjectE $ \p -> Project.addModule p m
-    addExternModule m = modifyProjectE $ \p -> Project.addExternModule p m
-    createModule i = modifyProjectE $ \p -> Project.createModule p i
-    getModule i = ExceptT $ getsProject $ \p -> Project.getModule p i
-    getExternModule i = ExceptT $ getsProject $ \p -> Project.getExternModule p i
-    getModules = lift $ getsProject Project.allModules
-    editModule i f = modifyProjectE $ \p -> Project.editModule p i f        
-    removeModule i = modifyProjectE $ \p -> Project.removeModule p i
-
-    addDeclaration i d = modifyProjectE $ \p -> Project.addDeclaration p i d
-    getDeclaration i di = ExceptT $ getsProject $ \p -> getChild <$> Project.getDeclaration p (ModuleChild i di)
-    getDeclarations i = ExceptT $ getsProject $ \p -> map getChild <$> Project.allDeclarationsIn p i
-    editDeclaration i di f = modifyProjectER $ \p -> Project.editDeclaration p (ModuleChild i di) f
-    removeDeclaration i di = modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
-
-    addImport mi i = modifyProjectER $ \p -> Project.addImport p mi i
-    getImport mi iid = ExceptT $ getsProject $ \p -> Project.getImport p mi iid
-    removeImport mi i = modifyProjectE $ \p -> Project.removeImport p mi i
-    getImports mi = ExceptT $ getsProject $ \p -> Project.getImports p mi
+instance (SolutionShellM m, SolutionStateM m) => SolutionM (StatefulSolution m) where
+    load = Ide3.Mechanism.State.Types.load >>= lift . putSolution
+    new i = Ide3.Mechanism.State.Types.new i >>= lift . putSolution
+    finalize = lift getSolution >>= Ide3.Mechanism.State.Types.finalize
     
-    addExport mi e = modifyProjectER $ \p -> Project.addExport p mi e
-    getExport mi eid = ExceptT $ getsProject $ \p -> Project.getExport p mi eid
-    removeExport mi e = modifyProjectE $ \p -> Project.removeExport p mi e
-    exportAll mi = modifyProjectE $ \p -> Project.exportAll p mi
-    exportNothing mi = modifyProjectE $ \p -> Project.exportNothing p mi
-    getExports mi = ExceptT $ getsProject $ \p -> Project.getExports p mi
+    editSolutionInfo f = lift $ modifySolution $ \s -> s{ solutionInfo = f $ solutionInfo s }
+    
+    addProject a = modifySolutionEnv $ \s -> runDescent2 Solution.addProject s a
+    removeProject a = modifySolutionEnv $ \s -> runDescent2 Solution.removeProject s a
+    getProjects = modifySolutionEnv $ \s -> runDescent1 Solution.getProjects s
+    editProjectInfo a b = modifySolutionEnv $ \s -> runDescent3 Solution.editProjectInfo s a b
 
-    addPragma mi pr = modifyProjectE $ \p -> Project.addPragma p mi pr
-    removePragma mi pr = modifyProjectE $ \p -> Project.removePragma p mi pr
-    getPragmas mi = ExceptT $ getsProject $ \p -> Project.getPragmas p mi
+    addModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.addModule s a b
+    addExternModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.addExternModule s a b
+    createModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.createModule s a b
+    getModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.getModule s a b
+    getExternModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.getExternModule s a b
+    getModules a = modifySolutionEnv $ \s -> runDescent2 Solution.allModules s a
+    editModule a b c = modifySolutionEnv $ \s -> runDescent4 Solution.editModule s a b c
+    removeModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.removeModule s a b
 
-deriving instance (MonadMask m) => MonadMask (ProjectStateT m)
-deriving instance (MonadMask m) => MonadMask (StatefulProject m)
-deriving instance (MonadCatch m) => MonadCatch (ProjectStateT m)
-deriving instance (MonadCatch m) => MonadCatch (StatefulProject m)
-deriving instance (MonadThrow m) => MonadThrow (ProjectStateT m)
-deriving instance (MonadThrow m) => MonadThrow (StatefulProject m)
+    addDeclaration a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addDeclaration s a b c
+    getDeclaration a b c  = modifySolutionEnv $ \s -> runDescent4 Solution.getDeclaration s a b c
+    getDeclarations a b = modifySolutionEnv $ \s -> runDescent3 Solution.getDeclarations s a b
+    editDeclaration a b c d = modifySolutionEnv $ \s -> runDescent5 Solution.editDeclaration s a b c d
+    removeDeclaration a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeDeclaration s a b c
+
+    addImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addImport s a b c
+    getImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.getImport s a b c
+    removeImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeImport s a b c
+    getImports a b = modifySolutionEnv $ \s -> runDescent3 Solution.getImports s a b
+    
+    addExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addExport s a b c
+    getExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.getExport s a b c
+    removeExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeExport s a b c
+    exportAll a b = modifySolutionEnv $ \s -> runDescent3 Solution.exportAll s a b
+    exportNothing a b = modifySolutionEnv $ \s -> runDescent3 Solution.exportNothing s a b
+    getExports a b = modifySolutionEnv $ \s -> runDescent3 Solution.getExports s a b
+
+    addPragma a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addPragma s a b c
+    removePragma a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removePragma s a b c
+    getPragmas a b = modifySolutionEnv $ \s -> runDescent3 Solution.getPragmas s a b
+
+deriving instance (MonadMask m) => MonadMask (SolutionStateT m)
+deriving instance (MonadMask m) => MonadMask (StatefulSolution m)
+deriving instance (MonadCatch m) => MonadCatch (SolutionStateT m)
+deriving instance (MonadCatch m) => MonadCatch (StatefulSolution m)
+deriving instance (MonadThrow m) => MonadThrow (SolutionStateT m)
+deriving instance (MonadThrow m) => MonadThrow (StatefulSolution m)
 
 {-
---instance (ProjectShellM m, MonadState x m, HasA Project x) => ProjectM m where
-instance (ProjectShellM m, HasA Project x) => ProjectM (StateT x m) where
+--instance (ProjectShellM m, MonadState x m, HasA Project x) => SolutionM m where
+instance (ProjectShellM m, HasA Project x) => SolutionM (StateT x m) where
     load = return ()
-    new i = putA' $ Project.new i
+    new i = putA' $ Solution.new i
     finalize = return ()
     editProjectInfo f = modifyA' $ \(Project i ms b) -> (Project (f i) ms b)
-    addModule m = modifyEither $ \p -> Project.addModule p m
-    createModule i = modifyEither $ \p -> Project.createModule p i
-    getModule i = getsA' $ \p -> Project.getModule p i
-    removeModule i = modifyEither $ \p -> Project.removeModule p i
-    addDeclaration i d = modifyEither $ \p -> Project.addDeclaration p i d
-    addImport mi i = modifyEitherR $ \p -> Project.addImport p mi i
-    removeImport mi i = modifyEither $ \p -> Project.removeImport p mi i
-    addExport mi e = modifyEitherR $ \p -> Project.addExport p mi e
-    removeExport mi e = modifyEither $ \p -> Project.removeExport p mi e
-    exportAll mi = modifyEither $ \p -> Project.exportAll p mi
-    getModules = getsA' Project.allModules
+    addModule m = modifyEither $ \s -> Solution.addModule p m
+    createModule i = modifyEither $ \s -> Solution.createModule p i
+    getModule i = getsA' $ \s -> Solution.getModule p i
+    removeModule i = modifyEither $ \s -> Solution.removeModule p i
+    addDeclaration i d = modifyEither $ \s -> Solution.addDeclaration p i d
+    addImport mi i = modifyEitherR $ \s -> Solution.addImport p mi i
+    removeImport mi i = modifyEither $ \s -> Solution.removeImport p mi i
+    addExport mi e = modifyEitherR $ \s -> Solution.addExport p mi e
+    removeExport mi e = modifyEither $ \s -> Solution.removeExport p mi e
+    exportAll mi = modifyEither $ \s -> Solution.exportAll p mi
+    getModules = getsA' Solution.allModules
 -}
 
 {-
@@ -180,11 +187,11 @@ class (Monad m) => ProjectStateM m where
     finalize :: m ()
     getProject :: m Project
     putProject :: Project -> m ()
-    modifyProject :: (Project -> Project) -> m ()
-    getsProject :: (Project -> a) -> m a
+    modifySolution :: (Project -> Project) -> m ()
+    getsSolution :: (Project -> a) -> m a
     
-    modifyProject f = getProject >>= \p -> putProject (f p)
-    getsProject f = getProject >>= return . f
+    modifySolution f = getProject >>= \s -> putProject (f p)
+    getsSolution f = getProject >>= return . f
 
 
 
@@ -208,25 +215,25 @@ instance (Monad m, MonadState Project m) => ProjectStateM m where
     finalize = M.finalize
     getProject = State.get
     putProject = State.put
-    modifyProject = State.modify
+    modifySolution = State.modify
 -}
 
 {-
-instance (ProjectStateM m) => ProjectM m where
+instance (ProjectStateM m) => SolutionM m where
     load = Ide3.Mechanism.State.load
     new = Ide3.Mechanism.State.new
     finalize = Ide3.Mechanism.State.finalize
     editProjectInfo f = modify $ \(Project i ms b) -> (Project (f i) ms b)
-    addModule m = modifyEither $ \p -> Project.addModule p m
-    createModule i = modifyEither $ \p -> Project.createModule p i
-    getModule i = gets $ \p -> Project.getModule p i
-    removeModule i = modifyEither $ \p -> Project.removeModule p i
-    addDeclaration i d = modifyEither $ \p -> Project.addDeclaration p i d
-    addImport mi i = modifyEitherR $ \p -> Project.addImport p mi i
-    removeImport mi i = modifyEither $ \p -> Project.removeImport p mi i
-    addExport mi e = modifyEitherR $ \p -> Project.addExport p mi e
-    removeExport mi e = modifyEither $ \p -> Project.removeExport p mi e
-    exportAll mi = modifyEither $ \p -> Project.exportAll p mi
-    getModules = gets Project.allModules    
+    addModule m = modifyEither $ \s -> Solution.addModule p m
+    createModule i = modifyEither $ \s -> Solution.createModule p i
+    getModule i = gets $ \s -> Solution.getModule p i
+    removeModule i = modifyEither $ \s -> Solution.removeModule p i
+    addDeclaration i d = modifyEither $ \s -> Solution.addDeclaration p i d
+    addImport mi i = modifyEitherR $ \s -> Solution.addImport p mi i
+    removeImport mi i = modifyEither $ \s -> Solution.removeImport p mi i
+    addExport mi e = modifyEitherR $ \s -> Solution.addExport p mi e
+    removeExport mi e = modifyEither $ \s -> Solution.removeExport p mi e
+    exportAll mi = modifyEither $ \s -> Solution.exportAll p mi
+    getModules = gets Solution.allModules    
 
 -}

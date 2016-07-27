@@ -20,31 +20,36 @@ tests_basicDeclaration = TestList
 
 test_addDeclaration :: (?loc :: CallStack) => Test    
 test_addDeclaration = expectSuccess $ do
-    createModule newModuleInfo
-    addDeclaration newModuleInfo newDeclaration
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
 
 test_addAndRetreiveDeclaration :: (?loc :: CallStack) => Test    
 test_addAndRetreiveDeclaration = expectResult newDeclaration $ do
-    createModule newModuleInfo
-    addDeclaration newModuleInfo newDeclaration
-    getDeclaration newModuleInfo newDeclarationInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    getDeclaration newProjectInfo newModuleInfo newDeclarationInfo
 
 test_addAndRemoveDeclaration :: (?loc :: CallStack) => Test    
 test_addAndRemoveDeclaration = expectSuccess $ do
-    createModule newModuleInfo
-    addDeclaration newModuleInfo newDeclaration
-    removeDeclaration newModuleInfo newDeclarationInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    removeDeclaration newProjectInfo newModuleInfo newDeclarationInfo
 
 test_addRemoveAndRetreiveDeclaration :: (?loc :: CallStack) => Test    
 test_addRemoveAndRetreiveDeclaration = expectFailure $ do
-    createModule newModuleInfo
-    addDeclaration newModuleInfo newDeclaration
-    removeDeclaration newModuleInfo newDeclarationInfo
-    getDeclaration newModuleInfo newDeclarationInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    removeDeclaration newProjectInfo newModuleInfo newDeclarationInfo
+    getDeclaration newProjectInfo newModuleInfo newDeclarationInfo
 
 test_addRemoveAndReAddDeclaration :: (?loc :: CallStack) => Test    
 test_addRemoveAndReAddDeclaration = expectSuccess $ do
-    createModule newModuleInfo
-    addDeclaration newModuleInfo newDeclaration
-    removeDeclaration newModuleInfo newDeclarationInfo
-    addDeclaration newModuleInfo newDeclaration
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    removeDeclaration newProjectInfo newModuleInfo newDeclarationInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration

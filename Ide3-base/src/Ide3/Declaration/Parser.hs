@@ -165,7 +165,7 @@ tryConvert x
         ]
   
 -- | Parse a string containing 0 or more delcarations
-parseMany :: String -> Either (ProjectError u) [Declaration]
+parseMany :: String -> Either (SolutionError u) [Declaration]
 parseMany s = case parseModule s of
     ParseOk (Syntax.Module _ _ _ _ ds) -> case mapM tryConvert ds of
         Just y -> Right y
@@ -181,7 +181,7 @@ convertWithBody :: (Show a, Spannable a, SrcInfo a)
                 => String 
                 -> [Comment]
                 -> Decl a
-                -> Either (ProjectError u) (WithBody Declaration)
+                -> Either (SolutionError u) (WithBody Declaration)
 convertWithBody str cs x = case tryConvert x of
     Just decl -> Right $ WithBody decl (spanWithComments >< str)
       where
@@ -212,7 +212,7 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     isFuncBind _ = False
 
 -- | Parse a declaration
-parse :: String -> Either (ProjectError u) Declaration
+parse :: String -> Either (SolutionError u) Declaration
 parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
@@ -221,7 +221,7 @@ parse s = case parseDecl s of
 
 
 -- |Take a string and produce the needed information for building a Module
-parseWithBody :: String -> Maybe FilePath -> Either (ProjectError u) [WithBody Declaration]
+parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [WithBody Declaration]
 parseWithBody s p = case parseModuleWithComments parseMode s of
     ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
     ParseOk (XmlPage{}, _) -> Left $ Unsupported "Xml pages are not yet supported"

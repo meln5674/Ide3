@@ -19,52 +19,52 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans
 
 import Ide3.Types
-import Ide3.Monad (ProjectM)
+import Ide3.Monad (SolutionM)
 import qualified Ide3.Monad as I
 import qualified Ide3.Mechanism.Internal as I
 
-load :: ProjectM m => ExceptT ProjectError m ()
+load :: SolutionM m => ExceptT SolutionError m ()
 load = ExceptT I.load
-new :: ProjectM m => ProjectInfo -> ExceptT ProjectError m ()
+new :: SolutionM m => ProjectInfo -> ExceptT SolutionError m ()
 new = ExceptT . I.new 
-finalize :: ProjectM m => ExceptT ProjectError m ()
+finalize :: SolutionM m => ExceptT SolutionError m ()
 finalize = ExceptT I.finalize
-editProjectInfo :: ProjectM m => (ProjectInfo -> ProjectInfo) -> ExceptT ProjectError m ()
+editProjectInfo :: SolutionM m => (ProjectInfo -> ProjectInfo) -> ExceptT SolutionError m ()
 editProjectInfo = ExceptT . I.editProjectInfo
-addModule :: ProjectM m => Module -> ExceptT ProjectError m ()
+addModule :: SolutionM m => Module -> ExceptT SolutionError m ()
 addModule = ExceptT . I.addModule
-createModule:: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m ()
+createModule:: SolutionM m =>  ModuleInfo -> ExceptT SolutionError m ()
 createModule = ExceptT . I.createModule
-getModule :: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m Module
+getModule :: SolutionM m =>  ModuleInfo -> ExceptT SolutionError m Module
 getModule = ExceptT . I.getModule
-removeModule :: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m ()
+removeModule :: SolutionM m =>  ModuleInfo -> ExceptT SolutionError m ()
 removeModule = ExceptT . I.removeModule
-addDeclaration :: ProjectM m =>  ModuleInfo -> WithBody Declaration -> ExceptT ProjectError m ()
+addDeclaration :: SolutionM m =>  ModuleInfo -> WithBody Declaration -> ExceptT SolutionError m ()
 addDeclaration x = ExceptT . I.addDeclaration x
-addImport :: ProjectM m =>  ModuleInfo -> WithBody Import -> ExceptT ProjectError m ImportId
+addImport :: SolutionM m =>  ModuleInfo -> WithBody Import -> ExceptT SolutionError m ImportId
 addImport x = ExceptT . I.addImport x
-removeImport :: ProjectM m =>  ModuleInfo -> ImportId -> ExceptT ProjectError m ()
+removeImport :: SolutionM m =>  ModuleInfo -> ImportId -> ExceptT SolutionError m ()
 removeImport x = ExceptT . I.removeImport x
-addExport :: ProjectM m =>  ModuleInfo -> WithBody Export -> ExceptT ProjectError m ExportId
+addExport :: SolutionM m =>  ModuleInfo -> WithBody Export -> ExceptT SolutionError m ExportId
 addExport x = ExceptT . I.addExport x
-removeExport :: ProjectM m =>  ModuleInfo -> ExportId -> ExceptT ProjectError m ()
+removeExport :: SolutionM m =>  ModuleInfo -> ExportId -> ExceptT SolutionError m ()
 removeExport x = ExceptT . I.removeExport x
-exportAll :: ProjectM m =>  ModuleInfo -> ExceptT ProjectError m ()
+exportAll :: SolutionM m =>  ModuleInfo -> ExceptT SolutionError m ()
 exportAll = ExceptT . I.exportAll
-getModules :: ProjectM m => ExceptT ProjectError m [ModuleInfo]
+getModules :: SolutionM m => ExceptT SolutionError m [ModuleInfo]
 getModules = ExceptT I.getModules
 
 
-addRawImport:: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ImportId
+addRawImport:: SolutionM m => ModuleInfo -> String -> ExceptT SolutionError m ImportId
 addRawImport x = ExceptT . I.addRawImport x
-addRawExport :: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ExportId
+addRawExport :: SolutionM m => ModuleInfo -> String -> ExceptT SolutionError m ExportId
 addRawExport x  = ExceptT . I.addRawExport x
-addRawDeclaration :: ProjectM m => ModuleInfo -> String -> ExceptT ProjectError m ()
+addRawDeclaration :: SolutionM m => ModuleInfo -> String -> ExceptT SolutionError m ()
 addRawDeclaration x  = ExceptT . I.addRawDeclaration x
-addRawModule :: ProjectM m => String -> Maybe FilePath -> ExceptT ProjectError m ModuleInfo
+addRawModule :: SolutionM m => String -> Maybe FilePath -> ExceptT SolutionError m ModuleInfo
 addRawModule x = ExceptT . I.addRawModule x
-getExternalSymbols :: ProjectM m => ModuleInfo -> ExceptT ProjectError m [Symbol]
+getExternalSymbols :: SolutionM m => ModuleInfo -> ExceptT SolutionError m [Symbol]
 getExternalSymbols = ExceptT . I.getExternalSymbols
-getInternalSymbols :: ProjectM m => ModuleInfo -> ExceptT ProjectError m [Symbol]
+getInternalSymbols :: SolutionM m => ModuleInfo -> ExceptT SolutionError m [Symbol]
 getInternalSymbols = ExceptT . I.getInternalSymbols
 -}

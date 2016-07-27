@@ -9,8 +9,9 @@ import Tests
 main :: IO ()
 main = do
     c <- runTestTT tests_all
-    when (errors c /= 0 || failures c /= 0) $ exitFailure
-    exitSuccess
+    if errors c /= 0 || failures c /= 0
+        then exitFailure
+        else exitSuccess
 
 
 --import Control.Monad.State
@@ -46,15 +47,15 @@ testImportedModule = Symbol testModuleName2
 testExport = "Test"
 testExport2 = "Test2"
 
-type ProjectResult' a = [Either ProjectError a]
-type ProjectResult = ( ProjectResult' String
-                     , ProjectResult' [Symbol]
-                     , ProjectResult' [Symbol]
-                     , ProjectResult' [Declaration]
+type SolutionResult' a = [Either SolutionError a]
+type SolutionResult = ( SolutionResult' String
+                     , SolutionResult' [Symbol]
+                     , SolutionResult' [Symbol]
+                     , SolutionResult' [Declaration]
                      )
 
 
-runTest' :: ProjectState () -> [ModuleInfo] -> ProjectResult
+runTest' :: ProjectState () -> [ModuleInfo] -> SolutionResult
 runTest' run infos = (\f -> f undefined) $ evalState $ do
     run
     files <- forM infos $ \info -> runExceptT $ Module.toFile <$> (ExceptT $ getModule info)
@@ -165,7 +166,7 @@ testLeft f = case result of
   where
     (result,_) = runProjectState f
 
-runExceptProject :: ProjectResult ProjectState () a -> ProjectState (Either (ProjectError ()) a)
+runExceptProject :: SolutionResult ProjectState () a -> ProjectState (Either (SolutionError ()) a)
 runExceptProject = runExceptT
 
 
@@ -262,7 +263,7 @@ testParse :: (Show e, Eq e, Show r, Eq r) => (String -> Either e r) -> String ->
 testParse p s r = p s ~?= Right r 
 
 testParseImport :: String -> Import -> Test
-testParseImport = testParse (Import.parse :: String -> Either (ProjectError ()) Import)
+testParseImport = testParse (Import.parse :: String -> Either (SolutionError ()) Import)
 
 test_importParse1 = testParseImport 
     "import X" 

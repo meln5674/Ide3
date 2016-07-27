@@ -10,29 +10,49 @@ import Ide3.Monad
 import Tests.Utils
 
 tests_nonExistentDeclaration = TestList
-    [ test_addDeclarationToNonExistentModule
+    [ test_addDeclarationToNonExistentProject
+    , test_addDeclarationToNonExistentModule
+    , test_removeDeclarationFromNonExistentProject
     , test_removeDeclarationFromNonExistentModule
+    , test_editDeclarationInNonExistentProject
     , test_editDeclarationInNonExistentModule
     , test_removeNonExistentDeclaration
     , test_editNonExistentDeclaration
     ]
 
+test_addDeclarationToNonExistentProject :: (?loc :: CallStack) => Test
+test_addDeclarationToNonExistentProject = expectFailure $ addDeclaration nonExistentProjectInfo nonExistentModuleInfo newDeclaration
+
 test_addDeclarationToNonExistentModule :: (?loc :: CallStack) => Test    
-test_addDeclarationToNonExistentModule = expectFailure $ addDeclaration nonExistentModuleInfo newDeclaration
+test_addDeclarationToNonExistentModule = expectFailure $ do
+    addProject newProjectInfo
+    addDeclaration newProjectInfo nonExistentModuleInfo newDeclaration
+
+test_removeDeclarationFromNonExistentProject :: (?loc :: CallStack) => Test    
+test_removeDeclarationFromNonExistentProject = expectFailure $ removeDeclaration nonExistentProjectInfo nonExistentModuleInfo newDeclarationInfo
 
 test_removeDeclarationFromNonExistentModule :: (?loc :: CallStack) => Test    
-test_removeDeclarationFromNonExistentModule = expectFailure $ removeDeclaration nonExistentModuleInfo newDeclarationInfo
+test_removeDeclarationFromNonExistentModule = expectFailure $ do
+    addProject newProjectInfo
+    removeDeclaration newProjectInfo nonExistentModuleInfo newDeclarationInfo
+
+test_editDeclarationInNonExistentProject :: (?loc :: CallStack) => Test    
+test_editDeclarationInNonExistentProject = expectFailure $ do
+    editDeclaration nonExistentProjectInfo nonExistentModuleInfo newDeclarationInfo undefined
 
 test_editDeclarationInNonExistentModule :: (?loc :: CallStack) => Test    
-test_editDeclarationInNonExistentModule = expectFailure $ 
-    editDeclaration nonExistentModuleInfo newDeclarationInfo undefined
+test_editDeclarationInNonExistentModule = expectFailure $ do
+    addProject newProjectInfo
+    editDeclaration newProjectInfo nonExistentModuleInfo newDeclarationInfo undefined
 
 test_removeNonExistentDeclaration :: (?loc :: CallStack) => Test    
 test_removeNonExistentDeclaration = expectFailure $ do
-    createModule newModuleInfo
-    removeDeclaration newModuleInfo nonExistentDeclarationInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    removeDeclaration newProjectInfo newModuleInfo nonExistentDeclarationInfo
 
 test_editNonExistentDeclaration :: (?loc :: CallStack) => Test    
 test_editNonExistentDeclaration = expectFailure $ do
-    createModule newModuleInfo
-    editDeclaration newModuleInfo nonExistentDeclarationInfo undefined
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    editDeclaration newProjectInfo newModuleInfo nonExistentDeclarationInfo undefined

@@ -15,21 +15,55 @@ import Ide3.Types
 
 import Ide3.Mechanism.State.Types
 
-getsProject :: ProjectStateM m => (Project -> a) -> m a
-getsProject f = f <$> getProject
+{-
+getsSolution :: SolutionStateM m => (Solution -> a) -> m a
+getsSolution f = f <$> getSolution
 
-modifyProject :: ProjectStateM m => (Project -> Project) -> m ()
-modifyProject f = liftM f getProject >>= putProject
+modifySolution :: SolutionStateM m => (Solution -> Solution) -> m ()
+modifySolution f = liftM f getSolution >>= putSolution
 
-modifyProjectE :: ProjectStateM m => (Project -> Either (ProjectError u) Project) -> ProjectResult m u ()
-modifyProjectE f = modifyProjectER $ \p -> do
+modifySolutionE :: SolutionStateM m => (Solution -> Either (SolutionError u) Solution) -> SolutionResult m u ()
+modifySolutionE f = modifySolutionER $ \p -> do
     p' <- f p
     return (p',())
 
-modifyProjectER :: ProjectStateM m => (Project -> Either (ProjectError u) (Project,a)) -> ProjectResult m u a
-modifyProjectER f = do
-    p <- lift getProject
+modifySolutionER :: SolutionStateM m => (Solution -> Either (SolutionError u) (Solution,a)) -> SolutionResult m u a
+modifySolutionER f = do
+    p <- lift getSolution
     case f p of
-        Right (p',r) -> do lift $ putProject p'
+        Right (p',r) -> do lift $ putSolution p'
                            return r
         Left msg -> throwE msg
+-}
+
+getsSolution :: SolutionStateM m => (Solution -> a) -> m a
+getsSolution f = f <$> getSolution
+
+modifySolution :: SolutionStateM m => (Solution -> Solution) -> m ()
+modifySolution f = liftM f getSolution >>= putSolution
+
+modifySolutionE :: SolutionStateM m => (Solution -> Either (SolutionError u) Solution) -> SolutionResult m u ()
+modifySolutionE f = modifySolutionER $ \p -> do
+    p' <- f p
+    return (p',())
+
+modifySolutionER :: SolutionStateM m => (Solution -> Either (SolutionError u) (Solution,a)) -> SolutionResult m u a
+modifySolutionER f = do
+    p <- lift getSolution
+    case f p of
+        Right (p',r) -> do lift $ putSolution p'
+                           return r
+        Left msg -> throwE msg
+
+
+modifySolutionEnv :: SolutionStateM m 
+                  => (Solution -> ExceptT (SolutionError u) m (a,Solution))
+                  -> SolutionResult m u a
+modifySolutionEnv f = do
+    s <- lift $ getSolution
+    result <- lift $ runExceptT $ f s
+    case result of
+        Right (x,s') -> do
+            lift $ putSolution s'
+            return x
+        Left e -> throwE e

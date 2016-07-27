@@ -62,13 +62,13 @@ extractImports str (Syntax.Module _ _ _ imports _, _)
 extractImports _ _ = []
 
 -- |Extract the declarations from the module
-extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (ProjectError u) [WithBody Declaration]
+extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (SolutionError u) [WithBody Declaration]
 extractDecls str (Syntax.Module _ _ _ _ decls, cs)
     = Declaration.combineMany <$> mapM (Declaration.convertWithBody str cs) decls
 extractDecls _ _ = Right []
 
 -- |Extract the data needed for buliding a Module
-extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (ProjectError u) ExtractionResults
+extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (SolutionError u) ExtractionResults
 extract str x = do
     let info    =  extractInfo      str x
         pragmas =  extractPragmas   str x
@@ -78,7 +78,7 @@ extract str x = do
     return $ Extracted info pragmas exports imports decls
 
 -- |Take a string and produce the needed information for building a Module
-parse :: String -> Maybe FilePath -> Either (ProjectError u) ExtractionResults
+parse :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
     ParseFailed l msg -> Left $ ParseError l msg ""
@@ -88,7 +88,7 @@ parse s p = case parseModuleWithComments parseMode s of
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
     exts = EnableExtension LambdaCase : glasgowExts
 
-parseMain :: String -> Maybe FilePath -> Either (ProjectError u) ExtractionResults
+parseMain :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
 parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> do
         Extracted i ps es is ds <- extract s x

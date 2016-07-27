@@ -10,15 +10,22 @@ import Ide3.Monad
 import Tests.Utils
 
 tests_nonExistentImport = TestList
-    [ test_addImportToNonExistentModule
+    [ test_addImportToNonExistentProject
+    , test_addImportToNonExistentModule
     , test_removeNonExistentImport
     ]
 
+test_addImportToNonExistentProject :: (?loc :: CallStack) => Test
+test_addImportToNonExistentProject = expectFailure $ do
+    addImport nonExistentProjectInfo nonExistentModuleInfo newImport
+
 test_addImportToNonExistentModule :: (?loc :: CallStack) => Test
 test_addImportToNonExistentModule = expectFailure $ do
-    addImport nonExistentModuleInfo newImport
+    addProject newProjectInfo
+    addImport newProjectInfo nonExistentModuleInfo newImport
 
 test_removeNonExistentImport :: (?loc :: CallStack) => Test    
 test_removeNonExistentImport = expectFailure $ do
-    createModule newModuleInfo
-    removeImport newModuleInfo nonExistentImportId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    removeImport newProjectInfo newModuleInfo nonExistentImportId

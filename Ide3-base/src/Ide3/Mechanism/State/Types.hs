@@ -6,11 +6,11 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 module Ide3.Mechanism.State.Types 
-    ( ProjectShellM (..)
-    , ProjectStateM (..)
-    , StatefulProject (..)
-    , ProjectStateT (..)
-    , ProjectState
+    ( SolutionShellM (..)
+    , SolutionStateM (..)
+    , StatefulSolution (..)
+    , SolutionStateT (..)
+    , SolutionState
     ) where
 
 
@@ -21,7 +21,7 @@ import Control.Monad.Identity
 
 import Ide3.Types
 
-newtype ProjectStateT m a = ProjectStateT { runProjectStateTInternal :: StateT Project m a }
+newtype SolutionStateT m a = SolutionStateT { runSolutionStateTInternal :: StateT Solution m a }
     deriving
     ( Functor
     , Applicative
@@ -30,18 +30,18 @@ newtype ProjectStateT m a = ProjectStateT { runProjectStateTInternal :: StateT P
     , MonadIO
     )
 
-type ProjectState = ProjectStateT Identity
+type SolutionState = SolutionStateT Identity
 
 
-class Monad m => ProjectShellM m where
-    load :: ProjectResult m u Project
-    new :: ProjectInfo -> ProjectResult m u Project
-    finalize :: Project -> ProjectResult m u ()
+class Monad m => SolutionShellM m where
+    load :: SolutionResult m u Solution
+    new :: SolutionInfo -> SolutionResult m u Solution
+    finalize :: Solution -> SolutionResult m u ()
 
-class Monad m => ProjectStateM m where
-    getProject :: m Project
-    putProject :: Project -> m ()
+class Monad m => SolutionStateM m where
+    getSolution :: m Solution
+    putSolution :: Solution -> m ()
 
 
-newtype StatefulProject m a = MkStatefulProject { runStatefulProject :: m a }
-  deriving (Functor, Applicative, Monad, ProjectStateM, ProjectShellM, MonadIO)
+newtype StatefulSolution m a = MkStatefulSolution { runStatefulSolution :: m a }
+  deriving (Functor, Applicative, Monad, SolutionStateM, SolutionShellM, MonadIO)

@@ -18,19 +18,22 @@ tests_conflictingModule = TestList
 
 test_add2RemoveRetreiveModule :: (?loc :: CallStack) => Test    
 test_add2RemoveRetreiveModule = expectResult (Module.new newModuleInfo) $ do
-    createModule newModuleInfo
-    createModule newModuleInfo2
-    removeModule newModuleInfo2
-    getModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    createModule newProjectInfo newModuleInfo2
+    removeModule newProjectInfo newModuleInfo2
+    getModule newProjectInfo newModuleInfo
 
 test_add2RemoveRetreiveBadModule :: (?loc :: CallStack) => Test    
 test_add2RemoveRetreiveBadModule = expectFailure $ do
-    createModule newModuleInfo
-    createModule newModuleInfo2
-    removeModule newModuleInfo
-    getModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    createModule newProjectInfo newModuleInfo2
+    removeModule newProjectInfo newModuleInfo
+    getModule newProjectInfo newModuleInfo
 
 test_addDuplicateModule :: (?loc :: CallStack) => Test    
 test_addDuplicateModule = expectFailure $ do
-    createModule newModuleInfo
-    createModule newModuleInfo
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    createModule newProjectInfo newModuleInfo

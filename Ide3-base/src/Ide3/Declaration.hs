@@ -44,7 +44,7 @@ partitionBy f ys = go ys Map.empty
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
-parseAndCombine :: String -> Maybe FilePath -> Either (ProjectError u) (WithBody Declaration)
+parseAndCombine :: String -> Maybe FilePath -> Either (SolutionError u) (WithBody Declaration)
 parseAndCombine s fp = do 
     ds <- Parser.parseWithBody s fp
     let combined = combineMany ds
@@ -56,7 +56,7 @@ parseAndCombine s fp = do
 -- | Parse a declaration, but if it fails, return an unparseable declaration
 -- along with the error
 parseAndCombineLenient :: String -> Maybe FilePath -> DeclarationInfo 
-             -> Either (WithBody Declaration, ProjectError u) (WithBody Declaration)
+             -> Either (WithBody Declaration, SolutionError u) (WithBody Declaration)
 parseAndCombineLenient s p di = case parseAndCombine s p of
     Right decl -> Right decl
     Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    

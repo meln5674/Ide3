@@ -11,10 +11,19 @@ info :: EitherModule -> ModuleInfo
 info (Right m) = Extern.info m
 info (Left m) = Local.info m
 
-exportedSymbols :: ProjectM m => EitherModule -> ProjectResult m u [ModuleChild Symbol]
-exportedSymbols (Left m) = Local.exportedSymbols m
-exportedSymbols (Right m) = return $ Extern.exportedSymbols m
+exportedSymbols :: SolutionM m 
+                => ProjectInfo
+                -> EitherModule 
+                -> SolutionResult m u [ModuleChild Symbol]
+exportedSymbols pi m = case m of
+    Left m -> Local.exportedSymbols pi m
+    Right m -> return $ Extern.exportedSymbols m
 
-symbolTree :: ProjectM m => EitherModule -> Symbol -> ProjectResult m u [ModuleChild Symbol]
-symbolTree (Left m) s = Local.symbolTree m s
-symbolTree (Right m) s = Extern.symbolTree m s
+symbolTree :: SolutionM m 
+           => ProjectInfo
+           -> EitherModule 
+           -> Symbol 
+           -> SolutionResult m u [ModuleChild Symbol]
+symbolTree pi m s = case m of
+    Left m -> Local.symbolTree pi m s
+    Right m -> Extern.symbolTree m s

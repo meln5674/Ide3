@@ -13,48 +13,48 @@ import Ide3.Monad
 import Ide3.Mechanism
 import Ide3.Mechanism.State
 
-import qualified Ide3.Project as Project
+import qualified Ide3.Env.Solution as Solution
 
-instance Monad m => ProjectShellM (ProjectStateT m) where
+instance Monad m => SolutionShellM (SolutionStateT m) where
     load = error "CAN'T LOAD"
-    new = return . Project.new
+    new = return . Solution.new
     finalize = error "CAN'T FINALIZE"
 
 failedTestName :: (?loc :: CallStack) => String
 failedTestName = fst . last . getCallStack $ ?loc
 
-runExceptProject :: ProjectResult (StatefulProject ProjectState) () a 
-                 -> ProjectState (Either (ProjectError ()) a)
-runExceptProject = runStatefulProject . runExceptT
+runExceptProject :: SolutionResult (StatefulSolution SolutionState) () a 
+                 -> SolutionState (Either (SolutionError ()) a)
+runExceptProject = runStatefulSolution . runExceptT
 
-runExceptProjectT :: Monad m => ProjectResult (StatefulProject (ProjectStateT m)) () a 
-                  -> ProjectStateT m (Either (ProjectError ()) a)
-runExceptProjectT = runStatefulProject . runExceptT
+runExceptProjectT :: Monad m => SolutionResult (StatefulSolution (SolutionStateT m)) () a 
+                  -> SolutionStateT m (Either (SolutionError ()) a)
+runExceptProjectT = runStatefulSolution . runExceptT
 
 expectFailure :: (?loc :: CallStack)
               => (Show a) 
-              => ProjectResult (StatefulProject (ProjectStateT IO)) () a 
+              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
               -> Test
 expectFailure f = TestCase $ do
-    (result,_) <- runNewProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
         Left _ -> assertString ""
         Right x -> assertFailure $ failedTestName ++ ": Expected to fail but got: " ++ show x
 
 expectSuccess :: (?loc :: CallStack)
               => (Show a)
-              => ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
+              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
 expectSuccess f = TestCase $ do
-    (result,_) <- runNewProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right _ -> assertString ""
 
 expectResult :: (?loc :: CallStack)
              => (Show a, Eq a) 
-             => a -> ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
+             => a -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
 expectResult expected f = TestCase $ do
-    (result,_) <- runNewProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right actual | expected == actual -> assertString ""
@@ -67,9 +67,9 @@ expectResult expected f = TestCase $ do
 
 expectPredicate :: (?loc :: CallStack)
                 => (Show a, Eq a)
-                => (a -> Bool) -> ProjectResult (StatefulProject (ProjectStateT IO)) () a -> Test
+                => (a -> Bool) -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
 expectPredicate predicate f = TestCase $ do
-    (result,_) <- runNewProjectStateT $ runExceptProjectT f
+    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got : " ++ show err
         Right actual | predicate actual -> assertString ""
@@ -82,6 +82,10 @@ expectPredicate predicate f = TestCase $ do
 unimplementedTest :: (?loc :: CallStack)
                   => Test
 unimplementedTest = TestCase $ assertFailure $ "Test not yet Implemented: " ++ failedTestName
+
+nonExistentProjectInfo = ProjectInfo "non-existent-project"
+newProjectInfo = ProjectInfo "untitled project"
+newProjectInfo2 = ProjectInfo "untitled project 2"
 
 nonExistentModuleInfo = ModuleInfo $ Symbol "Non.Existent.Module"
 newModuleInfo = ModuleInfo $ Symbol "New.Module"

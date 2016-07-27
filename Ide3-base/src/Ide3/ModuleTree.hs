@@ -71,30 +71,30 @@ For each list:
 -}
 
 -- | Take a module tree and fill each node with its declarations
-fillTree :: ProjectM m => ModuleTree -> ProjectResult m u ModuleTree
-fillTree (OrgNode i ts) = do
-    ts' <- mapM fillTree ts
+fillTree :: SolutionM m => ProjectInfo -> ModuleTree -> SolutionResult m u ModuleTree
+fillTree pi (OrgNode i ts) = do
+    ts' <- mapM (fillTree pi) ts
     return $ OrgNode i ts'
-fillTree (ModuleNode i ts _ _ _ _) = do
-    ps <- getPragmas i
-    ds <- getDeclarations i
-    iids <- getImports i
-    eids <- getExports i
-    is <- forM iids $ \iid -> liftM ((,) iid) $ getImport i iid
+fillTree pi (ModuleNode i ts _ _ _ _) = do
+    ps <- getPragmas pi i
+    ds <- getDeclarations pi i
+    iids <- getImports pi i
+    eids <- getExports pi i
+    is <- forM iids $ \iid -> liftM ((,) iid) $ getImport pi i iid
     es <- case eids of
         Nothing -> return Nothing
         Just eids' -> do
-            x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport i eid
+            x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport pi i eid
             return $ Just x
-    ts' <- mapM fillTree ts
+    ts' <- mapM (fillTree pi) ts
     return $ ModuleNode i ts' ps ds is es
 
 -- | Make a module tree from the current project
-makeTree :: ProjectM m => ProjectResult m u [ModuleTree]
-makeTree = do
-    modules <- getModules
+makeTree :: SolutionM m => ProjectInfo -> SolutionResult m u [ModuleTree]
+makeTree pi = do
+    modules <- getModules pi
     let emptyTree = makeTreeSkeleton modules
-    mapM fillTree emptyTree
+    mapM (fillTree pi) emptyTree
 
 -- | Format a module tree as plain text
 formatTree :: ModuleTree -> String

@@ -19,31 +19,36 @@ tests_basicImport = TestList
 
 test_addImport :: (?loc :: CallStack) => Test    
 test_addImport = expectSuccess $ do
-    createModule newModuleInfo
-    addImport newModuleInfo newImport
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addImport newProjectInfo newModuleInfo newImport
 
 test_addAndRetreiveImport :: (?loc :: CallStack) => Test
 test_addAndRetreiveImport = expectResult newImport $ do
-    createModule newModuleInfo
-    importId <- addImport newModuleInfo newImport
-    getImport newModuleInfo importId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    importId <- addImport newProjectInfo newModuleInfo newImport
+    getImport newProjectInfo newModuleInfo importId
 
 test_addAndRemoveImport :: (?loc :: CallStack) => Test    
 test_addAndRemoveImport = expectSuccess $ do
-    createModule newModuleInfo
-    importId <- addImport newModuleInfo newImport
-    removeImport newModuleInfo importId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    importId <- addImport newProjectInfo newModuleInfo newImport
+    removeImport newProjectInfo newModuleInfo importId
 
 test_addRemoveAndRetreiveImport :: (?loc :: CallStack) => Test
 test_addRemoveAndRetreiveImport = expectFailure $ do
-    createModule newModuleInfo
-    importId <- addImport newModuleInfo newImport
-    removeImport newModuleInfo importId
-    getImport newModuleInfo importId
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    importId <- addImport newProjectInfo newModuleInfo newImport
+    removeImport newProjectInfo newModuleInfo importId
+    getImport newProjectInfo newModuleInfo importId
 
 test_addRemoveAndReAddImport :: (?loc :: CallStack) => Test
 test_addRemoveAndReAddImport = expectSuccess $ do
-    createModule newModuleInfo
-    importId <- addImport newModuleInfo newImport
-    removeImport newModuleInfo importId
-    addImport newModuleInfo newImport
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    importId <- addImport newProjectInfo newModuleInfo newImport
+    removeImport newProjectInfo newModuleInfo importId
+    addImport newProjectInfo newModuleInfo newImport
