@@ -11,9 +11,11 @@ Portability : POSIX
 Provides functions which can enumerate the haskell source files in a project
 tree and construct a project from them
 -}
+
+{-# LANGUAGE LambdaCase #-}
 module Ide3.Digest
-    ( {-digestProject
-    , digestProject'-}
+    ( digestProject
+    , digestProjectWithInterfaces
     ) where
 
 import Data.List
@@ -86,43 +88,43 @@ enumerateHaskellProject path = do
     let haskellTree = findHaskellFiles fileTree
     getFilesInTree haskellTree
 
-{-
--- | Parse and add a module to a project
-foldAddModule :: Project -> (FilePath,String) -> Either (SolutionError u) Project
-foldAddModule pj (p,c) = do
-    (module_,_,_) <- Module.parse c (Just p)
-    Project.addModule pj module_
--}
 
-{-
--- | Add an interface to a project as an external module
-foldAddExternModule :: Project -> Iface.Interface -> Either (SolutionError u) Project
-foldAddExternModule pj i = Project.addExternModule pj (convIface i)
+digestInterface :: (MonadIO m, SolutionM m)
+                => ProjectInfo
+                -> Iface.Interface
+                -> SolutionResult m u ()
+digestInterface pi iface = addExternModule pi newModule
   where
-    convExport (Iface.SingleExport s) = SingleExternExport (Symbol s)
-    convExport (Iface.MultiExport s ss) = MultiExternExport (Symbol s) (map Symbol ss)
-    convIface iface = ExternModule (ModuleInfo $ Symbol $ Iface.modName i) $ case Iface.exports iface of
+    newModule = ExternModule newInfo exports
+    newInfo = ModuleInfo $ Symbol $ Iface.modName iface
+    exports = case Iface.exports iface of
         Nothing -> []
-        Just es -> map convExport es
--}  
+        Just es -> flip map es $ \case
+            Iface.SingleExport s -> SingleExternExport $ Symbol s
+            Iface.MultiExport s ss -> MultiExternExport (Symbol s) $ map Symbol ss
 
-{-
--- | Take a path to a directory and opitonally an interface file and create a new
--- project structure from the haskell files in it
-digestProject' :: MonadIO m => FilePath -> Maybe FilePath -> SolutionResult m u Project
-digestProject' path maybeIfacePath = do
+-- | Digest a project from a directory structure.
+digestProject :: (MonadIO m, SolutionM m) 
+              => ProjectInfo -- ^ Info for the project to add
+              -> FilePath   -- ^ Root directory of the project
+              -> SolutionResult m u ()
+digestProject pi path = do
     contents <- liftIO $ enumerateHaskellProject path
-    withoutIfaces <- ExceptT $ return $ foldM foldAddModule Project.empty contents
-    case maybeIfacePath of
-        Nothing -> return withoutIfaces
-        Just ifacePath -> do
-            ifaceFile <- liftIO $ readFile ifacePath 
-            let ifaces = read ifaceFile :: [Iface.Interface]
-            ExceptT $ return $ foldM foldAddExternModule withoutIfaces ifaces
+    addProject pi
+    forM_ contents $ \(mp,mc) -> addRawModule pi mc (Just mp)
 
--- | Take a path to a directory and the modules there to the current project
-digestProject :: (MonadIO m, SolutionM m) => ProjectParam FilePath -> SolutionResult m u ()
-digestProject arg = do
-    contents <- liftIO $ enumerateHaskellProject $ getParam path
-    forM_ contents $  \(p,c) -> addRawModule (setParam arg c) (Just p)
--}
+-- | Digest a project from a directory structure, optionally providing a path to
+-- an interface file for external modules
+digestProjectWithInterfaces :: (MonadIO m, SolutionM m) 
+                            => ProjectInfo 
+                            -> FilePath 
+                            -> Maybe FilePath 
+                            -> SolutionResult m u ()
+digestProjectWithInterfaces pi p ip = do
+    digestProject pi p
+    case ip of
+        Nothing -> return ()
+        Just ip -> do
+            ifaceFile <- liftIO $ readFile ip
+            mapM_ (digestInterface pi) $ (read ifaceFile :: [Iface.Interface])
+                

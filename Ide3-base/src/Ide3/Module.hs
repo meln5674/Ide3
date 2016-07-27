@@ -32,7 +32,7 @@ import qualified Ide3.Module.Parser as Parser
 
 -- |Get the identifying information from a module
 info :: Module -> ModuleInfo
-info (Module i _ _ _ _) = i
+info = moduleInfo
 
 -- |Create an empty module
 empty :: Module

@@ -1,3 +1,51 @@
+{-|
+Module      : Ide3.Env
+Description : Utility wrapper for solution data sturcture operations
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+Due to the chain of operations that are necessary for modifying the solution
+data structures, the code for this contains a great deal of boilerplate.
+
+This module provides typeclasses which wrap common operations
+(lookup, updating, etc) of these structures and provide a way to realize this
+code as a stack of monad transformers. The head of this stack is a StateT, the
+state type being the data structure in question. Beneath this is some number of
+ReaderT's, the environment types being keys for accessing the child values. 
+Finally, the bottom of this stack is an ExceptT with the solution error as the
+exception type. 
+
+Ex: StateT Solution (ReaderT ProjectInfo (ReaderT ModuleInfo (ReaderT String ...)
+
+Would be an operation acting on a Solution, with keys for a project and a module
+in that project, and finally a string as an argument to the final operation.
+
+The descend* functions take one of these stacks, as well as a related stack which
+has the top removed, and the top ReaderT replaced with a StateT with the
+environment type instead of the key type.
+
+Ex. The stack above would be paired with a:
+StateT Project (ReaderT ModuleInfo (ReaderT String ...)
+
+The descend* function looks up the Project pointed at by the ProjectInfo
+contained in the ReaderT in the first stack, throws an exception if its not found,
+then applies the state transformation described by the second stack, then
+updates the Solution in the first stack's StateT to contain the new Project.
+
+The descend* functions can then be chained to an (eventually) arbitrary depth.
+
+TODO: The current implementation is limited in that it can only handle a finite
+depth. This is because the "stack" is specified at the top and somewhere in the
+middle, making it not a stack at all. This means that each level of descent
+needs a different function.
+
+At the moment I have absolutely no idea how to fix this.
+-}
+
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -18,12 +66,21 @@ import Ide3.Types hiding (getChild, getParam)
 import qualified Ide3.Declaration as Declaration
 
 
-
+-- | Types in this class can be used to produce a uniquely identifying key
 class EnvParamClass env param | env -> param where
+    -- | Produce the unique identifier for this value
     getParam :: env -> param
 
+-- | A generalization of a container, parentEnv is a container of childEnv with
+-- key type childParam. Operations may instead throw an exception of type e
 class ParamEnvClass parentEnv childParam childEnv e where
+    -- | Add a child
+    addChild :: Monad m => childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
+    -- | Remove a child
+    removeChild :: Monad m => childParam -> parentEnv -> ExceptT e m (childEnv,parentEnv)
+    -- | Lookup a child
     getChild :: Monad m => childParam -> parentEnv -> ExceptT e m childEnv
+    -- | Update a child
     setChild :: Monad m => childParam -> childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
 
 instance EnvParamClass Project ProjectInfo where
@@ -39,6 +96,14 @@ instance EnvParamClass (WithBody Declaration) DeclarationInfo where
     getParam = Declaration.info . item
 
 instance ParamEnvClass Solution ProjectInfo Project (SolutionError u) where
+    addChild pi p s = do
+        case Map.lookup pi $ solutionProjects s of
+            Just _ -> throwE $ DuplicateProject pi $ "Solution.addProject"
+            Nothing -> return $ s{ solutionProjects = Map.insert pi p $ solutionProjects s }
+    removeChild pi s = do
+        case Map.lookup pi $ solutionProjects s of
+            Nothing -> throwE $ ProjectNotFound pi $ "Solution.addProject"
+            Just p -> return (p, s{ solutionProjects = Map.delete pi $ solutionProjects s })
     getChild pi s = do
         case Map.lookup pi $ solutionProjects s of
             Just p -> return p
@@ -54,6 +119,14 @@ instance ParamEnvClass Solution ProjectInfo Project (SolutionError u) where
             Nothing -> throwE undefined
 
 instance ParamEnvClass Project ModuleInfo Module (SolutionError u) where
+    addChild mi m p = do
+        case Map.lookup mi $ projectModules p of
+            Just _ -> throwE $ DuplicateModule mi "Project.addModule" 
+            Nothing -> return $ p{ projectModules = Map.insert mi m $ projectModules p }
+    removeChild mi p = do
+        case Map.lookup mi $ projectModules p of
+            Nothing -> throwE undefined
+            Just m -> return (m, p{ projectModules = Map.delete mi $ projectModules p })
     getChild mi p = do
         case Map.lookup mi $ projectModules p of
             Just m -> return m
@@ -69,6 +142,14 @@ instance ParamEnvClass Project ModuleInfo Module (SolutionError u) where
             Nothing -> throwE undefined
 
 instance ParamEnvClass Project ModuleInfo ExternModule (SolutionError u) where
+    addChild mi m p = do
+        case Map.lookup mi $ projectExternModules p of
+            Just _ -> throwE $ DuplicateModule mi "Project.addExternModule" 
+            Nothing -> return $ p{ projectExternModules = Map.insert mi m $ projectExternModules p }
+    removeChild mi p = do
+        case Map.lookup mi $ projectExternModules p of
+            Nothing -> throwE undefined
+            Just m -> return (m, p{ projectExternModules = Map.delete mi $ projectExternModules p })
     getChild mi p = do
         case Map.lookup mi $ projectExternModules p of
             Just m -> return m
@@ -84,6 +165,14 @@ instance ParamEnvClass Project ModuleInfo ExternModule (SolutionError u) where
             Nothing -> throwE undefined
 
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
+    addChild di d m = do
+        case Map.lookup di $ moduleDeclarations m of
+            Just _ -> throwE undefined
+            Nothing -> return $ m{ moduleDeclarations = Map.insert di d $ moduleDeclarations m }
+    removeChild di m = do
+        case Map.lookup di $ moduleDeclarations m of
+            Nothing -> throwE undefined
+            Just d -> return (d, m{ moduleDeclarations = Map.delete di $ moduleDeclarations m })
     getChild di m = case Map.lookup di $ moduleDeclarations m of
         Just d -> return d
         Nothing -> throwE undefined
@@ -97,6 +186,14 @@ instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionEr
         Nothing -> throwE undefined
 
 instance ParamEnvClass Module ImportId (WithBody Import) (SolutionError u) where
+    addChild ii i m = do
+        case Map.lookup ii $ moduleImports m of
+            Just _ -> throwE undefined
+            Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
+    removeChild ii m = do
+        case Map.lookup ii $ moduleImports m of
+            Nothing -> throwE $ InvalidImportId (moduleInfo m) ii "Module.removeImport"
+            Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
     getChild ii m = case Map.lookup ii $ moduleImports m of
         Just i -> return i
         nothing -> throwE undefined
@@ -110,6 +207,18 @@ instance ParamEnvClass Module ImportId (WithBody Import) (SolutionError u) where
         Nothing -> throwE undefined
 
 instance ParamEnvClass Module ExportId (WithBody Export) (SolutionError u) where
+    addChild ei e m = do
+        case moduleExports m of
+            Just es -> case Map.lookup ei es of
+                Just _ -> throwE undefined
+                Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e es }
+            Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e Map.empty }
+    removeChild ei m = do
+        case moduleExports m of
+            Just es -> case Map.lookup ei es of
+                Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
+                Just e -> return (e, m{ moduleExports = Just $ Map.delete ei es })
+            Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
     getChild ei m = case moduleExports m of
         Just es -> case Map.lookup ei es of
             Just e -> return e
@@ -214,50 +323,6 @@ descend3 f = do
     parentEnv' <- lift $ lift $ lift $ lift $ lift $ setChild childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
-
-
-{-
-type SolutionEnvT = StateT Solution
-type ProjectEnvT = StateT Project
-type ModuleEnvT = StateT Module
-type DeclarationEnvT = StateT Declaration
-
-type ProjectParamEnvT = ReaderT ProjectInfo
-type ModuleParamEnvT = ReaderT ModuleInfo
-type DeclarationParamEnvT = ReaderT DeclarationInfo
-type ParamEnvT p = ReaderT p
-
-type ParamT p = ReaderT p
-
-
-type Sol u = SolutionEnvT (DescentResult u)
-type SolProj u = SolutionEnvT (ProjectParamEnvT (DescentResult u))
-type SolProjMod u = SolutionEnvT (ProjectParamEnvT (ModuleParamEnvT (DescentResult u)))
-type SolProjModDecl u = SolutionEnvT (ProjectParamEnvT (ModuleParamEnvT (DeclarationParamEnvT (DescentResult u))))
-
-type Proj u = ProjectEnvT (DescentResult u)
-type ProjMod u = ProjectEnvT (ModuleParamEnvT (DescentResult u))
-type ProjModDecl u = ProjectEnvT (ModuleParamEnvT (DeclarationParamEnvT (DescentResult u)))
-
-type Mod u = ModuleEnvT (DescentResult u)
-type ModDecl u = ModuleEnvT (DeclarationParamEnvT (DescentResult u))
-
-type Decl u = DeclarationEnvT (DescentResult u)
-
-type SolParam p u = SolutionEnvT (DescentResult u)
-type SolProjParam p u = SolutionEnvT (ProjectParamEnvT (DescentResult u))
-type SolProjModParam p u = SolutionEnvT (ProjectParamEnvT (ModuleParamEnvT (DescentResult u)))
-type SolProjModDeclParam p u = SolutionEnvT (ProjectParamEnvT (ModuleParamEnvT (DeclarationParamEnvT (DescentResult u))))
-
-type ProjParam p u = ProjectEnvT (DescentResult u)
-type ProjModParam p u = ProjectEnvT (ModuleParamEnvT (DescentResult u))
-type ProjModDeclParam p u = ProjectEnvT (ModuleParamEnvT (DeclarationParamEnvT (DescentResult u)))
-
-type ModParam p u = ModuleEnvT (DescentResult u)
-type ModDeclParam p u = ModuleEnvT (DeclarationParamEnvT (DescentResult u))
-
-type DeclParam p u = DeclarationEnvT (DescentResult u)
--}
 
 type DescentResult u m = ExceptT (SolutionError u) m
 
