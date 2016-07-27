@@ -19,6 +19,7 @@ import Language.Haskell.Exts.SrcLoc
 class ToConstructor a where
     toConstructor :: a -> Constructor
 
+-- | 
 instance SrcInfo a => ToConstructor (ConDecl a) where
     toConstructor (ConDecl _ n ts) = PrefixConstructor (toSym n) (map toSym ts)
     toConstructor (InfixConDecl _ tl n tr) = InfixConstructor (toSym tl) (toSym n) (toSym tr)
@@ -26,6 +27,7 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
       where
         f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
 
+-- | 
 instance SrcInfo a => ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d
 

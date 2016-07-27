@@ -61,7 +61,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 
-import Ide3.Types hiding (getChild, getParam)
+import Ide3.Types hiding (getChild)
 
 import qualified Ide3.Declaration as Declaration
 
@@ -236,6 +236,11 @@ instance ParamEnvClass Module ExportId (WithBody Export) (SolutionError u) where
             Nothing -> throwE undefined
         Nothing -> return $ m { moduleExports = Just $ Map.fromList [(ei',e')] }
 
+-- | Take an environment operation over a child value type and turn it into a
+-- stateful operation over its parent type with the child key type as an
+-- environment.
+-- The resulting operation looks up the child value using the key in its
+-- environment and runs the original operation using the result
 descendRO :: ( ParamEnvClass parentEnv childParam childEnv e 
              , Monad m
              )
@@ -248,6 +253,12 @@ descendRO f = do
     result <- lift $ lift $ runReaderT f childEnv
     return result
 
+-- | Take a stateful operation over a child value type and turn it into a
+-- stateful operation over its parent type with the child key type as an
+-- environment.
+-- The resulting operation looks up the child value using the key in its
+-- environment and runs the original operation using the result, then
+-- updates the parent type using the result of the child operation.
 descend0 :: ( EnvParamClass childEnv childParam
             , ParamEnvClass parentEnv childParam childEnv e
             , Monad m
@@ -264,7 +275,8 @@ descend0 f = do
     put parentEnv'
     return result
 
-            
+-- | Same as descend0, but has an arbitrary transformer between the child
+-- state transformer and the exception transformer
 descend1 :: ( EnvParamClass childEnv childParam
             , MonadTrans t
             , Monad (t (ExceptT e m))
@@ -283,6 +295,8 @@ descend1 f = do
     put parentEnv'
     return result
 
+-- | Same as descend0, but has two arbitrary transformers between the child
+-- state transformer and the exception transformer
 descend2 :: ( EnvParamClass childEnv childParam
             , MonadTrans t
             , MonadTrans u
@@ -303,6 +317,8 @@ descend2 f = do
     put parentEnv'
     return result
 
+-- | Same as descend0, but has three arbitrary transformers between the child
+-- state transformer and the exception transformer
 descend3 :: ( EnvParamClass childEnv childParam
             , MonadTrans t
             , MonadTrans u
@@ -324,38 +340,54 @@ descend3 f = do
     put parentEnv'
     return result
 
-type DescentResult u m = ExceptT (SolutionError u) m
+-- | A stateful operation over a value
+type DescentChain1 a m u = StateT a (SolutionResult m u)
 
-type DescentChain1 a u m = StateT a (DescentResult u m)
-type DescentChain2 a b u m = StateT a (ReaderT b (DescentResult u m))
-type DescentChain3 a b c u m = StateT a (ReaderT b (ReaderT c (DescentResult u m)))
-type DescentChain4 a b c d u m = StateT a (ReaderT b (ReaderT c (ReaderT d (DescentResult u m))))
-type DescentChain5 a b c d e u m = StateT a (ReaderT b (ReaderT c (ReaderT d (ReaderT e (DescentResult u m)))))
+-- | A stateful operation over a value with an environment with a key
+type DescentChain2 a b m u = StateT a (ReaderT b (SolutionResult m u))
 
-runDescent1 :: DescentChain1 a u m r -> a -> DescentResult u m (r,a)
+-- | A stateful operation over a value with an environment with two keys
+type DescentChain3 a b c m u = StateT a (ReaderT b (ReaderT c (SolutionResult m u)))
+
+-- | A stateful operation over a value with an environment with three keys
+type DescentChain4 a b c d m u = StateT a (ReaderT b (ReaderT c (ReaderT d (SolutionResult m u))))
+
+-- | A stateful operation over a value with an environment with four keys
+type DescentChain5 a b c d e m u = StateT a (ReaderT b (ReaderT c (ReaderT d (ReaderT e (SolutionResult m u)))))
+
+-- | Run a stateful operation over a value
+runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult m u (r,a)
 runDescent1 f a = runStateT f a 
 
-runDescent2 :: Monad m => DescentChain2 a b u m r -> a -> b -> DescentResult u m (r,a)
+-- | Run a stateful operation over a value with an environment with a key
+runDescent2 :: Monad m => DescentChain2 a b m u r -> a -> b -> SolutionResult m u (r,a)
 runDescent2 f a b = runReaderT (runStateT f a) b
 
-runDescent3 :: Monad m => DescentChain3 a b c u m r -> a -> b -> c -> DescentResult u m (r,a)
+-- | Run a stateful operation over a value with an environment with two keys
+runDescent3 :: Monad m => DescentChain3 a b c m u r -> a -> b -> c -> SolutionResult m u (r,a)
 runDescent3 f a b c = runReaderT (runReaderT (runStateT f a) b) c
 
-runDescent4 :: Monad m => DescentChain4 a b c d u m r -> a -> b -> c -> d -> DescentResult u m (r,a)
+-- | Run a stateful operation over a value with an environment with three keys
+runDescent4 :: Monad m => DescentChain4 a b c d m u r -> a -> b -> c -> d -> SolutionResult m u (r,a)
 runDescent4 f a b c d = runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
 
-runDescent5 :: Monad m => DescentChain5 a b c d e u m r -> a -> b -> c -> d -> e -> DescentResult u m (r,a)
+-- | Run a stateful operation over a value with an environment with four keys
+runDescent5 :: Monad m => DescentChain5 a b c d e m u r -> a -> b -> c -> d -> e -> SolutionResult m u (r,a)
 runDescent5 f a b c d e = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d) e
 
-
-throw1 :: Monad m => SolutionError u -> DescentChain1 a u m r
+-- | Wrapper for throwing an exception
+throw1 :: Monad m => SolutionError u -> DescentChain1 a m u r
 throw1 = lift . throwE
 
-throw2 :: Monad m => SolutionError u -> DescentChain2 a b u m r
+-- | Wrapper for throwing an exception
+throw2 :: Monad m => SolutionError u -> DescentChain2 a b m u r
 throw2 = lift . lift . throwE
 
-throw3 :: Monad m => SolutionError u -> DescentChain3 a b c u m r
+-- | Wrapper for throwing an exception
+throw3 :: Monad m => SolutionError u -> DescentChain3 a b c m u r
 throw3 = lift . lift . lift . throwE
 
-throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d u m r
+-- | Wrapper for throwing an exception
+throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d m u r
 throw4 = lift . lift . lift . lift . throwE
+

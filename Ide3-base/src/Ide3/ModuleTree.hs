@@ -1,3 +1,17 @@
+{-|
+Module      : Ide3.ModuleTree
+Description : Tree structure for modules
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+The ModuleTree tpe represents a tree of modules with the period separated
+symbols specifying the heirarchy.
+-}
+
 {-# LANGUAGE LambdaCase #-}
 module Ide3.ModuleTree where
 

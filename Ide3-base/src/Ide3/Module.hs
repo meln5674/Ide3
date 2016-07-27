@@ -1,6 +1,6 @@
 {-|
 Module      : Ide3.Module
-Description : Top level operations on the Modules
+Description : Queries over modules
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -8,9 +8,8 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-This module contains the operations, convienence functions, and simple queries
-for working with the Module data type.
 -}
+
 module Ide3.Module where
 
 import Data.Maybe
@@ -30,19 +29,19 @@ import qualified Ide3.Import as Import
 import Ide3.Module.Parser (ExtractionResults(..))
 import qualified Ide3.Module.Parser as Parser
 
--- |Get the identifying information from a module
+-- | Get the identifying information from a module
 info :: Module -> ModuleInfo
 info = moduleInfo
 
--- |Create an empty module
+-- | Create an empty module
 empty :: Module
 empty = Module (UnamedModule Nothing) [] Map.empty Nothing Map.empty
 
--- |Create a new module from a ModuleInfo
+-- | Create a new module from a ModuleInfo
 new :: ModuleInfo -> Module
 new i = Module i [] Map.empty Nothing Map.empty
 
--- |Similar to foldl, but each fold produces an extra result, the list of which
+-- | Similar to foldl, but each fold produces an extra result, the list of which
 --  is returned along with the final fold
 foldlRes :: (b -> a -> (b,c)) -> b -> [a] -> (b,[c])
 foldlRes _ x [] = (x,[])
@@ -51,7 +50,7 @@ foldlRes f x (y:ys) =
         (x'', zs) = foldlRes f x' ys
     in (x'',z:zs)
                     
--- |Parse a complete module from a string, returning the Module data structure
+-- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
 parse :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parse s p = case Parser.parse s p of
@@ -70,7 +69,7 @@ parse s p = case Parser.parse s p of
         decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
     Left msg -> Left msg
 
--- |Parse a complete module from a string, returning the Module data structure
+-- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseMain s p = case Parser.parseMain s p of
@@ -88,7 +87,7 @@ parseMain s p = case Parser.parseMain s p of
         imports' = Map.fromList $ zip iids imports
         decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
     Left msg -> Left msg
-
+{-
 -- |Get the imports from a module
 getImports :: Module -> [WithBody Import]
 getImports (Module _ _ is _ _) = Map.elems is
@@ -122,27 +121,27 @@ getExportIds (Module _ _ _ es _) = Map.keys <$> es
 
 getImportIds :: Module -> [ImportId]
 getImportIds (Module _ _ is _ _) = Map.keys is
+-}
 
-
--- |Produce the header (module name and export list) for a module
+-- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
-getHeaderText m = case (map (body . snd) . Map.toList) <$> getExports m of
+getHeaderText m = case (map (body . snd) . Map.toList) <$> moduleExports m of
     Nothing -> "module " ++ name ++ " where"
     Just es -> "module " ++ name ++ "(" ++ intercalate "," es ++ ") where"
   where
     ModuleInfo (Symbol name) = info m
 
--- |Reconstruct the source code from a Module
+-- | Reconstruct the source code from a Module
 toFile :: Module -> String
 toFile m = intercalate "\n" parts
   where
-    pragmas = getPragmas m
+    pragmas = modulePragmas m
     header = getHeaderText m
-    imports = bodies $ getImports m
-    declarations = bodies $ getDeclarations m
+    imports = bodies $ Map.elems $ moduleImports m
+    declarations = bodies $ Map.elems $ moduleDeclarations m
     parts = pragmas ++ header : imports ++ declarations
 
--- |Find all modifiers of a given symbol in the module
+-- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]
 modifiersOf s m@(Module _ _ _ _ ds)
   = map (qualify m . Declaration.info . item) 
@@ -150,11 +149,11 @@ modifiersOf s m@(Module _ _ _ _ ds)
   . Map.filter ((`Declaration.affectsSymbol` s) . item)
   $ ds
 
--- |Tag a value as belonging to this module
+-- | Tag a value as belonging to this module
 qualify :: Module -> a -> ModuleChild a
 qualify (Module i _ _ _ _) = ModuleChild i
 
--- |Within the context of a project, find all of the symbols this module exports
+-- | Within the context of a project, find all of the symbols this module exports
 --  This requires the project context as modules may export other modules,
 --      necessitating finding what symbols they export, and so on
 exportedSymbols :: SolutionM m => ProjectInfo -> Module -> SolutionResult m u [ModuleChild Symbol]
@@ -176,7 +175,7 @@ importedSymbols pi m = concat <$> mapM providedBy imports
     providedBy = Import.symbolsProvided pi . item
 
 
--- |Within the context of a project, find all of the symbols which are visible
+-- | Within the context of a project, find all of the symbols which are visible
 --  at the top level of this module 
 internalSymbols :: SolutionM m 
                 => ProjectInfo 
@@ -187,12 +186,12 @@ internalSymbols pi m = do
     importSyms <- importedSymbols pi m
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) decls
 
--- |Find all of the symbols that are created within this module
+-- | Find all of the symbols that are created within this module
 allSymbols :: Module -> [ModuleChild Symbol]
 allSymbols m@(Module _ _ _ _ ds)
   = concatMap (map (qualify m) . Declaration.symbolsProvided . item) ds
 
--- |Apply a transformation to each item in a list, then find the first item
+-- | Apply a transformation to each item in a list, then find the first item
 --  which did not fail the transformation, and the result
 search :: (a -> Maybe b) -> [a] -> Maybe (a,b)
 search f xs = case find (isJust . snd) $ map toPair xs of
@@ -201,7 +200,7 @@ search f xs = case find (isJust . snd) $ map toPair xs of
   where
     toPair x = (x,f x)
 
---  |Same as 'search', but the transformation runs in a monad
+-- | Same as 'search', but the transformation runs in a monad
 searchM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe (a,b))
 searchM f xs = do
     r <- find (isJust . snd) <$> mapM toPair xs 
@@ -213,7 +212,7 @@ searchM f xs = do
         y <- f x
         return (x,y)
 
--- |Given a sub-symbol, (such as a data constructor or a class method), find
+-- | Given a sub-symbol, (such as a data constructor or a class method), find
 --  the parent symbol and its siblings
 --  If successful, the list will contain the parent symbol as its head, and the
 --      siblings as the tail. The symbol provided will not be an item in the list
@@ -224,12 +223,12 @@ symbolTree :: SolutionM m
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
 symbolTree pi m sym = do
-    let declarations = items $ getDeclarations m
+    let declarations = items $ Map.elems $ moduleDeclarations m
         declSearchResult = search (`Declaration.otherSymbols` sym) declarations
     case declSearchResult of
         Just (_,syms) -> return $ map (qualify m) syms
         Nothing -> do
-            let imports = items $ getImports m
+            let imports = items $ Map.elems $ moduleImports m
                 othersFromImport x = Import.otherSymbols pi x sym
             importSearchResult <- searchM othersFromImport imports
             case importSearchResult of
@@ -238,25 +237,25 @@ symbolTree pi m sym = do
                     return $ map (qualify m) otherSyms
                 Nothing -> throwE $ SymbolNotFound (info m) sym "Module.symbolTree"
 
--- |Test if this module matches a ModuleInfo
+-- | Test if this module matches a ModuleInfo
 infoMatches :: Module -> ModuleInfo -> Bool
 infoMatches (Module i _ _ _ _) i' = i == i'
 
--- |Get the next value to use for an ImportId
+-- | Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
 nextImportId (Module _ _ is _ _) = 1 + maximum (-1 : Map.keys is)
 
--- |Test if a module imports another
+-- | Test if a module imports another
 importsModule :: Module -> Symbol -> Bool
-importsModule m sym = sym `elem` map Import.moduleName (items $ getImports m)
+importsModule m sym = sym `elem` map Import.moduleName (items $ Map.elems $ moduleImports m)
 
--- |Get the next value to use as an ExportId
+-- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
 nextExportId (Module _ _ _ Nothing _) = 0
 nextExportId (Module _ _ _ (Just es) _) = 1 + maximum (-1 : Map.keys es)
   
 {-
--- |Test if a module has a matching declaration
+-- | Test if a module has a matching declaration
 hasDeclarationInfo :: Module -> DeclarationInfo -> Bool
 hasDeclarationInfo m di = case getDeclaration m di of
     Right _ -> True

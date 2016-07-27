@@ -63,7 +63,7 @@ enumerateDirectory path = do
             branches <- mapM enumerateDirectory paths
             return $ Directory path branches
  
- -- | Take a file tree and prune any files which are not haskell source files
+-- | Take a file tree and prune any files which are not haskell source files
 findHaskellFiles :: FileTree -> FileTree
 findHaskellFiles (File path)
     | ".hs" `isSuffixOf` path = File path
@@ -88,7 +88,7 @@ enumerateHaskellProject path = do
     let haskellTree = findHaskellFiles fileTree
     getFilesInTree haskellTree
 
-
+-- | Digest an interface and add an external module accordingly
 digestInterface :: (MonadIO m, SolutionM m)
                 => ProjectInfo
                 -> Iface.Interface

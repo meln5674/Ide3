@@ -1,3 +1,15 @@
+{-|
+Module      : Ide3.Env.Project
+Description : Operations on the project data structure
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Ide3.Env.Project where
@@ -14,39 +26,47 @@ import Ide3.Types
 
 import qualified Ide3.Env.Module as Module
 
+-- | Wrapper around catchE that contrains the exception type
 catchE' :: Monad m => ExceptT e m a -> (e -> ExceptT e m a) -> ExceptT e m a
 catchE' = catchE
 
+-- | Create a new project from info
 new :: ProjectInfo -> Project
 new i = Project i Map.empty BuildInfo Map.empty
 
-editProjectInfo :: Monad m => DescentChain2 Project (ProjectInfo -> ProjectInfo) u m ()
+-- | Edit the info of a project
+editProjectInfo :: Monad m => DescentChain2 Project (ProjectInfo -> ProjectInfo) m u ()
 editProjectInfo = do
     f <- lift ask
     modify $ \p -> p{ projectInfo = f $ projectInfo p }
 
-allModules :: Monad m => DescentChain1 Project u m [ModuleInfo]
+-- | Get the ids of all modules
+allModules :: Monad m => DescentChain1 Project m u [ModuleInfo]
 allModules = gets $ Map.keys . projectModules
 
-addModule :: Monad m => DescentChain2 Project Module u m ()
+-- | Add a local module
+addModule :: Monad m => DescentChain2 Project Module m u ()
 addModule = do
     m <- lift ask
     p <- get
     put =<< (lift $ lift $ addChild (moduleInfo m) m p)
 
-createModule :: Monad m => DescentChain2 Project ModuleInfo u m ()
+-- | Add an empty local module
+createModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 createModule = do
     mi <- lift ask
     p <- get
     put =<< (lift $ lift $ addChild mi (Module.new mi) p)
 
-addExternModule :: Monad m => DescentChain2 Project ExternModule u m ()
+-- | Add an external module
+addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
 addExternModule = do
     p <- get
     m <- lift ask
     put =<< (lift $ lift $ addChild (externModuleInfo m) m p)
 
-removeModule :: Monad m => DescentChain2 Project ModuleInfo u m ()
+-- | Remove a module
+removeModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 removeModule = do
     p <- get
     mi <- lift ask
@@ -60,83 +80,102 @@ removeModule = do
             return p'
     put =<< (lift $ lift $ catchE' removeExtern $ const removeLocal)
 
-getModule :: Monad m => DescentChain2 Project ModuleInfo u m Module
+-- | Get a local module by id
+getModule :: Monad m => DescentChain2 Project ModuleInfo m u Module
 getModule = descend0 get
 
-getExternModule :: Monad m => DescentChain2 Project ModuleInfo u m ExternModule
+-- | Get an external module by id
+getExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ExternModule
 getExternModule = descend0 get
 
+-- | Apply a transformation to a module
 editModule :: Monad m 
            => DescentChain3 
                 Project 
                 ModuleInfo 
                 (Module -> Either (SolutionError u) Module) 
-                u m ()
+                m u ()
 editModule = descend1 $ do
     f <- lift ask
     m <- get
     case f m of
         Right m' -> put m'
         Left err -> throw2 err
-    
 
-addDeclaration :: Monad m => DescentChain3 Project ModuleInfo (WithBody Declaration) u m ()
+-- | Add a declaration to a module
+addDeclaration :: Monad m => DescentChain3 Project ModuleInfo (WithBody Declaration) m u ()
 addDeclaration = descend1 Module.addDeclaration
 
-getDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo u m (WithBody Declaration)
+-- | Get a declaration by id from a module
+getDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo m u (WithBody Declaration)
 getDeclaration = descend1 Module.getDeclaration
 
-getDeclarations :: Monad m => DescentChain2 Project ModuleInfo u m [DeclarationInfo]
+-- | Get the ids of all declarations in a module
+getDeclarations :: Monad m => DescentChain2 Project ModuleInfo m u [DeclarationInfo]
 getDeclarations = descend0 Module.getDeclarations
 
-removeDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo u m ()
+-- | Remove a delcaration by id from a module
+removeDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo m u ()
 removeDeclaration = descend1 Module.removeDeclaration
 
+-- | Apply a transformation to a declaration in a module
 editDeclaration :: Monad m 
                 => DescentChain4 
                     Project 
                     ModuleInfo 
                     DeclarationInfo 
                     (Declaration -> Either (SolutionError u) (WithBody Declaration))
-                    u m DeclarationInfo
+                    m u DeclarationInfo
 editDeclaration = descend2 Module.editDeclaration
 
-addImport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Import) u m ImportId
+-- | Add an import to a module and return the id assigned to it
+addImport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Import) m u ImportId
 addImport = descend1 Module.addImport
 
-removeImport :: Monad m => DescentChain3 Project ModuleInfo ImportId u m ()
+-- | Remove an import by id from a module
+removeImport :: Monad m => DescentChain3 Project ModuleInfo ImportId m u ()
 removeImport = descend1 Module.removeImport
 
-getImport :: Monad m => DescentChain3 Project ModuleInfo ImportId u m (WithBody Import)
+-- | Get an import by id from a module
+getImport :: Monad m => DescentChain3 Project ModuleInfo ImportId m u (WithBody Import)
 getImport = descend1 Module.getImport
 
-getImports :: Monad m => DescentChain2 Project ModuleInfo u m [ImportId]
+-- | Get the ids of all imports in a module
+getImports :: Monad m => DescentChain2 Project ModuleInfo m u [ImportId]
 getImports = descend0 Module.getImports
 
-exportAll :: Monad m => DescentChain2 Project ModuleInfo u m ()
+-- | Set a module to export all symbols
+exportAll :: Monad m => DescentChain2 Project ModuleInfo m u ()
 exportAll = descend0 Module.exportAll
 
-addExport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Export) u m ExportId
+-- | Add an export to a module and return the id assigned to it
+addExport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Export) m u ExportId
 addExport = descend1 Module.addExport
 
-removeExport :: Monad m => DescentChain3 Project ModuleInfo ExportId u m ()
+-- | Remove an export by id from a module
+removeExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ()
 removeExport = descend1 Module.removeExport
 
-exportNothing :: Monad m => DescentChain2 Project ModuleInfo u m ()
+-- | Set a module to export nothing
+exportNothing :: Monad m => DescentChain2 Project ModuleInfo m u ()
 exportNothing = descend0 Module.exportNothing
 
-getExport :: Monad m => DescentChain3 Project ModuleInfo ExportId u m (WithBody Export)
+-- | Get an export by id from a module
+getExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u (WithBody Export)
 getExport = descend1 Module.getExport
 
-getExports :: Monad m => DescentChain2 Project ModuleInfo u m (Maybe [ExportId])
+-- | Get ids of all exports in a module
+getExports :: Monad m => DescentChain2 Project ModuleInfo m u (Maybe [ExportId])
 getExports = descend0 Module.getExports
 
-addPragma :: Monad m => DescentChain3 Project ModuleInfo Pragma u m ()
+-- | Add a pragma to a module
+addPragma :: Monad m => DescentChain3 Project ModuleInfo Pragma m u ()
 addPragma = descend1 Module.addPragma
 
-removePragma :: Monad m => DescentChain3 Project ModuleInfo Pragma u m ()
+-- | Remove a pragma from a module
+removePragma :: Monad m => DescentChain3 Project ModuleInfo Pragma m u ()
 removePragma = descend1 Module.removePragma
 
-getPragmas :: Monad m => DescentChain2 Project ModuleInfo u m [Pragma]
+-- | Get all pragmas in a module
+getPragmas :: Monad m => DescentChain2 Project ModuleInfo m u [Pragma]
 getPragmas = descend0 Module.getPragmas
-

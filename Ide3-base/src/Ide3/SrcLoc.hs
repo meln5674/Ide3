@@ -28,11 +28,6 @@ class Spannable a where
         Just endIndex = end `indexIn` str
         len = endIndex - startIndex
     
-{-
-lineAt :: SrcLoc -> String -> String
-lineAt SrcLoc{srcLine=r,srcColumn=c} s
-    = takeWhile (/= '\n') $ drop ((r,c) `indexIn` s) s
--}
 -- | Scan a list for a matching item, then return the number of items scanned
 -- and the remaining items
 splitAndCount :: Eq a => [a] -> a -> Maybe (Int,[a])
@@ -50,23 +45,11 @@ indexIn :: (Int,Int) -> String -> Maybe Int
     next <- (r-1,c) `indexIn` drop lineLen str
     return $ lineLen + next
 
-
+-- | Take a string, break it into lines, and take the length of each one
 measureLines :: String -> [(String,Int)]
 measureLines = map (\l -> (l,length l + 1)) . lines
 
-{-
-indexIn :: (Int,Int) -> String -> Maybe Int
-indexIn (r,c) s = case dropWhile g $ scanl f (r,0) $ measureLines s of
-    [] -> Nothing
-    ((_,i):_) -> Just i
-  where
-    f (0,i) _ = (0,i)
-    f (1,i) _ = (0,i + c - 1)
-    f (r',i) (_,x) = (r-1,i + x)
-    g (0,_) = False
-    g _ = True
--}
-
+-- | Test if two source spans meet, i.e one ends where the other begins
 contacts :: SrcSpan -> SrcSpan -> String -> Bool
 contacts a b s = case (a2i,b1i) of
     (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
@@ -77,20 +60,23 @@ contacts a b s = case (a2i,b1i) of
     a2i = a2 `indexIn` s
     b1i = b1 `indexIn` s
 
+-- | Filter out from a list of spannables those which contact another spannable on the left side
 leftBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 leftBoundaries s y = filter $ \x -> contacts (getSpan x) (getSpan y) s
 
+-- | Filter out from a list of spannables those which contact another spannable on the right side
 rightBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 rightBoundaries s y = filter $ \x -> contacts (getSpan y) (getSpan x) s
 
-
+-- | Filter out from a list of spannables those which contact another spannable
 boundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 boundaries s y = filter $ \x -> contacts (getSpan x) (getSpan y) s
                              || contacts (getSpan y) (getSpan x) s
+-- | 
 instance Spannable SrcSpan where
     getSpan = id
 
-
+-- | 
 instance Spannable SrcSpanInfo where
     getSpan (SrcSpanInfo{srcInfoSpan=span}) = span
 

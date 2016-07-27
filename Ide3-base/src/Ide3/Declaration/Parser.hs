@@ -43,7 +43,6 @@ parseTypeSynonym (TypeDecl _ h t)
                              (TypeSynonym (toSym h)
                                           (toSym t)
                              )
-
 parseTypeSynonym _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
@@ -99,6 +98,7 @@ parseClassDecl (ClassDecl _ _ h _ ds)
     Just ds' = ds >>= mapM parseSubDecl
 parseClassDecl _ = Nothing
 
+-- | Convert a declaration if it is an instance declaration
 parseInstanceDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseInstanceDecl (InstDecl _ _ r _)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
@@ -114,16 +114,19 @@ parseInstanceDecl _ = Nothing
 class HasNames a where
     findName :: a -> [Symbol]
 
+-- | 
 instance SrcInfo a => HasNames (InstRule a) where
     findName (IRule _ _ _ h) = findName h
     findName (IParen _ h) = findName h
 
+-- | 
 instance SrcInfo a => HasNames (InstHead a) where
     findName (IHCon _ n) = [toSym n]
     findName (IHInfix _ t n) = [toSym t, toSym n]
     findName (IHParen _ h) = findName h
     findName (IHApp _ h t) = toSym t : findName h
 
+-- | 
 instance HasNames (Pat a) where
     findName (PVar _ n) = [toSym n]
     findName (PNPlusK _ n _) = [toSym n]
@@ -137,11 +140,13 @@ instance HasNames (Pat a) where
     findName (PatTypeSig _ p _) = findName p
     findName _ = [] -- TODO: rest
 
+-- | 
 instance HasNames (PatField l) where
     findName (PFieldPat _ _ p) = findName p
     findName (PFieldPun _ n) = [toSym n]
     findName _ = [] -- TODO: rest
 
+-- | Convert a declaration if it is a pattern bind
 parsePatBind :: SrcInfo t => Decl t -> Maybe Declaration
 parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
@@ -173,6 +178,7 @@ parseMany s = case parseModule s of
     ParseOk _ -> Left $ Unsupported "" 
     ParseFailed l msg -> Left $ ParseError l msg ""
 
+-- | 
 instance Spannable Comment where
     getSpan (Comment _ s _) = s
 
@@ -235,5 +241,3 @@ parseWithBody s p = case parseModuleWithComments parseMode s of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
     exts = EnableExtension LambdaCase : glasgowExts
-
-

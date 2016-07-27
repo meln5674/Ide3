@@ -1,3 +1,14 @@
+{-|
+Module      : Ide3.Mechanism.State.Helpers
+Description : Utilities used for the stateful solution monad
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
+
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -15,47 +26,17 @@ import Ide3.Types
 
 import Ide3.Mechanism.State.Types
 
-{-
+-- | Retreive an in-memory solution and return the result of a pure
+-- transformation on it
 getsSolution :: SolutionStateM m => (Solution -> a) -> m a
 getsSolution f = f <$> getSolution
 
+-- | Modify an in-memory solution using a pure transformation
 modifySolution :: SolutionStateM m => (Solution -> Solution) -> m ()
 modifySolution f = liftM f getSolution >>= putSolution
 
-modifySolutionE :: SolutionStateM m => (Solution -> Either (SolutionError u) Solution) -> SolutionResult m u ()
-modifySolutionE f = modifySolutionER $ \p -> do
-    p' <- f p
-    return (p',())
-
-modifySolutionER :: SolutionStateM m => (Solution -> Either (SolutionError u) (Solution,a)) -> SolutionResult m u a
-modifySolutionER f = do
-    p <- lift getSolution
-    case f p of
-        Right (p',r) -> do lift $ putSolution p'
-                           return r
-        Left msg -> throwE msg
--}
-
-getsSolution :: SolutionStateM m => (Solution -> a) -> m a
-getsSolution f = f <$> getSolution
-
-modifySolution :: SolutionStateM m => (Solution -> Solution) -> m ()
-modifySolution f = liftM f getSolution >>= putSolution
-
-modifySolutionE :: SolutionStateM m => (Solution -> Either (SolutionError u) Solution) -> SolutionResult m u ()
-modifySolutionE f = modifySolutionER $ \p -> do
-    p' <- f p
-    return (p',())
-
-modifySolutionER :: SolutionStateM m => (Solution -> Either (SolutionError u) (Solution,a)) -> SolutionResult m u a
-modifySolutionER f = do
-    p <- lift getSolution
-    case f p of
-        Right (p',r) -> do lift $ putSolution p'
-                           return r
-        Left msg -> throwE msg
-
-
+-- | Modify an in-memory solution using a transformation that can throw
+-- exceptions and returns an additional value
 modifySolutionEnv :: SolutionStateM m 
                   => (Solution -> ExceptT (SolutionError u) m (a,Solution))
                   -> SolutionResult m u a

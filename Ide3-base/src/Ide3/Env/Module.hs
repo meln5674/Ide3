@@ -1,3 +1,15 @@
+{-|
+Module      : Ide3.Env.Module
+Description : Operations on the module data sturcture
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 module Ide3.Env.Module where
 
 import Data.List
@@ -15,27 +27,35 @@ import Ide3.Types
 
 import qualified Ide3.Declaration as Declaration
 
+-- | Create a new module from info
 new :: ModuleInfo -> Module
 new i = Module i [] Map.empty Nothing Map.empty
 
+-- | Determine the next id to assign to an import
 nextImportId :: Module -> ImportId
 nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
 
+-- | Determine the next id to assign to an export
 nextExportId :: Module -> ExportId
 nextExportId m = case moduleExports m of
     Nothing -> 0
     Just es -> 1 + maximum (-1 : Map.keys es)
 
-addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) u m ()
+
+
+-- | Add a declaration
+addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) m u ()
 addDeclaration = do
     d <- lift $ ask
     m <- get
     put =<< (lift $ lift $ addChild (Declaration.info $ item d) d m)
 
-getDeclaration :: Monad m => DescentChain2 Module DeclarationInfo u m (WithBody Declaration)
+-- | Get a declaration by id
+getDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u (WithBody Declaration)
 getDeclaration = descend0 $ get
 
-removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo u m ()
+-- | Remove a declaration by id
+removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u ()
 removeDeclaration = do
     di <- lift ask
     m <- get
@@ -43,15 +63,17 @@ removeDeclaration = do
     let d' = d :: WithBody Declaration
     put m'
 
-getDeclarations :: Monad m => DescentChain1 Module u m [DeclarationInfo]
+-- | Get the ids of all declarations
+getDeclarations :: Monad m => DescentChain1 Module m u [DeclarationInfo]
 getDeclarations = gets $ Map.keys . moduleDeclarations
 
+-- | Apply a transformation to a declaration
 editDeclaration :: Monad m 
                 => DescentChain3 
-                    Module 
+                    Module
                     DeclarationInfo 
                     (Declaration -> Either (SolutionError u) (WithBody Declaration))
-                    u m DeclarationInfo
+                    m u DeclarationInfo
 editDeclaration = descend1 $ do
     f <- lift ask
     d <- get
@@ -61,7 +83,9 @@ editDeclaration = descend1 $ do
             return $ Declaration.info $ item d'
         Left err -> throw2 err
 
-addImport :: Monad m => DescentChain2 Module (WithBody Import) u m ImportId
+
+-- | Add an import and return the id assigned to it
+addImport :: Monad m => DescentChain2 Module (WithBody Import) m u ImportId
 addImport = do
     i <- lift $ ask
     ii <- gets nextImportId
@@ -69,7 +93,8 @@ addImport = do
     put =<< (lift $ lift $ addChild ii i m)
     return ii
 
-removeImport :: Monad m => DescentChain2 Module ImportId u m ()
+-- | Remove an import by id
+removeImport :: Monad m => DescentChain2 Module ImportId m u ()
 removeImport = do
     ii <- lift $ ask
     m <- get
@@ -77,16 +102,21 @@ removeImport = do
     let i' = i :: WithBody Import
     put m'
 
-getImport :: Monad m => DescentChain2 Module ImportId u m (WithBody Import)
+-- | Get an import by id
+getImport :: Monad m => DescentChain2 Module ImportId m u (WithBody Import)
 getImport = descendRO ask
 
-getImports :: Monad m => DescentChain1 Module u m [ImportId]
+-- | Get the ids of all imports
+getImports :: Monad m => DescentChain1 Module m u [ImportId]
 getImports = gets $ Map.keys . moduleImports
 
-exportAll :: Monad m => DescentChain1 Module u m ()
+
+-- | Set the module to export all of its symbols
+exportAll :: Monad m => DescentChain1 Module m u ()
 exportAll = modify $ \m -> m{ moduleExports = Nothing }
 
-addExport :: Monad m => DescentChain2 Module (WithBody Export) u m ExportId
+-- | Add an export and return the id assigned to it
+addExport :: Monad m => DescentChain2 Module (WithBody Export) m u ExportId
 addExport = do
     e <- lift ask
     ei <- gets nextExportId
@@ -94,7 +124,8 @@ addExport = do
     put =<< (lift $ lift $ addChild ei e m)
     return ei
 
-removeExport :: Monad m => DescentChain2 Module ExportId u m ()
+-- | Remove an export by id
+removeExport :: Monad m => DescentChain2 Module ExportId m u ()
 removeExport = do
     ei <- lift ask
     m <- get
@@ -102,25 +133,31 @@ removeExport = do
     let e' = e :: WithBody Export
     put m'
 
-exportNothing :: Monad m => DescentChain1 Module u m ()
+-- | Remove all exports
+exportNothing :: Monad m => DescentChain1 Module m u ()
 exportNothing = modify $ \m -> m{ moduleExports = Just Map.empty }
 
-getExport :: Monad m => DescentChain2 Module ExportId u m (WithBody Export)
+-- | Get an export by id
+getExport :: Monad m => DescentChain2 Module ExportId m u (WithBody Export)
 getExport = descendRO ask
 
-getExports :: Monad m => DescentChain1 Module u m (Maybe [ExportId])
+-- | Get the ids of all exports, or signify that all symbols are exported
+getExports :: Monad m => DescentChain1 Module m u (Maybe [ExportId])
 getExports = gets $ fmap Map.keys . moduleExports
 
-addPragma :: Monad m => DescentChain2 Module Pragma u m ()
+-- | Add a pragma
+addPragma :: Monad m => DescentChain2 Module Pragma m u ()
 addPragma = do
     p <- lift ask
     modify $ \m -> m{ modulePragmas = p : modulePragmas m }
 
-removePragma :: Monad m => DescentChain2 Module Pragma u m ()
+-- | Remove a pragma
+removePragma :: Monad m => DescentChain2 Module Pragma m u ()
 removePragma = do
     p <- lift ask
     modify $ \m -> m{ modulePragmas = delete p $ modulePragmas m }
 
-getPragmas :: Monad m => DescentChain1 Module u m [Pragma]
+-- | Get all pragmas
+getPragmas :: Monad m => DescentChain1 Module m u [Pragma]
 getPragmas = gets modulePragmas
 

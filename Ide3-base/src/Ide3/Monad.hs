@@ -135,9 +135,12 @@ class Monad m => SolutionM m where
     
     getPragmas :: ProjectInfo -> ModuleInfo -> SolutionResult m u [Pragma]
 
+-- | Utility function which inserts an additional transformer into a stack
+-- which is topped by ExceptT
 bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
 bounce = ExceptT . lift . runExceptT
 
+-- | 
 instance (SolutionM m) => SolutionM (StateT s m) where
     load = bounce load
     new = bounce . new

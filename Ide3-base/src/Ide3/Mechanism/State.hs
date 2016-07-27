@@ -26,7 +26,7 @@ module Ide3.Mechanism.State
     , runSolutionStateT
     , runNewSolutionStateT
 --    , runSolutionState
-    , mkStatefulSolution
+--    , mkStatefulSolution
     , module Ide3.Mechanism.State.Types
     , module Ide3.Mechanism.State.Helpers
     ) where
@@ -47,7 +47,7 @@ import Ide3.Env
 
 --import Ide3.HasA
 
-
+-- | The initial in-memory solution
 initialSolution :: Solution
 initialSolution = Solution.new (SolutionInfo "")
 
@@ -104,8 +104,8 @@ instance Monad m => SolutionStateM (SolutionStateT m) where
 instance MonadTrans StatefulSolution where
     lift = MkStatefulSolution
 
-mkStatefulSolution :: (SolutionShellM m, SolutionStateM m) => m a -> StatefulSolution m a
-mkStatefulSolution = MkStatefulSolution
+--mkStatefulSolution :: (SolutionShellM m, SolutionStateM m) => m a -> StatefulSolution m a
+--mkStatefulSolution = MkStatefulSolution
 
 --liftStatefulSolution :: m a -> StatefulSolution m a
 --liftStatefulSolution 

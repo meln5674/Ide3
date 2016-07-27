@@ -45,6 +45,7 @@ extractInfo :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> ModuleInfo
 extractInfo _ (Syntax.Module _ (Just (Syntax.ModuleHead _ (Syntax.ModuleName _ n) _ _)) _ _ _, _) = ModuleInfo (Symbol n)
 extractInfo _ _ = UnamedModule Nothing
 
+-- | Extract the pragmas from the module
 extractPragmas :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [Pragma]
 extractPragmas _ (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
 extractPragmas _ _ = []
@@ -88,6 +89,7 @@ parse s p = case parseModuleWithComments parseMode s of
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
     exts = EnableExtension LambdaCase : glasgowExts
 
+-- | Parse a module and assume its name is "Main" if not present
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
 parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> do

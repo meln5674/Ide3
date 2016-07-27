@@ -48,11 +48,12 @@ item (WithBody x _) = x
 items :: [WithBody a] -> [a]
 items = map item
 
+-- |
 instance Functor WithBody where
     -- |Applies the function to the item while leaving the body unchanged
     fmap f (WithBody x s) = WithBody (f x) s
     
--- |Catch-all type for any identifier which is significant to the program
+-- | Catch-all type for any identifier which is significant to the program
 newtype Symbol = Symbol String
     deriving (Show, Read, Eq, Ord)
 
@@ -89,7 +90,7 @@ data Project
     }
     deriving (Show, Read, Eq)
 
--- |Information identifying a module
+-- | Information identifying a module
 data ModuleInfo 
     -- |A module with a name
     = ModuleInfo Symbol              
@@ -97,7 +98,7 @@ data ModuleInfo
     | UnamedModule (Maybe FilePath)     
     deriving (Show, Read, Eq, Ord)
 
--- |Get the name of a module from its info
+-- | Get the name of a module from its info
 getModuleName :: ModuleInfo -> Symbol
 getModuleName (ModuleInfo n) = n
 getModuleName _ = Symbol "UNNAMED MODULE"
@@ -105,13 +106,16 @@ getModuleName _ = Symbol "UNNAMED MODULE"
 -- | A module pragma
 type Pragma = String
 
+-- | A collection of imports
 type ImportCollection = Map ImportId (WithBody Import)
 
+-- | A collection of exports, or a mark that everything is exported
 type ExportCollection = Maybe (Map ExportId (WithBody Export))
 
+-- | A collection of declarations
 type DeclarationCollection = Map DeclarationInfo (WithBody Declaration)
 
--- |A module. 
+-- | A module. 
 data Module
     = Module 
     { moduleInfo :: ModuleInfo  -- ^ Identifying information
@@ -122,6 +126,7 @@ data Module
     }
     deriving (Show, Read, Eq)
 
+-- | An external export from an external module
 data ExternExport
     = SingleExternExport Symbol
     | MultiExternExport Symbol [Symbol]
@@ -144,6 +149,7 @@ data ModuleChild a = ModuleChild ModuleInfo a
 getChild :: ModuleChild a -> a
 getChild (ModuleChild _ a) = a
 
+-- |
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi (f x)
 
@@ -270,17 +276,21 @@ data TypeSearchResult
 class ToSym a where
     toSym :: a -> Symbol
 
+-- | 
 instance ToSym (Name a) where
     toSym (Ident _ n)         = Symbol n
     toSym (Syntax.Symbol _ n) = Symbol n
 
+-- | 
 instance ToSym (CName a) where
     toSym (VarName _ n) = toSym n
     toSym (ConName _ n) = toSym n
 
+-- | 
 instance ToSym (ModuleName a) where
     toSym (ModuleName _ n) = Symbol n
 
+-- | 
 instance ToSym (SpecialCon a) where
     toSym (UnitCon _)   = Symbol "()"
     toSym (ListCon _)   = Symbol "[]"
@@ -290,14 +300,17 @@ instance ToSym (SpecialCon a) where
     toSym (Cons _) = Symbol ":"
     toSym (UnboxedSingleCon _) = Symbol "(# #)"
 
+-- | 
 instance ToSym (QName a) where
     toSym (Qual _ m n) = toSym m `joinSym` toSym n
     toSym (UnQual _ n) = toSym n
     toSym (Special _ s) = toSym s
 
+-- | 
 instance SrcInfo a => ToSym (Syntax.Type a) where
     toSym = Symbol . prettyPrint
 
+-- | 
 instance ToSym (DeclHead a) where
     toSym (DHead _ n) = toSym n
     toSym (DHInfix _ _ n) = toSym n
@@ -324,6 +337,7 @@ data SolutionError u
     | UserError u
     deriving Eq
 
+-- | 
 instance Show u => Show (SolutionError u) where
     show (ModuleNotFound i s)
         = printf "%s: module \"%s\" not found" s (show i)
@@ -354,26 +368,27 @@ instance Show u => Show (SolutionError u) where
     show (UserError u)
         = show u
 
-
+-- | Class of symbols which can be combined with a module info to produce a symbol
 class Qualify a where
+    -- | Qualify a value with a module prefix
     qual :: ModuleChild a -> Symbol
  
+-- | 
 instance Qualify Symbol where
     qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s)) = Symbol $ m ++ '.' : s
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualify with an unnamed module"
 
+-- | 
 instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
 
 
-
+-- | Wrapper for a monad transformer which can throw solution exceptions
 type SolutionResult m u = ExceptT (SolutionError u) m
 
-
-
-
+{-
 data ProjectParam a = ProjectParam ProjectInfo a
 
 data ModuleParam a = ModuleParam ProjectInfo ModuleInfo a
@@ -452,3 +467,4 @@ instance ModuleParamClass DeclarationParam where
 
 instance DeclarationParamClass DeclarationParam where
     getDeclarationInfo (DeclarationParam _ _ x _) = x
+-}
