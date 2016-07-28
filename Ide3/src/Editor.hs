@@ -1,6 +1,6 @@
 {-|
 Module      : Editor
-Description : Editors for the demo project
+Description : Editors for the demo solution
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -42,10 +42,10 @@ data EditorResult
     | EditCanceled
 
 -- | Abstract type for editors
-newtype Editor m u = MkEditor { runEditorInternal :: String -> ProjectResult m u EditorResult }
+newtype Editor m u = MkEditor { runEditorInternal :: String -> SolutionResult m u EditorResult }
 
 -- | Run an editor on a given string
-runEditor :: Editor m u -> String -> ProjectResult m u EditorResult
+runEditor :: Editor m u -> String -> SolutionResult m u EditorResult
 runEditor = runEditorInternal
 
 -- | An editor which represents no editing capability and will always result in an error

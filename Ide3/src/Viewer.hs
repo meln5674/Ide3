@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-|
 Module      : Viewer
-Description : Viewer for the demo project
+Description : Viewer for the demo solution
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -34,7 +34,7 @@ import Ide3.Types
 import Ide3.Mechanism.State
 import Ide3.Monad hiding (load, new, finalize)
 import qualified Ide3.Monad as M
-import Ide3.Types (Project, ProjectError (..), DeclarationInfo(..), ModuleInfo(..))
+import Ide3.Types (Solution, SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
 
@@ -45,17 +45,17 @@ data ViewerState = Viewer { currentModule :: Maybe ModuleInfo, currentDecl :: Ma
 type ViewerStateT = StateT ViewerState
 
 -- | The ViewerStateT transformer applied to another transformer, applied to
--- the project state transformer applied to IO
-type ViewerStateM fsp t = ViewerStateT (t (ProjectStateT IO))
+-- the solution state transformer applied to IO
+type ViewerStateM fsp t = ViewerStateT (t (SolutionStateT IO))
 
 -- | A token which can be used to resume the program
-data ViewerResume fsp = Resume ViewerState fsp Project
+data ViewerResume fsp = Resume ViewerState fsp Solution
 
 
 {-
-instance ProjectStateM m => ProjectStateM (StateT s m) where
-    getProject = lift getProject
-    putProject = lift . putProject
+instance SolutionStateM m => SolutionStateM (StateT s m) where
+    getSolution = lift getSolution
+    putSolution = lift . putSolution
 -}
 
 -- | Run the viewer state transformer with a given state
@@ -66,28 +66,28 @@ runViewerStateT = runStateT
 runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
 runNewViewerStateT = flip runViewerStateT $ Viewer Nothing Nothing
 
-runViewerState :: (MonadIO (t (ProjectStateT IO)))
-               => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
+runViewerState :: (MonadIO (t (SolutionStateT IO)))
+               => (forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp))
                -> fsp 
                -> ViewerStateM fsp t a 
                -> IO (a,ViewerResume fsp)
 runViewerState runFSPT unopened f = resumeViewerState 
     f 
     runFSPT
-    (Resume (Viewer Nothing Nothing) unopened initialProject)
+    (Resume (Viewer Nothing Nothing) unopened initialSolution)
 
 -- | Resume the viewer state transformer
 resumeViewerState :: 
-                     (MonadIO (t (ProjectStateT IO)))
+                     (MonadIO (t (SolutionStateT IO)))
                   => ViewerStateM fsp t a 
-                  -> (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b,fsp))
+                  -> (forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b,fsp))
                   -> ViewerResume fsp 
                   -> IO (a,ViewerResume fsp)
 resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     let runViewer = runViewerStateT f viewer
         runFSP = runFSPT runViewer fsp
-        runProject = runProjectStateT runFSP proj
-    (((result,viewer'),fsp'),proj') <- runProject
+        runSolution = runSolutionStateT runFSP proj
+    (((result,viewer'),fsp'),proj') <- runSolution
     return (result,Resume viewer' fsp' proj')
 
 -- | Check if the program currently has a module open
@@ -96,11 +96,11 @@ hasCurrentModule :: (Monad m) => ViewerStateT m Bool
 hasCurrentModule = liftM isJust $ gets currentModule
 
 
--- | Open a project at a given path
-openProject :: (MonadIO m, ViewerMonad m)
+-- | Open a solution at a given path
+openSolution :: (MonadIO m, ViewerMonad m)
             => FilePath 
-            -> ProjectResult (StateT ViewerState m) u ()
-openProject path = do
+            -> SolutionResult (StateT ViewerState m) u ()
+openSolution path = do
     isFile <- liftIO $ doesFileExist path
     isDir <- liftIO $ doesDirectoryExist path
     case (isFile, isDir) of
@@ -114,19 +114,19 @@ openProject path = do
             M.load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
--- | Save the current project, optionally with a new path to save to
-saveProject :: (MonadIO m, ViewerMonad m) 
+-- | Save the current solution, optionally with a new path to save to
+saveSolution :: (MonadIO m, ViewerMonad m) 
             => Maybe FilePath
-            -> ProjectResult (ViewerStateT m) u ()
-saveProject maybePath = do
-    cond <- lift hasOpenedProject
+            -> SolutionResult (ViewerStateT m) u ()
+saveSolution maybePath = do
+    cond <- lift hasOpenedSolution
     if cond
         then do 
                 case maybePath of
                     Just path -> setTargetPath path
                     Nothing -> return ()
                 M.finalize
-        else throwE $ InvalidOperation "No project is currently open" ""
+        else throwE $ InvalidOperation "No solution is currently open" ""
 
 -- | Set the current declaration of the program
 setCurrentDecl :: Monad m => ModuleInfo -> DeclarationInfo -> ViewerStateT m ()

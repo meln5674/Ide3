@@ -23,12 +23,14 @@ module ReadOnlyFilesystemProject
     , runReadOnlyFilesystemProjectT
     ) where
 
+import System.FilePath
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Mechanism.State
-import Ide3.Types (ProjectError (..))
+import Ide3.Types (SolutionError (..), ProjectInfo (..), SolutionInfo (..))
 import Ide3.Digest
 
 import PseudoState
@@ -41,22 +43,25 @@ data FileSystemProject
     -- | No project opened
     | Unopened
     -- | A project at the path is opened
-    | Opened FilePath
+    | Opened SolutionInfo FilePath
     deriving Show
 
 -- | State transformer for the mechanism
 newtype ReadOnlyFilesystemProjectT m a
-    = ReadOnlyFilesystemProjectT { runReadOnlyFilesystemProjectTInternal :: StateT FileSystemProject m a }
+    = ReadOnlyFilesystemProjectT 
+    { runReadOnlyFilesystemProjectTInternal 
+        :: StateT FileSystemProject m a 
+    }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadTrans
     , MonadIO
-    , ProjectStateM
+    , SolutionStateM
     )
 
---type ReadOnlyFilesystemProjectT' m = StatefulProject (ReadOnlyFilesystemProjectT m)
+--type ReadOnlyFilesystemProjectT' m = StatefulSolution (ReadOnlyFilesystemProjectT m)
 
 -- | Run an action inside the mechanism with the provided state
 runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
@@ -75,40 +80,54 @@ putFsp :: (Monad m) => FileSystemProject -> ReadOnlyFilesystemProjectT m ()
 putFsp = ReadOnlyFilesystemProjectT . put
 
 {-
-instance ProjectStateM m => ProjectStateM (ReadOnlyFilesystemProjectT m) where
+instance SolutionStateM m => SolutionStateM (ReadOnlyFilesystemProjectT m) where
     getProject = lift getProject
     putProject = lift . putProject
 -}
 
-instance MonadIO m => ProjectShellM (ReadOnlyFilesystemProjectT m) where
+instance MonadIO m => SolutionShellM (ReadOnlyFilesystemProjectT m) where
     -- | Not supported
     new _ = throwE $ Unsupported "Cannot create a new read-only project"
     -- | Digest a project after loading the interface file
     load = do
         fsp <- lift getFsp
         case fsp of
-            ToOpen path -> do
-                p <- digestProject' path (Just "ifaces")
-                lift $ putFsp $ Opened path
+            ToOpen solutionPath -> do
+                let parts = splitPath solutionPath
+                    projectName = last parts
+                    solutionName = last parts
+                    project = ( ProjectInfo projectName
+                              , solutionPath
+                              , Just $ solutionPath </> "ifaces"
+                              )
+                p <- digestSolution (SolutionInfo solutionName) solutionPath [project]
+                lift $ putFsp $ Opened (SolutionInfo solutionName) solutionPath
                 return p
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened path -> digestProject' path (Just "ifaces")
+            Opened info solutionPath -> do
+                let (SolutionInfo solutionName) = info
+                    projectName = solutionName
+                    project = ( ProjectInfo projectName
+                              , solutionPath
+                              , Just $ solutionPath </> "ifaces"
+                              )
+                digestSolution info solutionPath [project]
     -- | Not supported
     finalize _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (MonadIO m, ProjectStateM m) => ViewerMonad (StatefulProject (ReadOnlyFilesystemProjectT m)) where
+instance (MonadIO m, SolutionStateM m) => ViewerMonad (StatefulSolution (ReadOnlyFilesystemProjectT m)) where
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
-    setDirectoryToOpen x = lift $ mkStatefulProject $ putFsp $ ToOpen x
+    setDirectoryToOpen x = lift $ lift $ putFsp $ ToOpen x
     -- | Unsupported
     setTargetPath _ = throwE $ Unsupported "Cannot set a target path for a readonly project"
     -- | Check if a project has been digested
-    hasOpenedProject = do
-        fsp <- mkStatefulProject $ getFsp
+    hasOpenedSolution = do
+        fsp <- lift $ getFsp
         case fsp of
-            Opened _ -> return True
+            Opened _ _ -> return True
             _ -> return False
     -- | Not supported
     createNewFile _ = throwE $ Unsupported "Cannot create a new readonly project"

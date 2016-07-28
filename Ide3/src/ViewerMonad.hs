@@ -29,27 +29,27 @@ import Ide3.Monad
 --import PseudoState
 
 -- | Provides methods for features of a persistance mechanism
-class (ProjectM m) => ViewerMonad m where
-    -- | Set the file to open so that when ProjectM.load is called, that path is
+class (SolutionM m) => ViewerMonad m where
+    -- | Set the file to open so that when SolutionM.load is called, that path is
     -- used to open a project
-    setFileToOpen :: FilePath -> ProjectResult m u ()
-    -- | Set the directory to open so that when ProjectM.load is called, that
+    setFileToOpen :: FilePath -> SolutionResult m u ()
+    -- | Set the directory to open so that when SolutionM.load is called, that
     -- path is used to open a project
-    setDirectoryToOpen :: FilePath -> ProjectResult m u ()
-    -- | Set the path to save to so that when ProjectM.finalize is called, that
+    setDirectoryToOpen :: FilePath -> SolutionResult m u ()
+    -- | Set the path to save to so that when SolutionM.finalize is called, that
     -- path is used to save the project
-    setTargetPath ::  String -> ProjectResult m u ()
+    setTargetPath ::  String -> SolutionResult m u ()
     -- | Check if there is a project currently open
-    hasOpenedProject :: m Bool
+    hasOpenedSolution :: m Bool
     -- | Set the project to an empty project at the provided file path
-    createNewFile :: FilePath -> ProjectResult m u ()
+    createNewFile :: FilePath -> SolutionResult m u ()
     -- | Set the project to an empty project at the provided directory path
-    createNewDirectory :: FilePath -> ProjectResult m u ()
+    createNewDirectory :: FilePath -> SolutionResult m u ()
     -- | Perform any actions necessary to be able to build using the 'stack build' shell command
-    prepareBuild :: ProjectResult m u ()
+    prepareBuild :: SolutionResult m u ()
 
 {-
-instance (PseudoStateT t s, ProjectM (t m), MonadTrans t, ViewerMonad m) => ViewerMonad (t m) where
+instance (PseudoStateT t s, SolutionM (t m), MonadTrans t, ViewerMonad m) => ViewerMonad (t m) where
     setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
     setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
     setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
@@ -63,7 +63,7 @@ instance (ViewerMonad m) => ViewerMonad (StateT s m) where
     setFileToOpen x = ExceptT $ lift $ runExceptT $ setFileToOpen x
     setDirectoryToOpen x = ExceptT $ lift $ runExceptT $ setDirectoryToOpen x
     setTargetPath x = ExceptT $ lift $ runExceptT $ setTargetPath x
-    hasOpenedProject = lift hasOpenedProject
+    hasOpenedSolution = lift hasOpenedSolution
     createNewFile x = ExceptT $ lift $ runExceptT $ createNewFile x
     createNewDirectory x = ExceptT $ lift $ runExceptT $ createNewDirectory x
     prepareBuild = ExceptT $ lift $ runExceptT prepareBuild

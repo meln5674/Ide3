@@ -1,6 +1,6 @@
 {-|
 Module      : Initializer
-Description : Initializing projects
+Description : Initializing solutions
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -8,7 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-A Initializer is an abstract data type which attempts to create a new project
+A Initializer is an abstract data type which attempts to create a new solution
 -}
 module Initializer
     ( InitializerResult (..)
@@ -25,6 +25,7 @@ module Initializer
 import System.Exit
 import System.Process
 import System.Directory
+import System.FilePath
 
 import Data.List
 
@@ -36,6 +37,8 @@ import Ide3.Types
 
 import Ide3.Monad
 import Ide3.Digest
+
+import Viewer
 
 -- | Class for types which can be parsed from a list of strings
 class Args a where
@@ -49,26 +52,26 @@ data InitializerResult
 -- | The initializer abstract type. Use runInitializer or runInitializerWithInput
 -- to execute the actions of an initializer
 newtype Initializer a m u = Initializer
-    { runInitializerInternal :: a -> ProjectResult m u InitializerResult }
+    { runInitializerInternal :: a -> SolutionResult m u InitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
-runInitializerWithInput :: (ProjectM m, Args a) 
+runInitializerWithInput :: (SolutionM m, Args a) 
                => Initializer a m u 
                -> [String]
-               -> Either String (ProjectResult m u InitializerResult)
+               -> Either String (SolutionResult m u InitializerResult)
 runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
-runInitializer :: (ProjectM m, Args a)
+runInitializer :: (SolutionM m, Args a)
                => Initializer a m u
                -> a
-               -> ProjectResult m u InitializerResult
+               -> SolutionResult m u InitializerResult
 runInitializer = runInitializerInternal
 
 -- | The name of a stack template
 type TemplateName = String
 
--- | The arguments to initialize a stack project, a file path and optional a template name
+-- | The arguments to initialize a stack solution, a file path and optional a template name
 data StackInitializerArgs = StackInitializerArgs FilePath (Maybe TemplateName)
 
 instance Args StackInitializerArgs where
@@ -82,8 +85,8 @@ instance Args StackInitializerArgs where
 noInitializer :: Monad m => Initializer a m u
 noInitializer = Initializer $ \_ -> throwE $ Unsupported "No initializer specified"
 
--- | An Initializer that uses the stack new command to create a new project
-stackInitializer :: (MonadIO m, ProjectM m) => Initializer StackInitializerArgs m u
+-- | An Initializer that uses the stack new command to create a new solution
+stackInitializer :: (MonadIO m, SolutionM m) => Initializer StackInitializerArgs m u
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
     let args = case template of
             Nothing -> ["new", path]
@@ -94,6 +97,10 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
             files <- liftM (delete "." . delete "..") $ liftIO $ getDirectoryContents path
             liftIO $ setCurrentDirectory path
             dirs <- liftIO $ filterM doesDirectoryExist files
-            mapM_ digestProject dirs
+            let solutionName = takeBaseName path
+                solutionInfo = SolutionInfo solutionName
+                projects = flip map dirs $ \d -> (ProjectInfo $ takeBaseName d, d,Nothing)
+            digestSolutionM solutionInfo path projects
             return $ InitializerSucceeded out err
+            
         ExitFailure _ ->  return $ InitializerFailed out err

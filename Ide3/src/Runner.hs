@@ -1,6 +1,6 @@
 {-|
 Module      : Runner
-Description : Running projects
+Description : Running solutions
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -8,7 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-A Runner is an abstract data type which attempts to run a project
+A Runner is an abstract data type which attempts to run a solution
 -}
 module Runner
     ( Runner
@@ -31,23 +31,23 @@ import System.Process
 import Ide3.Monad
 import Ide3.Types
 
--- | Result of running a project
+-- | Result of running a solution
 data RunnerResult
     = RunFailed String String
     | RunSucceeded String String
 
 -- | The Runner abstract type. Use runRunner to execute the actions of a runner.
-newtype Runner m u = MkRunner { runRunnerInternal :: ProjectResult m u RunnerResult }
+newtype Runner m u = MkRunner { runRunnerInternal :: SolutionResult m u RunnerResult }
 
 -- | Execute the actions of a runner
-runRunner :: Runner m u -> ProjectResult m u RunnerResult
+runRunner :: Runner m u -> SolutionResult m u RunnerResult
 runRunner = runRunnerInternal
 
 -- | A Runner that represents no ability to run, and will always result in an error
 noRunner :: Monad m => Runner m u
 noRunner = MkRunner $ throwE $ Unsupported "No runner specified"
 
--- | A Runner which uses stack exec to run a project
+-- | A Runner which uses stack exec to run a solution
 stackRunner :: (MonadIO m, MonadMask m) => Runner m u
 stackRunner = MkRunner $ ExceptT $ flip catch handleException $ do
     (_,pkgName,_) <- liftIO $ readProcessWithExitCode "stack" ["ide","packages"] ""

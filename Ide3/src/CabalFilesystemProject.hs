@@ -13,12 +13,12 @@ Stability   : experimental
 Portability : POSIX
 
 The Cabal persistance mechanism uses .cabal files to store the list of modules
-in a project, and stores declarations in the module files as normal
+in a solution, and stores declarations in the module files as normal
 -}
 module CabalFilesystemProject
-    ( CabalProject(CabalProject)
-    , FileSystemProject (Unopened)
-    , runCabalProject
+    ( CabalSolution(CabalSolution)
+    , FileSystemSolution (Unopened)
+    , runCabalSolution
     ) where
 
 import Data.List
@@ -46,90 +46,113 @@ import Ide3.Utils
 import Ide3.Monad
 import Ide3.Mechanism.State hiding (new, load, finalize)
 
-import qualified Ide3.Project as Project
+import qualified Ide3.Env.Solution as Solution
+import qualified Ide3.Env.Project as Project
 import qualified Ide3.Module as Module
+
+import Ide3.Env
 
 import ViewerMonad
 import PseudoState
 
 -- | State of the mechanism
-data FileSystemProject
-    -- | A file containing a dump of a Project is to be opened
+data FileSystemSolution
+    -- | A file containing a dump of a Solution is to be opened
     = ToOpen FilePath
-    -- | No project opened
+    -- | No solution opened
     | Unopened
-    -- | A digested path or dump file is opened if Just, a new project if Nothing
-    | Opened (Maybe CabalProjectInfo)
+    -- | A digested path or dump file is opened if Just, a new solution if Nothing
+    | Opened (Maybe CabalSolutionInfo)
 
 -- | Path to a cabal directory and the configuration
-data CabalProjectInfo = CabalProjectInfo FilePath CabalConfiguration
+data CabalSolutionInfo = CabalSolutionInfo FilePath CabalConfiguration
 
--- | Wrapper around the cabal project configuration
+-- | Wrapper around the cabal solution configuration
 newtype CabalConfiguration = CabalConfiguration GenericPackageDescription
 
--- | Type wrapper for using a cabal file as a project setup and the module
+-- | Type wrapper for using a cabal file as a solution setup and the module
 -- files to store code normally
-newtype CabalProject m a
-    = CabalProject { runCabalProjectInternal :: StateT FileSystemProject m a }
+newtype CabalSolution m a
+    = CabalSolution { runCabalSolutionInternal :: StateT FileSystemSolution m a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadTrans
     , MonadIO
-    , ProjectStateM
+    , SolutionStateM
     )
 
--- | Run a cabal project
-runCabalProject :: CabalProject m a -> FileSystemProject -> m (a, FileSystemProject)
-runCabalProject = runStateT . runCabalProjectInternal
+-- | Run a cabal solution
+runCabalSolution :: CabalSolution m a -> FileSystemSolution -> m (a, FileSystemSolution)
+runCabalSolution = runStateT . runCabalSolutionInternal
 
-deriving instance (MonadMask m) => MonadMask (CabalProject m)
-deriving instance (MonadCatch m) => MonadCatch (CabalProject m)
-deriving instance (MonadThrow m) => MonadThrow (CabalProject m)
+deriving instance (MonadMask m) => MonadMask (CabalSolution m)
+deriving instance (MonadCatch m) => MonadCatch (CabalSolution m)
+deriving instance (MonadThrow m) => MonadThrow (CabalSolution m)
 
--- | Get the state of the project
-getFsp :: (Monad m) => CabalProject m FileSystemProject
-getFsp = CabalProject get
+-- | Get the state of the solution
+getFsp :: (Monad m) => CabalSolution m FileSystemSolution
+getFsp = CabalSolution get
 
--- | Set the state of the project
-putFsp :: (Monad m) => FileSystemProject -> CabalProject m ()
-putFsp = CabalProject . put 
+-- | Set the state of the solution
+putFsp :: (Monad m) => FileSystemSolution -> CabalSolution m ()
+putFsp = CabalSolution . put 
 
--- | Perform an action on an open project, or throw an error if not open
-withOpenedProject :: (Monad m) 
-                  => (FilePath -> CabalConfiguration -> ProjectResult (CabalProject m) u a)
-                  -> ProjectResult (CabalProject m) u a
-withOpenedProject f = do
+-- | Perform an action on an open solution, or throw an error if not open
+withOpenedSolution :: (Monad m) 
+                  => (FilePath -> CabalConfiguration -> SolutionResult (CabalSolution m) u a)
+                  -> SolutionResult (CabalSolution m) u a
+withOpenedSolution f = do
     fsp <- lift getFsp
     case fsp of
-        Opened (Just (CabalProjectInfo path config)) -> f path config
-        _ -> throwE $ InvalidOperation "No open project" ""
+        Opened (Just (CabalSolutionInfo path config)) -> f path config
+        _ -> throwE $ InvalidOperation "No open solution" ""
 
--- | Update a project's library
-updateLibrary :: GenericPackageDescription -> Library -> GenericPackageDescription
-updateLibrary desc@GenericPackageDescription{condLibrary=Just condLib} lib 
-    = desc{condLibrary=Just condLib{condTreeData = lib}}
+-- | Update a solution's library
+updateLibrary :: ProjectInfo -> Library -> GenericPackageDescription -> GenericPackageDescription
+updateLibrary pi lib desc@GenericPackageDescription{condLibrary=Just condLib}
+--    = desc{condLibrary=Just condLib{condTreeData = lib}} -- TODO: Update library
+    = undefined
+    
+-- Update a solution's executable
+updateExecutable :: ProjectInfo -> Executable -> GenericPackageDescription -> GenericPackageDescription
+updateExecutable pi exe desc@GenericPackageDescription{condExecutables=[(str,condExe)]}
+--    = desc{condExecutables=[(str,condExe{condTreeData=exe})]} -- TODO: Update execuatable
+    = undefined
+    
+-- | Update the solution configuration
+updateConfig :: (Monad m) 
+             => ProjectInfo
+             -> ProjectType 
+             -> SolutionResult (CabalSolution m) u ()
+updateConfig pi (LibraryProject lib) = withOpenedSolution $ \path (CabalConfiguration desc) -> do
+    let desc' = updateLibrary pi lib desc
+    lift $ putFsp $ Opened $ Just $ CabalSolutionInfo path $ CabalConfiguration desc'
+updateConfig pi (ExecutableProject exe) = withOpenedSolution $ \path (CabalConfiguration desc) -> do
+    let desc' = updateExecutable pi exe desc
+    lift $ putFsp $ Opened $ Just $ CabalSolutionInfo path $ CabalConfiguration desc'
 
--- Update a project's executable
-updateExecutable :: GenericPackageDescription -> Executable -> GenericPackageDescription
-updateExecutable desc@GenericPackageDescription{condExecutables=[(str,condExe)]} exe
-    = desc{condExecutables=[(str,condExe{condTreeData=exe})]}
+libraryInfo :: ProjectInfo 
+libraryInfo = ProjectInfo "LIBRARY"
 
--- | Update the project configuration
-updateConfig :: (Monad m) => ProjectType -> ProjectResult (CabalProject m) u ()
-updateConfig (LibraryProject lib) = withOpenedProject $ \path (CabalConfiguration desc) -> do
-    let desc' = updateLibrary desc lib
-    lift $ putFsp $ Opened $ Just $ CabalProjectInfo path $ CabalConfiguration desc'
-updateConfig (ExecutableProject exe) = withOpenedProject $ \path (CabalConfiguration desc) -> do
-    let desc' = updateExecutable desc exe
-    lift $ putFsp $ Opened $ Just $ CabalProjectInfo path $ CabalConfiguration desc'
+isProjectInfo :: ProjectInfo -> ProjectType -> Bool
+isProjectInfo pi (LibraryProject _) = pi == libraryInfo
+isProjectInfo (ProjectInfo projectName) (ExecutableProject exe) = exeName exe == projectName
 
--- | Get a list of modules from a cabal project
-getInternalModules :: (MonadIO m) => ProjectResult (CabalProject m) u [Module]
-getInternalModules = do
-    ptype <- getProjectType
-    root <- getProjectSourceRoot
+getProject :: Monad m => ProjectInfo -> SolutionResult (CabalSolution m) u ProjectType
+getProject pi = do
+    ps <- getAllProjects
+    case filter (isProjectInfo pi) ps of
+        [] -> throwE $ ProjectNotFound pi ""
+        [p] -> return p
+        _ -> throwE $ DuplicateProject pi ""
+
+-- | Get a list of modules from a cabal solution
+getInternalModules :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u [Module]
+getInternalModules pi = do
+    ptype <- getProject pi
+    root <- getProjectSourceRoot ptype
     let (mainModuleName,others) = case ptype of
             LibraryProject lib -> (Nothing, exposedModules lib)
             ExecutableProject exe ->
@@ -151,9 +174,9 @@ getInternalModules = do
         Nothing -> return $ map (\(x,_,_) -> x) moduleParses
     
     
--- | Get the external modules used by a cabal project. * INCOMPLETE *
-getExternalModules :: (MonadIO m) => ProjectResult (CabalProject m) u [ExternModule]
-getExternalModules = return []
+-- | Get the external modules used by a cabal solution. * INCOMPLETE *
+getExternalModules :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u [ExternModule]
+getExternalModules pi = return []
 {-
 getExternalModules = do
     ptype <- getProjectType
@@ -162,8 +185,8 @@ getExternalModules = do
             ExecutableProject exe -> buildInfo exe
         depends = buildDepends binfo
 -}    
--- | Parse a string as a cabal project configuration
-parseCabalConfiguration :: String -> Either (ProjectError u) CabalConfiguration
+-- | Parse a string as a cabal solution configuration
+parseCabalConfiguration :: String -> Either (SolutionError u) CabalConfiguration
 parseCabalConfiguration s = case parsePackageDescription s of
     ParseFailed err -> Left $ InvalidOperation (show err) ""
     ParseOk _ x -> Right $ CabalConfiguration $ x
@@ -171,12 +194,12 @@ parseCabalConfiguration s = case parsePackageDescription s of
 -- | Given a file path, determine if it refers to a directory or cabal file.
 -- If it refers to a cabal file, get the directory it is in as well
 -- If it refers to a directory, ensure that the X.cabal file is present in that directory
--- In either case, if successful, return the cabal project root directory and the path to the cabal file
-getCabalDirectoryAndConfigPath :: (MonadIO m) => FilePath -> ProjectResult m u (FilePath,FilePath)
+-- In either case, if successful, return the cabal solution root directory and the path to the cabal file
+getCabalDirectoryAndConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u (FilePath,FilePath)
 getCabalDirectoryAndConfigPath path = do
     let upperDirectory = takeDirectory path
-        projectName = takeBaseName $ dropExtension path
-        innerFile = path </> projectName ++ ".cabal"
+        solutionName = takeBaseName $ dropExtension path
+        innerFile = path </> solutionName ++ ".cabal"
         isCabalFile = ".cabal" `isSuffixOf` path
     isDirectory <- wrapIOError $ doesDirectoryExist path
     isFile <- wrapIOError $ doesFileExist path
@@ -186,9 +209,9 @@ getCabalDirectoryAndConfigPath path = do
         then return (path, innerFile)
         else if isFile && isCabalFile && upperIsDirectory
             then return (upperDirectory, path)
-            else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
+            else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
 {-
-getCabalDirectory :: (MonadIO m) => FilePath -> ProjectResult m u FilePath
+getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
 getCabalDirectory path = do
     p <- wrapIOError $ doesDirectoryExist path
     if p
@@ -196,17 +219,17 @@ getCabalDirectory path = do
             p <- wrapIOError $ doesFileExist $ path ++ ".cabal"
             if p
                 then return $ path
-                else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
+                else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
         else if ".cabal" `isSuffixOf` path
             then do
                 p <- wrapIOError $ doesFileExist path
                 then takeDirectoryName path
-                else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
-            else InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
+                else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
+            else InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
             
             
             
-getCabalConfigPath :: (MonadIO m) => FilePath -> ProjectResult m u FilePath
+getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
 getCabalConfigPath path = do
     if ".cabal" `isSuffixOf` path
         then do
@@ -218,75 +241,105 @@ getCabalConfigPath path = do
                     p <- wrapIOError $ doesDirectoryExist path'
                     if p
                         then return $ path'
-                        else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
-        else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal project root") ""
+                        else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
+        else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
 -}
 
--- | Given either a cabal project root or a cabal project file, get the project root
-getCabalDirectory :: (MonadIO m) => FilePath -> ProjectResult m u FilePath
+-- | Given either a cabal solution root or a cabal solution file, get the solution root
+getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
 getCabalDirectory = liftM fst . getCabalDirectoryAndConfigPath
 
--- | Given either a cabal project root or a cabal project file, get the cabal project file
-getCabalConfigPath :: (MonadIO m) => FilePath -> ProjectResult m u FilePath
+-- | Given either a cabal solution root or a cabal solution file, get the cabal solution file
+getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
 getCabalConfigPath = liftM snd . getCabalDirectoryAndConfigPath
 
 -- | Not entirely sure what this is supposed to do
-makeProjectInfo :: FilePath -> CabalConfiguration -> ProjectInfo
-makeProjectInfo _ _ = ProjectInfo
+makeSolutionInfo :: FilePath -> CabalConfiguration -> SolutionInfo
+makeSolutionInfo _ (CabalConfiguration d) 
+    = SolutionInfo 
+    $ unPackageName 
+    $ pkgName 
+    $ package 
+    $ packageDescription 
+    $ d
 
--- | Take a project configuration and produce the string to write to file
+-- | Take a solution configuration and produce the string to write to file
 reformCabalConfiguration :: CabalConfiguration -> String
 reformCabalConfiguration (CabalConfiguration desc)
     = showGenericPackageDescription desc
 
--- | A project type
+-- | A solution type
 data ProjectType
-    = LibraryProject Library -- ^ A library project
-    | ExecutableProject Executable -- ^ An executable project
+    = LibraryProject Library -- ^ A library solution
+    | ExecutableProject Executable -- ^ An executable solution
 
--- | Get the type of a project
-getProjectType :: (Monad m) => ProjectResult (CabalProject m) u ProjectType
-getProjectType = withOpenedProject $ \_ (CabalConfiguration desc) -> do
+
+getAllProjects :: (Monad m) => SolutionResult (CabalSolution m) u [ProjectType]
+getAllProjects = withOpenedSolution $ \_ (CabalConfiguration desc) -> do
+    let exes = map (ExecutableProject . condTreeData . snd) $ condExecutables desc
+    case condTreeData <$> condLibrary desc of
+        Just lib -> return $ LibraryProject lib : exes
+        Nothing -> return exes
+
+getProjectInfo :: ProjectType -> ProjectInfo
+getProjectInfo (LibraryProject _) = libraryInfo
+getProjectInfo (ExecutableProject exe) = ProjectInfo $ exeName $ exe
+
+loadProject :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u Project
+loadProject pi = do
+    modules <- getInternalModules pi
+    externModules <- getExternalModules pi
+    let p = Project.new pi
+    p' <- mapDescent2_ Project.addModule p modules
+    mapDescent2_ Project.addExternModule p' externModules
+    
+
+-- | Get the type of a solution
+getProjectType :: (Monad m) => SolutionResult (CabalSolution m) u ProjectType
+getProjectType = withOpenedSolution $ \_ (CabalConfiguration desc) -> do
     case condLibrary desc of
         Just CondNode{condTreeData=lib} -> return $ LibraryProject $ lib
         Nothing -> case condExecutables desc of
             [(str,CondNode{condTreeData=exe})] -> return $ ExecutableProject $ exe
-            _ -> throwE $ Unsupported "Cabal project must have 1 and only 1 source dir"
+            _ -> throwE $ Unsupported "Cabal solution must have 1 and only 1 source dir"
 
--- | Get the directory that a project stores its code files in
-getProjectSourceRoot :: (Monad m) => ProjectResult (CabalProject m) u FilePath
-getProjectSourceRoot = do
-    ptype <- getProjectType
+-- | Get the directory that a solution stores its code files in
+getProjectSourceRoot :: (Monad m) => ProjectType -> SolutionResult (CabalSolution m) u FilePath
+getProjectSourceRoot ptype = do
     case ptype of
         LibraryProject lib -> case hsSourceDirs $ libBuildInfo $ lib of
             [path] -> return path
-            _ -> throwE $ Unsupported "Cabal project must have 1 and only 1 source dir"
+            _ -> throwE $ Unsupported "Cabal solution must have 1 and only 1 source dir"
         ExecutableProject exe -> case hsSourceDirs $ buildInfo $ exe of
             [path] -> return path
-            _ -> throwE $ Unsupported "Cabal project must have 1 and only 1 source dir"
+            _ -> throwE $ Unsupported "Cabal solution must have 1 and only 1 source dir"
 
 -- | Write a module out to file
-writeModule :: (MonadIO m) => Module -> ProjectResult (CabalProject m) u ()
-writeModule m = do -- withOpenedProject $ \_ (CabalConfiguration desc) -> do
+writeModule :: (MonadIO m) => ProjectInfo -> Module -> SolutionResult (CabalSolution m) u ()
+writeModule pi m = do -- withOpenedSolution $ \_ (CabalConfiguration desc) -> do
     let info = Module.info m
     path <- case info of
         (ModuleInfo (Symbol s)) -> return $ ModuleName.toFilePath $ ModuleName.fromString s
         _ -> throwE $ InvalidOperation "Cannot add unnamed modules to a cabal probject" ""
     let text = Module.toFile m
-    root <- getProjectSourceRoot
+    ptype <- getProject pi
+    root <- getProjectSourceRoot ptype
     let modulePath = root </> path ++ ".hs"
     let moduleDir = takeDirectory modulePath
     wrapIOError $ do
         createDirectoryIfMissing True moduleDir
         writeFile modulePath text
 
--- | Add a module to a project's list of modules
-addModuleToConfig :: (ProjectStateM m) => ModuleInfo -> ProjectResult (CabalProject m) u ()
-addModuleToConfig m = do
-    moduleName <- case m of
+-- | Add a module to a solution's list of modules
+addModuleToConfig :: (SolutionStateM m) 
+                  => ProjectInfo 
+                  -> ModuleInfo 
+                  -> SolutionResult (CabalSolution m) u ()
+addModuleToConfig pi mi = do
+    moduleName <- case mi of
         (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
-        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal project"
-    ptype <- getProjectType
+        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
+    ptype <- getProject pi
     ptype' <- case ptype of
         LibraryProject lib -> do
             let lib' = lib
@@ -299,15 +352,18 @@ addModuleToConfig m = do
                                  }
                      }
             return $ ExecutableProject exe'
-    updateConfig ptype'
+    updateConfig pi ptype'
 
--- | Remove a module from a project's list of modules
-removeModuleFromConfig :: (ProjectStateM m) => ModuleInfo -> ProjectResult (CabalProject m) u ()
-removeModuleFromConfig m = do
-    moduleName <- case m of
+-- | Remove a module from a solution's list of modules
+removeModuleFromConfig :: (SolutionStateM m) 
+                       => ProjectInfo 
+                       -> ModuleInfo 
+                       -> SolutionResult (CabalSolution m) u ()
+removeModuleFromConfig pi mi = do
+    moduleName <- case mi of
         (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
-        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal project"
-    ptype <- getProjectType
+        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
+    ptype <- getProject pi
     ptype' <- case ptype of
         LibraryProject lib -> do
             let lib' = lib
@@ -320,23 +376,23 @@ removeModuleFromConfig m = do
                                  }
                      }
             return $ ExecutableProject exe'
-    updateConfig ptype'
+    updateConfig pi ptype'
 {- do
     fsp <- lift getFsp
     case fsp of
-        Opened (Just (CabalProjectInfo path cabalConfig)) -> do
+        Opened (Just (CabalSolutionInfo path cabalConfig)) -> do
             let cabalConfig' = removeModuleFromConfig' m cabalConfig
-            lift $ putFsp $ Opened $ Just $ CabalProjectInfo path cabalConfig
-        _ -> throwE $ InvalidOperation "No project to remove from" ""
+            lift $ putFsp $ Opened $ Just $ CabalSolutionInfo path cabalConfig
+        _ -> throwE $ InvalidOperation "No solution to remove from" ""
 -}
 
 
-instance (MonadIO m, ProjectStateM m) => ProjectM (CabalProject m) where
-    -- | Set up an empty project
+instance (MonadIO m, SolutionStateM m) => SolutionM (CabalSolution m) where
+    -- | Set up an empty solution
     new i = do
         lift $ putFsp $ Opened (Nothing)
-        lift $ putProject $ Project.new i
-    -- | Open a project by reading the .cabal file and using it to find all of its modules
+        lift $ putSolution $ Solution.new i
+    -- | Open a solution by reading the .cabal file and using it to find all of its modules
     load = do
         fsp <- lift getFsp
         case fsp of
@@ -348,117 +404,109 @@ instance (MonadIO m, ProjectStateM m) => ProjectM (CabalProject m) where
                 wrapIOError $ setCurrentDirectory cabalDirectory
                 cabalConfig <- wrapReadFile cabalConfigPath
                                     >>= ExceptT . return . parseCabalConfiguration
-                lift $ putFsp $ Opened $ Just $ CabalProjectInfo cabalDirectory cabalConfig
-                internalModules <- getInternalModules
-                externalModules <- getExternalModules
-                lift $ putProject $ Project.new $ makeProjectInfo cabalDirectory cabalConfig
-                forM_ internalModules $  \m -> modifyProjectE $ \p -> Project.addModule p m
+                lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig
+                projects <- getAllProjects >>= mapM (loadProject . getProjectInfo)
+                {-
+                lift $ putSolution $ Solution.new $ makeSolutionInfo cabalDirectory cabalConfig
+                forM_ internalModules $  \m -> modifySolutionEnv $ \p -> Solution.addModule p m
                 mapM_ addExternModule externalModules
+                -}
+                undefined
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
-            Opened (Just (CabalProjectInfo path _)) -> do
+            Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""
+            Opened (Just (CabalSolutionInfo path _)) -> do
                 lift $ putFsp $ ToOpen path
                 load
     -- | Write out the .cabal file and each of its modules
     finalize = do
         fsp <- lift getFsp
         case fsp of
-            Opened (Just (CabalProjectInfo path cabalConfig)) -> do
+            Opened (Just (CabalSolutionInfo path cabalConfig)) -> do
                 let cabalConfigOutput = reformCabalConfiguration cabalConfig 
                 cabalConfigPath <- getCabalConfigPath path 
                 wrapIOError $ writeFile cabalConfigPath cabalConfigOutput
-                moduleInfos <- getModules
-                modules <- mapM getModule moduleInfos
-                mapM_ writeModule modules 
-            _ -> throwE $ InvalidOperation "No project to save" ""
-    
+                let writeProject ptype = do
+                        let pi = getProjectInfo ptype
+                        moduleInfos <- getModules pi
+                        modules <- mapM (getModule pi) moduleInfos
+                        mapM_ (writeModule pi) modules
+                getAllProjects >>= mapM_ writeProject
+            _ -> throwE $ InvalidOperation "No solution to save" ""
+
+
     -- | TODO
-    editProjectInfo _ = throwE $ InvalidOperation "TODO" "editProjectInfo"
+    editSolutionInfo _ = throwE $ InvalidOperation "TODO" "editSolutionInfo"
+--    editSolutionInfo f = lift $ modifySolution $ \s -> s{ solutionInfo = f $ solutionInfo s }
+    
+    addProject a = modifySolutionEnv $ \s -> runDescent2 Solution.addProject s a
+    removeProject a = modifySolutionEnv $ \s -> runDescent2 Solution.removeProject s a
+    getProjects = modifySolutionEnv $ \s -> runDescent1 Solution.getProjects s
+    editProjectInfo a b = modifySolutionEnv $ \s -> runDescent3 Solution.editProjectInfo s a b
 
-    -- | Add a module to the project as well as the cabal configuration
-    addModule m = do
-        modifyProjectE $ \p -> Project.addModule p m
-        addModuleToConfig $ Module.info m
+    addModule a b = do
+        modifySolutionEnv $ \s -> runDescent3 Solution.addModule s a b
+        addModuleToConfig a $ Module.info b
 
-    addExternModule m = do
-        modifyProjectE $ \p -> Project.addExternModule p m
-    createModule i = do
-        modifyProjectE $ \p -> Project.createModule p i
-        addModuleToConfig i
-    getModule i = do
-        ExceptT $ getsProject $ \p -> Project.getModule p i
-    getExternModule i = do
-        ExceptT $ getsProject $ \p -> Project.getExternModule p i
-    getModules = do
-        lift $ getsProject Project.allModules
-    editModule i f = do
-        modifyProjectE $ \p -> Project.editModule p i f
-    removeModule i = do
-        modifyProjectE $ \p -> Project.removeModule p i
-        removeModuleFromConfig i
+    addExternModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.addExternModule s a b
+    createModule a b = do
+        modifySolutionEnv $ \s -> runDescent3 Solution.createModule s a b
+        addModuleToConfig a b
 
-    addDeclaration i d = do
-        modifyProjectE $ \p -> Project.addDeclaration p i d
-    getDeclaration i di = do
-        ExceptT $ getsProject $ \p -> getChild <$> Project.getDeclaration p (ModuleChild i di)
-    getDeclarations i = do
-        ExceptT $ getsProject $ \p -> map getChild <$> Project.allDeclarationsIn p i
-    editDeclaration i di f = do
-        modifyProjectER $ \p -> Project.editDeclaration p (ModuleChild i di) f
-    removeDeclaration i di = do
-        modifyProjectE $ \p -> Project.removeDeclaration p (ModuleChild i di)
-
-    addImport mi i = do
-        modifyProjectER $ \p -> Project.addImport p mi i
-    getImport mi iid = do
-        ExceptT $ getsProject $ \p -> Project.getImport p mi iid
-    removeImport mi i = do
-        modifyProjectE $ \p -> Project.removeImport p mi i
-    getImports mi = do
-        ExceptT $ getsProject $ \p -> Project.getImports p mi
-
-    addExport mi e = do
-        modifyProjectER $ \p -> Project.addExport p mi e
-    getExport mi eid = do
-        ExceptT $ getsProject $ \p -> Project.getExport p mi eid
-    removeExport mi e = do
-        modifyProjectE $ \p -> Project.removeExport p mi e
-    exportAll mi = do
-        modifyProjectE $ \p -> Project.exportAll p mi
-    exportNothing mi = do
-        modifyProjectE $ \p -> Project.exportNothing p mi
-    getExports mi = do
-        ExceptT $ getsProject $ \p -> Project.getExports p mi
+    getModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.getModule s a b
+    getExternModule a b = modifySolutionEnv $ \s -> runDescent3 Solution.getExternModule s a b
+    getModules a = modifySolutionEnv $ \s -> runDescent2 Solution.allModules s a
+    editModule a b c = modifySolutionEnv $ \s -> runDescent4 Solution.editModule s a b c
+    removeModule a b = do
+        modifySolutionEnv $ \s -> runDescent3 Solution.removeModule s a b
+        removeModuleFromConfig a b
 
 
-    addPragma mi pr = modifyProjectE $ \p -> Project.addPragma p mi pr
-    removePragma mi pr = modifyProjectE $ \p -> Project.removePragma p mi pr
-    getPragmas mi = ExceptT $ getsProject $ \p -> Project.getPragmas p mi
-            
+    addDeclaration a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addDeclaration s a b c
+    getDeclaration a b c  = modifySolutionEnv $ \s -> runDescent4 Solution.getDeclaration s a b c
+    getDeclarations a b = modifySolutionEnv $ \s -> runDescent3 Solution.getDeclarations s a b
+    editDeclaration a b c d = modifySolutionEnv $ \s -> runDescent5 Solution.editDeclaration s a b c d
+    removeDeclaration a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeDeclaration s a b c
 
-instance (MonadIO m, ProjectStateM m) => ViewerMonad (CabalProject m) where
+    addImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addImport s a b c
+    getImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.getImport s a b c
+    removeImport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeImport s a b c
+    getImports a b = modifySolutionEnv $ \s -> runDescent3 Solution.getImports s a b
+    
+    addExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addExport s a b c
+    getExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.getExport s a b c
+    removeExport a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removeExport s a b c
+    exportAll a b = modifySolutionEnv $ \s -> runDescent3 Solution.exportAll s a b
+    exportNothing a b = modifySolutionEnv $ \s -> runDescent3 Solution.exportNothing s a b
+    getExports a b = modifySolutionEnv $ \s -> runDescent3 Solution.getExports s a b
+
+    addPragma a b c = modifySolutionEnv $ \s -> runDescent4 Solution.addPragma s a b c
+    removePragma a b c = modifySolutionEnv $ \s -> runDescent4 Solution.removePragma s a b c
+    getPragmas a b = modifySolutionEnv $ \s -> runDescent3 Solution.getPragmas s a b
+    
+
+instance (MonadIO m, SolutionStateM m) => ViewerMonad (CabalSolution m) where
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
     setDirectoryToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to Show to
     setTargetPath path = throwE $ Unsupported $ "TODO"
-    -- | Check if either there is a new project, digested path, or Read'd file
-    hasOpenedProject = do
+    -- | Check if either there is a new solution, digested path, or Read'd file
+    hasOpenedSolution = do
         fsp <- getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False
     createNewFile path = do
-        lift $ lift $ putProject $ Project.new ProjectInfo
+        lift $ lift $ putSolution $ Solution.new $ SolutionInfo $ takeBaseName path
         lift $ putFsp $ Opened Nothing
         setTargetPath path
     createNewDirectory path = do
-        lift $ lift $ putProject $ Project.new ProjectInfo
+        lift $ lift $ putSolution $ Solution.new $ SolutionInfo $ takeBaseName path
         lift $ putFsp $ Opened Nothing
         setTargetPath path
     prepareBuild = finalize
 
 
-instance PseudoStateT CabalProject FileSystemProject where
-    runPseudoStateT = runStateT . runCabalProjectInternal
+instance PseudoStateT CabalSolution FileSystemSolution where
+    runPseudoStateT = runStateT . runCabalSolutionInternal

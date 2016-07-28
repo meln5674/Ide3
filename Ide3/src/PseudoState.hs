@@ -34,5 +34,5 @@ instance PseudoStateT (Strict.StateT s) s where
 instance PseudoStateT (Lazy.StateT s) s where
     runPseudoStateT = Lazy.runStateT
 
-instance PseudoStateT ProjectStateT Project where
-    runPseudoStateT = runProjectStateT
+instance PseudoStateT SolutionStateT Solution where
+    runPseudoStateT = runSolutionStateT
