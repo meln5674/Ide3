@@ -391,3 +391,14 @@ throw3 = lift . lift . lift . throwE
 throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d m u r
 throw4 = lift . lift . lift . lift . throwE
 
+mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u ([r],a)
+mapDescent2 f a bs = runStateT rs a
+  where
+    g = runStateT f a
+    r b = StateT $ \a' -> runReaderT g b
+    rs = mapM r bs
+
+mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u a
+mapDescent2_ f a bs = do
+    (_,a') <- mapDescent2 f a bs
+    return a'

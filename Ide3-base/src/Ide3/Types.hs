@@ -64,6 +64,7 @@ joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 
 -- | Information on a solution
 data SolutionInfo = SolutionInfo String
+  deriving (Show, Read, Eq, Ord)
 
 -- | A solution, a collection of projects
 data Solution
@@ -71,6 +72,7 @@ data Solution
     { solutionInfo :: SolutionInfo
     , solutionProjects :: Map ProjectInfo Project
     }
+  deriving (Show, Read)
 
 -- |Information about a project
 data ProjectInfo = ProjectInfo String

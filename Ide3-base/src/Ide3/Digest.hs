@@ -13,9 +13,11 @@ tree and construct a project from them
 -}
 
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ide3.Digest
-    ( digestProject
-    , digestProjectWithInterfaces
+    ( digestSolutionM
+    , digestSolution
     ) where
 
 import Data.List
@@ -23,6 +25,7 @@ import Data.List
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
+import Control.Monad.Trans.State
 
 import System.Posix.Directory
 import System.Posix.Files
@@ -33,6 +36,7 @@ import qualified HsInterface as Iface
 import Ide3.Types
 import Ide3.Monad
 import Ide3.Mechanism
+import Ide3.Mechanism.State
 
 import qualified Ide3.Project as Project
 import qualified Ide3.Module as Module
@@ -89,11 +93,11 @@ enumerateHaskellProject path = do
     getFilesInTree haskellTree
 
 -- | Digest an interface and add an external module accordingly
-digestInterface :: (MonadIO m, SolutionM m)
+digestInterfaceM :: (MonadIO m, SolutionM m)
                 => ProjectInfo
                 -> Iface.Interface
                 -> SolutionResult m u ()
-digestInterface pi iface = addExternModule pi newModule
+digestInterfaceM pi iface = addExternModule pi newModule
   where
     newModule = ExternModule newInfo exports
     newInfo = ModuleInfo $ Symbol $ Iface.modName iface
@@ -103,28 +107,54 @@ digestInterface pi iface = addExternModule pi newModule
             Iface.SingleExport s -> SingleExternExport $ Symbol s
             Iface.MultiExport s ss -> MultiExternExport (Symbol s) $ map Symbol ss
 
--- | Digest a project from a directory structure.
-digestProject :: (MonadIO m, SolutionM m) 
-              => ProjectInfo -- ^ Info for the project to add
-              -> FilePath   -- ^ Root directory of the project
-              -> SolutionResult m u ()
-digestProject pi path = do
-    contents <- liftIO $ enumerateHaskellProject path
-    addProject pi
-    forM_ contents $ \(mp,mc) -> addRawModule pi mc (Just mp)
-
 -- | Digest a project from a directory structure, optionally providing a path to
 -- an interface file for external modules
-digestProjectWithInterfaces :: (MonadIO m, SolutionM m) 
+digestProjectM :: (MonadIO m, SolutionM m) 
                             => ProjectInfo 
                             -> FilePath 
                             -> Maybe FilePath 
                             -> SolutionResult m u ()
-digestProjectWithInterfaces pi p ip = do
-    digestProject pi p
+digestProjectM pi p ip = do
+    contents <- liftIO $ enumerateHaskellProject p
+    addProject pi
+    forM_ contents $ \(mp,mc) -> addRawModule pi mc (Just mp)
     case ip of
         Nothing -> return ()
         Just ip -> do
             ifaceFile <- liftIO $ readFile ip
-            mapM_ (digestInterface pi) $ (read ifaceFile :: [Iface.Interface])
-                
+            mapM_ (digestInterfaceM pi) $ (read ifaceFile :: [Iface.Interface])
+
+
+digestSolutionM :: (MonadIO m, SolutionM m)
+                => SolutionInfo
+                -> FilePath
+                -> [(ProjectInfo,FilePath,Maybe FilePath)]
+                -> SolutionResult m u ()
+digestSolutionM si p ps = do
+    editSolutionInfo (const $ si)
+    forM_ ps $ \(pi,pp,ip) -> digestProjectM pi pp ip
+
+newtype Wrapper m a = Wrapper { runWrapper :: m a }
+  deriving (Functor, Applicative, Monad, MonadIO, SolutionStateM)
+
+instance MonadTrans Wrapper where
+    lift = Wrapper
+  
+instance Monad m => SolutionShellM (Wrapper m) where
+    load = error "IDIOT"
+    new = error "IDIOT"
+    finalize = error "IDIOT"
+
+digestSolution :: forall m u
+                . (MonadIO m) 
+               => SolutionInfo
+               -> FilePath
+               -> [(ProjectInfo,FilePath,Maybe FilePath)]
+               -> SolutionResult m u Solution
+digestSolution si p ps = do
+    let y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
+        y = do
+            digestSolutionM si p ps
+            lift $ getSolution
+    (z,_) <- lift $ runNewSolutionStateT $ runWrapper $ runStatefulSolution $ runExceptT y
+    ExceptT $ return z
