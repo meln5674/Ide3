@@ -334,28 +334,30 @@ instance ToSym (DeclHead a) where
 
 -- |Errors that can arrise during modifying and querying a project
 data SolutionError u
-    = ModuleNotFound ModuleInfo String
+    = ModuleNotFound ProjectInfo ModuleInfo String
     | DeclarationNotFound ModuleInfo DeclarationInfo String
     | SymbolNotFound ModuleInfo Symbol String
     | SymbolNotImported ModuleInfo Symbol String
     | SymbolNotExported ModuleInfo Symbol String
     | NotSubSymbol Symbol Symbol String
-    | ModuleNotImported ModuleInfo ModuleInfo String
+    | ModuleNotImported ProjectInfo ModuleInfo ModuleInfo String
     | InvalidImportId ModuleInfo ImportId String
     | InvalidExportId ModuleInfo ExportId String
     | InvalidOperation String String
-    | DuplicateModule ModuleInfo String
+    | DuplicateDeclaration ModuleInfo DeclarationInfo String
+    | DuplicateModule ProjectInfo ModuleInfo String
     | DuplicateProject ProjectInfo String
     | ProjectNotFound ProjectInfo String
     | ParseError SrcLoc String String
     | Unsupported String
+    | InternalError String String
     | UserError u
     deriving Eq
 
 -- | 
 instance Show u => Show (SolutionError u) where
-    show (ModuleNotFound i s)
-        = printf "%s: module \"%s\" not found" s (show i)
+    show (ModuleNotFound pi mi s)
+        = printf "%s: module \"%s\" not found in project \"%s\"" s (show mi) (show pi)
     show (DeclarationNotFound mi di s)
         = printf "%s: in module \"%s\" declaration \"%s\" not found" s (show mi) (show di)
     show (SymbolNotFound mi sym s)
@@ -366,16 +368,16 @@ instance Show u => Show (SolutionError u) where
         = printf "%s: module \"%s\" does not export symbol \"%s\"" s (show mi) (show sym)
     show (NotSubSymbol super sub s)
         = printf "%s: \"%s\" is not a class method or constructor of \"%s\" %s" s (show sub) (show super)
-    show (ModuleNotImported importer importee s)
-        = printf "%s: module \"%s\" does not import module \"%s\"" s (show importer) (show importee)
+    show (ModuleNotImported pi importer importee s)
+        = printf "%s: module \"%s\" does not import module \"%s\" in project \"%s\"" s (show importer) (show importee) (show pi)
     show (InvalidImportId mi ii s)
         = printf "%s: module \"%s\" does not have an import with ID \"%s\"" s (show mi) (show ii)
     show (InvalidExportId mi ei s)
         = printf "%s: module \"%s\" does not have an export with ID \"%s\"" s (show mi) (show ei)
     show (InvalidOperation s1 s2)
         = printf "%s: %s" s2 s1
-    show (DuplicateModule mi s)
-        = printf "%s: a module named \"%s\" already exists" s (show mi)
+    show (DuplicateModule pi mi s)
+        = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pi)
     show (ParseError l msg s)
         = printf "%s: %s: %s" s (show l) msg
     show (Unsupported s)

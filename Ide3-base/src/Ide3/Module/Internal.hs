@@ -42,19 +42,19 @@ new :: ModuleInfo -> Module
 new i = Module i [] Map.empty Nothing Map.empty
 
 addDeclaration di d m = case Map.lookup di $ moduleDeclarations m of
-    Just _ -> throwE undefined
+    Just _ -> throwE $ DuplicateDeclaration (info m) di "Module.addDeclaration"
     Nothing -> return $ m{ moduleDeclarations = Map.insert di d $ moduleDeclarations m }
 
 removeDeclaration di m = case Map.lookup di $ moduleDeclarations m of
-    Nothing -> throwE undefined
+    Nothing -> throwE $ DeclarationNotFound (info m) di "Module.removeDeclaration"
     Just d -> return (d, m{ moduleDeclarations = Map.delete di $ moduleDeclarations m })
 
 getDeclaration di m = case Map.lookup di $ moduleDeclarations m of
-    Nothing -> throwE undefined
+    Nothing -> throwE $ DeclarationNotFound (info m) di "Module.getDeclaration"
     Just d -> return d
 
 setDeclaration di di' d' m = case Map.lookup di $ moduleDeclarations m of
-    Nothing -> throwE undefined
+    Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
         { moduleDeclarations
             = Map.insert di' d' 
@@ -63,19 +63,19 @@ setDeclaration di di' d' m = case Map.lookup di $ moduleDeclarations m of
         }
 
 addImport ii i m = case Map.lookup ii $ moduleImports m of
-    Just _ -> throwE undefined
+    Just _ -> throwE $ InternalError "Duplicate import id" "Module.addImport"
     Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
 
 removeImport ii m = case Map.lookup ii $ moduleImports m of
-    Nothing -> throwE $ InvalidImportId (moduleInfo m) ii "Module.removeImport"
+    Nothing -> throwE $ InvalidImportId (info m) ii "Module.removeImport"
     Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
 
 getImport ii m = case Map.lookup ii $ moduleImports m of
-    Nothing -> throwE undefined
+    Nothing -> throwE $ InvalidImportId (info m) ii "Module.getImport"
     Just i -> return i
 
 setImport ii ii' i' m = case Map.lookup ii $ moduleImports m of
-    Nothing -> throwE undefined
+    Nothing -> throwE $ InvalidImportId (info m) ii "Module.setImport"
     Just _ -> return $ m
         { moduleImports
             = Map.insert ii' i'
@@ -85,12 +85,12 @@ setImport ii ii' i' m = case Map.lookup ii $ moduleImports m of
 
 addExport ei e m = case moduleExports m of
     Just es -> case Map.lookup ei es of
-        Just _ -> throwE undefined
+        Just _ -> throwE $ InternalError "Duplicate export id" "Module.addExport"
         Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e es }
     Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e Map.empty }
 
 removeExport ei m = case moduleExports m of
-    Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
+    Nothing -> throwE $ InvalidOperation "Can't remove export from an export all" "Module.removeExport"
     Just es -> case Map.lookup ei es of
         Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
         Just e -> return (e, m{ moduleExports = Just $ Map.delete ei es })
@@ -103,7 +103,7 @@ getExport ei m = case moduleExports m of
 
 setExport ei ei' e' m = case moduleExports m of
     Just es -> case Map.lookup ei es of
-        Nothing -> throwE undefined
+        Nothing -> throwE $ InternalError "Tried to set an export in an export all" "Module.setExport"
         Just _ -> return $ m
             { moduleExports
                 = Just

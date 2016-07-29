@@ -48,7 +48,7 @@ symbolsProvided pi m e = case e of
             return $ map getChild syms
         | m `Module.infoMatches` ModuleInfo n -> return $ map getChild $ Module.allSymbols m
         | otherwise -> throwE 
-                     $ ModuleNotImported (moduleInfo m) (ModuleInfo n) "Export.symbolsProvided"
+                     $ ModuleNotImported pi (moduleInfo m) (ModuleInfo n) "Export.symbolsProvided"
     
     AggregateExport s (Just ss) -> 
         if exportedSyms `areAll` (`elem` allSyms)
