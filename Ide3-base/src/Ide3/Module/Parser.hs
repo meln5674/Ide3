@@ -29,8 +29,8 @@ import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Ide3.Types
 
 import qualified Ide3.Declaration as Declaration
-import qualified Ide3.Export as Export
-import qualified Ide3.Import as Import
+import qualified Ide3.Export.Parser as Export
+import qualified Ide3.Import.Parser as Import
 
 -- |Results of extracting information from the third-party parser
 data ExtractionResults

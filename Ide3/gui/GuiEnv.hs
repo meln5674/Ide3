@@ -23,10 +23,10 @@ data GuiEnv proxy m p buffer
     , projectMVar :: MVar (ViewerState, p)
     }
 
-withProjectMVar :: (TextBufferClass buffer, Monad m)
+withSolutionMVar :: (TextBufferClass buffer, Monad m)
                 => (MVar (ViewerState,p) -> GuiEnvT proxy m' p buffer m a)
                 -> GuiEnvT proxy m' p buffer m a
-withProjectMVar f = getEnv >>= f . projectMVar 
+withSolutionMVar f = getEnv >>= f . projectMVar 
 
 withGuiComponents :: (TextBufferClass buffer, Monad m)
             => (GuiComponents buffer -> GuiEnvT proxy m' p buffer m a)

@@ -56,6 +56,8 @@ module Ide3.Env where
 
 import qualified Data.Map as Map
 
+import Data.Functor.Identity
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State
@@ -64,7 +66,6 @@ import Control.Monad.Trans.Reader
 import Ide3.Types hiding (getChild)
 
 import qualified Ide3.Declaration as Declaration
-
 
 -- | Types in this class can be used to produce a uniquely identifying key
 class EnvParamClass env param | env -> param where
@@ -75,13 +76,13 @@ class EnvParamClass env param | env -> param where
 -- key type childParam. Operations may instead throw an exception of type e
 class ParamEnvClass parentEnv childParam childEnv e where
     -- | Add a child
-    addChild :: Monad m => childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
+    addChildT :: Monad m => childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
     -- | Remove a child
-    removeChild :: Monad m => childParam -> parentEnv -> ExceptT e m (childEnv,parentEnv)
+    removeChildT :: Monad m => childParam -> parentEnv -> ExceptT e m (childEnv,parentEnv)
     -- | Lookup a child
-    getChild :: Monad m => childParam -> parentEnv -> ExceptT e m childEnv
+    getChildT :: Monad m => childParam -> parentEnv -> ExceptT e m childEnv
     -- | Update a child
-    setChild :: Monad m => childParam -> childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
+    setChildT :: Monad m => childParam -> childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
 
 instance EnvParamClass Project ProjectInfo where
     getParam = projectInfo
@@ -95,146 +96,33 @@ instance EnvParamClass ExternModule ModuleInfo where
 instance EnvParamClass (WithBody Declaration) DeclarationInfo where
     getParam = Declaration.info . item
 
-instance ParamEnvClass Solution ProjectInfo Project (SolutionError u) where
-    addChild pi p s = do
-        case Map.lookup pi $ solutionProjects s of
-            Just _ -> throwE $ DuplicateProject pi $ "Solution.addProject"
-            Nothing -> return $ s{ solutionProjects = Map.insert pi p $ solutionProjects s }
-    removeChild pi s = do
-        case Map.lookup pi $ solutionProjects s of
-            Nothing -> throwE $ ProjectNotFound pi $ "Solution.addProject"
-            Just p -> return (p, s{ solutionProjects = Map.delete pi $ solutionProjects s })
-    getChild pi s = do
-        case Map.lookup pi $ solutionProjects s of
-            Just p -> return p
-            Nothing -> throwE undefined
-    setChild pi pi' p' s = do
-        case Map.lookup pi $ solutionProjects s of
-            Just _ -> return $ s 
-                { solutionProjects
-                    = Map.insert pi' p' 
-                    $ Map.delete pi 
-                    $ solutionProjects s 
-                }
-            Nothing -> throwE undefined
+addChild :: ParamEnvClass parentEnv childParam childEnv e 
+         => childParam
+         -> childEnv
+         -> parentEnv
+         -> Either e parentEnv
+addChild k v t = runIdentity $ runExceptT $ addChildT k v t
 
-instance ParamEnvClass Project ModuleInfo Module (SolutionError u) where
-    addChild mi m p = do
-        case Map.lookup mi $ projectModules p of
-            Just _ -> throwE $ DuplicateModule mi "Project.addModule" 
-            Nothing -> return $ p{ projectModules = Map.insert mi m $ projectModules p }
-    removeChild mi p = do
-        case Map.lookup mi $ projectModules p of
-            Nothing -> throwE undefined
-            Just m -> return (m, p{ projectModules = Map.delete mi $ projectModules p })
-    getChild mi p = do
-        case Map.lookup mi $ projectModules p of
-            Just m -> return m
-            Nothing -> throwE undefined
-    setChild mi mi' m' p = do
-        case Map.lookup mi $ projectModules p of
-            Just _ -> return $ p
-                { projectModules
-                    = Map.insert mi' m' 
-                    $ Map.delete mi 
-                    $ projectModules p 
-                }
-            Nothing -> throwE undefined
+removeChild :: ParamEnvClass parentEnv childParam childEnv e 
+            => childParam
+            -> parentEnv
+            -> Either e (childEnv,parentEnv)
+removeChild k t = runIdentity $ runExceptT $ removeChildT k t
 
-instance ParamEnvClass Project ModuleInfo ExternModule (SolutionError u) where
-    addChild mi m p = do
-        case Map.lookup mi $ projectExternModules p of
-            Just _ -> throwE $ DuplicateModule mi "Project.addExternModule" 
-            Nothing -> return $ p{ projectExternModules = Map.insert mi m $ projectExternModules p }
-    removeChild mi p = do
-        case Map.lookup mi $ projectExternModules p of
-            Nothing -> throwE undefined
-            Just m -> return (m, p{ projectExternModules = Map.delete mi $ projectExternModules p })
-    getChild mi p = do
-        case Map.lookup mi $ projectExternModules p of
-            Just m -> return m
-            Nothing -> throwE undefined
-    setChild mi mi' m' p = do
-        case Map.lookup mi $ projectExternModules p of
-            Just _ -> return $ p
-                { projectExternModules
-                    = Map.insert mi' m' 
-                    $ Map.delete mi 
-                    $ projectExternModules p 
-                }
-            Nothing -> throwE undefined
+getChild :: ParamEnvClass parentEnv childParam childEnv e 
+         => childParam
+         -> parentEnv
+         -> Either e childEnv
+getChild k t = runIdentity $ runExceptT $ getChildT k t
 
-instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
-    addChild di d m = do
-        case Map.lookup di $ moduleDeclarations m of
-            Just _ -> throwE undefined
-            Nothing -> return $ m{ moduleDeclarations = Map.insert di d $ moduleDeclarations m }
-    removeChild di m = do
-        case Map.lookup di $ moduleDeclarations m of
-            Nothing -> throwE undefined
-            Just d -> return (d, m{ moduleDeclarations = Map.delete di $ moduleDeclarations m })
-    getChild di m = case Map.lookup di $ moduleDeclarations m of
-        Just d -> return d
-        Nothing -> throwE undefined
-    setChild di di' d' m = case Map.lookup di $ moduleDeclarations m of
-        Just _ -> return $ m
-            { moduleDeclarations
-                = Map.insert di' d' 
-                $ Map.delete di 
-                $ moduleDeclarations m
-            }
-        Nothing -> throwE undefined
+setChild :: ParamEnvClass parentEnv childParam childEnv e 
+         => childParam
+         -> childParam
+         -> childEnv
+         -> parentEnv
+         -> Either e parentEnv
+setChild k k' v t = runIdentity $ runExceptT $ setChildT k k' v t
 
-instance ParamEnvClass Module ImportId (WithBody Import) (SolutionError u) where
-    addChild ii i m = do
-        case Map.lookup ii $ moduleImports m of
-            Just _ -> throwE undefined
-            Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
-    removeChild ii m = do
-        case Map.lookup ii $ moduleImports m of
-            Nothing -> throwE $ InvalidImportId (moduleInfo m) ii "Module.removeImport"
-            Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
-    getChild ii m = case Map.lookup ii $ moduleImports m of
-        Just i -> return i
-        nothing -> throwE undefined
-    setChild ii ii' i' m = case Map.lookup ii $ moduleImports m of
-        Just _ -> return $ m
-            { moduleImports
-                = Map.insert ii' i'
-                $ Map.delete ii
-                $ moduleImports m
-            }
-        Nothing -> throwE undefined
-
-instance ParamEnvClass Module ExportId (WithBody Export) (SolutionError u) where
-    addChild ei e m = do
-        case moduleExports m of
-            Just es -> case Map.lookup ei es of
-                Just _ -> throwE undefined
-                Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e es }
-            Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e Map.empty }
-    removeChild ei m = do
-        case moduleExports m of
-            Just es -> case Map.lookup ei es of
-                Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
-                Just e -> return (e, m{ moduleExports = Just $ Map.delete ei es })
-            Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
-    getChild ei m = case moduleExports m of
-        Just es -> case Map.lookup ei es of
-            Just e -> return e
-            Nothing -> throwE undefined
-        Nothing -> throwE undefined
-    setChild ei ei' e' m = case moduleExports m of
-        Just es -> case Map.lookup ei es of
-            Just _ -> return $ m
-                { moduleExports
-                    = Just
-                    $ Map.insert ei' e'
-                    $ Map.delete ei
-                    $ es
-                }
-            Nothing -> throwE undefined
-        Nothing -> return $ m { moduleExports = Just $ Map.fromList [(ei',e')] }
 
 -- | Take an environment operation over a child value type and turn it into a
 -- stateful operation over its parent type with the child key type as an
@@ -249,7 +137,7 @@ descendRO :: ( ParamEnvClass parentEnv childParam childEnv e
 descendRO f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ getChild childParam parentEnv
+    childEnv <- lift $ lift $ getChildT childParam parentEnv
     result <- lift $ lift $ runReaderT f childEnv
     return result
 
@@ -268,10 +156,10 @@ descend0 :: ( EnvParamClass childEnv childParam
 descend0 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ getChild childParam parentEnv
+    childEnv <- lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ setChild childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -288,10 +176,10 @@ descend1 :: ( EnvParamClass childEnv childParam
 descend1 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ lift $ getChild childParam parentEnv
+    childEnv <- lift $ lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ setChild childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -310,10 +198,10 @@ descend2 :: ( EnvParamClass childEnv childParam
 descend2 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ lift $ lift $ getChild childParam parentEnv
+    childEnv <- lift $ lift $ lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ lift $ setChild childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift $ lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -333,10 +221,10 @@ descend3 :: ( EnvParamClass childEnv childParam
 descend3 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ lift $ lift $ lift $ getChild childParam parentEnv
+    childEnv <- lift $ lift $ lift $ lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ lift $ lift $ setChild childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift $ lift $ lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 

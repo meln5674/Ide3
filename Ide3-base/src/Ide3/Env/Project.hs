@@ -24,15 +24,14 @@ import Control.Monad.Trans.Except
 import Ide3.Env
 import Ide3.Types
 
+import qualified Ide3.Module as Module (new, info, empty)
 import qualified Ide3.Env.Module as Module
+
+import Ide3.Project.Internal()
 
 -- | Wrapper around catchE that contrains the exception type
 catchE' :: Monad m => ExceptT e m a -> (e -> ExceptT e m a) -> ExceptT e m a
 catchE' = catchE
-
--- | Create a new project from info
-new :: ProjectInfo -> Project
-new i = Project i Map.empty BuildInfo Map.empty
 
 -- | Edit the info of a project
 editProjectInfo :: Monad m => DescentChain2 Project (ProjectInfo -> ProjectInfo) m u ()
@@ -49,21 +48,21 @@ addModule :: Monad m => DescentChain2 Project Module m u ()
 addModule = do
     m <- lift ask
     p <- get
-    put =<< (lift $ lift $ addChild (moduleInfo m) m p)
+    put =<< (lift $ lift $ addChildT (moduleInfo m) m p)
 
 -- | Add an empty local module
 createModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 createModule = do
     mi <- lift ask
     p <- get
-    put =<< (lift $ lift $ addChild mi (Module.new mi) p)
+    put =<< (lift $ lift $ addChildT mi (Module.new mi) p)
 
 -- | Add an external module
 addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
 addExternModule = do
     p <- get
     m <- lift ask
-    put =<< (lift $ lift $ addChild (externModuleInfo m) m p)
+    put =<< (lift $ lift $ addChildT (externModuleInfo m) m p)
 
 -- | Remove a module
 removeModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
@@ -71,11 +70,11 @@ removeModule = do
     p <- get
     mi <- lift ask
     let removeLocal = do
-            (m,p') <- removeChild mi p
+            (m,p') <- removeChildT mi p
             let m' = m :: Module
             return p'
     let removeExtern = do
-            (m,p') <- removeChild mi p
+            (m,p') <- removeChildT mi p
             let m' = m :: ExternModule
             return p'
     put =<< (lift $ lift $ catchE' removeExtern $ const removeLocal)

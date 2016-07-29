@@ -29,7 +29,7 @@ import ViewerMonad2
 
 import GuiEnv
 import GuiMonad
-import ProjectTree
+import SolutionTree
 
 import qualified GuiCommand.Internal as Internal
 import GuiCommand.Internal (UserError, DialogOnErrorArg, GuiCommand )
@@ -41,7 +41,7 @@ dialogOnError :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
               -> GuiEnvT proxy m p buffer IO a
 dialogOnError default_ f = do
     env <- getEnv
-    withProjectMVar $ \var -> liftIO $ do
+    withSolutionMVar $ \var -> liftIO $ do
         r <- interupt1 var $ runExceptT $ runGuiEnvT f env
         case r of
             Right x -> return x
@@ -61,7 +61,7 @@ dialogOnErrorConc :: (ViewerMonad m, InteruptMonad2 p m, TextBufferClass buffer)
                   -> GuiEnvT proxy m p buffer IO ThreadId
 dialogOnErrorConc f = do
     env <- getEnv
-    withProjectMVar $ \var -> liftIO $ forkIO $ do
+    withSolutionMVar $ \var -> liftIO $ forkIO $ do
         r <- interupt1 var $ runExceptT $ runGuiEnvT f env
         case r of
             Right () -> return ()
@@ -76,7 +76,7 @@ dialogOnErrorConc f = do
                 widgetDestroy dialog
                 
 doError :: ( GuiCommand m p buffer )
-        => ProjectError UserError
+        => SolutionError UserError
         -> GuiEnvT proxy m p buffer IO ()
 doError e = dialogOnError () $ Internal.doError e
 
@@ -85,8 +85,8 @@ doNew :: ( GuiCommand m p buffer )
       -> String
       -> Maybe String
       -> GuiEnvT proxy m p buffer IO ()
-doNew maybeProjectRoot projectName templateName 
-    = dialogOnError () $ Internal.doNew maybeProjectRoot projectName templateName 
+doNew maybeSolutionRoot projectName templateName 
+    = dialogOnError () $ Internal.doNew maybeSolutionRoot projectName templateName 
 
 doOpen :: ( GuiCommand m p buffer )
        => FilePath
@@ -119,89 +119,102 @@ doSave :: ( GuiCommand m p buffer
 doSave = dialogOnError () $ Internal.doSave
                 
 
-doSaveProject :: ( GuiCommand m p buffer
+doSaveSolution :: ( GuiCommand m p buffer
                  , MonadMask m
                  )
               => Maybe FilePath
               -> GuiEnvT proxy m p buffer IO ()
-doSaveProject path = dialogOnError () $ Internal.doSaveProject path
+doSaveSolution path = dialogOnError () $ Internal.doSaveSolution path
 
 doAddModule :: ( GuiCommand m p buffer )
-            => ModuleInfo
+            => ProjectInfo
+            -> ModuleInfo
             -> GuiEnvT proxy m p buffer IO ()
-doAddModule mi = dialogOnError () $ Internal.doAddModule mi
+doAddModule pi mi = dialogOnError () $ Internal.doAddModule pi mi
 
 doRemoveModule :: ( GuiCommand m p buffer )
-               => ModuleInfo
+               => ProjectInfo
+               -> ModuleInfo
                -> GuiEnvT proxy m p buffer IO ()
-doRemoveModule mi = dialogOnError () $ Internal.doRemoveModule mi
+doRemoveModule pi mi = dialogOnError () $ Internal.doRemoveModule pi mi
 
 
 doAddDeclaration :: ( GuiCommand m p buffer )
-                 => ModuleInfo
+                 => ProjectInfo
+                 -> ModuleInfo
                  -> DeclarationInfo
                  -> GuiEnvT proxy m p buffer IO ()
-doAddDeclaration mi di = dialogOnError () $ Internal.doAddDeclaration mi di
+doAddDeclaration pi mi di = dialogOnError () $ Internal.doAddDeclaration pi mi di
 
 doRemoveDeclaration :: ( GuiCommand m p buffer )
-                    => ModuleInfo
+                    => ProjectInfo
+                    -> ModuleInfo
                     -> DeclarationInfo
                     -> GuiEnvT proxy m p buffer IO ()
-doRemoveDeclaration mi di = dialogOnError () $ Internal.doRemoveDeclaration mi di
+doRemoveDeclaration pi mi di = dialogOnError () $ Internal.doRemoveDeclaration pi mi di
 
 doUnExportDeclaration :: ( GuiCommand m p buffer )
-                      => ModuleInfo
+                      => ProjectInfo
+                      -> ModuleInfo
                       -> DeclarationInfo
                       -> GuiEnvT proxy m p buffer IO ()
-doUnExportDeclaration mi di = dialogOnError () $ Internal.doUnExportDeclaration mi di
+doUnExportDeclaration pi mi di = dialogOnError () $ Internal.doUnExportDeclaration pi mi di
 
 doAddImport :: ( GuiCommand m p buffer )
-            => ModuleInfo
+            => ProjectInfo
+            -> ModuleInfo
             -> String
-            -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doAddImport mi importStr = dialogOnError Nothing $ Internal.doAddImport mi importStr
+            -> GuiEnvT proxy m p buffer IO (Maybe (SolutionError UserError))
+doAddImport pi mi importStr = dialogOnError Nothing $ Internal.doAddImport pi mi importStr
 
 doRemoveImport :: ( GuiCommand m p buffer )
-               => ModuleInfo
+               => ProjectInfo
+               -> ModuleInfo
                -> ImportId
                -> GuiEnvT proxy m p buffer IO ()
-doRemoveImport mi ii = dialogOnError () $ Internal.doRemoveImport mi ii
+doRemoveImport pi mi ii = dialogOnError () $ Internal.doRemoveImport pi mi ii
 
 doGetImport :: ( GuiCommand m p buffer )
-            => ModuleInfo
+            => ProjectInfo
+            -> ModuleInfo
             -> ImportId
             -> GuiEnvT proxy m p buffer IO (Maybe String)
-doGetImport mi ii = dialogOnError Nothing $ Internal.doGetImport mi ii
+doGetImport pi mi ii = dialogOnError Nothing $ Internal.doGetImport pi mi ii
 
 doEditImport :: ( GuiCommand m p buffer )
-             => ModuleInfo
+             => ProjectInfo
+             -> ModuleInfo
              -> ImportId
              -> String
-             -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doEditImport mi ii importStr = dialogOnError Nothing $ Internal.doEditImport mi ii importStr
+             -> GuiEnvT proxy m p buffer IO (Maybe (SolutionError UserError))
+doEditImport pi mi ii importStr = dialogOnError Nothing $ Internal.doEditImport pi mi ii importStr
 
 doAddExport :: ( GuiCommand m p buffer )
-            => ModuleInfo
+            => ProjectInfo
+            -> ModuleInfo
             -> String
-            -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doAddExport mi exportStr = dialogOnError Nothing $ Internal.doAddExport mi exportStr
+            -> GuiEnvT proxy m p buffer IO (Maybe (SolutionError UserError))
+doAddExport pi mi exportStr = dialogOnError Nothing $ Internal.doAddExport pi mi exportStr
 
 doRemoveExport :: ( GuiCommand m p buffer )
-               => ModuleInfo
+               => ProjectInfo
+               -> ModuleInfo
                -> ExportId
                -> GuiEnvT proxy m p buffer IO ()
-doRemoveExport mi ei = dialogOnError () $ Internal.doRemoveExport mi ei
+doRemoveExport pi mi ei = dialogOnError () $ Internal.doRemoveExport pi mi ei
 
 
 doGetExport :: ( GuiCommand m p buffer )
-            => ModuleInfo
+            => ProjectInfo
+            -> ModuleInfo
             -> ExportId
             -> GuiEnvT proxy m p buffer IO (Maybe String)
-doGetExport mi ei = dialogOnError Nothing $ Internal.doGetExport mi ei
+doGetExport pi mi ei = dialogOnError Nothing $ Internal.doGetExport pi mi ei
 
 doEditExport :: ( GuiCommand m p buffer )
-             => ModuleInfo
+             => ProjectInfo
+             -> ModuleInfo
              -> ExportId
              -> String
-             -> GuiEnvT proxy m p buffer IO (Maybe (ProjectError UserError))
-doEditExport mi ei importStr = dialogOnError Nothing $ Internal.doEditExport mi ei importStr
+             -> GuiEnvT proxy m p buffer IO (Maybe (SolutionError UserError))
+doEditExport pi mi ei importStr = dialogOnError Nothing $ Internal.doEditExport pi mi ei importStr

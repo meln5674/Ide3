@@ -11,7 +11,7 @@ import Language.Haskell.Exts.SrcLoc
 
 import Graphics.UI.Gtk
 
-import Ide3.Types (ProjectError(..))
+import Ide3.Types (SolutionResult, SolutionError (..))
 
 data SyntaxComponent
     = Comment
@@ -183,7 +183,7 @@ classifyToken Lex.EOF{}                 = Syntax
 getHighlights :: (Monad m) 
               => String 
               -> (Int -> Int -> m TextIter) 
-              -> ExceptT (ProjectError u) m [HighlightInst]
+              -> SolutionResult m u [HighlightInst]
 getHighlights text f = case Lex.lexTokenStream text of
     ParseOk toks -> forM toks $ \Loc{loc=loc,unLoc=tok} -> lift $ do
         start <- uncurry f $ let (s,e) = srcSpanStart loc in (s-1,e-1)

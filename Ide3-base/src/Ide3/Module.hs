@@ -10,7 +10,10 @@ Portability : POSIX
 
 -}
 
-module Ide3.Module where
+module Ide3.Module 
+    ( module Ide3.Module
+    , module Ide3.Module.Internal
+    ) where
 
 import Data.Maybe
 import Data.List (intercalate, find, delete)
@@ -20,26 +23,18 @@ import Control.Monad.Trans.Except
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Ide3.Module.Internal
+
 import Ide3.Types
 import Ide3.Monad (SolutionM)
 import qualified Ide3.Declaration as Declaration
-import qualified Ide3.Export as Export
-import qualified Ide3.Import as Import
 
 import Ide3.Module.Parser (ExtractionResults(..))
 import qualified Ide3.Module.Parser as Parser
 
--- | Get the identifying information from a module
-info :: Module -> ModuleInfo
-info = moduleInfo
 
--- | Create an empty module
-empty :: Module
-empty = Module (UnamedModule Nothing) [] Map.empty Nothing Map.empty
+import Ide3.Env
 
--- | Create a new module from a ModuleInfo
-new :: ModuleInfo -> Module
-new i = Module i [] Map.empty Nothing Map.empty
 
 -- | Similar to foldl, but each fold produces an extra result, the list of which
 --  is returned along with the final fold
@@ -87,41 +82,38 @@ parseMain s p = case Parser.parseMain s p of
         imports' = Map.fromList $ zip iids imports
         decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
     Left msg -> Left msg
-{-
+
+
 -- |Get the imports from a module
 getImports :: Module -> [WithBody Import]
-getImports (Module _ _ is _ _) = Map.elems is
+getImports = Map.elems . moduleImports
 
+{-
 getImport :: Module -> ImportId -> Either (SolutionError u) (WithBody Import)
-getImport (Module mi _ is _ _) iid = case Map.lookup iid is of
+getImport m iid = case Map.lookup iid $ moduleImports m of
     Just i -> Right i
     Nothing -> Left $ InvalidImportId mi iid "Module.getImport"
+-}
 
 getPragmas :: Module -> [Pragma]
-getPragmas (Module _ ps _ _ _) = ps
+getPragmas = modulePragmas
+
 
 -- |Get the declarations from a module
 getDeclarations :: Module -> [WithBody Declaration]
-getDeclarations (Module _ _ _ _ ds) = Map.elems ds
+getDeclarations = Map.elems . moduleDeclarations
+
 
 -- |Get the exports from a module
 getExports :: Module -> Maybe (Map ExportId (WithBody Export))
---getExports (Module _ _ _ Nothing _) = []
---getExports (Module _ _ _ (Just es) _) = Map.elems es
-getExports (Module _ _ _ es _) = es
-
-getExport :: Module -> ExportId -> Either (SolutionError u) (WithBody Export)
-getExport (Module mi _ _ (Just es) _) eid = case Map.lookup eid es of
-    Just e -> Right e
-    Nothing -> Left $ InvalidExportId mi eid "Module.getExport"
-getExport (Module _ _ _ Nothing _) _ = Left $ InvalidOperation "Can't get export from an export all" "Module.getExport"
+getExports = moduleExports
 
 getExportIds :: Module -> Maybe [ExportId]
 getExportIds (Module _ _ _ es _) = Map.keys <$> es
 
 getImportIds :: Module -> [ImportId]
 getImportIds (Module _ _ is _ _) = Map.keys is
--}
+
 
 -- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
@@ -153,38 +145,7 @@ modifiersOf s m@(Module _ _ _ _ ds)
 qualify :: Module -> a -> ModuleChild a
 qualify (Module i _ _ _ _) = ModuleChild i
 
--- | Within the context of a project, find all of the symbols this module exports
---  This requires the project context as modules may export other modules,
---      necessitating finding what symbols they export, and so on
-exportedSymbols :: SolutionM m => ProjectInfo -> Module -> SolutionResult m u [ModuleChild Symbol]
-exportedSymbols pi m = case m of
-    (Module _ _ _ Nothing _) -> return $ allSymbols m
-    (Module _ _ _ (Just es) _) -> do
-        syms <- concat <$> mapM (Export.symbolsProvided pi m . item) es
-        return $ map (qualify m) syms
 
--- | Within the context of a project, find all of the symbosl being imported by
--- a module
-importedSymbols :: SolutionM m 
-                => ProjectInfo 
-                -> Module 
-                -> SolutionResult m u [Symbol]
-importedSymbols pi m = concat <$> mapM providedBy imports
-  where
-    imports = moduleImports m
-    providedBy = Import.symbolsProvided pi . item
-
-
--- | Within the context of a project, find all of the symbols which are visible
---  at the top level of this module 
-internalSymbols :: SolutionM m 
-                => ProjectInfo 
-                -> Module 
-                -> SolutionResult m u [Symbol]
-internalSymbols pi m = do
-    let decls = moduleDeclarations m
-    importSyms <- importedSymbols pi m
-    return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) decls
 
 -- | Find all of the symbols that are created within this module
 allSymbols :: Module -> [ModuleChild Symbol]
@@ -212,42 +173,14 @@ searchM f xs = do
         y <- f x
         return (x,y)
 
--- | Given a sub-symbol, (such as a data constructor or a class method), find
---  the parent symbol and its siblings
---  If successful, the list will contain the parent symbol as its head, and the
---      siblings as the tail. The symbol provided will not be an item in the list
---  If the symbol is imported, it will be tagged as such
-symbolTree :: SolutionM m 
-           => ProjectInfo
-           -> Module 
-           -> Symbol 
-           -> SolutionResult m u [ModuleChild Symbol]
-symbolTree pi m sym = do
-    let declarations = items $ Map.elems $ moduleDeclarations m
-        declSearchResult = search (`Declaration.otherSymbols` sym) declarations
-    case declSearchResult of
-        Just (_,syms) -> return $ map (qualify m) syms
-        Nothing -> do
-            let imports = items $ Map.elems $ moduleImports m
-                othersFromImport x = Import.otherSymbols pi x sym
-            importSearchResult <- searchM othersFromImport imports
-            case importSearchResult of
-                Just (i,_) -> do
-                    otherSyms <- Import.symbolTree pi i sym
-                    return $ map (qualify m) otherSyms
-                Nothing -> throwE $ SymbolNotFound (info m) sym "Module.symbolTree"
-
 -- | Test if this module matches a ModuleInfo
 infoMatches :: Module -> ModuleInfo -> Bool
-infoMatches (Module i _ _ _ _) i' = i == i'
+infoMatches m mi = info m == mi
+
 
 -- | Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
-nextImportId (Module _ _ is _ _) = 1 + maximum (-1 : Map.keys is)
-
--- | Test if a module imports another
-importsModule :: Module -> Symbol -> Bool
-importsModule m sym = sym `elem` map Import.moduleName (items $ Map.elems $ moduleImports m)
+nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
 
 -- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
@@ -261,3 +194,6 @@ hasDeclarationInfo m di = case getDeclaration m di of
     Right _ -> True
     Left  _ -> False
 -}
+
+
+

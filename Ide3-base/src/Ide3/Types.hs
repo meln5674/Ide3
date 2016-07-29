@@ -14,6 +14,7 @@ modules, each of which contain exports, imports, and declarations.
 -}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module Ide3.Types where
 
 import Control.Monad.Trans.Except
@@ -147,14 +148,26 @@ data ExternModule
 data ModuleChild a = ModuleChild ModuleInfo a
     deriving (Show, Eq, Ord)
 
--- |Get the value tagged with a module
-getChild :: ModuleChild a -> a
-getChild (ModuleChild _ a) = a
+data ProjectChild a = ProjectChild ProjectInfo a
+
+instance Show a => Show (ProjectChild a) where
+    show (ProjectChild (ProjectInfo n) x) = show x ++ " ( " ++ n ++ " )"
+
+class HasChild f where
+    getChild :: f a -> a
+
+instance HasChild ModuleChild where
+    getChild (ModuleChild _ a) = a
+
+instance HasChild ProjectChild where
+    getChild (ProjectChild _ a) = a
 
 -- |
 instance Functor ModuleChild where
-    fmap f (ModuleChild mi x) = ModuleChild mi (f x)
+    fmap f (ModuleChild mi x) = ModuleChild mi $ f x
 
+instance Functor ProjectChild where
+    fmap f (ProjectChild pi x) = ProjectChild pi $ f x
 
 -- |An import statement. The first three fields of each are:
 --  The module being imported
@@ -385,7 +398,6 @@ instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
-
 
 -- | Wrapper for a monad transformer which can throw solution exceptions
 type SolutionResult m u = ExceptT (SolutionError u) m

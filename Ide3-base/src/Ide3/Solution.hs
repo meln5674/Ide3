@@ -8,7 +8,7 @@ import Ide3.Types
 import qualified Ide3.Module as Module
 import qualified Ide3.Project as Project
 
-{-
+
 -- |Create an empry Solution
 empty :: Solution
 empty = Solution (SolutionInfo "") Map.empty
@@ -16,6 +16,8 @@ empty = Solution (SolutionInfo "") Map.empty
 -- |Create a new Solution from a SolutionInfo
 new :: SolutionInfo -> Solution
 new i = Solution i Map.empty
+
+{-
 
 {-
 -- |Given a symbol, find all of the declarations which modify it, tagged with

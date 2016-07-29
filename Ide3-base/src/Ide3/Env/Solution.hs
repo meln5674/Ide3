@@ -23,7 +23,10 @@ import Ide3.Env
 
 import Ide3.Types
 
+import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
+
+import Ide3.Solution.Internal
 
 -- | Create a new solution from info
 new :: SolutionInfo -> Solution
@@ -34,14 +37,14 @@ addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 addProject = do
     pi <- lift ask
     s <- get
-    put =<< (lift $ lift $ addChild pi (Project.new pi) s)
+    put =<< (lift $ lift $ addChildT pi (Project.new pi) s)
 
 -- | Remove a project by id
 removeProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 removeProject = do
     pi <- lift ask
     s <- get
-    (p, s') <- lift $ lift $ removeChild pi s
+    (p, s') <- lift $ lift $ removeChildT pi s
     let p' = p :: Project
     put s'
 

@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-|
-Module      : ReadOnlyFilesystemProject
+Module      : ReadOnlyFilesystemSolution
 Description : Read only persistence mechanism
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -17,10 +17,10 @@ of existing standard haskell projects and then viewing/searching them.
 
 Attempting to save/edit/create using this persistence mechanism will result in an error
 -}
-module ReadOnlyFilesystemProject
-    ( ReadOnlyFilesystemProjectT( ReadOnlyFilesystemProjectT )
-    , FileSystemProject (Unopened)
-    , runReadOnlyFilesystemProjectT
+module ReadOnlyFilesystemSolution
+    ( ReadOnlyFilesystemSolutionT( ReadOnlyFilesystemSolutionT )
+    , FileSystemSolution (Unopened)
+    , runReadOnlyFilesystemSolutionT
     ) where
 
 import System.FilePath
@@ -37,7 +37,7 @@ import PseudoState
 import ViewerMonad
 
 -- | State of the mechanism
-data FileSystemProject
+data FileSystemSolution
     -- | There is a path to be opened
     = ToOpen FilePath
     -- | No project opened
@@ -47,10 +47,10 @@ data FileSystemProject
     deriving Show
 
 -- | State transformer for the mechanism
-newtype ReadOnlyFilesystemProjectT m a
-    = ReadOnlyFilesystemProjectT 
-    { runReadOnlyFilesystemProjectTInternal 
-        :: StateT FileSystemProject m a 
+newtype ReadOnlyFilesystemSolutionT m a
+    = ReadOnlyFilesystemSolutionT 
+    { runReadOnlyFilesystemSolutionTInternal 
+        :: StateT FileSystemSolution m a 
     }
   deriving
     ( Functor
@@ -61,31 +61,31 @@ newtype ReadOnlyFilesystemProjectT m a
     , SolutionStateM
     )
 
---type ReadOnlyFilesystemProjectT' m = StatefulSolution (ReadOnlyFilesystemProjectT m)
+--type ReadOnlyFilesystemSolutionT' m = StatefulSolution (ReadOnlyFilesystemSolutionT m)
 
 -- | Run an action inside the mechanism with the provided state
-runReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
-runReadOnlyFilesystemProjectT = runStateT . runReadOnlyFilesystemProjectTInternal
+runReadOnlyFilesystemSolutionT :: MonadIO m => ReadOnlyFilesystemSolutionT m a -> FileSystemSolution -> m (a, FileSystemSolution)
+runReadOnlyFilesystemSolutionT = runStateT . runReadOnlyFilesystemSolutionTInternal
 
 -- | Run an action inside the mechanism 
---runNewReadOnlyFilesystemProjectT :: MonadIO m => ReadOnlyFilesystemProjectT m a -> m (a, FileSystemProject)
---runNewReadOnlyFilesystemProjectT = flip runReadOnlyFilesystemProjectT Unopened
+--runNewReadOnlyFilesystemSolutionT :: MonadIO m => ReadOnlyFilesystemSolutionT m a -> m (a, FileSystemSolution)
+--runNewReadOnlyFilesystemSolutionT = flip runReadOnlyFilesystemSolutionT Unopened
 
 -- | Get the state of the project
-getFsp :: (Monad m) => ReadOnlyFilesystemProjectT m FileSystemProject
-getFsp = ReadOnlyFilesystemProjectT get
+getFsp :: (Monad m) => ReadOnlyFilesystemSolutionT m FileSystemSolution
+getFsp = ReadOnlyFilesystemSolutionT get
 
 -- | Set the state of the project
-putFsp :: (Monad m) => FileSystemProject -> ReadOnlyFilesystemProjectT m ()
-putFsp = ReadOnlyFilesystemProjectT . put
+putFsp :: (Monad m) => FileSystemSolution -> ReadOnlyFilesystemSolutionT m ()
+putFsp = ReadOnlyFilesystemSolutionT . put
 
 {-
-instance SolutionStateM m => SolutionStateM (ReadOnlyFilesystemProjectT m) where
-    getProject = lift getProject
-    putProject = lift . putProject
+instance SolutionStateM m => SolutionStateM (ReadOnlyFilesystemSolutionT m) where
+    getSolution = lift getSolution
+    putSolution = lift . putSolution
 -}
 
-instance MonadIO m => SolutionShellM (ReadOnlyFilesystemProjectT m) where
+instance MonadIO m => SolutionShellM (ReadOnlyFilesystemSolutionT m) where
     -- | Not supported
     new _ = throwE $ Unsupported "Cannot create a new read-only project"
     -- | Digest a project after loading the interface file
@@ -116,7 +116,7 @@ instance MonadIO m => SolutionShellM (ReadOnlyFilesystemProjectT m) where
     finalize _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (MonadIO m, SolutionStateM m) => ViewerMonad (StatefulSolution (ReadOnlyFilesystemProjectT m)) where
+instance (MonadIO m, SolutionStateM m) => ViewerMonad (StatefulSolution (ReadOnlyFilesystemSolutionT m)) where
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
@@ -138,5 +138,5 @@ instance (MonadIO m, SolutionStateM m) => ViewerMonad (StatefulSolution (ReadOnl
     prepareBuild = return ()
 
 
-instance PseudoStateT ReadOnlyFilesystemProjectT FileSystemProject where
-    runPseudoStateT = runStateT . runReadOnlyFilesystemProjectTInternal
+instance PseudoStateT ReadOnlyFilesystemSolutionT FileSystemSolution where
+    runPseudoStateT = runStateT . runReadOnlyFilesystemSolutionTInternal

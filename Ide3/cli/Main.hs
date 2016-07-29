@@ -6,7 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-|
 Module      : Main
-Description : Demo project main module
+Description : Demo solution main module
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -14,7 +14,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-This is the main module for the demo haskell IDE project
+This is the main module for the demo haskell IDE solution
 -}
 module Main where
 
@@ -28,32 +28,32 @@ import Control.Monad
 
 import System.Console.Haskeline
 
-import Ide3.Monad (ProjectM)
+import Ide3.Monad (SolutionM)
 import Ide3.Mechanism.State
 
 import Command.Trans
 import Command.Types
 import Command
 import Viewer
-import qualified ReadOnlyFilesystemProject as RDONLY
-import qualified SimpleFilesystemProject as RDWR
-import qualified CabalFilesystemProject as Cabal
+import qualified ReadOnlyFilesystemSolution as RDONLY
+import qualified SimpleFilesystemSolution as RDWR
+import qualified CabalFilesystemSolution as Cabal
 
 import Editor
 import Builder
 import Runner
 import Initializer
 
-deriving instance (MonadException m) => MonadException (ProjectStateT m)
-deriving instance (MonadException m) => MonadException (StatefulProject m)
-deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadException m) => MonadException (Cabal.CabalProject m)
-deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemProjectT m)
+deriving instance (MonadException m) => MonadException (SolutionStateT m)
+deriving instance (MonadException m) => MonadException (StatefulSolution m)
+deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesystemSolutionT m)
+deriving instance (MonadException m) => MonadException (Cabal.CabalSolution m)
+deriving instance (MonadException m) => MonadException (RDWR.SimpleFilesystemSolutionT m)
 
 
-deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemProjectT m)
-deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemProjectT m)
+deriving instance (MonadMask m) => MonadMask (RDONLY.ReadOnlyFilesystemSolutionT m)
+deriving instance (MonadCatch m) => MonadCatch (RDONLY.ReadOnlyFilesystemSolutionT m)
+deriving instance (MonadThrow m) => MonadThrow (RDONLY.ReadOnlyFilesystemSolutionT m)
 
 
 -- | Run a single iteration of reading input from the user, deciding which command to run,
@@ -123,49 +123,49 @@ commandList editor builder runner initializer =
 
 
 -- | Run the main program using the specified persistance mechanism and editor
-runWith :: ( MonadException (t (ProjectStateT IO))
-           , MonadMask (t (ProjectStateT IO))
-           , ViewerAction (t (ProjectStateT IO)) u
-           , Monad (t (ProjectStateT IO))
+runWith :: ( MonadException (t (SolutionStateT IO))
+           , MonadMask (t (SolutionStateT IO))
+           , ViewerAction (t (SolutionStateT IO)) u
+           , Monad (t (SolutionStateT IO))
            , Args a
            )
-        => (forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp))
+        => (forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp))
         -> fsp 
-        -> Editor (t (ProjectStateT IO)) u
-        -> Builder (t (ProjectStateT IO)) u
-        -> Runner (t (ProjectStateT IO)) u
-        -> Initializer a (t (ProjectStateT IO)) u
+        -> Editor (t (SolutionStateT IO)) u
+        -> Builder (t (SolutionStateT IO)) u
+        -> Runner (t (SolutionStateT IO)) u
+        -> Initializer a (t (SolutionStateT IO)) u
         -> IO ()
 runWith runFspT unopened editor builder runner initializer = void $ 
     runViewerState runFspT unopened $
         flip runCommandT (commandList editor builder runner initializer) $ 
             runInputT settings $ do
-                outputStrLn "Haskell project viewer"
+                outputStrLn "Haskell solution viewer"
                 outputStrLn "Type \"help\" for commands"
                 runMain
 
 -- | Data type which contains options for running the application
-data {- (Monad (t (ProjectStateT IO))) => -} AppSetup a t fsp u
+data {- (Monad (t (SolutionStateT IO))) => -} AppSetup a t fsp u
     = AppSetup
     { -- | The editor to use
-      appEditor :: Editor (t (ProjectStateT IO)) u
+      appEditor :: Editor (t (SolutionStateT IO)) u
       -- | The builder to use
-    , appBuilder :: Builder (t (ProjectStateT IO)) u
+    , appBuilder :: Builder (t (SolutionStateT IO)) u
       -- | The runner to use
-    , appRunner :: Runner (t (ProjectStateT IO)) u
+    , appRunner :: Runner (t (SolutionStateT IO)) u
       -- | The initializer to use
-    , appInitializer :: Initializer a (t (ProjectStateT IO)) u
+    , appInitializer :: Initializer a (t (SolutionStateT IO)) u
       -- | Function for running the persistence mechanism
-    , appRunFspT :: forall b . t (ProjectStateT IO) b -> fsp -> ProjectStateT IO (b, fsp)
+    , appRunFspT :: forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp)
       -- | Initial state of the persistence mechanism
     , appUnopened :: fsp
     }
 
 -- | Run the main program with the specified setup
-runWithSetup :: ( MonadException (t (ProjectStateT IO))
-                , MonadMask (t (ProjectStateT IO))
-                , ViewerAction (t (ProjectStateT IO)) u
-                , Monad (t (ProjectStateT IO))
+runWithSetup :: ( MonadException (t (SolutionStateT IO))
+                , MonadMask (t (SolutionStateT IO))
+                , ViewerAction (t (SolutionStateT IO)) u
+                , Monad (t (SolutionStateT IO))
                 , Args a
                 )
              => AppSetup a t fsp u
@@ -179,61 +179,61 @@ runWithSetup setup = runWith
     (appInitializer setup)
 
 -- | Change a setup to use the nano editor
-useNanoEditor :: ( MonadIO (t (ProjectStateT IO))
-                 , MonadMask (t (ProjectStateT IO))
-                 , Monad (t (ProjectStateT IO))
+useNanoEditor :: ( MonadIO (t (SolutionStateT IO))
+                 , MonadMask (t (SolutionStateT IO))
+                 , Monad (t (SolutionStateT IO))
                  ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useNanoEditor s = s{appEditor = nanoEditor}
 
-useStackBuilder :: ( MonadIO (t (ProjectStateT IO))
-                   , MonadMask (t (ProjectStateT IO))
-                   , Monad (t (ProjectStateT IO))
+useStackBuilder :: ( MonadIO (t (SolutionStateT IO))
+                   , MonadMask (t (SolutionStateT IO))
+                   , Monad (t (SolutionStateT IO))
                    ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useStackBuilder s = s{appBuilder = stackBuilder}
 
-useStackRunner :: ( MonadIO (t (ProjectStateT IO))
-                  , MonadMask (t (ProjectStateT IO))
-                  , Monad (t (ProjectStateT IO))
+useStackRunner :: ( MonadIO (t (SolutionStateT IO))
+                  , MonadMask (t (SolutionStateT IO))
+                  , Monad (t (SolutionStateT IO))
                   ) => AppSetup a t fsp u -> AppSetup a t fsp u
 useStackRunner s = s{appRunner = stackRunner}
 
-useStackInitializer :: ( MonadIO (t (ProjectStateT IO))
-                       , MonadMask (t (ProjectStateT IO))
-                       , Monad (t (ProjectStateT IO))
-                       , ProjectM (t (ProjectStateT IO))
+useStackInitializer :: ( MonadIO (t (SolutionStateT IO))
+                       , MonadMask (t (SolutionStateT IO))
+                       , Monad (t (SolutionStateT IO))
+                       , SolutionM (t (SolutionStateT IO))
                        ) => AppSetup a t fsp u -> AppSetup StackInitializerArgs t fsp u
 useStackInitializer s = s{appInitializer = stackInitializer}
 
 -- | Change a setup to use the read-only persistence mechanism
-useReadOnlyFilesystemProject :: (forall t . ( Monad (t (ProjectStateT IO))) 
+useReadOnlyFilesystemSolution :: (forall t . ( Monad (t (SolutionStateT IO))) 
                              => AppSetup a t fsp u)
-                             -> AppSetup a RDONLY.ReadOnlyFilesystemProjectT RDONLY.FileSystemProject u
-useReadOnlyFilesystemProject s = s
-    { appRunFspT = RDONLY.runReadOnlyFilesystemProjectT
+                             -> AppSetup a RDONLY.ReadOnlyFilesystemSolutionT RDONLY.FileSystemSolution u
+useReadOnlyFilesystemSolution s = s
+    { appRunFspT = RDONLY.runReadOnlyFilesystemSolutionT
     , appUnopened = RDONLY.Unopened
     }
 
 -- | Change a setup to use the simple persistence mechanism
-useSimpleFilesystemProject :: (forall t . Monad (t (ProjectStateT IO)) 
+useSimpleFilesystemSolution :: (forall t . Monad (t (SolutionStateT IO)) 
                            => AppSetup a t fsp u)
-                           -> AppSetup a RDWR.SimpleFilesystemProjectT RDWR.FileSystemProject u
-useSimpleFilesystemProject s = s
-    { appRunFspT = RDWR.runSimpleFilesystemProjectT
+                           -> AppSetup a RDWR.SimpleFilesystemSolutionT RDWR.FileSystemSolution u
+useSimpleFilesystemSolution s = s
+    { appRunFspT = RDWR.runSimpleFilesystemSolutionT
     , appUnopened = RDWR.Unopened
     }
 
-useCabalFilesystemProject :: (forall t . Monad (t (ProjectStateT IO))
+useCabalFilesystemSolution :: (forall t . Monad (t (SolutionStateT IO))
                           => AppSetup a t fsp u)
-                          -> AppSetup a Cabal.CabalProject Cabal.FileSystemProject u
-useCabalFilesystemProject s = s
-    { appRunFspT = Cabal.runCabalProject
+                          -> AppSetup a Cabal.CabalSolution Cabal.FileSystemSolution u
+useCabalFilesystemSolution s = s
+    { appRunFspT = Cabal.runCabalSolution
     , appUnopened = Cabal.Unopened
     }
 -- | A setup with all fields set to bottom
-blankSetup :: (Monad (t (ProjectStateT IO))) => AppSetup a t fsp u
+blankSetup :: (Monad (t (SolutionStateT IO))) => AppSetup a t fsp u
 blankSetup = AppSetup
-           { appRunFspT = error "No file system project defined"
-           , appUnopened = error "No default project state defined"
+           { appRunFspT = error "No file system solution defined"
+           , appUnopened = error "No default solution state defined"
            , appEditor = noEditor
            , appBuilder = noBuilder
            , appRunner = noRunner
@@ -247,7 +247,7 @@ main = runWithSetup
      $ useStackRunner
      $ useStackInitializer
      $ useNanoEditor 
-     $ useCabalFilesystemProject 
+     $ useCabalFilesystemSolution 
        blankSetup
   where
     ?proxy = undefined :: Proxy ()

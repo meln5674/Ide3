@@ -22,8 +22,9 @@ import Data.Maybe
 
 import Control.Monad.Trans.Except
 
-import {-# SOURCE #-} Ide3.Module.Common (EitherModule)
-import {-# SOURCE #-} qualified Ide3.Module.Common as Module
+import Ide3.Module.Common (EitherModule)
+import qualified Ide3.Module.Common as Module
+import {-# SOURCE #-} qualified Ide3.Module.Common.Query as Module
 
 import Ide3.Monad
 import Ide3.Import.Parser

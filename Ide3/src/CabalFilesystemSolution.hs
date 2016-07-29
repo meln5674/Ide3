@@ -15,7 +15,7 @@ Portability : POSIX
 The Cabal persistance mechanism uses .cabal files to store the list of modules
 in a solution, and stores declarations in the module files as normal
 -}
-module CabalFilesystemProject
+module CabalFilesystemSolution
     ( CabalSolution(CabalSolution)
     , FileSystemSolution (Unopened)
     , runCabalSolution
@@ -47,6 +47,7 @@ import Ide3.Monad
 import Ide3.Mechanism.State hiding (new, load, finalize)
 
 import qualified Ide3.Env.Solution as Solution
+import qualified Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
 import qualified Ide3.Module as Module
 

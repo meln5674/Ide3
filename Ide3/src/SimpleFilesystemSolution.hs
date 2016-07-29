@@ -5,7 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-|
-Module      : ReadOnlyFilesystemProject
+Module      : ReadOnlyFilesystemSolution
 Description : Read/Show persistence mechanism
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -15,14 +15,14 @@ Stability   : experimental
 Portability : POSIX
 
 This modules provides a persistance mechanism which can digest existing projects
-as ReadOnlyFilesystemProject can, but also can read and save projects from a
-single file using the Read/Show instances for the Project type.
+as ReadOnlyFilesystemSolution can, but also can read and save projects from a
+single file using the Read/Show instances for the Solution type.
 
 -}
-module SimpleFilesystemProject
-    ( SimpleFilesystemProjectT (SimpleFilesystemProjectT)
-    , FileSystemProject (Unopened)
-    , runSimpleFilesystemProjectT
+module SimpleFilesystemSolution
+    ( SimpleFilesystemSolutionT (SimpleFilesystemSolutionT)
+    , FileSystemSolution (Unopened)
+    , runSimpleFilesystemSolutionT
     ) where
 
 import Data.List
@@ -55,8 +55,8 @@ import PseudoState
 
 
 -- | State of the mechanism
-data FileSystemProject
-    -- | A file containing a dump of a Project is to be opened
+data FileSystemSolution
+    -- | A file containing a dump of a Solution is to be opened
     = ToOpen FilePath
     -- | A path is to be digested
     | ToDigest FilePath
@@ -67,9 +67,9 @@ data FileSystemProject
 
 {-
 -- | State transformer for the mechanism
-newtype SimpleFilesystemProjectT' m a
-    = SimpleFilesystemProjectT'
-    { runSimpleFilesystemProjectT'Internal :: StateT FileSystemProject m a
+newtype SimpleFilesystemSolutionT' m a
+    = SimpleFilesystemSolutionT'
+    { runSimpleFilesystemSolutionT'Internal :: StateT FileSystemSolution m a
     }
   deriving
     ( Functor
@@ -81,9 +81,9 @@ newtype SimpleFilesystemProjectT' m a
 -}
 
 -- | Type wrapper for using a file as the project store
-newtype SimpleFilesystemProjectT m a
-    = SimpleFilesystemProjectT
-    { runSimpleFilesystemProjectTInternal :: StatefulSolution (StateT FileSystemProject m) a
+newtype SimpleFilesystemSolutionT m a
+    = SimpleFilesystemSolutionT
+    { runSimpleFilesystemSolutionTInternal :: StatefulSolution (StateT FileSystemSolution m) a
     }
   deriving
     ( Functor
@@ -94,68 +94,68 @@ newtype SimpleFilesystemProjectT m a
     )
 
 {-
-instance MonadTrans SimpleFilesystemProjectT' where
-    lift = SimpleFilesystemProjectT' . lift
+instance MonadTrans SimpleFilesystemSolutionT' where
+    lift = SimpleFilesystemSolutionT' . lift
 -}
 
-instance MonadTrans SimpleFilesystemProjectT where
-    lift = SimpleFilesystemProjectT . lift . lift
+instance MonadTrans SimpleFilesystemSolutionT where
+    lift = SimpleFilesystemSolutionT . lift . lift
 
---deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT' m)
-deriving instance (MonadMask m) => MonadMask (SimpleFilesystemProjectT m)
---deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT' m)
-deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemProjectT m)
---deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT' m)
-deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemProjectT m)
+--deriving instance (MonadMask m) => MonadMask (SimpleFilesystemSolutionT' m)
+deriving instance (MonadMask m) => MonadMask (SimpleFilesystemSolutionT m)
+--deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemSolutionT' m)
+deriving instance (MonadCatch m) => MonadCatch (SimpleFilesystemSolutionT m)
+--deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemSolutionT' m)
+deriving instance (MonadThrow m) => MonadThrow (SimpleFilesystemSolutionT m)
 
 -- | Run an action inside the mechanism with the provided state
-runSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> FileSystemProject -> m (a, FileSystemProject)
-runSimpleFilesystemProjectT 
+runSimpleFilesystemSolutionT :: SimpleFilesystemSolutionT m a -> FileSystemSolution -> m (a, FileSystemSolution)
+runSimpleFilesystemSolutionT 
     = runStateT 
---    . runSimpleFilesystemProjectT'Internal 
+--    . runSimpleFilesystemSolutionT'Internal 
     . runStatefulSolution 
-    . runSimpleFilesystemProjectTInternal
+    . runSimpleFilesystemSolutionTInternal
 
 -- | Run an action inside the mechanism 
---runNewSimpleFilesystemProjectT :: SimpleFilesystemProjectT m a -> m (a, FileSystemProject)
---runNewSimpleFilesystemProjectT = flip runSimpleFilesystemProjectT Unopened
+--runNewSimpleFilesystemSolutionT :: SimpleFilesystemSolutionT m a -> m (a, FileSystemSolution)
+--runNewSimpleFilesystemSolutionT = flip runSimpleFilesystemSolutionT Unopened
 
 {-
 -- | Get the project state from the inner type
-getFsp' :: (Monad m) => SimpleFilesystemProjectT' m FileSystemProject
-getFsp' = SimpleFilesystemProjectT' $ get
+getFsp' :: (Monad m) => SimpleFilesystemSolutionT' m FileSystemSolution
+getFsp' = SimpleFilesystemSolutionT' $ get
 
 -- | Set the project state from the inner type
-putFsp' :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT' m ()
-putFsp' = SimpleFilesystemProjectT' . put
+putFsp' :: (Monad m) => FileSystemSolution -> SimpleFilesystemSolutionT' m ()
+putFsp' = SimpleFilesystemSolutionT' . put
 -}
 
 -- | Get the project state from the inner type
-getFsp' :: (Monad m) => StateT FileSystemProject m FileSystemProject
+getFsp' :: (Monad m) => StateT FileSystemSolution m FileSystemSolution
 getFsp' = get
 
 -- | Set the project state from the inner type
-putFsp' :: (Monad m) => FileSystemProject -> StateT FileSystemProject m ()
+putFsp' :: (Monad m) => FileSystemSolution -> StateT FileSystemSolution m ()
 putFsp' = put
 
 -- | Get the project state from the outer type
-getFsp :: (Monad m) => SimpleFilesystemProjectT m FileSystemProject
---getFsp = SimpleFilesystemProjectT $ lift $ getFsp'
-getFsp = SimpleFilesystemProjectT $ lift $ get
+getFsp :: (Monad m) => SimpleFilesystemSolutionT m FileSystemSolution
+--getFsp = SimpleFilesystemSolutionT $ lift $ getFsp'
+getFsp = SimpleFilesystemSolutionT $ lift $ get
 
 -- | Set the project state from the outer type
-putFsp :: (Monad m) => FileSystemProject -> SimpleFilesystemProjectT m ()
---putFsp = SimpleFilesystemProjectT . lift . putFsp'
-putFsp = SimpleFilesystemProjectT . lift . put
+putFsp :: (Monad m) => FileSystemSolution -> SimpleFilesystemSolutionT m ()
+--putFsp = SimpleFilesystemSolutionT . lift . putFsp'
+putFsp = SimpleFilesystemSolutionT . lift . put
 
 {-
-instance SolutionStateM m => SolutionStateM (SimpleFilesystemProjectT m) where
-    getProject = lift getProject
+instance SolutionStateM m => SolutionStateM (SimpleFilesystemSolutionT m) where
+    getSolution = lift getSolution
     putSolution = lift . putSolution
 -}
 
---instance MonadIO m => SolutionShellM (SimpleFilesystemProjectT' m) where
-instance MonadIO m => SolutionShellM (StateT FileSystemProject m) where
+--instance MonadIO m => SolutionShellM (SimpleFilesystemSolutionT' m) where
+instance MonadIO m => SolutionShellM (StateT FileSystemSolution m) where
     -- | Create a new project
     new i = do
         lift $ putFsp' $ Opened Nothing
@@ -257,7 +257,7 @@ executeFileListing listing = do
     wrapIOError $ forM_ (directoriesNeeded listing) $ createDirectoryIfMissing True
     forM_ (outputs listing) $ writeOutputPair
 
-instance (MonadIO m, SolutionStateM m) => ViewerMonad (SimpleFilesystemProjectT m) where
+instance (MonadIO m, SolutionStateM m) => ViewerMonad (SimpleFilesystemSolutionT m) where
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
@@ -289,6 +289,6 @@ instance (MonadIO m, SolutionStateM m) => ViewerMonad (SimpleFilesystemProjectT 
     -- | Get a list of files and directories needed and then create them
     prepareBuild = getProjects >>= mapM_ (makeFileListing >=> executeFileListing)
 
-instance PseudoStateT SimpleFilesystemProjectT FileSystemProject where
---    runPseudoStateT = runStateT . runSimpleFilesystemProjectT'Internal . runStatefulSolution . runSimpleFilesystemProjectTInternal
-    runPseudoStateT = runStateT . runStatefulSolution . runSimpleFilesystemProjectTInternal
+instance PseudoStateT SimpleFilesystemSolutionT FileSystemSolution where
+--    runPseudoStateT = runStateT . runSimpleFilesystemSolutionT'Internal . runStatefulSolution . runSimpleFilesystemSolutionTInternal
+    runPseudoStateT = runStateT . runStatefulSolution . runSimpleFilesystemSolutionTInternal

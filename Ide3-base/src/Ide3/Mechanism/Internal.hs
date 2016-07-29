@@ -18,6 +18,7 @@ import Control.Monad.Trans.Except
 import Ide3.Types 
 import Ide3.Module.Common (EitherModule)
 import qualified Ide3.Module as Module 
+import qualified Ide3.Module.Query as Module 
 import qualified Ide3.Module.Extern as ExternModule 
 import qualified Ide3.Import as Import 
 import qualified Ide3.Export as Export 

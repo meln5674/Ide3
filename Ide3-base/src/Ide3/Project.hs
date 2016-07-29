@@ -11,7 +11,10 @@ Portability : POSIX
 This module contains the operations, convienence functions, and simple queries
 for working with the Project data type.
 -}
-module Ide3.Project where
+module Ide3.Project 
+    ( module Ide3.Project
+    , module Ide3.Project.Internal
+    ) where
 
 import qualified Data.Map as Map
 
@@ -19,6 +22,8 @@ import Control.Monad
 
 import Ide3.Types
 import qualified Ide3.Module as Module
+
+import Ide3.Project.Internal (new, empty)
 
 {-
 -- |Create an empry project

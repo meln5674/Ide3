@@ -31,6 +31,7 @@ library
                      , Ide3.Module.Parser
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
+                     , Ide3.Module.Query
                      , Ide3.Monad
                      , Ide3.Import
                      , Ide3.Import.Parser
@@ -54,7 +55,11 @@ library
 --                     , Ide3.Free.State.Instances.SimpleProject
   other-modules:       Ide3.Mechanism.State.Types
                      , Ide3.Mechanism.State.Helpers
-
+                     , Ide3.Module.Internal
+                     , Ide3.Module.Common.Query
+                     , Ide3.Module.Common.Types
+                     , Ide3.Project.Internal
+                     , Ide3.Solution.Internal
   build-depends:       base
                      , containers
                      , mtl

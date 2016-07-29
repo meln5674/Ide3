@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module GuiMonad 
     ( GuiComponents
-    , withProjectTree
+    , withSolutionTree
     , withEditorBuffer
     , withBuildBuffer
     , initializeComponents
@@ -21,13 +21,13 @@ import Control.Monad.Trans.Except
 
 import Graphics.UI.Gtk
 
-import ProjectTree
+import SolutionTree
 
 import SyntaxHighlighter2
 
 data GuiComponents buffer
     = GuiComponents
-    { projectTree :: TreeStore ProjectTreeElem
+    { projectTree :: TreeStore SolutionTreeElem
     , editorBuffer :: buffer
     , buildBuffer :: buffer
     }
@@ -66,8 +66,8 @@ applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
         tag `set` attr
         
 
-makeTreeStore :: IO (TreeStore ProjectTreeElem)
-makeTreeStore = treeStoreNew ([] :: [Tree ProjectTreeElem])
+makeTreeStore :: IO (TreeStore SolutionTreeElem)
+makeTreeStore = treeStoreNew ([] :: [Tree SolutionTreeElem])
 
 makeBuildBuffer :: IO TextBuffer
 makeBuildBuffer = textBufferNew Nothing
@@ -85,11 +85,11 @@ initializeComponents = liftIO $ do
            }
     
 
-withProjectTree :: (TextBufferClass buffer)
+withSolutionTree :: (TextBufferClass buffer)
                 => GuiComponents buffer 
-                -> (TreeStore ProjectTreeElem -> a)
+                -> (TreeStore SolutionTreeElem -> a)
                 -> a
-withProjectTree comp f = f (projectTree comp)
+withSolutionTree comp f = f (projectTree comp)
 
 withEditorBuffer :: (TextBufferClass buffer)
                  => GuiComponents buffer

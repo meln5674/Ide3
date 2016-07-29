@@ -39,7 +39,12 @@ import Ide3.Types (Solution, SolutionError (..), DeclarationInfo(..), ModuleInfo
 import ViewerMonad
 
 -- | The state of the program
-data ViewerState = Viewer { currentModule :: Maybe ModuleInfo, currentDecl :: Maybe DeclarationInfo }
+data ViewerState
+    = Viewer 
+    { currentProject :: Maybe ProjectInfo 
+    , currentModule :: Maybe ModuleInfo
+    , currentDecl :: Maybe DeclarationInfo 
+    }
 
 -- | Transformer which adds access to the state of the program
 type ViewerStateT = StateT ViewerState
@@ -64,7 +69,7 @@ runViewerStateT = runStateT
 
 -- | Run the viewer state transformer with the initial program state
 runNewViewerStateT :: Monad m => ViewerStateT m a -> m (a,ViewerState)
-runNewViewerStateT = flip runViewerStateT $ Viewer Nothing Nothing
+runNewViewerStateT = flip runViewerStateT $ Viewer Nothing Nothing Nothing
 
 runViewerState :: (MonadIO (t (SolutionStateT IO)))
                => (forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp))
@@ -74,7 +79,7 @@ runViewerState :: (MonadIO (t (SolutionStateT IO)))
 runViewerState runFSPT unopened f = resumeViewerState 
     f 
     runFSPT
-    (Resume (Viewer Nothing Nothing) unopened initialSolution)
+    (Resume (Viewer Nothing Nothing Nothing) unopened initialSolution)
 
 -- | Resume the viewer state transformer
 resumeViewerState :: 
@@ -106,11 +111,11 @@ openSolution path = do
     case (isFile, isDir) of
         (True, _) -> do
             setFileToOpen path
-            lift $ modify $ \s -> s{currentModule=Nothing}
+            lift $ modify $ \s -> s{currentProject=Nothing}
             M.load
         (_,True) -> do
             setDirectoryToOpen path
-            lift $ modify $ \s -> s{currentModule=Nothing}
+            lift $ modify $ \s -> s{currentProject=Nothing}
             M.load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
@@ -129,5 +134,5 @@ saveSolution maybePath = do
         else throwE $ InvalidOperation "No solution is currently open" ""
 
 -- | Set the current declaration of the program
-setCurrentDecl :: Monad m => ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
-setCurrentDecl mi di = put $ Viewer (Just mi) (Just di)
+setCurrentDecl :: Monad m => ProjectInfo -> ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
+setCurrentDecl pi mi di = put $ Viewer (Just pi) (Just mi) (Just di)

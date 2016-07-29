@@ -27,10 +27,9 @@ import Ide3.Types
 
 import qualified Ide3.Declaration as Declaration
 
--- | Create a new module from info
-new :: ModuleInfo -> Module
-new i = Module i [] Map.empty Nothing Map.empty
+import Ide3.Module
 
+{-
 -- | Determine the next id to assign to an import
 nextImportId :: Module -> ImportId
 nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
@@ -40,7 +39,7 @@ nextExportId :: Module -> ExportId
 nextExportId m = case moduleExports m of
     Nothing -> 0
     Just es -> 1 + maximum (-1 : Map.keys es)
-
+-}
 
 
 -- | Add a declaration
@@ -48,7 +47,7 @@ addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) m u ()
 addDeclaration = do
     d <- lift $ ask
     m <- get
-    put =<< (lift $ lift $ addChild (Declaration.info $ item d) d m)
+    put =<< (lift $ lift $ addChildT (Declaration.info $ item d) d m)
 
 -- | Get a declaration by id
 getDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u (WithBody Declaration)
@@ -59,7 +58,7 @@ removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u ()
 removeDeclaration = do
     di <- lift ask
     m <- get
-    (d,m') <- lift $ lift $ removeChild di m
+    (d,m') <- lift $ lift $ removeChildT di m
     let d' = d :: WithBody Declaration
     put m'
 
@@ -90,7 +89,7 @@ addImport = do
     i <- lift $ ask
     ii <- gets nextImportId
     m <- get
-    put =<< (lift $ lift $ addChild ii i m)
+    put =<< (lift $ lift $ addChildT ii i m)
     return ii
 
 -- | Remove an import by id
@@ -98,7 +97,7 @@ removeImport :: Monad m => DescentChain2 Module ImportId m u ()
 removeImport = do
     ii <- lift $ ask
     m <- get
-    (i,m') <- lift $ lift $ removeChild ii m
+    (i,m') <- lift $ lift $ removeChildT ii m
     let i' = i :: WithBody Import
     put m'
 
@@ -121,7 +120,7 @@ addExport = do
     e <- lift ask
     ei <- gets nextExportId
     m <- get
-    put =<< (lift $ lift $ addChild ei e m)
+    put =<< (lift $ lift $ addChildT ei e m)
     return ei
 
 -- | Remove an export by id
@@ -129,7 +128,7 @@ removeExport :: Monad m => DescentChain2 Module ExportId m u ()
 removeExport = do
     ei <- lift ask
     m <- get
-    (e,m') <- lift $ lift $ removeChild ei m
+    (e,m') <- lift $ lift $ removeChildT ei m
     let e' = e :: WithBody Export
     put m'
 

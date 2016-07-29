@@ -32,6 +32,13 @@ asString = MkOutput . Right
 asStrings :: [String] -> [Output a]
 asStrings = map asString
 
+defaultOutput :: Output a -> Output String
+defaultOutput (MkOutput (Left _)) = error "CANNOT DEFAULT"
+defaultOutput (MkOutput (Right x)) = MkOutput (Right x)
+
+defaultOutputs :: [Output a] -> [Output String]
+defaultOutputs = map defaultOutput
+
 -- | Instance of show for Output which uses the default show function if not a string
 instance Show a => Show (Output a) where
     show (MkOutput (Left a)) = show a

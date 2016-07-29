@@ -21,9 +21,9 @@ library
                      , Editor
                      , Viewer
                      , ViewerMonad
-                     , ReadOnlyFilesystemProject
-                     , SimpleFilesystemProject
-                     , CabalFilesystemProject
+                     , ReadOnlyFilesystemSolution
+                     , SimpleFilesystemSolution
+                     , CabalFilesystemSolution
                      , PseudoState
     build-depends:     base
                      , temporary
@@ -40,12 +40,12 @@ library
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
-  other-modules:       ProjectTree
+  other-modules:       SolutionTree
                      , GuiCommand
                      , GuiCommand.Internal
                      , ProcessReader
                      , Dialogs.MainWindow
-                     , Dialogs.NewProjectDialog
+                     , Dialogs.NewSolutionDialog
                      , Dialogs.NewModuleDialog
                      , Dialogs.NewImportDialog
                      , Dialogs.NewExportDialog
@@ -54,7 +54,7 @@ executable Ide3-GUI
                      , GuiEnv
                      , ViewerMonad2
                      , GuiHelpers
-                     , ProjectContextMenu
+                     , SolutionContextMenu
                      , SyntaxHighlighter
                      , SyntaxHighlighter2
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
