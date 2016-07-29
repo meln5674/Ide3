@@ -22,6 +22,7 @@ module CabalFilesystemSolution
     ) where
 
 import Data.List
+import qualified Data.Map as Map
 
 import System.Directory
 import System.FilePath
@@ -113,15 +114,31 @@ withOpenedSolution f = do
 -- | Update a solution's library
 updateLibrary :: ProjectInfo -> Library -> GenericPackageDescription -> GenericPackageDescription
 updateLibrary pi lib desc@GenericPackageDescription{condLibrary=Just condLib}
---    = desc{condLibrary=Just condLib{condTreeData = lib}} -- TODO: Update library
-    = undefined
+    = desc{condLibrary=Just condLib{condTreeData = lib}}
+updateLibrary pi lib desc
+   = desc{condLibrary=Just CondNode
+                     { condTreeData = lib
+                     , condTreeComponents = []
+                     , condTreeConstraints = []
+                     }
+         }
     
 -- Update a solution's executable
 updateExecutable :: ProjectInfo -> Executable -> GenericPackageDescription -> GenericPackageDescription
-updateExecutable pi exe desc@GenericPackageDescription{condExecutables=[(str,condExe)]}
---    = desc{condExecutables=[(str,condExe{condTreeData=exe})]} -- TODO: Update execuatable
-    = undefined
-    
+updateExecutable (ProjectInfo n) exe desc@GenericPackageDescription{condExecutables=exeList}
+    = desc{condExecutables=exeList'}
+  where
+    exeMap = Map.fromList exeList
+    exeMap' = case Map.lookup n exeMap of
+        Nothing -> Map.insert n CondNode
+                                { condTreeData = exe
+                                , condTreeConstraints = []
+                                , condTreeComponents = []
+                                }
+                                exeMap
+        Just tree -> Map.insert n tree{condTreeData=exe} exeMap
+    exeList' = Map.toList exeMap'
+        
 -- | Update the solution configuration
 updateConfig :: (Monad m) 
              => ProjectInfo
@@ -406,13 +423,13 @@ instance (MonadIO m, SolutionStateM m) => SolutionM (CabalSolution m) where
                 cabalConfig <- wrapReadFile cabalConfigPath
                                     >>= ExceptT . return . parseCabalConfiguration
                 lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig
-                projects <- getAllProjects >>= mapM (loadProject . getProjectInfo)
-                {-
-                lift $ putSolution $ Solution.new $ makeSolutionInfo cabalDirectory cabalConfig
-                forM_ internalModules $  \m -> modifySolutionEnv $ \p -> Solution.addModule p m
-                mapM_ addExternModule externalModules
-                -}
-                undefined
+                let solutionName = takeBaseName path
+                    loadProject' ptype = do
+                            let pi = getProjectInfo ptype
+                            p <- loadProject pi
+                            return (pi,p) 
+                projects <- liftM Map.fromList $ getAllProjects >>= mapM loadProject'
+                lift $ putSolution $ Solution (SolutionInfo solutionName) projects
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""
             Opened (Just (CabalSolutionInfo path _)) -> do

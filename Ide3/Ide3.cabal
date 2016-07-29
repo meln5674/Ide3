@@ -35,6 +35,7 @@ library
                      , filepath
                      , Ide3-base
                      , Cabal
+                     , containers
     default-language:  Haskell2010
 
 executable Ide3-GUI
