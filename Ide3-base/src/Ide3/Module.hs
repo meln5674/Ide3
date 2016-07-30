@@ -16,9 +16,7 @@ module Ide3.Module
     ) where
 
 import Data.Maybe
-import Data.List (intercalate, find, delete)
-
-import Control.Monad.Trans.Except
+import Data.List (intercalate, find)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -26,58 +24,39 @@ import qualified Data.Map as Map
 import Ide3.Module.Internal
 
 import Ide3.Types
-import Ide3.Monad (SolutionM)
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.Module.Parser (ExtractionResults(..))
 import qualified Ide3.Module.Parser as Parser
 
-
-import Ide3.Env
-
-
--- | Similar to foldl, but each fold produces an extra result, the list of which
---  is returned along with the final fold
-foldlRes :: (b -> a -> (b,c)) -> b -> [a] -> (b,[c])
-foldlRes _ x [] = (x,[])
-foldlRes f x (y:ys) =
-    let (x',z) = f x y
-        (x'', zs) = foldlRes f x' ys
-    in (x'',z:zs)
-                    
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
 parse :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
-parse s p = case Parser.parse s p of
-    Right (Extracted minfo pragmas exports imports decls) 
-            -> Right (Module newInfo pragmas imports' exports' decls', eids, iids)
-      where
-        newInfo = case minfo of
-            UnamedModule Nothing -> UnamedModule p
-            x -> x
-        (exports',eids) = case exports of
-            Just exportList -> let eids = [0..length exportList]
-                               in  (Just $ Map.fromList $ zip eids exportList, eids)
-            Nothing -> (Nothing,[])
-        iids = [0..length imports]
-        imports' = Map.fromList $ zip iids imports
-        decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
-    Left msg -> Left msg
+parse = parseUsing Parser.parse
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
-parseMain s p = case Parser.parseMain s p of
+parseMain = parseUsing Parser.parseMain
+
+parseUsing :: (String -> Maybe FilePath 
+                      -> Either (SolutionError u) ExtractionResults)
+           -> String 
+           -> Maybe FilePath 
+           -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+parseUsing parser s p = case parser s p of
     Right (Extracted minfo pragmas exports imports decls) 
             -> Right (Module newInfo pragmas imports' exports' decls', eids, iids)
       where
         newInfo = case minfo of
             UnamedModule Nothing -> UnamedModule p
             x -> x
-        (exports',eids) = case exports of
-            Just exportList -> let eids = [0..length exportList]
-                               in  (Just $ Map.fromList $ zip eids exportList, eids)
-            Nothing -> (Nothing,[])
+        eids = case exports of
+            Just exportList -> [0..length exportList]
+            Nothing -> []
+        exports' = case exports of
+            Just exportList -> Just $ Map.fromList $ zip eids exportList
+            Nothing -> Nothing
         iids = [0..length imports]
         imports' = Map.fromList $ zip iids imports
         decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
@@ -180,7 +159,7 @@ infoMatches m mi = info m == mi
 
 -- | Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
-nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
+nextImportId m = 1 + maximum (-1 : Map.keys (moduleImports m))
 
 -- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId

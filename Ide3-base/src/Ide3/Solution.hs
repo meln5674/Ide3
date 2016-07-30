@@ -2,12 +2,7 @@ module Ide3.Solution where
 
 import qualified Data.Map as Map
 
-import Control.Monad
-
 import Ide3.Types
-import qualified Ide3.Module as Module
-import qualified Ide3.Project as Project
-
 
 -- |Create an empry Solution
 empty :: Solution

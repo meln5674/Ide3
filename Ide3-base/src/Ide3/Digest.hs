@@ -25,7 +25,6 @@ import Data.List
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.State
 
 import System.Posix.Directory
 import System.Posix.Files
@@ -37,9 +36,6 @@ import Ide3.Types
 import Ide3.Monad
 import Ide3.Mechanism
 import Ide3.Mechanism.State
-
-import qualified Ide3.Project as Project
-import qualified Ide3.Module as Module
 
 -- | Represents a simplified directory structure
 data FileTree
@@ -114,24 +110,23 @@ digestProjectM :: (MonadIO m, SolutionM m)
                             -> FilePath 
                             -> Maybe FilePath 
                             -> SolutionResult m u ()
-digestProjectM pji p ip = do
+digestProjectM pji p maybeip = do
     contents <- liftIO $ enumerateHaskellProject p
     addProject pji
     forM_ contents $ \(mp,mc) -> addRawModule pji mc (Just mp)
-    case ip of
+    case maybeip of
         Nothing -> return ()
         Just ip -> do
             ifaceFile <- liftIO $ readFile ip
-            mapM_ (digestInterfaceM pji) $ (read ifaceFile :: [Iface.Interface])
+            mapM_ (digestInterfaceM pji) (read ifaceFile :: [Iface.Interface])
 
 
 digestSolutionM :: (MonadIO m, SolutionM m)
                 => SolutionInfo
-                -> FilePath
                 -> [(ProjectInfo,FilePath,Maybe FilePath)]
                 -> SolutionResult m u ()
-digestSolutionM si p ps = do
-    editSolutionInfo (const $ si)
+digestSolutionM si ps = do
+    editSolutionInfo $ const si
     forM_ ps $ \(pji,pp,ip) -> digestProjectM pji pp ip
 
 newtype Wrapper m a = Wrapper { runWrapper :: m a }
@@ -148,13 +143,12 @@ instance Monad m => SolutionShellM (Wrapper m) where
 digestSolution :: forall m u
                 . (MonadIO m) 
                => SolutionInfo
-               -> FilePath
                -> [(ProjectInfo,FilePath,Maybe FilePath)]
                -> SolutionResult m u Solution
-digestSolution si p ps = do
+digestSolution si ps = do
     let y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
         y = do
-            digestSolutionM si p ps
-            lift $ getSolution
+            digestSolutionM si ps
+            lift getSolution
     (z,_) <- lift $ runNewSolutionStateT $ runWrapper $ runStatefulSolution $ runExceptT y
     ExceptT $ return z

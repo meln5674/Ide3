@@ -15,8 +15,8 @@ exportedSymbols :: SolutionM m
                 -> EitherModule 
                 -> SolutionResult m u [ModuleChild Symbol]
 exportedSymbols pji m = case m of
-    Left m -> Local.exportedSymbols pji m
-    Right m -> return $ Extern.exportedSymbols m
+    Left lm -> Local.exportedSymbols pji lm
+    Right em -> return $ Extern.exportedSymbols em
 
 -- | Given a symbol such as a class method of data constructor, find the rest
 -- of the related symbols exported by a local or external module.
@@ -29,5 +29,5 @@ symbolTree :: SolutionM m
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
 symbolTree pji m s = case m of
-    Left m -> Local.symbolTree pji m s
-    Right m -> Extern.symbolTree m s
+    Left lm -> Local.symbolTree pji lm s
+    Right em -> Extern.symbolTree em s

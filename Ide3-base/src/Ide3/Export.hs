@@ -19,7 +19,6 @@ import Data.List (find)
 
 import Ide3.Types
 
-import Control.Monad
 import Control.Monad.Trans.Except
 
 
@@ -56,7 +55,7 @@ symbolsProvided pji m e = case e of
                 tree <- map getChild <$> Module.symbolTree pji m s 
                 case find (not . (`elem` tree)) ss of
                         Just s' -> throwE $ NotSubSymbol s s' "Export.symbolsProvided"
-                        Nothing -> return $ exportedSyms
+                        Nothing -> return exportedSyms
             else throwE $ SymbolNotFound (Module.info m) s "Export.symbolsProvided"
       where
         allSyms = map getChild $ Module.allSymbols m

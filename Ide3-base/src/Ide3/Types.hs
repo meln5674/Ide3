@@ -14,7 +14,6 @@ modules, each of which contain exports, imports, and declarations.
 -}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 module Ide3.Types where
 
 import Control.Monad.Trans.Except
@@ -378,12 +377,20 @@ instance Show u => Show (SolutionError u) where
         = printf "%s: module \"%s\" does not have an export with ID \"%s\"" s (show mi) (show ei)
     show (InvalidOperation s1 s2)
         = printf "%s: %s" s2 s1
+    show (DuplicateDeclaration mi di s)
+        = printf "%s: A declaration \"%s\" already exists in module \"%s\"" s (show di) (show mi)
     show (DuplicateModule pji mi s)
         = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pji)
+    show (DuplicateProject pji s)
+        = printf "%s: a project name \"%s\" already exists" s (show pji)
+    show (ProjectNotFound pji s)
+        = printf "%s: No project named \"%s\" exists" s (show pji)
     show (ParseError l msg s)
         = printf "Parse error %s: %s: %s" s (show l) msg
     show (Unsupported s)
         = printf "Unsupported: %s" s
+    show (InternalError msg s)
+        = printf "An internal error occured: %s: %s" s msg
     show (UserError u)
         = show u
 

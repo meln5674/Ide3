@@ -17,7 +17,6 @@ import qualified Data.Map as Map
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
-import Control.Monad.Trans.Except
 
 import Ide3.Env
 
@@ -26,7 +25,7 @@ import Ide3.Types
 import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
 
-import Ide3.Solution.Internal
+import Ide3.Solution.Internal()
 
 -- | Create a new solution from info
 new :: SolutionInfo -> Solution
@@ -37,7 +36,7 @@ addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 addProject = do
     pji <- lift ask
     s <- get
-    put =<< (lift $ lift $ addChildT pji (Project.new pji) s)
+    put =<< lift (lift $ addChildT pji (Project.new pji) s)
 
 -- | Remove a project by id
 removeProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()

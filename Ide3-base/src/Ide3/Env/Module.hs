@@ -45,13 +45,13 @@ nextExportId m = case moduleExports m of
 -- | Add a declaration
 addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) m u ()
 addDeclaration = do
-    d <- lift $ ask
+    d <- lift ask
     m <- get
-    put =<< (lift $ lift $ addChildT (Declaration.info $ item d) d m)
+    put =<< lift (lift $ addChildT (Declaration.info $ item d) d m)
 
 -- | Get a declaration by id
 getDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u (WithBody Declaration)
-getDeclaration = descend0 $ get
+getDeclaration = descend0 get
 
 -- | Remove a declaration by id
 removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u ()
@@ -86,16 +86,16 @@ editDeclaration = descend1 $ do
 -- | Add an import and return the id assigned to it
 addImport :: Monad m => DescentChain2 Module (WithBody Import) m u ImportId
 addImport = do
-    i <- lift $ ask
+    i <- lift ask
     ii <- gets nextImportId
     m <- get
-    put =<< (lift $ lift $ addChildT ii i m)
+    put =<< lift (lift $ addChildT ii i m)
     return ii
 
 -- | Remove an import by id
 removeImport :: Monad m => DescentChain2 Module ImportId m u ()
 removeImport = do
-    ii <- lift $ ask
+    ii <- lift ask
     m <- get
     (i,m') <- lift $ lift $ removeChildT ii m
     let i' = i :: WithBody Import
@@ -120,7 +120,7 @@ addExport = do
     e <- lift ask
     ei <- gets nextExportId
     m <- get
-    put =<< (lift $ lift $ addChildT ei e m)
+    put =<< lift (lift $ addChildT ei e m)
     return ei
 
 -- | Remove an export by id

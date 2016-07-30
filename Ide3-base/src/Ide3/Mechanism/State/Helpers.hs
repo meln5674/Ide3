@@ -9,12 +9,10 @@ Stability   : experimental
 Portability : POSIX
 -}
 
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 module Ide3.Mechanism.State.Helpers where
 
@@ -41,7 +39,7 @@ modifySolutionEnv :: SolutionStateM m
                   => (Solution -> ExceptT (SolutionError u) m (a,Solution))
                   -> SolutionResult m u a
 modifySolutionEnv f = do
-    s <- lift $ getSolution
+    s <- lift getSolution
     result <- lift $ runExceptT $ f s
     case result of
         Right (x,s') -> do

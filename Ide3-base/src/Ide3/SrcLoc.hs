@@ -78,5 +78,5 @@ instance Spannable SrcSpan where
 
 -- | 
 instance Spannable SrcSpanInfo where
-    getSpan (SrcSpanInfo{srcInfoSpan=span}) = span
+    getSpan = srcInfoSpan
 

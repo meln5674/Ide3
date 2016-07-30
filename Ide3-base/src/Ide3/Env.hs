@@ -50,11 +50,8 @@ At the moment I have absolutely no idea how to fix this.
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Ide3.Env where
-
-import qualified Data.Map as Map
 
 import Data.Functor.Identity
 
@@ -138,8 +135,7 @@ descendRO f = do
     parentEnv <- get
     childParam <- lift ask
     childEnv <- lift $ lift $ getChildT childParam parentEnv
-    result <- lift $ lift $ runReaderT f childEnv
-    return result
+    lift $ lift $ runReaderT f childEnv
 
 -- | Take a stateful operation over a child value type and turn it into a
 -- stateful operation over its parent type with the child key type as an
@@ -245,23 +241,23 @@ type DescentChain5 a b c d e m u = StateT a (ReaderT b (ReaderT c (ReaderT d (Re
 
 -- | Run a stateful operation over a value
 runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult m u (r,a)
-runDescent1 f a = runStateT f a 
+runDescent1 = runStateT
 
 -- | Run a stateful operation over a value with an environment with a key
 runDescent2 :: Monad m => DescentChain2 a b m u r -> a -> b -> SolutionResult m u (r,a)
-runDescent2 f a b = runReaderT (runStateT f a) b
+runDescent2 f a = runReaderT (runStateT f a)
 
 -- | Run a stateful operation over a value with an environment with two keys
 runDescent3 :: Monad m => DescentChain3 a b c m u r -> a -> b -> c -> SolutionResult m u (r,a)
-runDescent3 f a b c = runReaderT (runReaderT (runStateT f a) b) c
+runDescent3 f a b = runReaderT (runReaderT (runStateT f a) b)
 
 -- | Run a stateful operation over a value with an environment with three keys
 runDescent4 :: Monad m => DescentChain4 a b c d m u r -> a -> b -> c -> d -> SolutionResult m u (r,a)
-runDescent4 f a b c d = runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
+runDescent4 f a b c = runReaderT (runReaderT (runReaderT (runStateT f a) b) c)
 
 -- | Run a stateful operation over a value with an environment with four keys
 runDescent5 :: Monad m => DescentChain5 a b c d e m u r -> a -> b -> c -> d -> e -> SolutionResult m u (r,a)
-runDescent5 f a b c d e = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d) e
+runDescent5 f a b c d = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d)
 
 -- | Wrapper for throwing an exception
 throw1 :: Monad m => SolutionError u -> DescentChain1 a m u r
@@ -282,8 +278,8 @@ throw4 = lift . lift . lift . lift . throwE
 mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u ([r],a)
 mapDescent2 f a bs = runStateT rs a
   where
-    g = runStateT f a
-    r b = StateT $ \a' -> runReaderT g b
+    g = runStateT f
+    r b = StateT $ \a' -> runReaderT (g a') b
     rs = mapM r bs
 
 mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u a
