@@ -9,24 +9,24 @@ import Control.Monad.Trans.Except
 import Ide3.Types
 import Ide3.Env
 
-addProject pi p s = case Map.lookup pi $ solutionProjects s of
-    Just _ -> throwE $ DuplicateProject pi $ "Solution.addProject"
-    Nothing -> return $ s{ solutionProjects = Map.insert pi p $ solutionProjects s }
+addProject pji p s = case Map.lookup pji $ solutionProjects s of
+    Just _ -> throwE $ DuplicateProject pji $ "Solution.addProject"
+    Nothing -> return $ s{ solutionProjects = Map.insert pji p $ solutionProjects s }
 
-removeProject pi s = case Map.lookup pi $ solutionProjects s of
-    Nothing -> throwE $ ProjectNotFound pi $ "Solution.removeProject"
-    Just p -> return (p, s{ solutionProjects = Map.delete pi $ solutionProjects s })
+removeProject pji s = case Map.lookup pji $ solutionProjects s of
+    Nothing -> throwE $ ProjectNotFound pji $ "Solution.removeProject"
+    Just p -> return (p, s{ solutionProjects = Map.delete pji $ solutionProjects s })
 
-getProject pi s = case Map.lookup pi $ solutionProjects s of
-    Nothing -> throwE $ ProjectNotFound pi $ "Solution.getProject"
+getProject pji s = case Map.lookup pji $ solutionProjects s of
+    Nothing -> throwE $ ProjectNotFound pji $ "Solution.getProject"
     Just p -> return p
 
-setProject pi pi' p' s = case Map.lookup pi $ solutionProjects s of
-    Nothing -> throwE $ ProjectNotFound pi $ "Solution.setProject"
+setProject pji pji' p' s = case Map.lookup pji $ solutionProjects s of
+    Nothing -> throwE $ ProjectNotFound pji $ "Solution.setProject"
     Just _ -> return $ s 
         { solutionProjects
-            = Map.insert pi' p' 
-            $ Map.delete pi 
+            = Map.insert pji' p' 
+            $ Map.delete pji 
             $ solutionProjects s 
         }
 

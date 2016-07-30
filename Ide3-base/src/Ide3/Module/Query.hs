@@ -20,10 +20,10 @@ importsModule m sym = sym `elem` map Import.moduleName (items $ Map.elems $ modu
 --  This requires the project context as modules may export other modules,
 --      necessitating finding what symbols they export, and so on
 exportedSymbols :: SolutionM m => ProjectInfo -> Module -> SolutionResult m u [ModuleChild Symbol]
-exportedSymbols pi m = case m of
+exportedSymbols pji m = case m of
     (Module _ _ _ Nothing _) -> return $ allSymbols m
     (Module _ _ _ (Just es) _) -> do
-        syms <- concat <$> mapM (Export.symbolsProvided pi m . item) es
+        syms <- concat <$> mapM (Export.symbolsProvided pji m . item) es
         return $ map (qualify m) syms
 
 -- | Within the context of a project, find all of the symbosl being imported by
@@ -32,10 +32,10 @@ importedSymbols :: SolutionM m
                 => ProjectInfo 
                 -> Module 
                 -> SolutionResult m u [Symbol]
-importedSymbols pi m = concat <$> mapM providedBy imports
+importedSymbols pji m = concat <$> mapM providedBy imports
   where
     imports = moduleImports m
-    providedBy = Import.symbolsProvided pi . item
+    providedBy = Import.symbolsProvided pji . item
 
 
 -- | Within the context of a project, find all of the symbols which are visible
@@ -44,9 +44,9 @@ internalSymbols :: SolutionM m
                 => ProjectInfo 
                 -> Module 
                 -> SolutionResult m u [Symbol]
-internalSymbols pi m = do
+internalSymbols pji m = do
     let decls = moduleDeclarations m
-    importSyms <- importedSymbols pi m
+    importSyms <- importedSymbols pji m
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) decls
 
 
@@ -60,17 +60,17 @@ symbolTree :: SolutionM m
            -> Module 
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
-symbolTree pi m sym = do
+symbolTree pji m sym = do
     let declarations = items $ Map.elems $ moduleDeclarations m
         declSearchResult = search (`Declaration.otherSymbols` sym) declarations
     case declSearchResult of
         Just (_,syms) -> return $ map (qualify m) syms
         Nothing -> do
             let imports = items $ Map.elems $ moduleImports m
-                othersFromImport x = Import.otherSymbols pi x sym
+                othersFromImport x = Import.otherSymbols pji x sym
             importSearchResult <- searchM othersFromImport imports
             case importSearchResult of
                 Just (i,_) -> do
-                    otherSyms <- Import.symbolTree pi i sym
+                    otherSyms <- Import.symbolTree pji i sym
                     return $ map (qualify m) otherSyms
                 Nothing -> throwE $ SymbolNotFound (info m) sym "Module.symbolTree"

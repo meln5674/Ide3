@@ -14,8 +14,8 @@ exportedSymbols :: SolutionM m
                 => ProjectInfo
                 -> EitherModule 
                 -> SolutionResult m u [ModuleChild Symbol]
-exportedSymbols pi m = case m of
-    Left m -> Local.exportedSymbols pi m
+exportedSymbols pji m = case m of
+    Left m -> Local.exportedSymbols pji m
     Right m -> return $ Extern.exportedSymbols m
 
 -- | Given a symbol such as a class method of data constructor, find the rest
@@ -28,6 +28,6 @@ symbolTree :: SolutionM m
            -> EitherModule 
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
-symbolTree pi m s = case m of
-    Left m -> Local.symbolTree pi m s
+symbolTree pji m s = case m of
+    Left m -> Local.symbolTree pji m s
     Right m -> Extern.symbolTree m s

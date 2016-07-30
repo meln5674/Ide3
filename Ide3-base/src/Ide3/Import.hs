@@ -76,8 +76,8 @@ whitelistTree :: SolutionM m
               -> EitherModule  -- ^ Module symbols are being imported from
               -> ImportKind     -- ^ Specific import to search for
               -> SolutionResult m u [Symbol]
-whitelistTree pi m i = do
-    exSyms <- map getChild <$> Module.exportedSymbols pi m
+whitelistTree pji m i = do
+    exSyms <- map getChild <$> Module.exportedSymbols pji m
     case i of
         NameImport s
             | s `elem` exSyms -> return [s]
@@ -87,9 +87,9 @@ whitelistTree pi m i = do
                             s 
                             "Import.whitelistTree"
         AbsImport _ _ -> error "FOUND AN ABS IMPORT"
-        AggregateImport s Nothing -> map getChild <$> Module.symbolTree pi m s
+        AggregateImport s Nothing -> map getChild <$> Module.symbolTree pji m s
         AggregateImport s (Just ss) -> do
-            ls <- Module.symbolTree pi m s
+            ls <- Module.symbolTree pji m s
             let ls' = map getChild ls
             case find (not . (`elem` ls')) ss of
                 Just s' -> throwE $ NotSubSymbol s s' "Import.whitelistTree"
@@ -101,47 +101,47 @@ blacklistTree :: SolutionM m
               -> EitherModule   -- ^ Module symbols are being imported from
               -> ImportKind     -- ^ Import to blacklist
               -> SolutionResult m u [Symbol]
-blacklistTree pi m i = do
-    whitelistSyms <- whitelistTree pi m i
-    allSyms <- map getChild <$> Module.exportedSymbols pi m
+blacklistTree pji m i = do
+    whitelistSyms <- whitelistTree pji m i
+    allSyms <- map getChild <$> Module.exportedSymbols pji m
     return $ filter (not . (`elem` whitelistSyms)) allSyms
 
 -- | Get the symbols provided by an import, ignoring qualification
 unqualSymbolsProvided :: SolutionM m => ProjectInfo -> Import -> SolutionResult m u [Symbol]
-unqualSymbolsProvided pi i = case i of
-    (ModuleImport sym _ _) -> getExternalSymbols pi (ModuleInfo sym)
+unqualSymbolsProvided pji i = case i of
+    (ModuleImport sym _ _) -> getExternalSymbols pji (ModuleInfo sym)
     (WhitelistImport sym _ _ specs) -> do
-        module_ <- getAnyModule pi (ModuleInfo sym)
-        symbolsFromEach <- mapM (whitelistTree pi module_) specs
+        module_ <- getAnyModule pji (ModuleInfo sym)
+        symbolsFromEach <- mapM (whitelistTree pji module_) specs
         return $ concat symbolsFromEach
     (BlacklistImport sym _ _ specs) -> do
-        module_ <- getAnyModule pi (ModuleInfo sym)
-        symbolsFromEach <- mapM (blacklistTree pi module_) specs
+        module_ <- getAnyModule pji (ModuleInfo sym)
+        symbolsFromEach <- mapM (blacklistTree pji module_) specs
         return $ concat symbolsFromEach
 
 -- | Get the symbols provided by an import
 symbolsProvided :: SolutionM m => ProjectInfo -> Import -> SolutionResult m u [Symbol]
-symbolsProvided pi i = qualifySymbols
+symbolsProvided pji i = qualifySymbols
     qualification
     shouldQualify
-    <$> unqualSymbolsProvided pi i
+    <$> unqualSymbolsProvided pji i
   where
     qualification = importedModuleName i
     shouldQualify = isQualified i
 
 -- | Test if an import provides a symbol
 providesSymbol :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u Bool
-providesSymbol pi i s = do
-    syms <- symbolsProvided pi i
+providesSymbol pji i s = do
+    syms <- symbolsProvided pji i
     return $ s `elem` syms
 
 -- | If this import provides a symbol, get all of the other symbols it provides
 otherSymbols :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u (Maybe [Symbol])
-otherSymbols pi i s = do
-    p <- providesSymbol pi i s
+otherSymbols pji i s = do
+    p <- providesSymbol pji i s
     if p
         then do
-            syms <- symbolsProvided pi i
+            syms <- symbolsProvided pji i
             return $ Just $ delete s syms
         else
             return Nothing
@@ -150,6 +150,6 @@ otherSymbols pi i s = do
 -- sub-symbols and the parent symbol from this import
 -- See 'Ide3.Module.symbolTree'
 symbolTree :: SolutionM m => ProjectInfo -> Import -> Symbol -> SolutionResult m u [Symbol]
-symbolTree pi i s = do
-    module_ <- getAnyModule pi $ ModuleInfo $ moduleName i
-    map getChild <$> Module.symbolTree pi module_ s
+symbolTree pji i s = do
+    module_ <- getAnyModule pji $ ModuleInfo $ moduleName i
+    map getChild <$> Module.symbolTree pji module_ s

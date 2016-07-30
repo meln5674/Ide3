@@ -34,40 +34,44 @@ f p s = case p of
 -}
 -- | Parse an import and add it to a module
 addRawImport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ImportId
-addRawImport pi mi str = case Import.parse str of
-    Right i -> addImport pi mi $ WithBody i str
+addRawImport pji mi str = case Import.parse str of
+    Right i -> addImport pji mi $ WithBody i str
     Left err -> throwE err 
 
 -- | Parse an export and add it to a module
 addRawExport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ExportId
-addRawExport pi mi str = case Export.parse str of
-    Right e -> addExport pi mi $ WithBody e str
+addRawExport pji mi str = case Export.parse str of
+    Right e -> addExport pji mi $ WithBody e str
     Left err -> throwE err
 
 -- | Parse a declaration and add it to a module
 addRawDeclaration :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ()
-addRawDeclaration pi mi str = case Declaration.parse str of
-    Right d -> addDeclaration pi mi $ WithBody d str
+addRawDeclaration pji mi str = case Declaration.parse str of
+    Right d -> addDeclaration pji mi $ WithBody d str
     Left err -> throwE err
 
 -- | Parse an entire module and add it to the project
 addRawModule :: SolutionM m => ProjectInfo -> String -> Maybe FilePath -> SolutionResult m u ModuleInfo
-addRawModule pi str p = case Module.parse str p of
+addRawModule pji str p = case Module.parse str p of
     Right (m,_,_) -> do
-        addModule pi m
+        addModule pji m
         return $ Module.info m
     Left err -> throwE err
 
 -- | Get either an internal or external module
 getAnyModule :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u EitherModule
-getAnyModule pi mi = catchE (liftM Left $ getModule pi mi) $ \_ -> liftM Right $ getExternModule pi mi
+getAnyModule pji mi = catchE tryLocal $ const tryExtern
+  where
+    tryLocal = liftM Left $ getModule pji mi
+    tryExtern = liftM Right $ getExternModule pji mi
+    
 
 -- | Get the symbols exported by a module
 getExternalSymbols :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u  [Symbol]
-getExternalSymbols pi mi = do
-    m <- getAnyModule pi mi
+getExternalSymbols pji mi = do
+    m <- getAnyModule pji mi
     case m of
-        Left lm -> liftM (map getChild) $ Module.exportedSymbols pi lm
+        Left lm -> liftM (map getChild) $ Module.exportedSymbols pji lm
         Right em -> return $ map getChild $ ExternModule.exportedSymbols em
 
 -- | Get the symbols availible at the top level of a module
@@ -75,9 +79,9 @@ getInternalSymbols :: SolutionM m
                    => ProjectInfo 
                    -> ModuleInfo 
                    -> SolutionResult m u  [Symbol]
-getInternalSymbols pi mi
-    = getModule pi mi 
-    >>= Module.internalSymbols pi
+getInternalSymbols pji mi = do
+    m <- getModule pji mi 
+    Module.internalSymbols pji m
 
 {-
 

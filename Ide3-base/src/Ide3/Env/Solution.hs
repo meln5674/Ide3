@@ -35,16 +35,16 @@ new i = Solution i Map.empty
 -- | Add a project
 addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 addProject = do
-    pi <- lift ask
+    pji <- lift ask
     s <- get
-    put =<< (lift $ lift $ addChildT pi (Project.new pi) s)
+    put =<< (lift $ lift $ addChildT pji (Project.new pji) s)
 
 -- | Remove a project by id
 removeProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 removeProject = do
-    pi <- lift ask
+    pji <- lift ask
     s <- get
-    (p, s') <- lift $ lift $ removeChildT pi s
+    (p, s') <- lift $ lift $ removeChildT pji s
     let p' = p :: Project
     put s'
 

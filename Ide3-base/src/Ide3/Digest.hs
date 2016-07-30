@@ -97,7 +97,7 @@ digestInterfaceM :: (MonadIO m, SolutionM m)
                 => ProjectInfo
                 -> Iface.Interface
                 -> SolutionResult m u ()
-digestInterfaceM pi iface = addExternModule pi newModule
+digestInterfaceM pji iface = addExternModule pji newModule
   where
     newModule = ExternModule newInfo exports
     newInfo = ModuleInfo $ Symbol $ Iface.modName iface
@@ -114,15 +114,15 @@ digestProjectM :: (MonadIO m, SolutionM m)
                             -> FilePath 
                             -> Maybe FilePath 
                             -> SolutionResult m u ()
-digestProjectM pi p ip = do
+digestProjectM pji p ip = do
     contents <- liftIO $ enumerateHaskellProject p
-    addProject pi
-    forM_ contents $ \(mp,mc) -> addRawModule pi mc (Just mp)
+    addProject pji
+    forM_ contents $ \(mp,mc) -> addRawModule pji mc (Just mp)
     case ip of
         Nothing -> return ()
         Just ip -> do
             ifaceFile <- liftIO $ readFile ip
-            mapM_ (digestInterfaceM pi) $ (read ifaceFile :: [Iface.Interface])
+            mapM_ (digestInterfaceM pji) $ (read ifaceFile :: [Iface.Interface])
 
 
 digestSolutionM :: (MonadIO m, SolutionM m)
@@ -132,7 +132,7 @@ digestSolutionM :: (MonadIO m, SolutionM m)
                 -> SolutionResult m u ()
 digestSolutionM si p ps = do
     editSolutionInfo (const $ si)
-    forM_ ps $ \(pi,pp,ip) -> digestProjectM pi pp ip
+    forM_ ps $ \(pji,pp,ip) -> digestProjectM pji pp ip
 
 newtype Wrapper m a = Wrapper { runWrapper :: m a }
   deriving (Functor, Applicative, Monad, MonadIO, SolutionStateM)

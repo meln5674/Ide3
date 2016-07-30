@@ -167,7 +167,7 @@ instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi $ f x
 
 instance Functor ProjectChild where
-    fmap f (ProjectChild pi x) = ProjectChild pi $ f x
+    fmap f (ProjectChild pji x) = ProjectChild pji $ f x
 
 -- |An import statement. The first three fields of each are:
 --  The module being imported
@@ -358,8 +358,8 @@ data SolutionError u
 
 -- | 
 instance Show u => Show (SolutionError u) where
-    show (ModuleNotFound pi mi s)
-        = printf "%s: module \"%s\" not found in project \"%s\"" s (show mi) (show pi)
+    show (ModuleNotFound pji mi s)
+        = printf "%s: module \"%s\" not found in project \"%s\"" s (show mi) (show pji)
     show (DeclarationNotFound mi di s)
         = printf "%s: in module \"%s\" declaration \"%s\" not found" s (show mi) (show di)
     show (SymbolNotFound mi sym s)
@@ -370,16 +370,16 @@ instance Show u => Show (SolutionError u) where
         = printf "%s: module \"%s\" does not export symbol \"%s\"" s (show mi) (show sym)
     show (NotSubSymbol super sub s)
         = printf "%s: \"%s\" is not a class method or constructor of \"%s\" %s" s (show sub) (show super)
-    show (ModuleNotImported pi importer importee s)
-        = printf "%s: module \"%s\" does not import module \"%s\" in project \"%s\"" s (show importer) (show importee) (show pi)
+    show (ModuleNotImported pji importer importee s)
+        = printf "%s: module \"%s\" does not import module \"%s\" in project \"%s\"" s (show importer) (show importee) (show pji)
     show (InvalidImportId mi ii s)
         = printf "%s: module \"%s\" does not have an import with ID \"%s\"" s (show mi) (show ii)
     show (InvalidExportId mi ei s)
         = printf "%s: module \"%s\" does not have an export with ID \"%s\"" s (show mi) (show ei)
     show (InvalidOperation s1 s2)
         = printf "%s: %s" s2 s1
-    show (DuplicateModule pi mi s)
-        = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pi)
+    show (DuplicateModule pji mi s)
+        = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pji)
     show (ParseError l msg s)
         = printf "Parse error %s: %s: %s" s (show l) msg
     show (Unsupported s)

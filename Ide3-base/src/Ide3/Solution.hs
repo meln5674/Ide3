@@ -46,22 +46,22 @@ allSymbols = concatMap Project.allSymbols . solutionProjects
 -}
 
 addProject :: Solution -> ProjectInfo -> Either (SolutionError u) Solution
-addProject s pi = case Map.lookup pi $ solutionProjects s of
-    Just _ -> Left $ DuplicateProject pi $ "Solution.addProject"
-    Nothing -> Right $ s{solutionProjects = Map.insert pi (Project.new pi) $ solutionProjects s}
+addProject s pji = case Map.lookup pji $ solutionProjects s of
+    Just _ -> Left $ DuplicateProject pji $ "Solution.addProject"
+    Nothing -> Right $ s{solutionProjects = Map.insert pji (Project.new pji) $ solutionProjects s}
 
 removeProject :: Solution -> ProjectInfo -> Either (SolutionError u) Solution
-removeProject s pi = case Map.lookup pi $ solutionProjects s of
-    Just _ -> Right $ s{solutionProjects = Map.delete pi $ solutionProjects s}
-    Nothing -> Left $ ProjectNotFound pi $ "Solution.addProject"
+removeProject s pji = case Map.lookup pji $ solutionProjects s of
+    Just _ -> Right $ s{solutionProjects = Map.delete pji $ solutionProjects s}
+    Nothing -> Left $ ProjectNotFound pji $ "Solution.addProject"
 
 getProjects :: Solution -> [ProjectInfo]
 getProjects s = Map.keys $ solutionProjects s
 
 getProject :: Solution -> ProjectInfo -> Either (SolutionError u) Project
-getProject s pi = case Map.lookup pi $ solutionProjects s of
+getProject s pji = case Map.lookup pji $ solutionProjects s of
     Just p -> Right p
-    Nothing -> Left $ DuplicateProject pi $ "Solution.addProject"
+    Nothing -> Left $ DuplicateProject pji $ "Solution.addProject"
 
 
 -- |Find the project which matches the provided ProjectInfo,
@@ -103,11 +103,11 @@ editProjectInfo :: Solution
                 -> ProjectInfo 
                 -> ProjectInfo
                 -> Either (SolutionError u) Solution
-editProjectInfo s pi pi' = do
-    p <- getProject s pi
-    let p' = Project.editProjectInfo p $ const pi'
-        ps' = Map.insert pi' p'
-            $ Map.delete pi
+editProjectInfo s pji pji' = do
+    p <- getProject s pji
+    let p' = Project.editProjectInfo p $ const pji'
+        ps' = Map.insert pji' p'
+            $ Map.delete pji
             $ solutionProjects s
     return $ s{ solutionProjects = ps' }
     
@@ -221,7 +221,7 @@ addImport :: Solution
           -> ModuleInfo
           -> WithBody Import
           -> Either (SolutionError u) (Solution,ImportId)
-addImport s pi mi i = editProjectR s pi $ \p -> Project.addImport p mi i
+addImport s pji mi i = editProjectR s pji $ \p -> Project.addImport p mi i
 
 
 -- |Remove an import from a module
@@ -231,18 +231,18 @@ removeImport :: Solution
              -> ModuleInfo
              -> ImportId
              -> Either (SolutionError u) Solution
-removeImport s pi mi i = editProject s pi $ \p -> Project.removeImport p mi i
+removeImport s pji mi i = editProject s pji $ \p -> Project.removeImport p mi i
 
 getImport :: Solution
           -> ProjectInfo
           -> ModuleInfo
           -> ImportId
           -> Either (SolutionError u) (WithBody Import)
-getImport s pi mi iid = getProject s pi >>= \p -> Project.getImport p mi iid
+getImport s pji mi iid = getProject s pji >>= \p -> Project.getImport p mi iid
 
 
 getImports :: Solution -> ProjectInfo -> ModuleInfo -> Either (SolutionError u) [ImportId]
-getImports s pi mi = getProject s pi >>= \p -> Project.getImports p mi
+getImports s pji mi = getProject s pji >>= \p -> Project.getImports p mi
 
 
 -- |Set a module to export all of its symbols
@@ -250,7 +250,7 @@ exportAll :: Solution
           -> ProjectInfo
           -> ModuleInfo
           -> Either (SolutionError u) Solution
-exportAll s pi mi = editProject s pi $ \p -> Project.exportAll p mi
+exportAll s pji mi = editProject s pji $ \p -> Project.exportAll p mi
 
 -- |Add an export to a module
 addExport :: Solution
@@ -258,7 +258,7 @@ addExport :: Solution
           -> ModuleInfo
           -> WithBody Export
           -> Either (SolutionError u) (Solution, ExportId)
-addExport s pi mi e = editProjectR s pi $ \p -> Project.addExport p mi e
+addExport s pji mi e = editProjectR s pji $ \p -> Project.addExport p mi e
 
 -- |Remove an exporty from a module
 --  This function fails if no matching export is found
@@ -267,7 +267,7 @@ removeExport :: Solution
              -> ModuleInfo
              -> ExportId
              -> Either (SolutionError u) Solution
-removeExport s pi mi e = editProject s pi $ \p -> Project.removeExport p mi e
+removeExport s pji mi e = editProject s pji $ \p -> Project.removeExport p mi e
 
 
 -- | Set a module to export nothing
@@ -276,18 +276,22 @@ exportNothing :: Solution
               -> ProjectInfo
               -> ModuleInfo
               -> Either (SolutionError u) Solution
-exportNothing s pi mi = editProject s pi $ \p -> Project.exportNothing p mi
+exportNothing s pji mi = editProject s pji $ \p -> Project.exportNothing p mi
 
  
 getExports :: Solution -> ProjectInfo -> ModuleInfo -> Either (SolutionError u) (Maybe [ExportId]) 
-getExports s pi mi = getProject s pi >>= \p -> Project.getExports p mi
+getExports s pji mi = do
+    p <- getProject s pji 
+    Project.getExports p mi
 
 getExport :: Solution
           -> ProjectInfo
           -> ModuleInfo
           -> ExportId
           -> Either (SolutionError u) (WithBody Export)
-getExport s pi mi eid = getProject s pi >>= \p -> Project.getExport p mi eid
+getExport s pji mi eid = do
+    p <- getProject s pji
+    Project.getExport p mi eid
 
 {-
 -- |Add a declaration to a module
@@ -304,7 +308,7 @@ removeDeclaration :: Solution
                   -> ProjectInfo
                   -> ModuleChild DeclarationInfo 
                   -> Either (SolutionError u) Solution
-removeDeclaration s pi c = editProject s pi $ \p -> Project.removeDeclaration p c
+removeDeclaration s pji c = editProject s pji $ \p -> Project.removeDeclaration p c
 
 -- |Apply a transformation to a declaration in a solution
 editDeclaration :: Solution 
@@ -349,11 +353,13 @@ getDeclaration' p (ModuleChild i di)
 -}
 
 addPragma :: Solution -> ProjectInfo -> ModuleInfo -> Pragma -> Either (SolutionError u) Solution
-addPragma s pi mi pr = editProject s pi $ \p -> Project.addPragma p mi pr
+addPragma s pji mi pr = editProject s pji $ \p -> Project.addPragma p mi pr
 
 removePragma :: Solution -> ProjectInfo -> ModuleInfo -> Pragma -> Either (SolutionError u) Solution
-removePragma s pi mi pr = editProject s pi $ \p -> Project.removePragma p mi pr
+removePragma s pji mi pr = editProject s pji $ \p -> Project.removePragma p mi pr
 
 getPragmas :: Solution -> ProjectInfo -> ModuleInfo -> Either (SolutionError u) [Pragma]
-getPragmas s pi mi = getProject s pi >>= \p -> Project.getPragmas p mi
+getPragmas s pji mi = do
+    p <- getProject s pji
+    Project.getPragmas p mi
 -}
