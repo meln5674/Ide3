@@ -73,12 +73,14 @@ import Ide3.ModuleTree
 import Command.Types
 import Command.Trans
 
+import Args
 import CmdParser
 import Viewer
 import Editor
 import Builder
 import Runner
 import Initializer
+import ProjectInitializer
 
 type ViewerAction m u = (?proxy :: Proxy u, ViewerMonad m, Show u)
 type ViewerIOAction m u = (?proxy :: Proxy u, ViewerMonad m, Show u, MonadIO m)
@@ -154,6 +156,33 @@ doSaveAs :: (ViewerIOAction m u) => FilePath -> ViewerStateT m String
 doSaveAs p = printOnError $ do
     saveSolution $ Just p
     return "Saved"
+
+doProjects :: (ViewerAction m u) => ViewerStateT m String
+doProjects = printOnError $ intercalate "\n" . map show <$> getProjects
+
+doProject :: (ViewerAction m u) => String -> ViewerStateT m String
+doProject n = printOnError $ do
+    lift $ setCurrentProject (ProjectInfo n)
+    return ""
+    
+doAddProject :: (ViewerAction m u, Args a) 
+             => ProjectInitializer a m u 
+             -> String 
+             -> ViewerStateT m String
+doAddProject projectInitializer arg = printOnError $ do
+    case runProjectInitializerWithInput projectInitializer =<< parseArityN arg of
+        Left msg -> return msg
+        Right initializerAction -> do
+            r <- ExceptT $ lift $ runExceptT $ initializerAction
+            case r of
+                ProjectInitializerSucceeded out err -> return $ out ++ err
+                ProjectInitializerFailed out err -> return $ out ++ err
+
+doRemoveProject :: (ViewerAction m u) => String -> ViewerStateT m String
+doRemoveProject n = printOnError $ do
+    removeProject (ProjectInfo n)
+    return "Removed"
+
 
 -- | Action for the modules command
 doModules :: ViewerAction m u => ViewerStateT m String
@@ -333,6 +362,25 @@ fileNameCompletion s = do
     comps <- listFiles s
     return $ Just $ flip map comps $ \comp -> comp{replacement = drop (length s) $ replacement comp }
 
+projectNameCompletion :: ViewerAction m u => String -> (ViewerStateT m) (Maybe [Completion])
+projectNameCompletion s = do
+    p <- hasOpenedSolution
+    if not p
+        then return Nothing
+        else do
+            r <- runExceptT $ do
+                pis <- getProjects
+                let projectNames = flip map pis $ \(ProjectInfo s) -> s
+                    matchingNames = filter (s `isPrefixOf`) projectNames
+                return $ Just $ flip map matchingNames $ \n -> 
+                    Completion{ replacement = drop (length s) n
+                              , display = n
+                              , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingNames
+                              }
+            return $ case r of
+                Right x -> x
+                Left _ -> Nothing
+
 -- | Given a prefix, find module names that have that prefix
 moduleNameCompletion :: ViewerAction m u => String -> (ViewerStateT m) (Maybe [Completion])
 moduleNameCompletion s = do
@@ -381,7 +429,6 @@ declarationNameCompletion s = do
                 Right x -> x
                 Left _ -> Nothing
         _ -> return Nothing
-
 
 
 
@@ -458,6 +505,46 @@ saveAsCmd = Command
     , isAllowed = hasOpenedSolution
     , completion = fileNameCompletion
     , action = liftCmd . doSaveAs
+    }
+
+projectsCmd :: (ViewerIOAction m u) => Command u' (ViewerStateT m)
+projectsCmd = Command
+    { helpLine = "projects: show list of modules in the current solution"
+    , root = "projects"
+    , parser = parseArity0 "projects"
+    , isAllowed = hasOpenedSolution
+    , completion = const $ return $ Just []
+    , action = const $ liftCmd doProjects
+    }
+
+projectCmd :: (ViewerIOAction m u) => Command u' (ViewerStateT m)
+projectCmd = Command
+    { helpLine = "project PROJECT: set PROJECT as the current project"
+    , root = "project"
+    , parser = parseArity0 "project"
+    , isAllowed = hasOpenedSolution
+    , completion = projectNameCompletion
+    , action = liftCmd . doProject
+    }
+
+addProjectCmd :: (ViewerIOAction m u, Args a, Show u) => ProjectInitializer a m u -> Command u' (ViewerStateT m)
+addProjectCmd projectInitializer = Command
+    { helpLine = "add project [ARGS]...: add a new project"
+    , root = "add project"
+    , parser = parseArity1 "add project" "arguments"
+    , isAllowed = hasOpenedSolution
+    , completion = const $ return $ Just []
+    , action = liftCmd . doAddProject projectInitializer
+    }
+
+removeProjectCmd :: (ViewerIOAction m u) => Command u' (ViewerStateT m)
+removeProjectCmd = Command
+    { helpLine = "remove project PROJECT: remove a project"
+    , root = "remove project"
+    , parser = parseArity1 "remove project" "project name"
+    , isAllowed = hasOpenedSolution
+    , completion = projectNameCompletion
+    , action = liftCmd . doRemoveProject
     }
 
 -- | The modules command, lists modules in the current project

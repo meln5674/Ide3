@@ -39,10 +39,15 @@ import qualified ReadOnlyFilesystemSolution as RDONLY
 import qualified SimpleFilesystemSolution as RDWR
 import qualified CabalFilesystemSolution as Cabal
 
+import Args
 import Editor
 import Builder
 import Runner
 import Initializer
+import ProjectInitializer
+import ProjectInitializer.Cabal
+
+import CabalMonad
 
 deriving instance (MonadException m) => MonadException (SolutionStateT m)
 deriving instance (MonadException m) => MonadException (StatefulSolution m)
@@ -82,13 +87,14 @@ settings :: (MonadException m, ViewerAction m u)
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
 -- | List of commands, using a specified editor
-commandList :: (MonadMask m, ViewerIOAction m u, Args a) 
+commandList :: (MonadMask m, ViewerIOAction m u, Args a, Args pa)
             => Editor m u
             -> Builder m u
             -> Runner m u
             -> Initializer a m u
+            -> ProjectInitializer pa m u
             -> [Command () (ViewerStateT m)]
-commandList editor builder runner initializer =
+commandList editor builder runner initializer projectInitializer =
     [ helpCmd
     , cdCmd
     , shellCmd
@@ -96,23 +102,33 @@ commandList editor builder runner initializer =
     , openCmd
     , saveAsCmd
     , saveCmd
+    
+    , projectsCmd
+    , projectCmd
+    , addProjectCmd projectInitializer
+    , removeProjectCmd
+
     , modulesCmd
     , moduleCmd
-    , addImportCmd
-    , removeImportCmd
-    , addExportCmd
-    , removeExportCmd
-    , declarationsCmd
-    , importsCmd
-    , importedCmd
-    , exportsCmd
-    , exportedCmd
-    , visibleCmd
-    , catCmd
     , addModuleCmd
     , removeModuleCmd
+    
+    , importsCmd
+    , importedCmd
+    , addImportCmd
+    , removeImportCmd
+    
+    , exportsCmd
+    , exportedCmd
+    , addExportCmd
+    , removeExportCmd
+    
+    , declarationsCmd
     , addDeclarationCmd editor
     , removeDeclarationCmd
+    
+    , visibleCmd
+    , catCmd
     , editCmd editor
     , buildCmd builder
     , runCmd runner
@@ -128,6 +144,7 @@ runWith :: ( MonadException (t (SolutionStateT IO))
            , ViewerAction (t (SolutionStateT IO)) u
            , Monad (t (SolutionStateT IO))
            , Args a
+           , Args pa
            )
         => (forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp))
         -> fsp 
@@ -135,17 +152,18 @@ runWith :: ( MonadException (t (SolutionStateT IO))
         -> Builder (t (SolutionStateT IO)) u
         -> Runner (t (SolutionStateT IO)) u
         -> Initializer a (t (SolutionStateT IO)) u
+        -> ProjectInitializer pa (t (SolutionStateT IO)) u
         -> IO ()
-runWith runFspT unopened editor builder runner initializer = void $ 
+runWith runFspT unopened editor builder runner initializer projectInitializer = void $ 
     runViewerState runFspT unopened $
-        flip runCommandT (commandList editor builder runner initializer) $ 
+        flip runCommandT (commandList editor builder runner initializer projectInitializer) $ 
             runInputT settings $ do
                 outputStrLn "Haskell solution viewer"
                 outputStrLn "Type \"help\" for commands"
                 runMain
 
 -- | Data type which contains options for running the application
-data {- (Monad (t (SolutionStateT IO))) => -} AppSetup a t fsp u
+data {- (Monad (t (SolutionStateT IO))) => -} AppSetup a pa t fsp u
     = AppSetup
     { -- | The editor to use
       appEditor :: Editor (t (SolutionStateT IO)) u
@@ -155,6 +173,8 @@ data {- (Monad (t (SolutionStateT IO))) => -} AppSetup a t fsp u
     , appRunner :: Runner (t (SolutionStateT IO)) u
       -- | The initializer to use
     , appInitializer :: Initializer a (t (SolutionStateT IO)) u
+      -- | The project initializer to use
+    , appProjectInitializer :: ProjectInitializer pa (t (SolutionStateT IO)) u
       -- | Function for running the persistence mechanism
     , appRunFspT :: forall b . t (SolutionStateT IO) b -> fsp -> SolutionStateT IO (b, fsp)
       -- | Initial state of the persistence mechanism
@@ -167,8 +187,9 @@ runWithSetup :: ( MonadException (t (SolutionStateT IO))
                 , ViewerAction (t (SolutionStateT IO)) u
                 , Monad (t (SolutionStateT IO))
                 , Args a
+                , Args pa
                 )
-             => AppSetup a t fsp u
+             => AppSetup a pa t fsp u
              -> IO ()
 runWithSetup setup = runWith 
     (appRunFspT setup) 
@@ -177,37 +198,52 @@ runWithSetup setup = runWith
     (appBuilder setup) 
     (appRunner setup) 
     (appInitializer setup)
+    (appProjectInitializer setup)
 
 -- | Change a setup to use the nano editor
 useNanoEditor :: ( MonadIO (t (SolutionStateT IO))
                  , MonadMask (t (SolutionStateT IO))
                  , Monad (t (SolutionStateT IO))
-                 ) => AppSetup a t fsp u -> AppSetup a t fsp u
+                 ) 
+               => AppSetup a pa t fsp u -> AppSetup a pa t fsp u
 useNanoEditor s = s{appEditor = nanoEditor}
 
 useStackBuilder :: ( MonadIO (t (SolutionStateT IO))
                    , MonadMask (t (SolutionStateT IO))
                    , Monad (t (SolutionStateT IO))
-                   ) => AppSetup a t fsp u -> AppSetup a t fsp u
+                   ) 
+                => AppSetup a pa t fsp u -> AppSetup a pa t fsp u
 useStackBuilder s = s{appBuilder = stackBuilder}
 
 useStackRunner :: ( MonadIO (t (SolutionStateT IO))
                   , MonadMask (t (SolutionStateT IO))
                   , Monad (t (SolutionStateT IO))
-                  ) => AppSetup a t fsp u -> AppSetup a t fsp u
+                  ) 
+               => AppSetup a pa t fsp u -> AppSetup a pa t fsp u
 useStackRunner s = s{appRunner = stackRunner}
 
 useStackInitializer :: ( MonadIO (t (SolutionStateT IO))
                        , MonadMask (t (SolutionStateT IO))
                        , Monad (t (SolutionStateT IO))
                        , SolutionM (t (SolutionStateT IO))
-                       ) => AppSetup a t fsp u -> AppSetup StackInitializerArgs t fsp u
+                       ) 
+                    => AppSetup a pa t fsp u -> AppSetup StackInitializerArgs pa t fsp u
 useStackInitializer s = s{appInitializer = stackInitializer}
+
+useStackProjectInitializer :: ( MonadIO (t (SolutionStateT IO))
+                              , MonadMask (t (SolutionStateT IO))
+                              , Monad (t (SolutionStateT IO))
+                              , SolutionM (t (SolutionStateT IO))
+                              , CabalMonad (t (SolutionStateT IO)) u
+                              ) 
+                           => AppSetup a pa t fsp u -> AppSetup a StackProjectInitializerArgs t fsp u
+useStackProjectInitializer s = s{appProjectInitializer = stackProjectInitializer}
+
 
 -- | Change a setup to use the read-only persistence mechanism
 useReadOnlyFilesystemSolution :: (forall t . ( Monad (t (SolutionStateT IO))) 
-                             => AppSetup a t fsp u)
-                             -> AppSetup a RDONLY.ReadOnlyFilesystemSolutionT RDONLY.FileSystemSolution u
+                              => AppSetup a pa t fsp u)
+                              -> AppSetup a pa RDONLY.ReadOnlyFilesystemSolutionT RDONLY.FileSystemSolution u
 useReadOnlyFilesystemSolution s = s
     { appRunFspT = RDONLY.runReadOnlyFilesystemSolutionT
     , appUnopened = RDONLY.Unopened
@@ -215,22 +251,22 @@ useReadOnlyFilesystemSolution s = s
 
 -- | Change a setup to use the simple persistence mechanism
 useSimpleFilesystemSolution :: (forall t . Monad (t (SolutionStateT IO)) 
-                           => AppSetup a t fsp u)
-                           -> AppSetup a RDWR.SimpleFilesystemSolutionT RDWR.FileSystemSolution u
+                            => AppSetup a pa t fsp u)
+                            -> AppSetup a pa RDWR.SimpleFilesystemSolutionT RDWR.FileSystemSolution u
 useSimpleFilesystemSolution s = s
     { appRunFspT = RDWR.runSimpleFilesystemSolutionT
     , appUnopened = RDWR.Unopened
     }
 
 useCabalFilesystemSolution :: (forall t . Monad (t (SolutionStateT IO))
-                          => AppSetup a t fsp u)
-                          -> AppSetup a Cabal.CabalSolution Cabal.FileSystemSolution u
+                           => AppSetup a pa t fsp u)
+                           -> AppSetup a pa Cabal.CabalSolution Cabal.FileSystemSolution u
 useCabalFilesystemSolution s = s
     { appRunFspT = Cabal.runCabalSolution
     , appUnopened = Cabal.Unopened
     }
 -- | A setup with all fields set to bottom
-blankSetup :: (Monad (t (SolutionStateT IO))) => AppSetup a t fsp u
+blankSetup :: (Monad (t (SolutionStateT IO))) => AppSetup a pa t fsp u
 blankSetup = AppSetup
            { appRunFspT = error "No file system solution defined"
            , appUnopened = error "No default solution state defined"
@@ -246,6 +282,7 @@ main = runWithSetup
      $ useStackBuilder 
      $ useStackRunner
      $ useStackInitializer
+     $ useStackProjectInitializer
      $ useNanoEditor 
      $ useCabalFilesystemSolution 
        blankSetup

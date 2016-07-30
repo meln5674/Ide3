@@ -18,6 +18,8 @@ library
     exposed-modules:   Runner
                      , Builder
                      , Initializer
+                     , ProjectInitializer
+                     , ProjectInitializer.Cabal
                      , Editor
                      , Viewer
                      , ViewerMonad
@@ -25,6 +27,8 @@ library
                      , SimpleFilesystemSolution
                      , CabalFilesystemSolution
                      , PseudoState
+                     , CabalMonad
+                     , Args
     build-depends:     base
                      , temporary
                      , directory

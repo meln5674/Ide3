@@ -258,6 +258,8 @@ data ModifierDeclaration
     | InstanceDeclaration Symbol [Symbol] [Declaration]
     -- |A type signature of a bind
     | TypeSignatureDeclaration Symbol Symbol
+    -- | A standalone deriving declaration
+    | DerivingDeclaration Symbol [Symbol]
     deriving (Show, Read, Eq)
 
 -- |The type of fixity of an operator or infix function
@@ -379,9 +381,9 @@ instance Show u => Show (SolutionError u) where
     show (DuplicateModule pi mi s)
         = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pi)
     show (ParseError l msg s)
-        = printf "%s: %s: %s" s (show l) msg
+        = printf "Parse error %s: %s: %s" s (show l) msg
     show (Unsupported s)
-        = s
+        = printf "Unsupported: %s" s
     show (UserError u)
         = show u
 

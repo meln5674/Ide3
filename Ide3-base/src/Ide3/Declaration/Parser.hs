@@ -107,6 +107,21 @@ parseInstanceDecl (InstDecl _ _ r _)
     (cls:ts) = findName r
 parseInstanceDecl _ = Nothing
 
+-- | Convert a declaration if it is a pattern bind
+parsePatBind :: SrcInfo t => Decl t -> Maybe Declaration
+parsePatBind (PatBind _ p _ _) = case findName p of
+    [] -> Nothing
+    ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
+parsePatBind _ = Nothing
+
+parseDerivingDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseDerivingDecl (DerivDecl _ _ r)
+    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
+           $ DerivingDeclaration cls ts
+  where
+    (cls:ts) = findName r
+parseDerivingDecl _ = Nothing
+
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
 --maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
 
@@ -146,12 +161,6 @@ instance HasNames (PatField l) where
     findName (PFieldPun _ n) = [toSym n]
     findName _ = [] -- TODO: rest
 
--- | Convert a declaration if it is a pattern bind
-parsePatBind :: SrcInfo t => Decl t -> Maybe Declaration
-parsePatBind (PatBind _ p _ _) = case findName p of
-    [] -> Nothing
-    ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
-parsePatBind _ = Nothing
 
 -- | Try to convert a declaration
 tryConvert :: SrcInfo t => Decl t -> Maybe Declaration
@@ -166,6 +175,7 @@ tryConvert x
         , parseClassDecl
         , parseTypeSignature
         , parsePatBind
+        , parseDerivingDecl
         , parseInstanceDecl
         ]
   

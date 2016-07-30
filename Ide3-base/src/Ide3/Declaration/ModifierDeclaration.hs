@@ -23,3 +23,4 @@ symbolsAffected :: ModifierDeclaration -> [Symbol]
 symbolsAffected (FixityDeclaration ss _ _) = ss
 symbolsAffected (InstanceDeclaration _ ss _) = ss
 symbolsAffected (TypeSignatureDeclaration s _) = [s]
+symbolsAffected (DerivingDeclaration _ ss) = ss

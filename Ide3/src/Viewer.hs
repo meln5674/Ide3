@@ -133,6 +133,12 @@ saveSolution maybePath = do
                 M.finalize
         else throwE $ InvalidOperation "No solution is currently open" ""
 
+setCurrentProject :: Monad m => ProjectInfo -> ViewerStateT m ()
+setCurrentProject pi = put $ Viewer (Just pi) Nothing Nothing
+
+setCurrentModule :: Monad m => ProjectInfo -> ModuleInfo -> ViewerStateT m ()
+setCurrentModule pi mi = put $ Viewer (Just pi) (Just mi) Nothing
+
 -- | Set the current declaration of the program
 setCurrentDecl :: Monad m => ProjectInfo -> ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
 setCurrentDecl pi mi di = put $ Viewer (Just pi) (Just mi) (Just di)

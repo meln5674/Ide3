@@ -19,7 +19,6 @@ module Initializer
     , StackInitializerArgs (..)
     , noInitializer
     , stackInitializer
-    , Args (..)
     ) where
 
 import System.Exit
@@ -38,11 +37,8 @@ import Ide3.Types
 import Ide3.Monad
 import Ide3.Digest
 
+import Args
 import Viewer
-
--- | Class for types which can be parsed from a list of strings
-class Args a where
-    getArgsFrom :: [String] -> Either String a
 
 -- | The result of initialization
 data InitializerResult
