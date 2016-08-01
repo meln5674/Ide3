@@ -31,8 +31,7 @@ runExceptProjectT :: Monad m => SolutionResult (StatefulSolution (SolutionStateT
                   -> SolutionStateT m (Either (SolutionError ()) a)
 runExceptProjectT = runStatefulSolution . runExceptT
 
-expectFailure :: (?loc :: CallStack)
-              => (Show a) 
+expectFailure :: (?loc :: CallStack, Show a)
               => SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
               -> Test
 expectFailure f = TestCase $ do
@@ -41,18 +40,18 @@ expectFailure f = TestCase $ do
         Left _ -> assertString ""
         Right x -> assertFailure $ failedTestName ++ ": Expected to fail but got: " ++ show x
 
-expectSuccess :: (?loc :: CallStack)
-              => (Show a)
-              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
+expectSuccess :: (?loc :: CallStack, Show a)
+              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+              -> Test
 expectSuccess f = TestCase $ do
     (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right _ -> assertString ""
 
-expectResult :: (?loc :: CallStack)
-             => (Show a, Eq a) 
-             => a -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
+expectResult :: (?loc :: CallStack, Show a, Eq a)
+             => a -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+             -> Test
 expectResult expected f = TestCase $ do
     (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of
@@ -65,9 +64,9 @@ expectResult expected f = TestCase $ do
                                  ++ " when expecting " 
                                  ++ show expected
 
-expectPredicate :: (?loc :: CallStack)
-                => (Show a, Eq a)
-                => (a -> Bool) -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a -> Test
+expectPredicate :: (?loc :: CallStack, Show a, Eq a)
+                => (a -> Bool) -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+                -> Test
 expectPredicate predicate f = TestCase $ do
     (result,_) <- runNewSolutionStateT $ runExceptProjectT f
     case result of

@@ -31,7 +31,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Types
-
+{-
 -- | Abstract interface to a project
 class Monad m => SolutionM m where
     -- | Load a project.
@@ -243,3 +243,4 @@ instance (SolutionM m) => SolutionM (StateT s m) where
     addPragma x y = bounce . addPragma x y
     removePragma x y = bounce . removePragma x y
     getPragmas x = bounce . getPragmas x
+-}

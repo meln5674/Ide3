@@ -92,6 +92,9 @@ data Project
     }
     deriving (Show, Read, Eq)
 
+-- | A dependency for a project
+data Dependency = Dependency String
+
 -- | Information identifying a module
 data ModuleInfo 
     -- |A module with a name

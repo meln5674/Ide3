@@ -2,21 +2,21 @@ module Ide3.Module.Query where
 
 import Ide3.Types
 
-import Ide3.Monad
+import Ide3.NewMonad
 
 importsModule :: Module -> Symbol -> Bool
 
-exportedSymbols :: SolutionM m 
+exportedSymbols :: Monad m 
                 => ProjectInfo
                 -> Module 
                 -> SolutionResult m u [ModuleChild Symbol]
-symbolTree :: SolutionM m 
+symbolTree :: Monad m 
            => ProjectInfo
            -> Module 
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
 
-internalSymbols :: SolutionM m 
+internalSymbols :: Monad m 
                 => ProjectInfo 
                 -> Module 
                 -> SolutionResult m u [Symbol]

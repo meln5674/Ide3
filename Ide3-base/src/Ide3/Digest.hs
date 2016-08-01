@@ -24,6 +24,7 @@ import Data.List
 
 import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
 import System.Posix.Directory
@@ -33,9 +34,14 @@ import System.FilePath
 import qualified HsInterface as Iface
 
 import Ide3.Types
-import Ide3.Monad
-import Ide3.Mechanism
-import Ide3.Mechanism.State
+import Ide3.NewMonad
+import Ide3.NewMonad.Utils
+
+import qualified Ide3.Solution as Solution
+
+import Ide3.NewMonad.Instances.State
+import Ide3.NewMonad.Instances.State.Class
+import Ide3.NewMonad.Instances.State.Class.Instances
 
 -- | Represents a simplified directory structure
 data FileTree
@@ -89,10 +95,12 @@ enumerateHaskellProject path = do
     getFilesInTree haskellTree
 
 -- | Digest an interface and add an external module accordingly
-digestInterfaceM :: (MonadIO m, SolutionM m)
-                => ProjectInfo
-                -> Iface.Interface
-                -> SolutionResult m u ()
+digestInterfaceM :: ( MonadIO m
+                    , ProjectExternModuleClass m
+                    )
+                 => ProjectInfo
+                 -> Iface.Interface
+                 -> SolutionResult m u ()
 digestInterfaceM pji iface = addExternModule pji newModule
   where
     newModule = ExternModule newInfo exports
@@ -105,11 +113,15 @@ digestInterfaceM pji iface = addExternModule pji newModule
 
 -- | Digest a project from a directory structure, optionally providing a path to
 -- an interface file for external modules
-digestProjectM :: (MonadIO m, SolutionM m) 
-                            => ProjectInfo 
-                            -> FilePath 
-                            -> Maybe FilePath 
-                            -> SolutionResult m u ()
+digestProjectM :: ( MonadIO m
+                  , SolutionClass m
+                  , ProjectModuleClass m
+                  , ProjectExternModuleClass m
+                  )
+               => ProjectInfo 
+               -> FilePath 
+               -> Maybe FilePath 
+               -> SolutionResult m u ()
 digestProjectM pji p maybeip = do
     contents <- liftIO $ enumerateHaskellProject p
     addProject pji
@@ -121,7 +133,11 @@ digestProjectM pji p maybeip = do
             mapM_ (digestInterfaceM pji) (read ifaceFile :: [Iface.Interface])
 
 
-digestSolutionM :: (MonadIO m, SolutionM m)
+digestSolutionM :: ( MonadIO m
+                   , SolutionClass m
+                   , ProjectModuleClass m
+                   , ProjectExternModuleClass m
+                   )
                 => SolutionInfo
                 -> [(ProjectInfo,FilePath,Maybe FilePath)]
                 -> SolutionResult m u ()
@@ -129,26 +145,30 @@ digestSolutionM si ps = do
     editSolutionInfo $ const si
     forM_ ps $ \(pji,pp,ip) -> digestProjectM pji pp ip
 
+{-
 newtype Wrapper m a = Wrapper { runWrapper :: m a }
   deriving (Functor, Applicative, Monad, MonadIO, SolutionStateM)
 
 instance MonadTrans Wrapper where
     lift = Wrapper
   
+
 instance Monad m => SolutionShellM (Wrapper m) where
     load = error "IDIOT"
     new = error "IDIOT"
     finalize = error "IDIOT"
+-}
+
 
 digestSolution :: forall m u
-                . (MonadIO m) 
+                . ( MonadIO m )
                => SolutionInfo
                -> [(ProjectInfo,FilePath,Maybe FilePath)]
                -> SolutionResult m u Solution
 digestSolution si ps = do
-    let y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
-        y = do
-            digestSolutionM si ps
-            lift getSolution
-    (z,_) <- lift $ runNewSolutionStateT $ runWrapper $ runStatefulSolution $ runExceptT y
+    let --y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
+        y :: MonadIO m => SolutionResult (StatefulWrapper (StateT Solution m)) u Solution
+        y = digestSolutionM si ps >> getSolution
+    (z,_) <- lift $ flip runStateT Solution.empty $ runStatefulWrapper $ runExceptT y
     ExceptT $ return z
+

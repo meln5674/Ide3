@@ -22,17 +22,17 @@ library
                      , Ide3.Env.Project
                      , Ide3.Env.Module
                      , Ide3.SrcLoc
-                     , Ide3.Mechanism
-                     , Ide3.Mechanism.State
-                     , Ide3.Mechanism.Internal
                      , Ide3.Project
                      , Ide3.Solution
                      , Ide3.Module
                      , Ide3.Module.Parser
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
-                     , Ide3.Module.Query
-                     , Ide3.Monad
+                     , Ide3.NewMonad
+                     , Ide3.NewMonad.Utils
+                     , Ide3.NewMonad.Instances.State
+                     , Ide3.NewMonad.Instances.State.Class
+                     , Ide3.NewMonad.Instances.State.Class.Instances
                      , Ide3.Import
                      , Ide3.Import.Parser
                      , Ide3.Export
@@ -46,20 +46,16 @@ library
                      , Ide3.ModuleTree
                      , Ide3.Digest
                      , Ide3.Utils
---                     , Ide3.Free
---                     , Ide3.Free.Interpreter
---                     , Ide3.Free.State
---                     , Ide3.Free.State.Classes
---                     , Ide3.Free.State.Helpers
---                     , Ide3.Free.State.Instances
---                     , Ide3.Free.State.Instances.SimpleProject
-  other-modules:       Ide3.Mechanism.State.Types
-                     , Ide3.Mechanism.State.Helpers
-                     , Ide3.Module.Internal
+  other-modules:       Ide3.Module.Internal
                      , Ide3.Module.Common.Query
                      , Ide3.Module.Common.Types
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal
+                     , Ide3.Export.Query
+                     , Ide3.Import.Query
+                     , Ide3.Module.Query
+                     , Ide3.Import.Internal
+                     , Ide3.Query
   build-depends:       base
                      , containers
                      , mtl

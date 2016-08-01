@@ -57,35 +57,18 @@ createModule = do
     p <- get
     put =<< lift (lift $ addChildT mi (Module.new mi) p)
 
--- | Add an external module
-addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
-addExternModule = do
-    p <- get
-    m <- lift ask
-    put =<< lift (lift $ addChildT (externModuleInfo m) m p)
-
 -- | Remove a module
 removeModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 removeModule = do
     p <- get
     mi <- lift ask
-    let removeLocal = do
-            (m,p') <- removeChildT mi p
-            let m' = m :: Module
-            return p'
-    let removeExtern = do
-            (m,p') <- removeChildT mi p
-            let m' = m :: ExternModule
-            return p'
-    put =<< lift (lift $ catchE' removeExtern $ const removeLocal)
+    (m,p') <- lift $ lift $ removeChildT mi p
+    let m' = m :: Module
+    put p'
 
 -- | Get a local module by id
 getModule :: Monad m => DescentChain2 Project ModuleInfo m u Module
 getModule = descend0 get
-
--- | Get an external module by id
-getExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ExternModule
-getExternModule = descend0 get
 
 -- | Apply a transformation to a module
 editModule :: Monad m 
@@ -100,6 +83,32 @@ editModule = descend1 $ do
     case f m of
         Right m' -> put m'
         Left err -> throw2 err
+
+
+-- | Add an external module
+addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
+addExternModule = do
+    p <- get
+    m <- lift ask
+    put =<< lift (lift $ addChildT (externModuleInfo m) m p)
+
+
+-- | Get an external module by id
+getExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ExternModule
+getExternModule = descend0 get
+
+-- | Get the ids of all external modules
+getExternModules :: Monad m => DescentChain1 Project m u [ModuleInfo]
+getExternModules = gets $ Map.keys . projectExternModules
+
+removeExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
+removeExternModule = do
+    p <- get
+    mi <- lift ask
+    (m,p') <- lift $ lift $ removeChildT mi p
+    let m' = m :: ExternModule
+    put p'
+
 
 -- | Add a declaration to a module
 addDeclaration :: Monad m => DescentChain3 Project ModuleInfo (WithBody Declaration) m u ()

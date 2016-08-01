@@ -71,10 +71,6 @@ addModule = descend1 Project.addModule
 createModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
 createModule = descend1 Project.createModule
 
--- | Add an external module to a project
-addExternModule :: Monad m => DescentChain3 Solution ProjectInfo ExternModule m u ()
-addExternModule = descend1 Project.addExternModule
-
 -- | Remove a module from a project
 removeModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
 removeModule = descend1 Project.removeModule
@@ -82,10 +78,6 @@ removeModule = descend1 Project.removeModule
 -- | Get a local module by id from a project
 getModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u Module
 getModule = descend1 Project.getModule
-
--- | Get an external module by id from a project
-getExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ExternModule
-getExternModule = descend1 Project.getExternModule
 
 -- | Apply a transformation to a module in a project
 editModule :: Monad m 
@@ -96,6 +88,20 @@ editModule :: Monad m
                 (Module -> Either (SolutionError u) Module) 
                 m u ()
 editModule = descend2 Project.editModule
+
+-- | Add an external module to a project
+addExternModule :: Monad m => DescentChain3 Solution ProjectInfo ExternModule m u ()
+addExternModule = descend1 Project.addExternModule
+
+-- | Get an external module by id from a project
+getExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ExternModule
+getExternModule = descend1 Project.getExternModule
+
+getExternModules :: Monad m => DescentChain2 Solution ProjectInfo m u [ModuleInfo]
+getExternModules = descend0 Project.getExternModules
+
+removeExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
+removeExternModule = descend1 Project.removeExternModule
 
 -- | Add a declaration to a module in a project
 addDeclaration :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo (WithBody Declaration) m u ()

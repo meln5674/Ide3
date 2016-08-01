@@ -21,6 +21,7 @@ These are simply StateT and State with a Solution as their state type.
 In addition, this provides an instance of SolutionM for any monad which
 is a MonadState for Solutions.
 -}
+{-# LANGUAGE StandaloneDeriving #-}
 module Ide3.Mechanism.State
     ( initialSolution
     , runSolutionStateT

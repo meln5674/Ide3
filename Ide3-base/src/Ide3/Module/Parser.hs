@@ -10,6 +10,8 @@ Portability : POSIX
 
 This module contains functions for building Module values from strings
 -}
+
+{-# LANGUAGE LambdaCase #-}
 module Ide3.Module.Parser where
 
 import Language.Haskell.Exts.Annotated.Parser
@@ -21,6 +23,7 @@ import Language.Haskell.Exts.Parser
     , extensions
     , fixities
     )
+import Language.Haskell.Exts (readExtensions)
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc
 import Language.Haskell.Exts.Comments
@@ -78,16 +81,22 @@ extract str x = do
     decls       <- extractDecls     str x
     return $ Extracted info pragmas exports imports decls
 
+activatedExts :: [Extension]
+--activatedExts = EnableExtension NamedFieldPuns : EnableExtension LambdaCase : glasgowExts 
+activatedExts = flip filter knownExtensions $ \case
+    EnableExtension _ -> True
+    _ -> False
+
 -- |Take a string and produce the needed information for building a Module
 parse :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
+    exts = (maybe [] snd $ readExtensions s)
     parseMode = case p of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
-    exts = EnableExtension LambdaCase : glasgowExts
 
 -- | Parse a module and assume its name is "Main" if not present
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
@@ -99,7 +108,7 @@ parseMain s p = case parseModuleWithComments parseMode s of
             info -> return $ Extracted info ps es is ds
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
+    exts = (maybe [] snd $ readExtensions s)
     parseMode = case p of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
-    exts = EnableExtension LambdaCase : glasgowExts

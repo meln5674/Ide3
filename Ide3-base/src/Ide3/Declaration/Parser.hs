@@ -45,23 +45,39 @@ parseTypeSynonym (TypeDecl _ h t)
                              )
 parseTypeSynonym _ = Nothing
 
--- | Convert a declaration if it is a data declaration
-parseDataDecl :: SrcInfo t => Decl t -> Maybe Declaration
-parseDataDecl (DataDecl _ (NewType _) _ h [con] _)
+parseGADTNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
+    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
+                             (NewtypeDeclaration (toSym h)
+                                              (Constructor.toConstructor con)
+                             )
+parseGADTNewtypeDecl _ = Nothing
+
+-- | Convert a declaration if it is a newtype declaration
+parseNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
                                                  (Constructor.toConstructor con)
                              )
-parseDataDecl _ = Nothing
+parseNewtypeDecl _ = Nothing
 
--- | Convert a declaration if it is a newtype declaration
-parseNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
-parseNewtypeDecl (DataDecl _ (DataType _) _ h cons _)
+parseGADTDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (DataDeclaration (toSym h)
                                               (map Constructor.toConstructor cons)
                              )
-parseNewtypeDecl _ = Nothing
+parseGADTDecl _ = Nothing
+
+-- | Convert a declaration if it is a data declaration
+parseDataDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseDataDecl (DataDecl _ (DataType _) _ h cons _)
+    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
+                             (DataDeclaration (toSym h)
+                                              (map Constructor.toConstructor cons)
+                             )
+parseDataDecl _ = Nothing
 
 -- | Convert a declaration if it is a function bind
 parseFuncBind :: SrcInfo t => Decl t -> Maybe Declaration
@@ -177,6 +193,8 @@ tryConvert x
         , parsePatBind
         , parseDerivingDecl
         , parseInstanceDecl
+        , parseGADTDecl
+        , parseGADTNewtypeDecl
         ]
   
 -- | Parse a string containing 0 or more delcarations

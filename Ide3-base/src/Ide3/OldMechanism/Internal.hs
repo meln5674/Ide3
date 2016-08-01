@@ -32,6 +32,7 @@ f p s = case p of
     Right x -> s x
     Left e -> throwE e
 -}
+
 -- | Parse an import and add it to a module
 addRawImport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ImportId
 addRawImport pji mi str = case Import.parse str of

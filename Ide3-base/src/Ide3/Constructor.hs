@@ -31,6 +31,12 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
 instance SrcInfo a => ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d
 
+instance SrcInfo a => ToConstructor (GadtDecl a) where
+    toConstructor (GadtDecl _ n (Just rs) _) = RecordConstructor (toSym n) (concatMap f rs)
+      where
+        f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
+    toConstructor (GadtDecl _ n Nothing t) = PrefixConstructor (toSym n) [toSym t]
+
 -- | Get the symbol of a constructor
 symbol :: Constructor -> Symbol
 symbol (PrefixConstructor s _) = s

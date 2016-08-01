@@ -22,7 +22,7 @@ import qualified Data.Map as Map
 
 import Control.Monad
 
-import Ide3.Monad
+import Ide3.NewMonad
 
 import Ide3.Types hiding (moduleInfo)
 
@@ -85,7 +85,14 @@ For each list:
 -}
 
 -- | Take a module tree and fill each node with its declarations
-fillTree :: SolutionM m => ProjectInfo -> ModuleTree -> SolutionResult m u ModuleTree
+fillTree :: ( ModuleExportClass m
+            , ModuleImportClass m
+            , ModuleDeclarationClass m
+            , ModulePragmaClass m
+            )
+         => ProjectInfo 
+         -> ModuleTree 
+         -> SolutionResult m u ModuleTree
 fillTree pji (OrgNode i ts) = do
     ts' <- mapM (fillTree pji) ts
     return $ OrgNode i ts'
@@ -104,7 +111,14 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
     return $ ModuleNode i ts' ps ds is es
 
 -- | Make a module tree from the current project
-makeTree :: SolutionM m => ProjectInfo -> SolutionResult m u [ModuleTree]
+makeTree :: ( ProjectModuleClass m
+            , ModuleExportClass m
+            , ModuleImportClass m
+            , ModuleDeclarationClass m
+            , ModulePragmaClass m
+            )
+         => ProjectInfo 
+         -> SolutionResult m u [ModuleTree]
 makeTree pji = do
     modules <- getModules pji
     let emptyTree = makeTreeSkeleton modules
