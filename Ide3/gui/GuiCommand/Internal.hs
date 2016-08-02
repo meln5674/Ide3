@@ -16,7 +16,7 @@ import Control.Monad.Trans.State.Strict (gets)
 
 import Ide3.Types
 import Ide3.Utils
-import Ide3.Monad
+import Ide3.NewMonad
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Import as Import
@@ -43,6 +43,14 @@ type GuiCommand m p buffer
       , ViewerMonad m
       , TextBufferClass buffer
       , InteruptMonad2 p m
+      , SolutionClass m
+      , PersistenceClass m
+      , ProjectModuleClass m
+      , ProjectExternModuleClass m
+      , ModuleExportClass m
+      , ModuleImportClass m
+      , ModuleDeclarationClass m
+      , ModulePragmaClass m
       )
 
 doError :: ( GuiCommand m p buffer ) => SolutionError UserError -> DialogOnErrorArg proxy m p buffer a
@@ -60,7 +68,7 @@ doNew maybeSolutionRoot projectName templateName = do
         Just projectRoot -> do
             lift $ do
                 wrapIOError $ setCurrentDirectory projectRoot
-                createNewFile $ projectName ++ ".proj"
+                bounce $ createNewFile $ projectName ++ ".proj"
             r <- lift 
                     $ ExceptT 
                     $ lift 
@@ -69,7 +77,7 @@ doNew maybeSolutionRoot projectName templateName = do
                                     (StackInitializerArgs projectName templateName)
             case r of
                 InitializerSucceeded{} -> do
-                    withGuiComponents $ lift . flip withSolutionTree populateTree
+                    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
                     lift $ saveSolution Nothing
                 InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
 
@@ -78,7 +86,7 @@ doOpen :: ( GuiCommand m p buffer )
        -> DialogOnErrorArg proxy m p buffer ()
 doOpen path = do
     lift $ openSolution path
-    withGuiComponents $ lift . flip withSolutionTree populateTree
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 
 doGetDecl :: ( GuiCommand m p buffer )
@@ -89,7 +97,7 @@ doGetDecl path _ = withGuiComponents $ \comp -> do
     index <- lift $ wrapIOError $ withSolutionTree comp $ findAtPath path
     case index of
         DeclResult pi mi di -> do
-                decl <- lift $ getDeclaration pi mi di
+                decl <- lift $ bounce $ getDeclaration pi mi di
                 lift $ wrapIOError $ comp `setDeclBufferText` body decl
                 lift $ lift $ setCurrentDecl pi mi di
         _ -> return ()
@@ -99,8 +107,8 @@ doBuild :: ( GuiCommand m p buffer
            )
         => DialogOnErrorArg proxy m p buffer ()
 doBuild = withGuiComponents $ \comp -> lift $ do
-    prepareBuild
-    r <- ExceptT $ lift $ runExceptT $ runBuilder stackBuilder
+    bounce $ prepareBuild
+    r <- bounce $ runBuilder stackBuilder
     let text = case r of
             BuildSucceeded out err -> out ++ err
             BuildFailed out err -> out ++ err
@@ -123,18 +131,15 @@ doSave :: ( GuiCommand m p buffer
           )
        => DialogOnErrorArg proxy m p buffer ()
 doSave = withGuiComponents $ \comp -> lift $ do
-    p <- lift $ gets currentProject
-    m <- lift $ gets currentModule
-    d <- lift $ gets currentDecl
-    case (p, m,d) of
-        (Just pi, Just mi, Just di) -> do
+    result <- lift $ getCurrentDeclaration
+    case result of
+        Just (pi, mi, di) -> do
             text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
                 start <- textBufferGetStartIter buffer
                 end <- textBufferGetEndIter buffer
                 textBufferGetText buffer start end False
-            
-            di' <- editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
-            withSolutionTree comp populateTree
+            di' <- bounce $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
+            bounce $ withSolutionTree comp populateTree
             saveSolution Nothing
             when (di /= di') $ do
                 lift $ setCurrentDecl pi mi di'
@@ -146,23 +151,23 @@ doSaveSolution :: ( GuiCommand m p buffer
                  )
               => Maybe FilePath
               -> DialogOnErrorArg proxy m p buffer ()
-doSaveSolution path = lift $ saveSolution path
+doSaveSolution = lift . saveSolution
 
 doAddModule :: ( GuiCommand m p buffer )
             => ProjectInfo
             -> ModuleInfo
             -> DialogOnErrorArg proxy m p buffer ()
 doAddModule pi mi = do
-    lift $ createModule pi mi
-    withGuiComponents $ \comp -> lift $ withSolutionTree comp populateTree
+    lift $ bounce $ createModule pi mi
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 doRemoveModule :: ( GuiCommand m p buffer )
                => ProjectInfo
                -> ModuleInfo
                -> DialogOnErrorArg proxy m p buffer ()
 doRemoveModule pi mi = do
-    lift $ removeModule pi mi
-    withGuiComponents $ \comp -> lift $ withSolutionTree comp populateTree
+    lift $ bounce $ removeModule pi mi
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 
 doAddDeclaration :: ( GuiCommand m p buffer )
@@ -172,8 +177,8 @@ doAddDeclaration :: ( GuiCommand m p buffer )
                  -> DialogOnErrorArg proxy m p buffer ()
 doAddDeclaration pi mi di = do
     let newdecl = WithBody (UnparseableDeclaration di) ""
-    lift $ addDeclaration pi mi newdecl
-    withGuiComponents $ \comp -> lift $ withSolutionTree comp populateTree
+    lift $ bounce $ addDeclaration pi mi newdecl
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 doRemoveDeclaration :: ( GuiCommand m p buffer )
                     => ProjectInfo
@@ -181,8 +186,8 @@ doRemoveDeclaration :: ( GuiCommand m p buffer )
                     -> DeclarationInfo
                     -> DialogOnErrorArg proxy m p buffer ()
 doRemoveDeclaration pi mi di = do
-    lift $ removeDeclaration pi mi di
-    withGuiComponents $ \comp -> lift $ withSolutionTree comp populateTree
+    lift $ bounce $ removeDeclaration pi mi di
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 doUnExportDeclaration :: ( GuiCommand m p buffer )
                     => ProjectInfo
@@ -190,7 +195,7 @@ doUnExportDeclaration :: ( GuiCommand m p buffer )
                     -> DeclarationInfo
                     -> DialogOnErrorArg proxy m p buffer ()
 doUnExportDeclaration pi mi (DeclarationInfo sym) = do
-    matches <- lift $ do
+    matches <- lift $ bounce $ do
         es <- do
             m <- getModule pi mi
             maybeEis <- getExports pi mi
@@ -208,8 +213,8 @@ doUnExportDeclaration pi mi (DeclarationInfo sym) = do
             case syms of
                 [] -> lift $ throwE $ InvalidOperation "Internal Error" "doUnExportDeclaration"
                 [_] -> do
-                    lift $ removeExport pi mi ei
-                    withGuiComponents $ \comp -> lift $ withSolutionTree comp populateTree
+                    lift $ bounce $ removeExport pi mi ei
+                    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
                 _ -> lift $ throwE $ Unsupported "Symbol is exported with other symbols, please remove export manually"
         _ -> lift $ throwE $ Unsupported "Multiple exports found, please remove exports manually"
 
@@ -221,8 +226,8 @@ doAddImport :: ( GuiCommand m p buffer )
 doAddImport pi mi importStr = do
     case Import.parse importStr of
         Right newImport -> do
-            _ <- lift $ addImport pi mi (WithBody newImport importStr)
-            withGuiComponents $ lift . flip withSolutionTree populateTree
+            _ <- lift $ bounce $ addImport pi mi (WithBody newImport importStr)
+            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
@@ -234,8 +239,8 @@ doRemoveImport :: ( GuiCommand m p buffer )
                -> ImportId
                -> DialogOnErrorArg proxy m p buffer ()
 doRemoveImport pi mi ii = do
-    lift $ removeImport pi mi ii
-    withGuiComponents $ lift . flip withSolutionTree populateTree
+    lift $ bounce $ removeImport pi mi ii
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 
 doGetImport :: ( GuiCommand m p buffer )
@@ -244,7 +249,7 @@ doGetImport :: ( GuiCommand m p buffer )
             -> ImportId
             -> DialogOnErrorArg proxy m p buffer (Maybe String)
 doGetImport pi mi ii = do
-    (WithBody _ b) <- lift $ getImport pi mi ii
+    (WithBody _ b) <- lift $ bounce $ getImport pi mi ii
     return $ Just b
 
 doEditImport :: ( GuiCommand m p buffer )
@@ -256,9 +261,9 @@ doEditImport :: ( GuiCommand m p buffer )
 doEditImport pi mi ii importStr = do
     case Import.parse importStr of
         Right newImport -> do
-            lift $ removeImport pi mi ii
-            _ <- lift $ addImport pi mi (WithBody newImport importStr)
-            withGuiComponents $ lift . flip withSolutionTree populateTree
+            lift $ bounce $ removeImport pi mi ii
+            _ <- lift $ bounce $ addImport pi mi (WithBody newImport importStr)
+            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
@@ -272,8 +277,8 @@ doAddExport :: ( GuiCommand m p buffer )
 doAddExport pi mi exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
-            _ <- lift $ addExport pi mi (WithBody newExport exportStr)
-            withGuiComponents $ lift . flip withSolutionTree populateTree
+            _ <- lift $ bounce $ addExport pi mi (WithBody newExport exportStr)
+            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
@@ -285,8 +290,8 @@ doRemoveExport :: ( GuiCommand m p buffer )
                -> ExportId
                -> DialogOnErrorArg proxy m p buffer ()
 doRemoveExport pi mi ei = do
-    lift $ removeExport pi mi ei
-    withGuiComponents $ lift . flip withSolutionTree populateTree
+    lift $ bounce $ removeExport pi mi ei
+    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 
 doGetExport :: ( GuiCommand m p buffer )
@@ -295,7 +300,7 @@ doGetExport :: ( GuiCommand m p buffer )
             -> ExportId
             -> DialogOnErrorArg proxy m p buffer (Maybe String)
 doGetExport pi mi ei = do
-    (WithBody _ b) <- lift $ getExport pi mi ei
+    (WithBody _ b) <- lift $ bounce $ getExport pi mi ei
     return $ Just b
 
 doEditExport :: ( GuiCommand m p buffer )
@@ -307,9 +312,9 @@ doEditExport :: ( GuiCommand m p buffer )
 doEditExport pi mi ei exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
-            lift $ removeExport pi mi ei
-            _ <- lift $ addExport pi mi (WithBody newExport exportStr)
-            withGuiComponents $ lift . flip withSolutionTree populateTree
+            lift $ bounce $ removeExport pi mi ei
+            _ <- lift $ bounce $ addExport pi mi (WithBody newExport exportStr)
+            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err

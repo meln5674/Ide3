@@ -31,7 +31,7 @@ import Control.Monad.Trans.Except
 
 import Ide3.Types
 
-import Ide3.Monad
+import Ide3.NewMonad
 import Ide3.Digest
 
 import Args
@@ -48,14 +48,14 @@ newtype ProjectInitializer a m u = ProjectInitializer
     { runProjectInitializerInternal :: a -> SolutionResult m u ProjectInitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
-runProjectInitializerWithInput :: (SolutionM m, Args a)
+runProjectInitializerWithInput :: (Monad m, Args a)
                => ProjectInitializer a m u 
                -> [String]
                -> Either String (SolutionResult m u ProjectInitializerResult)
 runProjectInitializerWithInput initializer = liftM (runProjectInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
-runProjectInitializer :: (SolutionM m, Args a)
+runProjectInitializer :: (Monad m, Args a)
                => ProjectInitializer a m u
                -> a
                -> SolutionResult m u ProjectInitializerResult

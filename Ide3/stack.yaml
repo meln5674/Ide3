@@ -34,4 +34,4 @@ extra-package-dbs: []
 # extra-lib-dirs: [/path/to/dir]
 
 ghc-options:
-    "*": -Wall
+    "*": -Wall -fno-warn-orphans

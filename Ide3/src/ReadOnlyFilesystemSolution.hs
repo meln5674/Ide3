@@ -29,7 +29,7 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
-import Ide3.Mechanism.State
+import Ide3.NewMonad.Instances.State.Class
 import Ide3.Types (SolutionError (..), ProjectInfo (..), SolutionInfo (..))
 import Ide3.Digest
 
@@ -58,7 +58,6 @@ newtype ReadOnlyFilesystemSolutionT m a
     , Monad
     , MonadTrans
     , MonadIO
-    , SolutionStateM
     )
 
 --type ReadOnlyFilesystemSolutionT' m = StatefulSolution (ReadOnlyFilesystemSolutionT m)
@@ -85,12 +84,12 @@ instance SolutionStateM m => SolutionStateM (ReadOnlyFilesystemSolutionT m) wher
     putSolution = lift . putSolution
 -}
 
-instance MonadIO m => SolutionShellM (ReadOnlyFilesystemSolutionT m) where
+instance MonadIO m => StatefulPersistenceClass (StateT FileSystemSolution m) where
     -- | Not supported
-    new _ = throwE $ Unsupported "Cannot create a new read-only project"
+    newState _ = throwE $ Unsupported "Cannot create a new read-only project"
     -- | Digest a project after loading the interface file
-    load = do
-        fsp <- lift getFsp
+    loadState = do
+        fsp <- lift get
         case fsp of
             ToOpen solutionPath -> do
                 let parts = splitPath solutionPath
@@ -100,8 +99,8 @@ instance MonadIO m => SolutionShellM (ReadOnlyFilesystemSolutionT m) where
                               , solutionPath
                               , Just $ solutionPath </> "ifaces"
                               )
-                p <- digestSolution (SolutionInfo solutionName) solutionPath [project]
-                lift $ putFsp $ Opened (SolutionInfo solutionName) solutionPath
+                p <- digestSolution (SolutionInfo solutionName) [project]
+                lift $ put $ Opened (SolutionInfo solutionName) solutionPath
                 return p
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened info solutionPath -> do
@@ -111,21 +110,21 @@ instance MonadIO m => SolutionShellM (ReadOnlyFilesystemSolutionT m) where
                               , solutionPath
                               , Just $ solutionPath </> "ifaces"
                               )
-                digestSolution info solutionPath [project]
+                digestSolution info [project]
     -- | Not supported
-    finalize _ = throwE $ Unsupported "Cannot save a read-only project"
+    finalizeState _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (MonadIO m, SolutionStateM m) => ViewerMonad (StatefulSolution (ReadOnlyFilesystemSolutionT m)) where
+instance (MonadIO m, StatefulSolutionClass m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
-    setDirectoryToOpen x = lift $ lift $ putFsp $ ToOpen x
+    setDirectoryToOpen x = lift $ putFsp $ ToOpen x
     -- | Unsupported
     setTargetPath _ = throwE $ Unsupported "Cannot set a target path for a readonly project"
     -- | Check if a project has been digested
     hasOpenedSolution = do
-        fsp <- lift $ getFsp
+        fsp <- getFsp
         case fsp of
             Opened _ _ -> return True
             _ -> return False

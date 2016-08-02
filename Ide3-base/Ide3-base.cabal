@@ -30,9 +30,22 @@ library
                      , Ide3.Module.Common
                      , Ide3.NewMonad
                      , Ide3.NewMonad.Utils
+                     , Ide3.NewMonad.Instances.Undecidable
                      , Ide3.NewMonad.Instances.State
+                     , Ide3.NewMonad.Instances.State.SolutionClass
+                     , Ide3.NewMonad.Instances.State.ProjectModuleClass
+                     , Ide3.NewMonad.Instances.State.ProjectExternModuleClass
+                     , Ide3.NewMonad.Instances.State.ModuleDeclarationClass
+                     , Ide3.NewMonad.Instances.State.ModuleImportClass
+                     , Ide3.NewMonad.Instances.State.ModuleExportClass
+                     , Ide3.NewMonad.Instances.State.ModulePragmaClass
+                     , Ide3.NewMonad.Instances.State.Compose
                      , Ide3.NewMonad.Instances.State.Class
-                     , Ide3.NewMonad.Instances.State.Class.Instances
+                     , Ide3.NewMonad.Instances.State.Class.Instances.Strict
+                     , Ide3.NewMonad.Instances.State.Class.Instances.Lazy
+                     , Ide3.Export.Query
+                     , Ide3.Import.Query
+                     , Ide3.Module.Query
                      , Ide3.Import
                      , Ide3.Import.Parser
                      , Ide3.Export
@@ -51,9 +64,6 @@ library
                      , Ide3.Module.Common.Types
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal
-                     , Ide3.Export.Query
-                     , Ide3.Import.Query
-                     , Ide3.Module.Query
                      , Ide3.Import.Internal
                      , Ide3.Query
   build-depends:       base

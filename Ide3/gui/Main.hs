@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
@@ -26,9 +27,10 @@ import Control.Concurrent.MVar
 import Graphics.UI.Gtk hiding (get)
 
 import Ide3.Types
-import Ide3.Monad
+import Ide3.NewMonad
+import Ide3.NewMonad.Instances.State.Class
+import Ide3.NewMonad.Instances.State.Class.Instances.Strict
 import Ide3.Digest
-import Ide3.Mechanism.State
 import qualified Ide3.Solution as Solution
 
 import Viewer
@@ -63,6 +65,20 @@ import CabalFilesystemSolution
 
 import Initializer
 
+deriving instance (MonadMask m) => MonadMask (StatefulWrapper m)
+deriving instance (MonadCatch m) => MonadCatch (StatefulWrapper m)
+deriving instance (MonadThrow m) => MonadThrow (StatefulWrapper m)
+
+deriving instance (MonadMask m) => MonadMask (SolutionStateT m)
+deriving instance (MonadCatch m) => MonadCatch (SolutionStateT m)
+deriving instance (MonadThrow m) => MonadThrow (SolutionStateT m)
+
+instance (InteruptMonad2 s m) => InteruptMonad2 s (StatefulWrapper m) where
+    interupt2 x f = interupt2 x (runStatefulWrapper f)
+
+instance PseudoStateT SolutionStateT Solution where
+    runPseudoStateT = runStateT . runSolutionStateT
+
 declBufferEdited :: (TextBufferClass buffer) => GuiEnvSignal proxy m' p buffer IO (GuiComponents buffer) buffer IO ()
 declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
 
@@ -71,6 +87,7 @@ onNewSolutionConfirmed :: forall proxy m p buffer
                          , ViewerMonad m
                          , InteruptMonad2 p m
                          , TextBufferClass buffer
+                         , PersistentSolutionMonad m
                          , MonadMask m
                          )
                       => NewSolutionDialog
@@ -86,8 +103,9 @@ onNewSolutionConfirmed dialog = do
 onNewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  , MonadMask m
                  )
               => GuiEnvT proxy m p buffer IO ()
@@ -105,8 +123,9 @@ onNewClicked = do
 onOpenClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onOpenClicked = do
@@ -130,8 +149,9 @@ onOpenClicked = do
 onDigestClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onDigestClicked = do
@@ -156,8 +176,9 @@ onDigestClicked = do
 onDeclClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  )
               => TreePath
               -> TreeViewColumn
@@ -167,9 +188,10 @@ onDeclClicked = doGetDecl
 onBuildClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onBuildClicked = void $ mapGuiEnv liftIO $ doBuild
@@ -177,9 +199,10 @@ onBuildClicked = void $ mapGuiEnv liftIO $ doBuild
 onRunClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onRunClicked = mapGuiEnv liftIO $ doRun
@@ -188,9 +211,10 @@ onRunClicked = mapGuiEnv liftIO $ doRun
 onSaveClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onSaveClicked = mapGuiEnv liftIO $ doSave
@@ -198,9 +222,10 @@ onSaveClicked = mapGuiEnv liftIO $ doSave
 onSaveSolutionClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer IO ()
 onSaveSolutionClicked = mapGuiEnv liftIO $ doSaveSolution Nothing
@@ -208,9 +233,10 @@ onSaveSolutionClicked = mapGuiEnv liftIO $ doSaveSolution Nothing
 onNewProjectClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => GuiEnvT proxy m p buffer (EventM EButton) Bool
 onNewProjectClicked = undefined
@@ -218,8 +244,9 @@ onNewProjectClicked = undefined
 onDeleteProjectClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  , MonadMask m
                  )
               => ProjectInfo
@@ -231,9 +258,10 @@ onDeleteProjectClicked pi = undefined
 onNewModuleClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> Maybe String
@@ -256,9 +284,10 @@ onNewModuleClicked pi modName = do
 onNewImportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> ModuleInfo
@@ -284,9 +313,10 @@ onNewImportClicked pi mi = do
 onEditImportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> ModuleInfo
@@ -316,9 +346,10 @@ onEditImportClicked pi mi ii = do
 onNewExportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> ModuleInfo
@@ -344,9 +375,10 @@ onNewExportClicked pi mi = do
 onEditExportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> ModuleInfo
@@ -376,9 +408,10 @@ onEditExportClicked pi mi ii = do
 onExportDeclarationClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => ProjectInfo
               -> ModuleInfo
@@ -405,10 +438,11 @@ onExportDeclarationClicked pi mi (DeclarationInfo (Symbol declStr)) = do
 setupModuleContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -431,10 +465,11 @@ setupModuleContextMenu pi mi = mapGuiEnv liftIO $ do
 setupProjectContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> GuiEnvT proxy m p buffer m' ContextMenu
@@ -449,10 +484,11 @@ setupProjectContextMenu pi = mapGuiEnv liftIO $ do
 setupSolutionContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => GuiEnvT proxy m p buffer m' ContextMenu
 setupSolutionContextMenu = mapGuiEnv liftIO $ do
@@ -464,10 +500,11 @@ setupSolutionContextMenu = mapGuiEnv liftIO $ do
 setupDeclContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -488,10 +525,11 @@ setupDeclContextMenu pi mi di = mapGuiEnv liftIO $ do
 setupImportsContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -505,10 +543,11 @@ setupImportsContextMenu pi mi = mapGuiEnv liftIO $ do
 setupExportsContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -521,10 +560,11 @@ setupExportsContextMenu pi mi = mapGuiEnv liftIO $ do
 setupImportContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -543,10 +583,11 @@ setupImportContextMenu pi mi ii = mapGuiEnv liftIO $ do
 setupExportContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
+                 , PersistentSolutionMonad m
                  ) 
                  => ProjectInfo
                  -> ModuleInfo
@@ -565,9 +606,10 @@ setupExportContextMenu pi mi ei = mapGuiEnv liftIO $ do
 onSolutionViewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
+                 , PersistentSolutionMonad m
                  )
               => MainWindow
               -> GuiEnvT proxy m p buffer (EventM EButton) Bool
@@ -598,8 +640,9 @@ onSolutionViewClicked gui = do
 onDeclEdited :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 , InteruptMonad2 p m
+                 ,InteruptMonad2 p m
                  , TextBufferClass buffer
+                 , PersistentSolutionMonad m
                  , MonadMask m
                  )
               => GuiEnvT proxy m p buffer IO ()
@@ -642,6 +685,7 @@ doMain :: forall proxy m p
           , ViewerMonad m
           , InteruptMonad2 p m
           , MonadMask m
+          , PersistentSolutionMonad m
           )
        => proxy m 
        -> p
@@ -661,5 +705,5 @@ doMain proxy init = do
 
 
 main :: IO ()
-main = doMain (Proxy :: Proxy (CabalSolution (SolutionStateT IO)))
+main = doMain (Proxy :: Proxy (CabalSolution (StatefulWrapper (SolutionStateT IO))))
               (Unopened, Solution.empty)

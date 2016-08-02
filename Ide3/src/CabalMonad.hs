@@ -14,22 +14,22 @@ data CabalProjectInfo
 
 editBuildInfo :: CabalProject -> (BuildInfo -> BuildInfo) -> CabalProject
 editBuildInfo (LibraryProject lib) f = LibraryProject lib{ libBuildInfo = f $ libBuildInfo lib }
-editBuildInfo (ExecutableProject exe) f = ExecutableProject exe{ buildInfo = f $ buildInfo exe }
-editBuildInfo (TestSuiteProject test) f = TestSuiteProject test{ testBuildInfo = f $ testBuildInfo test }
-editBuildInfo (BenchmarkProject bench) f = BenchmarkProject bench{ benchmarkBuildInfo = f $ benchmarkBuildInfo bench }
+editBuildInfo (ExecutableProject n exe) f = ExecutableProject n exe{ buildInfo = f $ buildInfo exe }
+editBuildInfo (TestSuiteProject n test) f = TestSuiteProject n test{ testBuildInfo = f $ testBuildInfo test }
+editBuildInfo (BenchmarkProject n bench) f = BenchmarkProject n bench{ benchmarkBuildInfo = f $ benchmarkBuildInfo bench }
 
 withBuildInfo :: CabalProject -> (BuildInfo -> a) -> a
 withBuildInfo (LibraryProject lib) f = f $ libBuildInfo lib
-withBuildInfo (ExecutableProject exe) f = f $ buildInfo exe
-withBuildInfo (TestSuiteProject test) f = f $ testBuildInfo test
-withBuildInfo (BenchmarkProject bench) f = f $ benchmarkBuildInfo bench
+withBuildInfo (ExecutableProject _ exe) f = f $ buildInfo exe
+withBuildInfo (TestSuiteProject _ test) f = f $ testBuildInfo test
+withBuildInfo (BenchmarkProject _ bench) f = f $ benchmarkBuildInfo bench
 
 -- | A solution type
 data CabalProject
     = LibraryProject Library -- ^ A library project
-    | ExecutableProject Executable -- ^ An executable project
-    | TestSuiteProject TestSuite -- ^ A test suite project
-    | BenchmarkProject Benchmark
+    | ExecutableProject ProjectInfo Executable -- ^ An executable project
+    | TestSuiteProject ProjectInfo TestSuite -- ^ A test suite project
+    | BenchmarkProject ProjectInfo Benchmark
 
 class Monad m => CabalMonad m u where
     getCabalProjects :: SolutionResult m u [CabalProjectInfo] 

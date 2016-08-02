@@ -29,14 +29,10 @@ class Monad m => StatefulPersistenceClass m where
 newtype StatefulWrapper m a = StatefulWrapper { runStatefulWrapper :: m a }
   deriving (Functor, Applicative, Monad, StatefulSolutionClass, StatefulPersistenceClass, MonadIO)
   
+{-
 instance MonadTrans StatefulWrapper where
     lift = StatefulWrapper
-
-
-instance (StatefulSolutionClass m, StatefulPersistenceClass m) => PersistenceClass (StatefulWrapper m) where
-    load = loadState >>= putSolution
-    new = newState >=> putSolution
-    finalize = getSolution >>= finalizeState
+-}
 
 modifySolutionER :: StatefulSolutionClass m 
                  => (Solution -> SolutionResult m u (a,Solution))

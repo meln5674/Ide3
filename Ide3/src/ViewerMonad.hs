@@ -22,14 +22,8 @@ import Control.Monad.Trans.State.Strict
 
 import Ide3.Types
 
-import Ide3.Monad
---import Ide3.Mechanism.State -- (ProjectStateM (..), ProjectShellM (..))
---import Ide3.Mechanism.State
-
---import PseudoState
-
 -- | Provides methods for features of a persistance mechanism
-class (SolutionM m) => ViewerMonad m where
+class Monad m => ViewerMonad m where
     -- | Set the file to open so that when SolutionM.load is called, that path is
     -- used to open a project
     setFileToOpen :: FilePath -> SolutionResult m u ()

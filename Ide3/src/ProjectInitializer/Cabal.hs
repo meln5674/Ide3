@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 module ProjectInitializer.Cabal where
 
 import Control.Monad.Trans
@@ -5,7 +6,8 @@ import Control.Monad.Trans
 import Distribution.PackageDescription
 import Distribution.Version
 
-import Ide3.Monad
+import Ide3.Types
+import Ide3.NewMonad
 
 import Args
 
@@ -34,14 +36,22 @@ instance Args StackProjectInitializerArgs where
         ]
 
 -- | An Initializer that uses the stack new command to create a new solution
-stackProjectInitializer :: (MonadIO m, SolutionM m, CabalMonad m u) 
-                         => ProjectInitializer StackProjectInitializerArgs m u
+stackProjectInitializer :: ( MonadIO m
+                           , PersistenceClass m
+                           , CabalMonad m u
+                           )
+                        => ProjectInitializer StackProjectInitializerArgs m u
 stackProjectInitializer = ProjectInitializer $ \(StackProjectInitializerArgs arg srcDir) -> do
     let newBuildInfo = emptyBuildInfo
                      { hsSourceDirs = [srcDir]
                      }
+        newProjectInfo = case arg of
+                LibraryInfo -> ProjectInfo "LIBRARY"
+                ExecutableInfo exeName -> ProjectInfo exeName
+                TestSuiteInfo testName -> ProjectInfo testName
+                BenchmarkInfo benchName -> ProjectInfo benchName
         newProject = case arg of
-                ExecutableInfo exeName -> ExecutableProject 
+                ExecutableInfo exeName -> ExecutableProject newProjectInfo
                     $ emptyExecutable 
                     { buildInfo = newBuildInfo
                     , exeName = exeName
@@ -51,14 +61,14 @@ stackProjectInitializer = ProjectInitializer $ \(StackProjectInitializerArgs arg
                     $ emptyLibrary
                     { libBuildInfo = newBuildInfo 
                     }
-                TestSuiteInfo testName -> TestSuiteProject
+                TestSuiteInfo testName -> TestSuiteProject newProjectInfo
                     $ emptyTestSuite
                     { testName = testName
                     , testInterface = TestSuiteExeV10 (Version [1,0] []) "Main.hs"
                     , testBuildInfo = newBuildInfo
                     , testEnabled = True
                     }
-                BenchmarkInfo benchName -> BenchmarkProject
+                BenchmarkInfo benchName -> BenchmarkProject newProjectInfo
                     $ emptyBenchmark
                     { benchmarkName = benchName
                     , benchmarkInterface = BenchmarkExeV10 (Version [1,0] []) "Main.hs"

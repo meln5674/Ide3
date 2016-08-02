@@ -7,7 +7,7 @@ import Control.Monad.Trans
 
 import Ide3.Types
 import Ide3.ModuleTree
-import Ide3.Monad
+import Ide3.NewMonad
 
 import Graphics.UI.Gtk
 
@@ -86,7 +86,16 @@ makeProjectTree pi branches = Node (ProjectElem pi) $ map makeModuleTree branche
 makeSolutionTree :: [(ProjectInfo,[ModuleTree])] -> [Tree SolutionTreeElem]
 makeSolutionTree = map $ uncurry makeProjectTree
 
-populateTree :: (MonadIO m, ViewerMonad m) => TreeStore SolutionTreeElem -> SolutionResult m u ()
+populateTree :: ( MonadIO m
+                , ViewerMonad m
+                , SolutionClass m
+                , ProjectModuleClass m
+                , ModuleExportClass m
+                , ModuleImportClass m
+                , ModuleDeclarationClass m
+                , ModulePragmaClass m
+                ) 
+             => TreeStore SolutionTreeElem -> SolutionResult m u ()
 populateTree treeStore = do
     projects <- getProjects
     trees <- forM projects $ \pi -> do

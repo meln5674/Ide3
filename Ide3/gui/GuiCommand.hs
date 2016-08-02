@@ -15,7 +15,7 @@ import Control.Monad.Trans.State.Strict (gets)
 
 import Ide3.Types
 import Ide3.Utils
-import Ide3.Monad
+import Ide3.NewMonad
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Import as Import

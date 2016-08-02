@@ -41,7 +41,7 @@ import qualified Ide3.Solution as Solution
 
 import Ide3.NewMonad.Instances.State
 import Ide3.NewMonad.Instances.State.Class
-import Ide3.NewMonad.Instances.State.Class.Instances
+import Ide3.NewMonad.Instances.State.Class.Instances.Lazy
 
 -- | Represents a simplified directory structure
 data FileTree
@@ -167,8 +167,8 @@ digestSolution :: forall m u
                -> SolutionResult m u Solution
 digestSolution si ps = do
     let --y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
-        y :: MonadIO m => SolutionResult (StatefulWrapper (StateT Solution m)) u Solution
-        y = digestSolutionM si ps >> getSolution
-    (z,_) <- lift $ flip runStateT Solution.empty $ runStatefulWrapper $ runExceptT y
+          y :: MonadIO m => SolutionResult (StatefulWrapper (SolutionStateT m)) u Solution
+          y = digestSolutionM si ps >> getSolution
+    (z,_) <- lift $ flip runStateT Solution.empty $ runSolutionStateT $ runStatefulWrapper $ runExceptT y
     ExceptT $ return z
 

@@ -1,7 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-|
@@ -42,8 +41,9 @@ import System.IO.Error
 
 import System.FilePath
 
-import Ide3.Monad hiding (load)
-import Ide3.Mechanism.State
+import Ide3.NewMonad hiding (load)
+import Ide3.NewMonad.Instances.Undecidable
+import Ide3.NewMonad.Instances.State.Class
 import Ide3.Types
 import qualified Ide3.Env.Solution as Solution
 import Ide3.Digest
@@ -83,15 +83,17 @@ newtype SimpleFilesystemSolutionT' m a
 -- | Type wrapper for using a file as the project store
 newtype SimpleFilesystemSolutionT m a
     = SimpleFilesystemSolutionT
-    { runSimpleFilesystemSolutionTInternal :: StatefulSolution (StateT FileSystemSolution m) a
+    { runSimpleFilesystemSolutionTInternal :: StateT FileSystemSolution m a
     }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadIO
-    , SolutionM
     )
+
+instance MonadBounce SimpleFilesystemSolutionT where
+    bounce = ExceptT . SimpleFilesystemSolutionT . lift . runExceptT
 
 {-
 instance MonadTrans SimpleFilesystemSolutionT' where
@@ -99,7 +101,7 @@ instance MonadTrans SimpleFilesystemSolutionT' where
 -}
 
 instance MonadTrans SimpleFilesystemSolutionT where
-    lift = SimpleFilesystemSolutionT . lift . lift
+    lift = SimpleFilesystemSolutionT . lift
 
 --deriving instance (MonadMask m) => MonadMask (SimpleFilesystemSolutionT' m)
 deriving instance (MonadMask m) => MonadMask (SimpleFilesystemSolutionT m)
@@ -113,7 +115,7 @@ runSimpleFilesystemSolutionT :: SimpleFilesystemSolutionT m a -> FileSystemSolut
 runSimpleFilesystemSolutionT 
     = runStateT 
 --    . runSimpleFilesystemSolutionT'Internal 
-    . runStatefulSolution 
+--    . runStatefulSolution 
     . runSimpleFilesystemSolutionTInternal
 
 -- | Run an action inside the mechanism 
@@ -141,12 +143,12 @@ putFsp' = put
 -- | Get the project state from the outer type
 getFsp :: (Monad m) => SimpleFilesystemSolutionT m FileSystemSolution
 --getFsp = SimpleFilesystemSolutionT $ lift $ getFsp'
-getFsp = SimpleFilesystemSolutionT $ lift $ get
+getFsp = SimpleFilesystemSolutionT $ get
 
 -- | Set the project state from the outer type
 putFsp :: (Monad m) => FileSystemSolution -> SimpleFilesystemSolutionT m ()
 --putFsp = SimpleFilesystemSolutionT . lift . putFsp'
-putFsp = SimpleFilesystemSolutionT . lift . put
+putFsp = SimpleFilesystemSolutionT . put
 
 {-
 instance SolutionStateM m => SolutionStateM (SimpleFilesystemSolutionT m) where
@@ -155,14 +157,14 @@ instance SolutionStateM m => SolutionStateM (SimpleFilesystemSolutionT m) where
 -}
 
 --instance MonadIO m => SolutionShellM (SimpleFilesystemSolutionT' m) where
-instance MonadIO m => SolutionShellM (StateT FileSystemSolution m) where
+instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) where
     -- | Create a new project
-    new i = do
-        lift $ putFsp' $ Opened Nothing
+    newState i = do
+        lift $ putFsp $ Opened Nothing
         return $ Solution.new i
     -- | Either digest a directory or open a file and use Read on the contents
-    load = do
-        fsp <- lift getFsp'
+    loadState = do
+        fsp <- lift getFsp
         case fsp of
             ToDigest solutionPath -> do
                 let parts = splitPath solutionPath
@@ -172,27 +174,27 @@ instance MonadIO m => SolutionShellM (StateT FileSystemSolution m) where
                               , solutionPath
                               , Just $ solutionPath </> "ifaces"
                               )
-                p <- digestSolution (SolutionInfo solutionName) solutionPath [project]
-                lift $ putFsp' $ Opened $ Just (SolutionInfo solutionName, solutionPath)
+                p <- digestSolution (SolutionInfo solutionName) [project]
+                lift $ putFsp $ Opened $ Just (SolutionInfo solutionName, solutionPath)
                 return p
             ToOpen path -> do
                 result <- liftIO $ tryIOError $ readFile path
                 case result of
                     Right contents -> case readMaybe contents of
                         Just p -> do
-                            lift $ putFsp' $ Opened $ Just (solutionInfo p, path)
+                            lift $ putFsp $ Opened $ Just (solutionInfo p, path)
                             return p
                         Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
                     Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
             Opened (Just (info, path)) -> do
-                lift $ putFsp' $ ToOpen path
-                load
+                lift $ putFsp $ ToOpen path
+                loadState
     -- | Use Show to turn the current project into a string and write it to the
     -- correct file
-    finalize p = do
-        fsp <- lift getFsp'
+    finalizeState p = do
+        fsp <- lift getFsp
         case fsp of
             Opened (Just (_,path)) -> do
                 result <- liftIO $ tryIOError $ writeFile path $ show p
@@ -227,7 +229,14 @@ data FileListing
     }
 
 -- | Make a listing of files to write out
-makeFileListing :: SolutionM m => ProjectInfo -> SolutionResult m u FileListing
+makeFileListing :: ( ProjectModuleClass m
+                   , ModuleExportClass m
+                   , ModuleImportClass m
+                   , ModuleDeclarationClass m
+                   , ModulePragmaClass m
+                   ) 
+                => ProjectInfo 
+                -> SolutionResult m u FileListing
 makeFileListing pi = do
     t <- makeTree pi
     let dirs (OrgNode i ts) =  (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
@@ -257,7 +266,16 @@ executeFileListing listing = do
     wrapIOError $ forM_ (directoriesNeeded listing) $ createDirectoryIfMissing True
     forM_ (outputs listing) $ writeOutputPair
 
-instance (MonadIO m, SolutionStateM m) => ViewerMonad (SimpleFilesystemSolutionT m) where
+instance ( MonadIO m
+         , SolutionClass m
+         , PersistenceClass m
+         , ProjectModuleClass m
+         , ModuleExportClass m
+         , ModuleImportClass m
+         , ModuleDeclarationClass m
+         , ModulePragmaClass m
+         ) 
+         => ViewerMonad (SimpleFilesystemSolutionT m) where
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
@@ -281,14 +299,16 @@ instance (MonadIO m, SolutionStateM m) => ViewerMonad (SimpleFilesystemSolutionT
     -- | Create a new file project
     createNewFile path = do
         let solutionName = takeBaseName path
-        lift $ lift $ putSolution $ Solution.new $ SolutionInfo solutionName
+        bounce $ new $ SolutionInfo solutionName
         lift $ putFsp $ Opened Nothing
         setTargetPath path
     -- | Unsupported
     createNewDirectory _ = throwE $ Unsupported "Cannot create a directory project using simple"
     -- | Get a list of files and directories needed and then create them
-    prepareBuild = getProjects >>= mapM_ (makeFileListing >=> executeFileListing)
+    prepareBuild = bounce $ getProjects >>= mapM_ (makeFileListing >=> executeFileListing)
+
 
 instance PseudoStateT SimpleFilesystemSolutionT FileSystemSolution where
 --    runPseudoStateT = runStateT . runSimpleFilesystemSolutionT'Internal . runStatefulSolution . runSimpleFilesystemSolutionTInternal
-    runPseudoStateT = runStateT . runStatefulSolution . runSimpleFilesystemSolutionTInternal
+    runPseudoStateT = runStateT . runSimpleFilesystemSolutionTInternal
+

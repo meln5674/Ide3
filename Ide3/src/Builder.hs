@@ -28,7 +28,7 @@ import Control.Monad.Catch
 import System.Exit
 import System.Process
 
-import Ide3.Monad
+import Ide3.NewMonad
 import Ide3.Types
 
 -- | The result of a build operation

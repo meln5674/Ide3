@@ -1,5 +1,7 @@
 module Command.Types where
 
+import Data.List
+
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Reader
 
@@ -38,6 +40,9 @@ defaultOutput (MkOutput (Right x)) = MkOutput (Right x)
 
 defaultOutputs :: [Output a] -> [Output String]
 defaultOutputs = map defaultOutput
+
+processOutputs :: (Show a) => [Output a] -> String
+processOutputs = intercalate "\n" . map show
 
 -- | Instance of show for Output which uses the default show function if not a string
 instance Show a => Show (Output a) where

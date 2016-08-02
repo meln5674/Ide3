@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+
 module Ide3.NewMonad where
 
 import Control.Monad.Trans
@@ -25,6 +26,7 @@ class Monad m => PersistenceClass m where
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
     finalize :: SolutionResult m u ()
+
 
 class Monad m => SolutionClass m where
     -- | Edit the solution's info
@@ -205,3 +207,13 @@ type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
 type ModuleClass m = (ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m, ModulePragmaClass m)
 type SolutionMonad m = (SolutionClass m, ProjectClass m, ModuleClass m)
 type PersistentSolutionMonad m = (PersistenceClass m, SolutionMonad m)
+
+class MonadBounce t where
+    bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a
+
+{-
+-- | Utility function which inserts an additional transformer into a stack
+-- which is topped by ExceptT
+bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
+bounce = ExceptT . lift . runExceptT
+-}

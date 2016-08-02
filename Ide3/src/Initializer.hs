@@ -34,7 +34,7 @@ import Control.Monad.Trans.Except
 
 import Ide3.Types
 
-import Ide3.Monad
+import Ide3.NewMonad
 import Ide3.Digest
 
 import Args
@@ -51,14 +51,14 @@ newtype Initializer a m u = Initializer
     { runInitializerInternal :: a -> SolutionResult m u InitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
-runInitializerWithInput :: (SolutionM m, Args a) 
+runInitializerWithInput :: (Monad m, Args a) 
                => Initializer a m u 
                -> [String]
                -> Either String (SolutionResult m u InitializerResult)
 runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
-runInitializer :: (SolutionM m, Args a)
+runInitializer :: (Monad m, Args a)
                => Initializer a m u
                -> a
                -> SolutionResult m u InitializerResult
@@ -82,7 +82,12 @@ noInitializer :: Monad m => Initializer a m u
 noInitializer = Initializer $ \_ -> throwE $ Unsupported "No initializer specified"
 
 -- | An Initializer that uses the stack new command to create a new solution
-stackInitializer :: (MonadIO m, SolutionM m) => Initializer StackInitializerArgs m u
+stackInitializer :: ( MonadIO m
+                    , SolutionClass m
+                    , ProjectModuleClass m
+                    , ProjectExternModuleClass m
+                    ) 
+                 => Initializer StackInitializerArgs m u
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
     let args = case template of
             Nothing -> ["new", path]
@@ -96,7 +101,7 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
             let solutionName = takeBaseName path
                 solutionInfo = SolutionInfo solutionName
                 projects = flip map dirs $ \d -> (ProjectInfo $ takeBaseName d, d,Nothing)
-            digestSolutionM solutionInfo path projects
+            digestSolutionM solutionInfo projects
             return $ InitializerSucceeded out err
             
         ExitFailure _ ->  return $ InitializerFailed out err

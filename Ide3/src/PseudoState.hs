@@ -19,9 +19,6 @@ module PseudoState where
 import qualified Control.Monad.Trans.State.Strict as Strict
 import qualified Control.Monad.Trans.State as Lazy
 
-import Ide3.Types
-import Ide3.Mechanism.State
-
 -- | Typeclass for transformers which behave similarly to StateT
 class PseudoStateT t s | t -> s where
     -- | Equivalent of runStateT
@@ -33,6 +30,3 @@ instance PseudoStateT (Strict.StateT s) s where
 
 instance PseudoStateT (Lazy.StateT s) s where
     runPseudoStateT = Lazy.runStateT
-
-instance PseudoStateT SolutionStateT Solution where
-    runPseudoStateT = runSolutionStateT

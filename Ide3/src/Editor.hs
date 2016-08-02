@@ -29,7 +29,7 @@ import System.Process
 import System.IO
 import System.IO.Temp
 
-import Ide3.Monad
+import Ide3.NewMonad
 import Ide3.Types
 
 -- | The result from running an editor
