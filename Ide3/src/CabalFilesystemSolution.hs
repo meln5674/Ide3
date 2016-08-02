@@ -190,6 +190,12 @@ getProject pi = do
         _ -> throwE $ DuplicateProject pi ""
 -}
 
+toModuleName :: ModuleInfo -> ModuleName.ModuleName
+toModuleName (ModuleInfo (Symbol s)) = ModuleName.fromString s
+
+toModuleInfo :: ModuleName.ModuleName -> ModuleInfo
+toModuleInfo mn = ModuleInfo $ Symbol $ intercalate "." $ ModuleName.components mn
+
 locateModule :: (MonadIO m) => [FilePath] -> ModuleName.ModuleName -> m (Maybe FilePath)
 locateModule paths mn = do
     let possiblePaths = map (</> (ModuleName.toFilePath mn ++ ".hs")) paths
@@ -201,7 +207,7 @@ locateModule paths mn = do
     return $ getFirst $ mconcat $ map First hits
 
 -- | Get a list of modules from a cabal solution
-getInternalModules :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u [Module]
+getInternalModules :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u [(Module,FilePath)]
 getInternalModules pi = do
     p <- lookupCabalProject pi
     roots <- getProjectSourceRoots p
@@ -236,14 +242,15 @@ getInternalModules pi = do
         Just path -> do
             contents <- wrapReadFile path
             return (path,contents)
-    moduleParses <- forM moduleContents $ \(path,contents) ->
-        ExceptT $ return $ Module.parse contents $ Just path
+    moduleParses <- forM moduleContents $ \(path,contents) -> do
+        m <- ExceptT $ return $ Module.parse contents $ Just path
+        return (m,path)
     case mainModulePath of
         Just x -> do
             mainModuleContents <- wrapReadFile x
             (mainModule,_,_) <- ExceptT $ return $ Module.parseMain mainModuleContents $ Just x
-            return $ mainModule : map (\(x,_,_) -> x) moduleParses
-        Nothing -> return $ map (\(x,_,_) -> x) moduleParses
+            return $ (mainModule, x) : map (\((x,_,_),p) -> (x,p)) moduleParses
+        Nothing -> return $ map (\((x,_,_),p) -> (x,p)) moduleParses
     
     
 -- | Get the external modules used by a cabal solution. * INCOMPLETE *
@@ -367,7 +374,13 @@ loadProject pi = do
     modules <- getInternalModules pi
     externModules <- getExternalModules pi
     addProject pi
-    forM_ modules $ addModule pi
+    let addPaths = foldr (.) id 
+                 $ flip map modules 
+                 $ \(m,path) -> addModulePath pi (Module.info m) path
+    (Opened (Just info)) <- lift getFsp
+    let info' = addPaths info
+    lift $ putFsp $ Opened $ Just info'
+    forM_ modules $ bounce . addModule pi . fst
     forM_ externModules $ addExternModule pi
     
     --let p = Project.new pi

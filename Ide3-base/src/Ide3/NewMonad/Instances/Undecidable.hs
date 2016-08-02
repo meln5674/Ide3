@@ -13,7 +13,7 @@ import Ide3.Types
 import Ide3.NewMonad
     
 newtype UndecidableWrapper (t :: (* -> *) -> * -> *) (m :: * -> *) (a :: *) where
-    UndecidableWrapper { runUndecidableWrapper :: t m a } :: UndecidableWrapper t m a
+    UndecidableWrapper :: { runUndecidableWrapper :: t m a } -> UndecidableWrapper t m a
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO, MonadBounce)
 
 instance  (MonadBounce t, PersistenceClass m, Monad (t m)) => PersistenceClass (UndecidableWrapper t m) where
