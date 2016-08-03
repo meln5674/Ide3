@@ -1,10 +1,5 @@
 module Ide3.NewMonad.Instances.State.SolutionClass where
 
-import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Except
-
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 

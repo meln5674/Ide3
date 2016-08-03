@@ -2,7 +2,6 @@ module Ide3.Import.Internal where
 
 import Ide3.Types
 
-import Data.List
 import Data.Maybe
 
 -- | Get the name of the module being imported, pre-rename
@@ -38,14 +37,17 @@ importedModuleName i = fromMaybe name rename
     name = moduleName i
     rename = renamed i        
 
+replace :: String -> String -> String -> String
+replace toReplace replacement str = undefined
+
 -- | Apply a transformation to the name of the module being imported
 editModuleName :: (Symbol -> Symbol) 
                -> WithBody Import
                -> WithBody Import
 editModuleName f (WithBody (ModuleImport sym a b) s)
-    = WithBody (ModuleImport (f sym) a b) $ error "TODO"
+    = WithBody (ModuleImport (f sym) a b) $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (WhitelistImport sym a b c) s)
-    = WithBody (WhitelistImport (f sym) a b c) $ error "TODO"
+    = WithBody (WhitelistImport (f sym) a b c) $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (BlacklistImport sym a b c) s)
-    = WithBody (BlacklistImport (f sym) a b c) $ error "TODO"
+    = WithBody (BlacklistImport (f sym) a b c) $ replace (getSymbol sym) (getSymbol $ f sym) s
 

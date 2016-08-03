@@ -10,12 +10,6 @@ Portability : POSIX
 -}
 module Ide3.Module.Extern where
 
-import Control.Monad.Trans.Except
-
-import Data.Monoid
-import Data.List
-
-import Ide3.NewMonad
 import Ide3.Types
 
 -- | Get the identifying information from an external module

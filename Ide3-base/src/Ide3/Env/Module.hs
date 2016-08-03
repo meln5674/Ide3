@@ -58,9 +58,9 @@ removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u ()
 removeDeclaration = do
     di <- lift ask
     m <- get
-    (d,m') <- lift $ lift $ removeChildT di m
+    (d, m') <- lift $ lift $ removeChildT di m 
     let d' = d :: WithBody Declaration
-    put m'
+    put m' 
 
 -- | Get the ids of all declarations
 getDeclarations :: Monad m => DescentChain1 Module m u [DeclarationInfo]

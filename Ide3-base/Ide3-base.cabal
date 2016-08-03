@@ -60,7 +60,6 @@ library
                      , Ide3.Digest
                      , Ide3.Utils
   other-modules:       Ide3.Module.Internal
-                     , Ide3.Module.Common.Query
                      , Ide3.Module.Common.Types
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal

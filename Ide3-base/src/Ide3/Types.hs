@@ -54,7 +54,7 @@ instance Functor WithBody where
     fmap f (WithBody x s) = WithBody (f x) s
     
 -- | Catch-all type for any identifier which is significant to the program
-newtype Symbol = Symbol String
+newtype Symbol = Symbol { getSymbol :: String }
     deriving (Show, Read, Eq, Ord)
 
 -- |Join two symbols together such that the second is qualified by the first
@@ -124,6 +124,7 @@ type DeclarationCollection = Map DeclarationInfo (WithBody Declaration)
 data Module
     = Module 
     { moduleInfo :: ModuleInfo  -- ^ Identifying information
+    , moduleHeader :: String -- ^ Header text
     , modulePragmas :: [Pragma] -- ^ Pragmas
     , moduleImports :: ImportCollection
     , moduleExports :: ExportCollection

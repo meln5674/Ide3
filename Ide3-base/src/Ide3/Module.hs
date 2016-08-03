@@ -11,8 +11,9 @@ Portability : POSIX
 -}
 
 module Ide3.Module 
-    ( module Ide3.Module
+    ( module Ide3.Module.Query
     , module Ide3.Module.Internal
     ) where
 
 import Ide3.Module.Internal
+import Ide3.Module.Query

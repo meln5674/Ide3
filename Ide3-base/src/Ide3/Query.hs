@@ -177,9 +177,10 @@ moduleExportedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
                       => ProjectInfo 
                       -> Module 
                       -> SolutionResult m u [ModuleChild Symbol]
-moduleExportedSymbols pji m = case m of
-    (Module _ _ _ Nothing _) -> return $ Module.allSymbols m
-    (Module _ _ _ (Just es) _) -> do
+moduleExportedSymbols pji m = maybe allSyms getSymsFromExports $ moduleExports m
+  where
+    allSyms = return $ Module.allSymbols m
+    getSymsFromExports es = do
         syms <- concat <$> mapM (exportSymbolsProvided pji m . item) es
         return $ map (Module.qualify m) syms
 

@@ -9,7 +9,6 @@ module Ide3.NewMonad.Instances.Undecidable where
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
-import Ide3.Types
 import Ide3.NewMonad
     
 newtype UndecidableWrapper (t :: (* -> *) -> * -> *) (m :: * -> *) (a :: *) where

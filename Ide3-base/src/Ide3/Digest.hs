@@ -14,7 +14,6 @@ tree and construct a project from them
 
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ide3.Digest
     ( digestSolutionM
     , digestSolution
@@ -39,7 +38,7 @@ import Ide3.NewMonad.Utils
 
 import qualified Ide3.Solution as Solution
 
-import Ide3.NewMonad.Instances.State
+import Ide3.NewMonad.Instances.State()
 import Ide3.NewMonad.Instances.State.Class
 import Ide3.NewMonad.Instances.State.Class.Instances.Lazy
 

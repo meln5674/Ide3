@@ -12,5 +12,5 @@ newtype SolutionStateT m a = SolutionStateT
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
 instance Monad m => StatefulSolutionClass (SolutionStateT m) where
-    getSolution = lift $ SolutionStateT $ get
+    getSolution = lift $ SolutionStateT get
     putSolution = lift . SolutionStateT . put

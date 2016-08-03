@@ -102,7 +102,7 @@ onNewSolutionConfirmed dialog = do
 onNewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  , MonadMask m
@@ -122,7 +122,7 @@ onNewClicked = do
 onOpenClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  )
@@ -148,7 +148,7 @@ onOpenClicked = do
 onDigestClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  )
@@ -175,7 +175,7 @@ onDigestClicked = do
 onDeclClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  )
@@ -187,7 +187,7 @@ onDeclClicked = doGetDecl
 onBuildClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -198,7 +198,7 @@ onBuildClicked = void $ mapGuiEnv liftIO $ doBuild
 onRunClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -210,7 +210,7 @@ onRunClicked = mapGuiEnv liftIO $ doRun
 onSaveClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -221,7 +221,7 @@ onSaveClicked = mapGuiEnv liftIO $ doSave
 onSaveSolutionClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -232,7 +232,7 @@ onSaveSolutionClicked = mapGuiEnv liftIO $ doSaveSolution Nothing
 onNewProjectClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -243,7 +243,7 @@ onNewProjectClicked = undefined
 onDeleteProjectClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  , MonadMask m
@@ -257,7 +257,7 @@ onDeleteProjectClicked pi = undefined
 onNewModuleClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -312,7 +312,7 @@ onNewImportClicked pi mi = do
 onEditImportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -345,7 +345,7 @@ onEditImportClicked pi mi ii = do
 onNewExportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -374,7 +374,7 @@ onNewExportClicked pi mi = do
 onEditExportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -407,7 +407,7 @@ onEditExportClicked pi mi ii = do
 onExportDeclarationClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -437,7 +437,7 @@ onExportDeclarationClicked pi mi (DeclarationInfo (Symbol declStr)) = do
 setupModuleContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -464,7 +464,7 @@ setupModuleContextMenu pi mi = mapGuiEnv liftIO $ do
 setupProjectContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -483,7 +483,7 @@ setupProjectContextMenu pi = mapGuiEnv liftIO $ do
 setupSolutionContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -499,7 +499,7 @@ setupSolutionContextMenu = mapGuiEnv liftIO $ do
 setupDeclContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -524,7 +524,7 @@ setupDeclContextMenu pi mi di = mapGuiEnv liftIO $ do
 setupImportsContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -542,7 +542,7 @@ setupImportsContextMenu pi mi = mapGuiEnv liftIO $ do
 setupExportsContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -559,7 +559,7 @@ setupExportsContextMenu pi mi = mapGuiEnv liftIO $ do
 setupImportContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -582,7 +582,7 @@ setupImportContextMenu pi mi ii = mapGuiEnv liftIO $ do
 setupExportContextMenu :: forall proxy m p buffer m'
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , MonadIO m'
@@ -605,7 +605,7 @@ setupExportContextMenu pi mi ei = mapGuiEnv liftIO $ do
 onSolutionViewClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m
@@ -639,7 +639,7 @@ onSolutionViewClicked gui = do
 onDeclEdited :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , PersistentSolutionMonad m
                  , MonadMask m

@@ -2,7 +2,6 @@
 
 module Ide3.NewMonad where
 
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
 import Ide3.Types
@@ -210,10 +209,3 @@ type PersistentSolutionMonad m = (PersistenceClass m, SolutionMonad m)
 
 class MonadBounce t where
     bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a
-
-{-
--- | Utility function which inserts an additional transformer into a stack
--- which is topped by ExceptT
-bounce :: (Monad m, MonadTrans t) => ExceptT e m a -> ExceptT e (t m) a
-bounce = ExceptT . lift . runExceptT
--}

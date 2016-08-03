@@ -8,6 +8,7 @@ import Data.List (intercalate, find)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types
@@ -44,11 +45,25 @@ info = moduleInfo
 
 -- | Create an empty module
 empty :: Module
-empty = Module (UnamedModule Nothing) [] Map.empty Nothing Map.empty
+empty = Module
+      { moduleInfo = (UnamedModule Nothing) 
+      , moduleHeader = ""
+      , modulePragmas = []
+      , moduleImports = Map.empty 
+      , moduleExports = Nothing
+      , moduleDeclarations = Map.empty
+      }
 
 -- | Create a new module from a ModuleInfo
 new :: ModuleInfo -> Module
-new i = Module i [] Map.empty Nothing Map.empty
+new i = Module 
+      { moduleInfo = i 
+      , moduleHeader = ""
+      , modulePragmas = []
+      , moduleImports = Map.empty 
+      , moduleExports = Nothing
+      , moduleDeclarations = Map.empty
+      }
 
 addDeclaration :: Monad m 
                => DeclarationInfo
@@ -196,8 +211,8 @@ parseUsing :: (String -> Maybe FilePath
            -> Maybe FilePath 
            -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseUsing parser s p = case parser s p of
-    Right (Extracted minfo pragmas exports imports decls) 
-            -> Right (Module newInfo pragmas imports' exports' decls', eids, iids)
+    Right (Extracted minfo header pragmas exports imports decls) 
+            -> Right (Module newInfo header pragmas imports' exports' decls', eids, iids)
       where
         newInfo = case minfo of
             UnamedModule Nothing -> UnamedModule p
@@ -239,48 +254,51 @@ getExports :: Module -> Maybe (Map ExportId (WithBody Export))
 getExports = moduleExports
 
 getExportIds :: Module -> Maybe [ExportId]
-getExportIds (Module _ _ _ es _) = Map.keys <$> es
+getExportIds = liftM Map.keys . moduleExports
 
 getImportIds :: Module -> [ImportId]
-getImportIds (Module _ _ is _ _) = Map.keys is
+getImportIds = Map.keys . moduleImports
 
 
 -- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
-getHeaderText m = case (map (body . snd) . Map.toList) <$> moduleExports m of
-    Nothing -> "module " ++ name ++ " where"
-    Just es -> "module " ++ name ++ "(" ++ intercalate "," es ++ ") where"
+getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
+    withNoExportList = "module " ++ name ++ " where"
+    withExportList es = "module " ++ name ++ "(" ++ intercalate "," exportBodies ++ ") where"
+      where
+        exportBodies = bodies $ Map.elems es
 
 -- | Reconstruct the source code from a Module
 toFile :: Module -> String
 toFile m = intercalate "\n" parts
   where
+    headerComment = moduleHeader m
     pragmas = modulePragmas m
     header = getHeaderText m
     imports = bodies $ Map.elems $ moduleImports m
     declarations = bodies $ Map.elems $ moduleDeclarations m
-    parts = pragmas ++ header : imports ++ declarations
+    parts = headerComment : pragmas ++ header : imports ++ declarations
 
 -- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]
-modifiersOf s m@(Module _ _ _ _ ds)
+modifiersOf s m
   = map (qualify m . Declaration.info . item) 
   . Map.elems
   . Map.filter ((`Declaration.affectsSymbol` s) . item)
-  $ ds
+  $ moduleDeclarations m
 
 -- | Tag a value as belonging to this module
 qualify :: Module -> a -> ModuleChild a
-qualify (Module i _ _ _ _) = ModuleChild i
+qualify = ModuleChild . moduleInfo
 
 
 
 -- | Find all of the symbols that are created within this module
 allSymbols :: Module -> [ModuleChild Symbol]
-allSymbols m@(Module _ _ _ _ ds)
-  = concatMap (map (qualify m) . Declaration.symbolsProvided . item) ds
+allSymbols m
+  = concatMap (map (qualify m) . Declaration.symbolsProvided . item) $ moduleDeclarations m
 
 -- | Apply a transformation to each item in a list, then find the first item
 --  which did not fail the transformation, and the result
@@ -307,15 +325,16 @@ searchM f xs = do
 infoMatches :: Module -> ModuleInfo -> Bool
 infoMatches m mi = info m == mi
 
+nextId :: (Enum k, Ord k) => k -> Map k v -> k
+nextId default_ m = succ $ maximum (pred default_ : Map.keys m)
 
 -- | Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
-nextImportId m = 1 + maximum (-1 : Map.keys (moduleImports m))
+nextImportId = nextId 0 . moduleImports
 
 -- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
-nextExportId (Module _ _ _ Nothing _) = 0
-nextExportId (Module _ _ _ (Just es) _) = 1 + maximum (-1 : Map.keys es)
+nextExportId = maybe 0 (nextId 0) . moduleExports
   
 {-
 -- | Test if a module has a matching declaration

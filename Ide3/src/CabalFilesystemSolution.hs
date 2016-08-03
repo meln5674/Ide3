@@ -428,8 +428,6 @@ writeModule pi m = withOpenedSolution $ \info -> do
     
     let moduleDir = takeDirectory modulePath
     wrapIOError $ do
-        putStrLn moduleDir
-        putStrLn modulePath
         createDirectoryIfMissing True moduleDir
         writeFile modulePath text
 
@@ -524,8 +522,6 @@ instance ( MonadIO m
                             p <- loadProject pi
                             return (pi,p) 
                 projects <- liftM Map.fromList $ getCabalProjects >>= mapM (getCabalProject >=> loadProject')
-                --lift $ putSolution $ Solution (SolutionInfo solutionName) projects
-                liftIO $ putStrLn "Loaded"
                 return ()
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""

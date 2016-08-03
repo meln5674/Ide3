@@ -4,7 +4,6 @@ import Control.Monad.Trans.Except
 
 import Ide3.Types 
 import qualified Ide3.Module as Module 
-import qualified Ide3.Module.Extern as ExternModule 
 import qualified Ide3.Import.Parser as Import 
 import qualified Ide3.Export as Export 
 import qualified Ide3.Declaration as Declaration

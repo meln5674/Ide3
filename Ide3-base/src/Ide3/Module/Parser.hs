@@ -34,10 +34,12 @@ import Ide3.Types
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Export.Parser as Export
 import qualified Ide3.Import.Parser as Import
+import Ide3.SrcLoc
 
 -- |Results of extracting information from the third-party parser
 data ExtractionResults
     = Extracted ModuleInfo
+                String
                 [Pragma]
                 (Maybe [WithBody Export])
                 [WithBody Import]
@@ -52,6 +54,27 @@ extractInfo _ _ = UnamedModule Nothing
 extractPragmas :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> [Pragma]
 extractPragmas _ (Syntax.Module _ _ ps _ _,_) = map prettyPrint ps
 extractPragmas _ _ = []
+
+extractHeader :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> String
+extractHeader s (Syntax.Module mspan _ _ _ _,comments) = case headerComments of
+    [] -> ""
+    _ -> headerSpan >< s
+  where
+    headerComments = flip filter comments $ \(Comment _ cspan _) -> cspan < head (srcInfoPoints mspan)
+    Comment _ firstSpan _ = head headerComments
+    Comment _ lastSpan _ = last headerComments
+    headerStart = SrcLoc
+                { srcFilename = srcSpanFilename firstSpan
+                , srcLine = srcSpanStartLine firstSpan
+                , srcColumn = srcSpanStartColumn firstSpan
+                }
+    headerEnd = SrcLoc
+                { srcFilename = srcSpanFilename lastSpan
+                , srcLine = srcSpanEndLine lastSpan
+                , srcColumn = srcSpanEndColumn lastSpan
+                }
+    headerSpan = mkSrcSpan headerStart headerEnd
+extractHeader _ _ = ""
 
 -- |Extract the exports from the module
 extractExports :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Maybe [WithBody Export]
@@ -76,10 +99,11 @@ extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (SolutionE
 extract str x = do
     let info    =  extractInfo      str x
         pragmas =  extractPragmas   str x
+        header  =  extractHeader    str x
         exports =  extractExports   str x
         imports =  extractImports   str x
     decls       <- extractDecls     str x
-    return $ Extracted info pragmas exports imports decls
+    return $ Extracted info header pragmas exports imports decls
 
 activatedExts :: [Extension]
 --activatedExts = EnableExtension NamedFieldPuns : EnableExtension LambdaCase : glasgowExts 
@@ -93,7 +117,7 @@ parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
-    exts = (maybe [] snd $ readExtensions s)
+    exts = maybe [] snd $ readExtensions s
     parseMode = case p of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
         Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
@@ -102,10 +126,10 @@ parse s p = case parseModuleWithComments parseMode s of
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) ExtractionResults
 parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> do
-        Extracted i ps es is ds <- extract s x
+        Extracted i h ps es is ds <- extract s x
         case i of
-            UnamedModule _ -> return $ Extracted (ModuleInfo (Symbol "Main")) ps es is ds
-            info -> return $ Extracted info ps es is ds
+            UnamedModule _ -> return $ Extracted (ModuleInfo (Symbol "Main")) h ps es is ds
+            info -> return $ Extracted info h ps es is ds
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
     exts = (maybe [] snd $ readExtensions s)

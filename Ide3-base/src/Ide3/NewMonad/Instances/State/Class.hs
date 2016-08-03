@@ -1,12 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ide3.NewMonad.Instances.State.Class where
 
-import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
-
-import Ide3.NewMonad
 
 import Ide3.Types
 
@@ -29,11 +25,6 @@ class Monad m => StatefulPersistenceClass m where
 newtype StatefulWrapper m a = StatefulWrapper { runStatefulWrapper :: m a }
   deriving (Functor, Applicative, Monad, StatefulSolutionClass, StatefulPersistenceClass, MonadIO)
   
-{-
-instance MonadTrans StatefulWrapper where
-    lift = StatefulWrapper
--}
-
 modifySolutionER :: StatefulSolutionClass m 
                  => (Solution -> SolutionResult m u (a,Solution))
                  -> SolutionResult m u a
