@@ -1,0 +1,120 @@
+name:                Ide3-base
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            http://github.com/githubuser/Ide3#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2016 Author Here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Ide3.Types
+                     , Ide3.Env
+                     , Ide3.Env.Solution
+                     , Ide3.Env.Project
+                     , Ide3.Env.Module
+                     , Ide3.SrcLoc
+                     , Ide3.Project
+                     , Ide3.Solution
+                     , Ide3.Module
+                     , Ide3.Module.Parser
+                     , Ide3.Module.Extern
+                     , Ide3.Module.Common
+                     , Ide3.NewMonad
+                     , Ide3.NewMonad.Utils
+                     , Ide3.NewMonad.Instances.Undecidable
+                     , Ide3.NewMonad.Instances.State
+                     , Ide3.NewMonad.Instances.State.SolutionClass
+                     , Ide3.NewMonad.Instances.State.ProjectModuleClass
+                     , Ide3.NewMonad.Instances.State.ProjectExternModuleClass
+                     , Ide3.NewMonad.Instances.State.ModuleDeclarationClass
+                     , Ide3.NewMonad.Instances.State.ModuleImportClass
+                     , Ide3.NewMonad.Instances.State.ModuleExportClass
+                     , Ide3.NewMonad.Instances.State.ModulePragmaClass
+                     , Ide3.NewMonad.Instances.State.Compose
+                     , Ide3.NewMonad.Instances.State.Class
+                     , Ide3.NewMonad.Instances.State.Class.Instances.Strict
+                     , Ide3.NewMonad.Instances.State.Class.Instances.Lazy
+                     , Ide3.Export.Query
+                     , Ide3.Import.Query
+                     , Ide3.Module.Query
+                     , Ide3.Import
+                     , Ide3.Import.Parser
+                     , Ide3.Export
+                     , Ide3.Export.Parser
+                     , Ide3.Declaration
+                     , Ide3.Declaration.Parser
+                     , Ide3.Declaration.TypeDeclaration
+                     , Ide3.Declaration.BindDeclaration
+                     , Ide3.Declaration.ModifierDeclaration
+                     , Ide3.Constructor
+                     , Ide3.ModuleTree
+                     , Ide3.Digest
+                     , Ide3.Utils
+  other-modules:       Ide3.Module.Internal
+                     , Ide3.Module.Common.Query
+                     , Ide3.Module.Common.Types
+                     , Ide3.Project.Internal
+                     , Ide3.Solution.Internal
+                     , Ide3.Import.Internal
+                     , Ide3.Query
+  build-depends:       base
+                     , containers
+                     , mtl
+                     , haskell-src-exts
+                     , transformers
+                     , unix
+                     , filepath
+                     , free
+                     , HsInterface
+                     , bytestring
+                     , cereal
+                     , directory
+                     , exceptions
+  default-language:    Haskell2010
+
+test-suite Ide3-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  other-modules:       Tests
+                     , Tests.Declaration
+                     , Tests.Declaration.Basic
+                     , Tests.Declaration.NonExistent
+                     , Tests.Export
+                     , Tests.Export.Basic
+                     , Tests.Export.NonExistent
+                     , Tests.Import
+                     , Tests.Import.Basic
+                     , Tests.Import.NonExistent
+                     , Tests.ImportExport
+                     , Tests.ImportExport.Basic
+                     , Tests.Module
+                     , Tests.Module.Basic
+                     , Tests.Module.Conflicting
+                     , Tests.Module.NonExistent
+                     , Tests.Parsing
+                     , Tests.Parsing.Declaration
+                     , Tests.Parsing.Export
+                     , Tests.Parsing.Import
+                     , Tests.Parsing.Module
+                     , Tests.Utils
+  build-depends:       base
+                     , Ide3-base
+                     , mtl >= 2.2.1
+                     , transformers >= 0.4.2.0
+                     , HUnit >= 1.3.1.1
+                     , containers >= 0.5.6.2
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/Ide3

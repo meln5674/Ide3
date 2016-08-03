@@ -1,0 +1,111 @@
+name:                Ide3
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            http://github.com/githubuser/Ide3#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2016 Author Here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+    hs-source-dirs:    src
+    exposed-modules:   Runner
+                     , Builder
+                     , Initializer
+                     , ProjectInitializer
+                     , ProjectInitializer.Cabal
+                     , Editor
+                     , Viewer
+                     , ViewerMonad
+                     , ReadOnlyFilesystemSolution
+                     , SimpleFilesystemSolution
+                     , CabalFilesystemSolution
+                     , PseudoState
+                     , CabalMonad
+                     , Args
+    build-depends:     base
+                     , temporary
+                     , directory
+                     , mtl
+                     , transformers
+                     , exceptions
+                     , process
+                     , filepath
+                     , Ide3-base
+                     , Cabal
+                     , containers
+    default-language:  Haskell2010
+
+executable Ide3-GUI
+  hs-source-dirs:      gui
+  main-is:             Main.hs
+  other-modules:       SolutionTree
+                     , GuiCommand
+                     , GuiCommand.Internal
+                     , ProcessReader
+                     , Dialogs.MainWindow
+                     , Dialogs.NewSolutionDialog
+                     , Dialogs.NewModuleDialog
+                     , Dialogs.NewImportDialog
+                     , Dialogs.NewExportDialog
+                     , Dialogs.GenericNewDialog
+                     , GuiMonad
+                     , GuiEnv
+                     , ViewerMonad2
+                     , GuiHelpers
+                     , SolutionContextMenu
+                     , SyntaxHighlighter
+                     , SyntaxHighlighter2
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , Ide3-base
+                     , Ide3
+                     , gtk
+                     , glib
+                     , transformers
+                     , mtl
+                     , containers
+                     , directory
+                     , filepath
+                     , process
+                     , exceptions
+                     , text
+                     , conduit
+                     , conduit-extra
+                     , haskell-src-exts
+  default-language:    Haskell2010
+                     
+executable Ide3-CLI
+  hs-source-dirs:      cli
+  main-is:             Main.hs
+  other-modules:       CmdParser
+                     , Command
+                     , Command.Trans
+                     , Command.Types
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , Ide3-base
+                     , Ide3
+                     , unix
+                     , mtl
+                     , transformers
+                     , filepath
+                     , parsec
+                     , HsInterface
+                     , haskeline
+                     , containers
+                     , directory
+                     , process
+                     , temporary 
+                     , exceptions
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/Ide3

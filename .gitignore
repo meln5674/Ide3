@@ -1,0 +1,6 @@
+*.swp
+*.hi
+*.o
+*.stack-work
+*commitmsg
+stashes
