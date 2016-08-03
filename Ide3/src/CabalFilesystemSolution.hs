@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-|
 Module      : CabalFilesystemProject
 Description : Persistance mechanism using .cabal files
@@ -120,6 +121,11 @@ getFsp = CabalSolution get
 putFsp :: (Monad m) => FileSystemSolution -> CabalSolution m ()
 putFsp = CabalSolution . put 
 
+modifyFsp :: (Monad m) 
+          => (FileSystemSolution -> FileSystemSolution) 
+          -> CabalSolution m ()
+modifyFsp = CabalSolution . modify
+
 -- | Perform an action on an open solution, or throw an error if not open
 withOpenedSolution :: (Monad m) 
                   => (CabalSolutionInfo -> SolutionResult (CabalSolution m) u a)
@@ -173,7 +179,7 @@ updateConfig pi (ExecutableProject exe) = withOpenedSolution $ \path (CabalConfi
 -}
 
 libraryInfo :: ProjectInfo 
-libraryInfo = ProjectInfo "LIBRARY"
+libraryInfo = ProjectInfo "library"
 
 {-
 isProjectInfo :: ProjectInfo -> ProjectType -> Bool
@@ -234,9 +240,6 @@ getInternalModules pi = do
             case path of
                 Just path -> return $ Just path
                 Nothing -> throwE $ InvalidOperation ("Can't find module " ++ show mn) ""
-
-    -- TODO: what happens when one isn't found?
-    
     moduleContents <- forM modulePaths $ \(mn,path) -> case path of
         Nothing -> throwE $ InvalidOperation ("Can't find module " ++ show mn) ""
         Just path -> do
@@ -254,7 +257,9 @@ getInternalModules pi = do
     
     
 -- | Get the external modules used by a cabal solution. * INCOMPLETE *
-getExternalModules :: (MonadIO m) => ProjectInfo -> SolutionResult (CabalSolution m) u [ExternModule]
+getExternalModules :: (MonadIO m) 
+                   => ProjectInfo 
+                   -> SolutionResult (CabalSolution m) u [ExternModule]
 getExternalModules pi = return []
 {-
 getExternalModules = do
@@ -380,7 +385,12 @@ loadProject pi = do
     (Opened (Just info)) <- lift getFsp
     let info' = addPaths info
     lift $ putFsp $ Opened $ Just info'
-    forM_ modules $ bounce . addModule pi . fst
+    forM_ modules $ bounce . addModule pi . fst -- This bounce is important, 
+                                                -- as it targets the
+                                                -- underlying monad, instead 
+                                                -- of (CabalSolution m),
+                                                -- preventing it from adding
+                                                -- the module to the config
     forM_ externModules $ addExternModule pi
     
     --let p = Project.new pi
@@ -410,18 +420,16 @@ writeModule :: (MonadIO m) => ProjectInfo -> Module -> SolutionResult (CabalSolu
 writeModule pi m = withOpenedSolution $ \info -> do
     let mi = Module.info m
         modulePathLookup = Map.lookup (pi, mi) $ modulePathMap info
-    root <- case modulePathLookup of
+    modulePath <- case modulePathLookup of
         Just path -> return path
         Nothing -> throwE $ InternalError ("Can't find source directory for module " ++ show mi) ""
-    path <- case mi of
-        (ModuleInfo (Symbol s)) -> return $ ModuleName.toFilePath $ ModuleName.fromString s
-        _ -> throwE $ InvalidOperation "Cannot add unnamed modules to a cabal probject" ""
     let text = Module.toFile m
     ptype <- lookupCabalProject pi
     
-    let modulePath = root </> path ++ ".hs"
     let moduleDir = takeDirectory modulePath
     wrapIOError $ do
+        putStrLn moduleDir
+        putStrLn modulePath
         createDirectoryIfMissing True moduleDir
         writeFile modulePath text
 
@@ -517,6 +525,7 @@ instance ( MonadIO m
                             return (pi,p) 
                 projects <- liftM Map.fromList $ getCabalProjects >>= mapM (getCabalProject >=> loadProject')
                 --lift $ putSolution $ Solution (SolutionInfo solutionName) projects
+                liftIO $ putStrLn "Loaded"
                 return ()
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""
@@ -597,7 +606,9 @@ instance ( MonadIO m
     -- | Set the path to be digested
     setDirectoryToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to Show to
-    setTargetPath path = throwE $ Unsupported $ "TODO"
+    setTargetPath path = withOpenedSolution $ \_ -> lift $ do
+        modifyFsp $ \case
+            Opened (Just info) -> Opened $ Just info{solutionPath = path}
     -- | Check if either there is a new solution, digested path, or Read'd file
     hasOpenedSolution = do
         fsp <- getFsp
@@ -653,137 +664,125 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                         Just bench -> return $ BenchmarkProject (ProjectInfo s) $ condTreeData bench
                         Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
             _ -> throwE $ InvalidOperation "No solution opened" ""
-    addCabalProject i p = do
-        fsp <- lift getFsp
-        case fsp of
-            Opened (Just info) -> do
-                let (CabalConfiguration conf) = cabalConfig info
-                    path = solutionPath info
-                    exes = Map.fromList $ condExecutables conf
-                    tests = Map.fromList $ condTestSuites conf
-                    benches = Map.fromList $ condBenchmarks conf
-                conf' <- case (i,p) of
-                    (LibraryInfo, LibraryProject lib) -> do
-                        case condLibrary conf of
-                            Just _ -> throwE $ DuplicateProject libraryInfo ""
-                            Nothing -> return $ conf{condLibrary = Just $ CondNode
-                                    { condTreeData = lib
-                                    , condTreeConstraints = []
-                                    , condTreeComponents = []
-                                    }}
-                    (ExecutableInfo s, ExecutableProject _ exe) -> do
-                        case Map.lookup s exes of
-                            Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
-                            Nothing -> do
-                                let exe' = CondNode{ condTreeData = exe
-                                                   , condTreeConstraints = []
-                                                   , condTreeComponents = []
-                                                   }
-                                    exes' = Map.toList $ Map.insert s exe' exes
-                                return conf{condExecutables = exes'}
-                    (TestSuiteInfo s, TestSuiteProject _ test) -> do
-                        case Map.lookup s tests of
-                            Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
-                            Nothing -> do
-                                let test' = CondNode{ condTreeData = test
-                                                   , condTreeConstraints = []
-                                                   , condTreeComponents = []
-                                                   }
-                                    tests' = Map.toList $ Map.insert s test' tests
-                                return conf{ condTestSuites = tests' }
-                    (BenchmarkInfo s, BenchmarkProject _ bench) -> do
-                        case Map.lookup s benches of
-                            Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
-                            Nothing -> do
-                                let bench' = CondNode{ condTreeData = bench
-                                                     , condTreeConstraints = []
-                                                     , condTreeComponents = []
-                                                     }
-                                    benches' = Map.toList $ Map.insert s bench' benches
-                                return $ conf{condBenchmarks = benches'}
-                lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
-    lookupCabalProject i@(ProjectInfo s) = do
-        fsp <- lift getFsp
-        case fsp of
-            Opened (Just info) -> do
-                let (CabalConfiguration conf) = cabalConfig info
-                    exes = Map.fromList $ condExecutables conf
-                    tests = Map.fromList $ condTestSuites conf
-                    benches = Map.fromList $ condBenchmarks conf
-                    exe = Map.lookup s exes
-                    test = Map.lookup s tests
-                    bench = Map.lookup s benches
-                    lib = condLibrary conf
-                if i == libraryInfo
-                    then case lib of
-                        Just node -> return $ LibraryProject $ condTreeData node
+    addCabalProject i p = withOpenedSolution $ \info -> do
+        let (CabalConfiguration conf) = cabalConfig info
+            path = solutionPath info
+            exes = Map.fromList $ condExecutables conf
+            tests = Map.fromList $ condTestSuites conf
+            benches = Map.fromList $ condBenchmarks conf
+        conf' <- case (i,p) of
+            (LibraryInfo, LibraryProject lib) -> do
+                case condLibrary conf of
+                    Just _ -> throwE $ DuplicateProject libraryInfo ""
+                    Nothing -> return $ conf{condLibrary = Just $ CondNode
+                            { condTreeData = lib
+                            , condTreeConstraints = []
+                            , condTreeComponents = []
+                            }}
+            (ExecutableInfo s, ExecutableProject _ exe) -> do
+                case Map.lookup s exes of
+                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Nothing -> do
+                        let exe' = CondNode{ condTreeData = exe
+                                           , condTreeConstraints = []
+                                           , condTreeComponents = []
+                                           }
+                            exes' = Map.toList $ Map.insert s exe' exes
+                        return conf{condExecutables = exes'}
+            (TestSuiteInfo s, TestSuiteProject _ test) -> do
+                case Map.lookup s tests of
+                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Nothing -> do
+                        let test' = CondNode{ condTreeData = test
+                                           , condTreeConstraints = []
+                                           , condTreeComponents = []
+                                           }
+                            tests' = Map.toList $ Map.insert s test' tests
+                        return conf{ condTestSuites = tests' }
+            (BenchmarkInfo s, BenchmarkProject _ bench) -> do
+                case Map.lookup s benches of
+                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Nothing -> do
+                        let bench' = CondNode{ condTreeData = bench
+                                             , condTreeConstraints = []
+                                             , condTreeComponents = []
+                                             }
+                            benches' = Map.toList $ Map.insert s bench' benches
+                        return $ conf{condBenchmarks = benches'}
+        lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
+    lookupCabalProject i@(ProjectInfo s) = withOpenedSolution $ \info -> do
+        let (CabalConfiguration conf) = cabalConfig info
+            exes = Map.fromList $ condExecutables conf
+            tests = Map.fromList $ condTestSuites conf
+            benches = Map.fromList $ condBenchmarks conf
+            exe = Map.lookup s exes
+            test = Map.lookup s tests
+            bench = Map.lookup s benches
+            lib = condLibrary conf
+        if i == libraryInfo
+            then case lib of
+                Just node -> return $ LibraryProject $ condTreeData node
+                Nothing -> throwE $ ProjectNotFound i ""
+            else case exe of
+                Just node -> return $ ExecutableProject i $ condTreeData node
+                Nothing -> case test of
+                    Just node -> return $ TestSuiteProject i $ condTreeData node
+                    Nothing -> case bench of
+                        Just node -> return $ BenchmarkProject i $ condTreeData node
                         Nothing -> throwE $ ProjectNotFound i ""
-                    else case exe of
-                        Just node -> return $ ExecutableProject i $ condTreeData node
-                        Nothing -> case test of
-                            Just node -> return $ TestSuiteProject i $ condTreeData node
-                            Nothing -> case bench of
-                                Just node -> return $ BenchmarkProject i $ condTreeData node
-                                Nothing -> throwE $ ProjectNotFound i ""
-    updateCabalProject i p = do
-        fsp <- lift getFsp
-        case fsp of
-            Opened (Just info) -> do
-                let (CabalConfiguration conf) = cabalConfig info
-                    path = solutionPath info
-                    exes = Map.fromList $ condExecutables conf
-                    tests = Map.fromList $ condTestSuites conf
-                    benches = Map.fromList $ condBenchmarks conf
-                conf' <- case (i,p) of
-                    (LibraryInfo, LibraryProject lib) -> do
-                        case condLibrary conf of
-                            Just node -> do
-                                let lib' = node{ condTreeData = lib }
-                                return conf{ condLibrary = Just lib' }
-                            Nothing -> throwE $ ProjectNotFound libraryInfo ""
-                    (ExecutableInfo s, ExecutableProject _ exe) -> do
-                        case Map.lookup s exes of
-                            Just node -> do
-                                let exe' = node{ condTreeData = exe }
-                                    exes' = Map.toList $ Map.insert s exe' exes
-                                return conf{ condExecutables = exes' }
-                            Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
-                    (TestSuiteInfo s, TestSuiteProject _ test) -> do
-                        case Map.lookup s tests of
-                            Just node -> do
-                                let test' = node{ condTreeData = test }
-                                    tests' = Map.toList $ Map.insert s test' tests
-                                return $ conf{ condTestSuites = tests' }
-                            Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
-                    (BenchmarkInfo s, BenchmarkProject _ bench) -> do
-                        case Map.lookup s benches of
-                            Just node -> do
-                                let bench' = node{ condTreeData = bench }
-                                    benches' = Map.toList $ Map.insert s bench' benches
-                                return $ conf{ condBenchmarks = benches' }
-                            Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
-                lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
-            _ -> throwE $ InvalidOperation "No solution opened" ""
-    getCabalProjectInfo i@(ProjectInfo s) = do
-        fsp <- lift getFsp
-        case fsp of
-            Opened (Just info) -> do
-                let (CabalConfiguration conf) = cabalConfig info
-                    exes = Map.fromList $ condExecutables conf
-                    tests = Map.fromList $ condTestSuites conf
-                    benches = Map.fromList $ condBenchmarks conf
-                    exe = Map.lookup s exes
-                    test = Map.lookup s tests
-                    bench = Map.lookup s benches
-                    lib = condLibrary conf
-                if i == libraryInfo
-                    then case lib of
-                        Just _ -> return $ LibraryInfo
+    updateCabalProject i p = withOpenedSolution $ \info -> do
+        let (CabalConfiguration conf) = cabalConfig info
+            path = solutionPath info
+            exes = Map.fromList $ condExecutables conf
+            tests = Map.fromList $ condTestSuites conf
+            benches = Map.fromList $ condBenchmarks conf
+        conf' <- case (i,p) of
+            (LibraryInfo, LibraryProject lib) -> do
+                case condLibrary conf of
+                    Just node -> do
+                        let lib' = node{ condTreeData = lib }
+                        return conf{ condLibrary = Just lib' }
+                    Nothing -> throwE $ ProjectNotFound libraryInfo ""
+            (ExecutableInfo s, ExecutableProject _ exe) -> do
+                case Map.lookup s exes of
+                    Just node -> do
+                        let exe' = node{ condTreeData = exe }
+                            exes' = Map.toList $ Map.insert s exe' exes
+                        return conf{ condExecutables = exes' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+            (TestSuiteInfo s, TestSuiteProject _ test) -> do
+                case Map.lookup s tests of
+                    Just node -> do
+                        let test' = node{ condTreeData = test }
+                            tests' = Map.toList $ Map.insert s test' tests
+                        return $ conf{ condTestSuites = tests' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+            (BenchmarkInfo s, BenchmarkProject _ bench) -> do
+                case Map.lookup s benches of
+                    Just node -> do
+                        let bench' = node{ condTreeData = bench }
+                            benches' = Map.toList $ Map.insert s bench' benches
+                        return $ conf{ condBenchmarks = benches' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+        lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
+    getCabalProjectInfo i@(ProjectInfo s) = withOpenedSolution $ \info -> do
+        let (CabalConfiguration conf) = cabalConfig info
+            exes = Map.fromList $ condExecutables conf
+            tests = Map.fromList $ condTestSuites conf
+            benches = Map.fromList $ condBenchmarks conf
+            exe = Map.lookup s exes
+            test = Map.lookup s tests
+            bench = Map.lookup s benches
+            lib = condLibrary conf
+        if i == libraryInfo
+            then case lib of
+                Just _ -> return $ LibraryInfo
+                Nothing -> throwE $ ProjectNotFound i ""
+            else case exe of
+                Just _ -> return $ ExecutableInfo s
+                Nothing -> case test of
+                    Just _ -> return $ TestSuiteInfo s
+                    Nothing -> case bench of
+                        Just _ -> return $ BenchmarkInfo s
                         Nothing -> throwE $ ProjectNotFound i ""
-                    else case exe of
-                        Just _ -> return $ ExecutableInfo s
-                        Nothing -> case test of
-                            Just _ -> return $ TestSuiteInfo s
-                            Nothing -> case bench of
-                                Just _ -> return $ BenchmarkInfo s
-                                Nothing -> throwE $ ProjectNotFound i ""
+    

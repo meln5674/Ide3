@@ -2,6 +2,7 @@
 module GuiCommand.Internal where
 
 import System.Directory
+import System.FilePath
 
 import Graphics.UI.Gtk
 
@@ -68,7 +69,10 @@ doNew maybeSolutionRoot projectName templateName = do
         Just projectRoot -> do
             lift $ do
                 wrapIOError $ setCurrentDirectory projectRoot
+        {- -- Why is this here?
                 bounce $ createNewFile $ projectName ++ ".proj"
+        -}
+            lift $ bounce $ setDirectoryToOpen $ projectRoot </> projectName
             r <- lift 
                     $ ExceptT 
                     $ lift 
@@ -78,7 +82,7 @@ doNew maybeSolutionRoot projectName templateName = do
             case r of
                 InitializerSucceeded{} -> do
                     withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
-                    lift $ saveSolution Nothing
+                    lift $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
 
 doOpen :: ( GuiCommand m p buffer )

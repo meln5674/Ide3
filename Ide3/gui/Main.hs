@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
@@ -284,7 +283,7 @@ onNewModuleClicked pi modName = do
 onNewImportClicked :: forall proxy m p buffer
                . ( MonadIO m
                  , ViewerMonad m
-                 ,InteruptMonad2 p m
+                 , InteruptMonad2 p m
                  , TextBufferClass buffer
                  , MonadMask m
                  , PersistentSolutionMonad m

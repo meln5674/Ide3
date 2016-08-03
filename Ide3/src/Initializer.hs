@@ -86,6 +86,7 @@ stackInitializer :: ( MonadIO m
                     , SolutionClass m
                     , ProjectModuleClass m
                     , ProjectExternModuleClass m
+                    , PersistenceClass m
                     ) 
                  => Initializer StackInitializerArgs m u
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
@@ -95,6 +96,7 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
     (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" args ""
     case ec of
         ExitSuccess -> do
+            {-
             files <- liftM (delete "." . delete "..") $ liftIO $ getDirectoryContents path
             liftIO $ setCurrentDirectory path
             dirs <- liftIO $ filterM doesDirectoryExist files
@@ -102,6 +104,8 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
                 solutionInfo = SolutionInfo solutionName
                 projects = flip map dirs $ \d -> (ProjectInfo $ takeBaseName d, d,Nothing)
             digestSolutionM solutionInfo projects
+            -}
+            load
             return $ InitializerSucceeded out err
             
         ExitFailure _ ->  return $ InitializerFailed out err

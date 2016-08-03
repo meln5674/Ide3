@@ -299,6 +299,7 @@ useStackInitializer :: ( Monad m
                        , SolutionClass (t m)
                        , ProjectModuleClass (t m)
                        , ProjectExternModuleClass (t m)
+                       , PersistenceClass (t m)
                        , CabalMonad (t m) u
                        ) 
                     => AppSetup a pa t fsp m u -> AppSetup StackInitializerArgs pa t fsp m u
