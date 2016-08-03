@@ -533,7 +533,6 @@ instance ( MonadIO m
 
 
 instance (MonadIO m, SolutionClass m) => SolutionClass (CabalSolution m) where
-    -- | TODO
     editSolutionInfo f = bounce $ editSolutionInfo f
     
     addProject pji = bounce $ addProject pji
@@ -542,7 +541,6 @@ instance (MonadIO m, SolutionClass m) => SolutionClass (CabalSolution m) where
     editProjectInfo pji f = bounce $ editProjectInfo pji f
 
 instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution m) where
-
     addModule pji m = do
         bounce $ addModule pji m
         addModuleToConfig pji $ Module.info m
@@ -557,6 +555,8 @@ instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution 
     removeModule pji mi = do
         bounce $ removeModule pji mi
         removeModuleFromConfig pji mi
+    getModuleHeader pji mi = bounce $ getModuleHeader pji mi
+    editModuleHeader pji mi f = bounce $ editModuleHeader pji mi f
 
 instance (MonadIO m, ProjectExternModuleClass m) => ProjectExternModuleClass (CabalSolution m) where
     addExternModule pji m = bounce $ addExternModule pji m
@@ -781,4 +781,33 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                     Nothing -> case bench of
                         Just _ -> return $ BenchmarkInfo s
                         Nothing -> throwE $ ProjectNotFound i ""
-    
+    removeCabalProject i = withOpenedSolution $ \info -> do
+        let (CabalConfiguration conf) = cabalConfig info
+            exes = Map.fromList $ condExecutables conf
+            tests = Map.fromList $ condTestSuites conf
+            benches = Map.fromList $ condBenchmarks conf
+        conf' <- case (i) of
+            (LibraryInfo) -> do
+                case condLibrary conf of
+                    Just node -> do
+                        return conf{ condLibrary = Nothing }
+                    Nothing -> throwE $ ProjectNotFound libraryInfo ""
+            (ExecutableInfo s) -> do
+                case Map.lookup s exes of
+                    Just node -> do
+                        let exes' = Map.toList $ Map.delete s exes
+                        return conf{ condExecutables = exes' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+            (TestSuiteInfo s) -> do
+                case Map.lookup s tests of
+                    Just node -> do
+                        let tests' = Map.toList $ Map.delete s tests
+                        return $ conf{ condTestSuites = tests' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+            (BenchmarkInfo s) -> do
+                case Map.lookup s benches of
+                    Just node -> do
+                        let benches' = Map.toList $ Map.delete s benches
+                        return $ conf{ condBenchmarks = benches' }
+                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+        lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }

@@ -85,6 +85,18 @@ editModule = descend1 $ do
         Left err -> throw2 err
 
 
+getModuleHeader :: Monad m
+                => DescentChain2 Project ModuleInfo m u String
+getModuleHeader = descend0 $ gets moduleHeader
+    
+editModuleHeader :: Monad m
+                 => DescentChain3 Project ModuleInfo (String -> String) m u ()
+editModuleHeader = descend1 $ do
+    f <- lift ask
+    modify $ \m -> m { moduleHeader = f $ moduleHeader m }
+    
+        
+
 -- | Add an external module
 addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
 addExternModule = do

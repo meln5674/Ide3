@@ -104,6 +104,10 @@ doGetDecl path _ = withGuiComponents $ \comp -> do
                 decl <- lift $ bounce $ getDeclaration pi mi di
                 lift $ wrapIOError $ comp `setDeclBufferText` body decl
                 lift $ lift $ setCurrentDecl pi mi di
+        ModuleResult pi mi -> do
+            header <- lift $ bounce $ getModuleHeader pi mi
+            lift $ wrapIOError $ comp `setDeclBufferText` header
+            lift $ lift $ setCurrentModule pi mi
         _ -> return ()
 
 doBuild :: ( GuiCommand m p buffer
@@ -135,19 +139,27 @@ doSave :: ( GuiCommand m p buffer
           )
        => DialogOnErrorArg proxy m p buffer ()
 doSave = withGuiComponents $ \comp -> lift $ do
-    result <- lift $ getCurrentDeclaration
-    case result of
-        Just (pi, mi, di) -> do
+    let doWithBuffer f = do
             text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
                 start <- textBufferGetStartIter buffer
                 end <- textBufferGetEndIter buffer
                 textBufferGetText buffer start end False
-            di' <- bounce $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
-            bounce $ withSolutionTree comp populateTree
+            result <- f text
             saveSolution Nothing
+            return result
+    declResult <- lift $ getCurrentDeclaration
+    modResult <- lift $ getCurrentModule
+    case declResult of
+        Just (pi, mi, di) -> do
+            di' <- doWithBuffer $ \text -> do
+                bounce $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
+            bounce $ withSolutionTree comp populateTree
             when (di /= di') $ do
                 lift $ setCurrentDecl pi mi di'
-        _ -> return ()
+        _ -> case modResult of
+            Just (pi, mi) -> doWithBuffer $ \text ->
+                bounce $ editModuleHeader pi mi $ const text
+            _ -> return ()
         
 
 doSaveSolution :: ( GuiCommand m p buffer

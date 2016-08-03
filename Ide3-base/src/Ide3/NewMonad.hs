@@ -73,6 +73,13 @@ class Monad m => ProjectModuleClass m where
     removeModule :: ProjectInfo 
                  -> ModuleInfo 
                  -> SolutionResult m u ()
+    getModuleHeader :: ProjectInfo
+                    -> ModuleInfo
+                    -> SolutionResult m u String
+    editModuleHeader :: ProjectInfo
+                     -> ModuleInfo
+                     -> (String -> String)
+                     -> SolutionResult m u ()
 
 class Monad m => ProjectExternModuleClass m where
     -- | Add an external module

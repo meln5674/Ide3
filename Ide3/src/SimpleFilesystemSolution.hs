@@ -45,7 +45,7 @@ import Ide3.NewMonad hiding (load)
 import Ide3.NewMonad.Instances.Undecidable
 import Ide3.NewMonad.Instances.State.Class
 import Ide3.Types
-import qualified Ide3.Env.Solution as Solution
+import qualified Ide3.Solution as Solution
 import Ide3.Digest
 import Ide3.ModuleTree
 import Ide3.Utils

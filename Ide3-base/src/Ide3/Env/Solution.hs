@@ -27,8 +27,6 @@ import qualified Ide3.Env.Project as Project
 
 import Ide3.Solution.Internal()
 
-import Ide3.Solution
-
 -- | Add a project
 addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 addProject = do
@@ -86,6 +84,14 @@ editModule :: Monad m
                 (Module -> Either (SolutionError u) Module) 
                 m u ()
 editModule = descend2 Project.editModule
+
+getModuleHeader :: Monad m
+                => DescentChain3 Solution ProjectInfo ModuleInfo m u String
+getModuleHeader = descend1 $ Project.getModuleHeader
+    
+editModuleHeader :: Monad m
+                 => DescentChain4 Solution ProjectInfo ModuleInfo (String -> String) m u ()
+editModuleHeader = descend2 $ Project.editModuleHeader
 
 -- | Add an external module to a project
 addExternModule :: Monad m => DescentChain3 Solution ProjectInfo ExternModule m u ()

@@ -34,6 +34,8 @@ instance  (MonadBounce t, ProjectModuleClass m, Monad (t m)) => ProjectModuleCla
     getModule x = bounce . getModule x
     getModules = bounce . getModules
     editModule x y = bounce . editModule x y
+    getModuleHeader x = bounce . getModuleHeader x
+    editModuleHeader x y = bounce . editModuleHeader x y
 
 instance   (MonadBounce t, ProjectExternModuleClass m, Monad (t m)) => ProjectExternModuleClass (UndecidableWrapper t m) where
     addExternModule x = bounce . addExternModule x
