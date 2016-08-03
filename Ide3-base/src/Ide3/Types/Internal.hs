@@ -143,7 +143,7 @@ data ExternExport
 data ExternModule
     = ExternModule
     { externModuleInfo :: ModuleInfo
-    , externModuleExports :: [ExternExport]
+    , externModuleExports :: Map ExportId ExternExport
     }
     deriving (Show, Eq, Read, Ord)
 

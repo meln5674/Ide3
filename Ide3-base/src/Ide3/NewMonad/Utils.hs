@@ -4,6 +4,9 @@ module Ide3.NewMonad.Utils
     , getExternalSymbols
     ) where
 
+import qualified Data.Map as Map
+
+import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types.Internal 
@@ -45,14 +48,27 @@ addRawDeclaration pji mi str = case Declaration.parse str of
     Left err -> throwE err
 
 -- | Parse an entire module and add it to the project
-addRawModule :: (ProjectModuleClass m, ProjectExternModuleClass m) 
+addRawModule :: ( ProjectModuleClass m
+                , ProjectExternModuleClass m
+                , ModuleDeclarationClass m
+                , ModuleImportClass m
+                , ModuleExportClass m
+                , ModulePragmaClass m
+                ) 
              => ProjectInfo 
              -> String 
              -> Maybe FilePath 
              -> SolutionResult m u ModuleInfo
 addRawModule pji str p = case Module.parse str p of
     Right (m,_,_) -> do
-        addModule pji m
-        return $ Module.info m
+        --addModule pji m
+        let mi = Module.info m
+        createModule pji mi
+        mapM (addDeclaration pji mi) $ Map.elems $ moduleDeclarations m
+        mapM (addImport pji mi) $ Map.elems $ moduleImports m
+        maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports m
+        mapM (addPragma pji mi) $ modulePragmas m
+        editModuleHeader pji mi $ const $ moduleHeader m
+        return mi
     Left err -> throwE err
 

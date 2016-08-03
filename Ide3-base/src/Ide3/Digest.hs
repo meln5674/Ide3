@@ -96,13 +96,15 @@ enumerateHaskellProject path = do
 -- | Digest an interface and add an external module accordingly
 digestInterfaceM :: ( MonadIO m
                     , ProjectExternModuleClass m
+                    , ExternModuleExportClass m
                     )
                  => ProjectInfo
                  -> Iface.Interface
                  -> SolutionResult m u ()
-digestInterfaceM pji iface = addExternModule pji newModule
+digestInterfaceM pji iface = do
+    createExternModule pji newInfo
+    forM_ exports $ addExternExport pji newInfo
   where
-    newModule = ExternModule newInfo exports
     newInfo = ModuleInfo $ Symbol $ Iface.modName iface
     exports = case Iface.exports iface of
         Nothing -> []
@@ -116,6 +118,11 @@ digestProjectM :: ( MonadIO m
                   , SolutionClass m
                   , ProjectModuleClass m
                   , ProjectExternModuleClass m
+                  , ExternModuleExportClass m
+                  , ModulePragmaClass m
+                  , ModuleImportClass m
+                  , ModuleExportClass m
+                  , ModuleDeclarationClass m
                   )
                => ProjectInfo 
                -> FilePath 
@@ -136,7 +143,12 @@ digestSolutionM :: ( MonadIO m
                    , SolutionClass m
                    , ProjectModuleClass m
                    , ProjectExternModuleClass m
-                   )
+                   , ExternModuleExportClass m
+                   , ModulePragmaClass m
+                  , ModuleImportClass m
+                  , ModuleExportClass m
+                  , ModuleDeclarationClass m
+                    )
                 => SolutionInfo
                 -> [(ProjectInfo,FilePath,Maybe FilePath)]
                 -> SolutionResult m u ()

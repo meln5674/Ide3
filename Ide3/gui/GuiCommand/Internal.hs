@@ -52,6 +52,7 @@ type GuiCommand m p buffer
       , ModuleImportClass m
       , ModuleDeclarationClass m
       , ModulePragmaClass m
+      , ExternModuleExportClass m
       )
 
 doError :: ( GuiCommand m p buffer ) => SolutionError UserError -> DialogOnErrorArg proxy m p buffer a
@@ -104,7 +105,7 @@ doGetDecl path _ = withGuiComponents $ \comp -> do
                 decl <- lift $ bounce $ getDeclaration pi mi di
                 lift $ wrapIOError $ comp `setDeclBufferText` body decl
                 lift $ lift $ setCurrentDecl pi mi di
-        ModuleResult pi mi -> do
+        ModuleResult pi mi True -> do
             header <- lift $ bounce $ getModuleHeader pi mi
             lift $ wrapIOError $ comp `setDeclBufferText` header
             lift $ lift $ setCurrentModule pi mi
@@ -213,14 +214,14 @@ doUnExportDeclaration :: ( GuiCommand m p buffer )
 doUnExportDeclaration pi mi (DeclarationInfo sym) = do
     matches <- lift $ bounce $ do
         es <- do
-            m <- getModule pi mi
+            --m <- getModule pi mi
             maybeEis <- getExports pi mi
             case maybeEis of
                 Nothing -> throwE $ InvalidOperation "All symbols are exported" ""
                 Just eis -> 
                     forM eis $ \ei -> do
                         (WithBody e _) <- getExport pi mi ei
-                        syms <- Export.symbolsProvided pi m e
+                        syms <- Export.symbolsProvided' pi mi e
                         return (ei,syms)
         return $ flip filter es $ \(_,syms) -> sym `elem` syms
     case matches of

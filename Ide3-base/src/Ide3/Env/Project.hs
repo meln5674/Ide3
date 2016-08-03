@@ -26,6 +26,8 @@ import Ide3.Types.Internal
 
 import qualified Ide3.Module as Module (new)
 import qualified Ide3.Env.Module as Module
+import qualified Ide3.Module.Extern as ExternModule
+import qualified Ide3.Env.ExternModule as ExternModule
 
 import Ide3.Project.Internal()
 
@@ -104,6 +106,12 @@ addExternModule = do
     m <- lift ask
     put =<< lift (lift $ addChildT (externModuleInfo m) m p)
 
+-- | Add an empty external module
+createExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
+createExternModule = do
+    mi <- lift ask
+    p <- get
+    put =<< lift (lift $ addChildT mi (ExternModule.new mi) p)
 
 -- | Get an external module by id
 getExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ExternModule
@@ -199,3 +207,19 @@ removePragma = descend1 Module.removePragma
 -- | Get all pragmas in a module
 getPragmas :: Monad m => DescentChain2 Project ModuleInfo m u [Pragma]
 getPragmas = descend0 Module.getPragmas
+
+-- | Add an export and return the id assigned to it
+addExternExport :: Monad m => DescentChain3 Project ModuleInfo ExternExport m u ExportId
+addExternExport = descend1 $ ExternModule.addExternExport
+
+-- | Remove an export by id
+removeExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ()
+removeExternExport = descend1 $ ExternModule.removeExternExport
+
+-- | Get an export by id
+getExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ExternExport
+getExternExport = descend1 $ ExternModule.getExternExport
+
+-- | Get the ids of all exports, or signify that all symbols are exported
+getExternExports :: Monad m => DescentChain2 Project ModuleInfo m u [ExportId]
+getExternExports = descend0 $ ExternModule.getExternExports

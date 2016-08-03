@@ -128,6 +128,7 @@ commandList :: ( {-?mProxy :: Proxy m
                , ModuleImportClass m
                , ModuleExportClass m
                , ModulePragmaClass m
+               , ExternModuleExportClass m
                )
             => Editor m u
             -> Builder m u
@@ -196,6 +197,7 @@ runWith :: ( {-?mProxy :: Proxy m
            , ModuleImportClass (t m)
            , ModuleExportClass (t m)
            , ModulePragmaClass (t m)
+           , ExternModuleExportClass (t m)
            )
         => (forall b . t m b -> fsp -> m (b, fsp))
         -> fsp 

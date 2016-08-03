@@ -19,7 +19,7 @@ import qualified Ide3.Module.Internal as Module
 import qualified Ide3.Import.Internal as Import
 import qualified Ide3.Declaration as Declaration
 
-
+{-
 -- | Find the symbols to import from a module using a whitelist import
 importWhitelistTree :: (ProjectModuleClass m, ProjectExternModuleClass m)
               => ProjectInfo
@@ -44,7 +44,7 @@ importWhitelistTree pji m i = do
             case find (not . (`elem` ls')) ss of
                 Just s' -> throwE $ NotSubSymbol s s' "importWhitelistTree"
                 Nothing -> return (s:ss)
-
+-}
 -- | Find the symbols to import from a module using a whitelist import
 importWhitelistTree' :: ( ProjectModuleClass m
                         , ProjectExternModuleClass m
@@ -72,7 +72,7 @@ importWhitelistTree' pji mi i = do
                 Just s' -> throwE $ NotSubSymbol s s' "importWhitelistTree'"
                 Nothing -> return (s:ss)
 
-
+{-
 -- | Find the symbosl to import from a module using a blacklist import
 importBlacklistTree :: (ProjectModuleClass m, ProjectExternModuleClass m)
               => ProjectInfo
@@ -83,7 +83,7 @@ importBlacklistTree pji m i = do
     whitelistSyms <- importWhitelistTree pji m i
     allSyms <- map getChild <$> eitherModuleExportedSymbols pji m
     return $ filter (not . (`elem` whitelistSyms)) allSyms
-
+-}
 importBlacklistTree' :: ( ProjectModuleClass m
                         , ProjectExternModuleClass m
                         , ModuleImportClass m
@@ -99,8 +99,8 @@ importBlacklistTree' pji mi i = do
     whitelistSyms <- importWhitelistTree' pji mi i
     allSyms <- map getChild <$> eitherModuleExportedSymbols' pji mi
     return $ filter (not . (`elem` whitelistSyms)) allSyms
-
--- | Get the symbols provided by an import, ignoring qualification
+{-
+- | Get the symbols provided by an import, ignoring qualification
 importUnqualSymbolsProvided :: (ProjectModuleClass m, ProjectExternModuleClass m)
                             => ProjectInfo 
                             -> Import 
@@ -115,7 +115,7 @@ importUnqualSymbolsProvided pji i = case i of
         module_ <- getAnyModule pji (ModuleInfo sym)
         symbolsFromEach <- mapM (importBlacklistTree pji module_) specs
         return $ concat symbolsFromEach
-
+-}
 importUnqualSymbolsProvided' :: ( ProjectModuleClass m
                                 , ProjectExternModuleClass m
                                 , ModuleImportClass m
@@ -134,7 +134,7 @@ importUnqualSymbolsProvided' pji i = case i of
     (BlacklistImport sym _ _ specs) -> do
         symbolsFromEach <- mapM (importBlacklistTree' pji (ModuleInfo sym)) specs
         return $ concat symbolsFromEach
-
+{-
 -- | Get the symbols provided by an import
 importSymbolsProvided :: (ProjectModuleClass m, ProjectExternModuleClass m)
                       => ProjectInfo 
@@ -147,7 +147,7 @@ importSymbolsProvided pji i = Import.qualifySymbols
   where
     qualification = Import.importedModuleName i
     shouldQualify = Import.isQualified i
-
+-}
 importSymbolsProvided' :: ( ProjectModuleClass m
                           , ProjectExternModuleClass m
                           , ModuleImportClass m
@@ -165,7 +165,7 @@ importSymbolsProvided' pji i = Import.qualifySymbols
   where
     qualification = Import.importedModuleName i
     shouldQualify = Import.isQualified i
-
+{-
 -- | Test if an import provides a symbol
 importProvidesSymbol :: (ProjectModuleClass m, ProjectExternModuleClass m)
                      => ProjectInfo 
@@ -175,7 +175,7 @@ importProvidesSymbol :: (ProjectModuleClass m, ProjectExternModuleClass m)
 importProvidesSymbol pji i s = do
     syms <- importSymbolsProvided pji i
     return $ s `elem` syms
-
+-}
 importProvidesSymbol' :: ( ProjectModuleClass m
                          , ProjectExternModuleClass m
                          , ModuleImportClass m
@@ -190,7 +190,7 @@ importProvidesSymbol' :: ( ProjectModuleClass m
 importProvidesSymbol' pji i s = do
     syms <- importSymbolsProvided' pji i
     return $ s `elem` syms
-
+{-
 -- | If this import provides a symbol, get all of the other symbols it provides
 importOtherSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
                    => ProjectInfo 
@@ -205,7 +205,27 @@ importOtherSymbols pji i s = do
             return $ Just $ delete s syms
         else
             return Nothing
-
+-}
+importOtherSymbols' :: ( ProjectModuleClass m
+                         , ProjectExternModuleClass m
+                         , ModuleImportClass m
+                         , ModuleExportClass m
+                         , ModuleDeclarationClass m
+                         , ExternModuleExportClass m
+                       )                         
+                   => ProjectInfo 
+                   -> Import 
+                   -> Symbol 
+                   -> SolutionResult m u (Maybe [Symbol])
+importOtherSymbols' pji i s = do
+    p <- importProvidesSymbol' pji i s
+    if p
+        then do
+            syms <- importSymbolsProvided' pji i
+            return $ Just $ delete s syms
+        else
+            return Nothing
+{-
 -- | Given a sub-symbol (class method, data constructor, etc...), find the other
 -- sub-symbols and the parent symbol from this import
 -- See 'Ide3.Module.symbolTree'
@@ -217,9 +237,22 @@ importSymbolTree :: (ProjectModuleClass m, ProjectExternModuleClass m)
 importSymbolTree pji i s = do
     module_ <- getAnyModule pji $ ModuleInfo $ Import.moduleName i
     map getChild <$> eitherModuleSymbolTree pji module_ s
+-}
+importSymbolTree' :: ( ProjectModuleClass m
+                     , ProjectExternModuleClass m
+                     , ModuleImportClass m
+                     , ModuleExportClass m
+                     , ModuleDeclarationClass m
+                     , ExternModuleExportClass m
+                     )
+                 => ProjectInfo 
+                 -> Import 
+                 -> Symbol 
+                 -> SolutionResult m u [Symbol]
+importSymbolTree' pji i s = do
+    map getChild <$> eitherModuleSymbolTree' pji (ModuleInfo $ Import.moduleName i) s
 
-
-
+{-
 -- | Get a list of the symbols this export provides
 exportSymbolsProvided :: (ProjectModuleClass m, ProjectExternModuleClass m)
                 => ProjectInfo 
@@ -258,7 +291,7 @@ exportSymbolsProvided pji m e = case e of
           -> map getChild <$> moduleSymbolTree pji m s
         | otherwise
           -> throwE $ SymbolNotFound (Module.info m) s "exportSymbolsProvided"
-
+-}
 
 exportSymbolsProvided' :: ( ProjectModuleClass m
                           , ProjectExternModuleClass m
@@ -307,11 +340,11 @@ exportSymbolsProvided' pji mi e = case e of
             else throwE $ SymbolNotFound mi s "exportSymbolsProvided"
 
 
-
+{-
 -- | Test if a module imports another
 moduleImportsModule :: Module -> Symbol -> Bool
 moduleImportsModule m sym = sym `elem` map Import.moduleName (items $ Map.elems $ moduleImports m)
-
+-}
 moduleImportsModule' :: ( ModuleImportClass m
                         )
                      => ProjectInfo 
@@ -321,7 +354,7 @@ moduleImportsModule' :: ( ModuleImportClass m
 moduleImportsModule' pji mi sym = do
     is <- liftM items $ getImports pji mi >>= mapM (getImport pji mi)
     return $ sym `elem` map Import.moduleName is
-
+{-
 -- | Within the context of a project, find all of the symbols this module exports
 --  This requires the project context as modules may export other modules,
 --      necessitating finding what symbols they export, and so on
@@ -335,7 +368,7 @@ moduleExportedSymbols pji m = maybe allSyms getSymsFromExports $ moduleExports m
     getSymsFromExports es = do
         syms <- concat <$> mapM (exportSymbolsProvided pji m . item) es
         return $ map (Module.qualify m) syms
-
+-}
 
 moduleExportedSymbols' :: ( ProjectModuleClass m
                           , ProjectExternModuleClass m
@@ -360,7 +393,7 @@ moduleExportedSymbols' pji mi = do
     case exportSyms of
         Just ss -> return ss
         Nothing -> return $ map (ModuleChild mi) localSyms
-
+{-
 -- | Within the context of a project, find all of the symbosl being imported by
 -- a module
 moduleImportedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
@@ -371,7 +404,7 @@ moduleImportedSymbols pji m = concat <$> mapM providedBy imports
   where
     imports = moduleImports m
     providedBy = importSymbolsProvided pji . item
-
+-}
 moduleImportedSymbols' :: ( ProjectModuleClass m
                           , ProjectExternModuleClass m
                           , ModuleImportClass m
@@ -385,7 +418,7 @@ moduleImportedSymbols' :: ( ProjectModuleClass m
 moduleImportedSymbols' pji mi = do
     imports <- liftM items $ getImports pji mi >>= mapM (getImport pji mi)
     liftM concat $ mapM (importSymbolsProvided' pji) imports
-
+{-
 -- | Within the context of a project, find all of the symbols which are visible
 --  at the top level of this module 
 moduleInternalSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
@@ -396,7 +429,7 @@ moduleInternalSymbols pji m = do
     let decls = moduleDeclarations m
     importSyms <- moduleImportedSymbols pji m
     return $ importSyms ++ concatMap (Declaration.symbolsProvided . item) decls
-
+-}
 
 moduleInternalSymbols' :: ( ProjectModuleClass m
                           , ProjectExternModuleClass m
@@ -422,7 +455,7 @@ moduleDeclaredSymbols pji mi = do
     ds <- mapM (liftM item . getDeclaration pji mi) dis
     return $ concatMap Declaration.symbolsProvided ds
     
-
+{-
 -- | Given a sub-symbol, (such as a data constructor or a class method), find
 --  the parent symbol and its siblings
 --  If successful, the list will contain the parent symbol as its head, and the
@@ -447,12 +480,14 @@ moduleSymbolTree pji m sym = do
                     otherSyms <- importSymbolTree pji i sym
                     return $ map (Module.qualify m) otherSyms
                 Nothing -> throwE $ SymbolNotFound (Module.info m) sym "moduleSymbolTree"
-
+-}
 
 moduleSymbolTree' :: ( ProjectModuleClass m
                      , ProjectExternModuleClass m
                      , ModuleImportClass m
                      , ModuleDeclarationClass m
+                     , ModuleExportClass m
+                     , ExternModuleExportClass m
                      )
            => ProjectInfo
            -> ModuleInfo
@@ -465,14 +500,14 @@ moduleSymbolTree' pji mi sym = do
         Just (_,syms) -> return $ map (ModuleChild mi) syms
         Nothing -> do
             imports <- liftM items $ getImports pji mi >>= mapM (getImport pji mi) 
-            let othersFromImport x = importOtherSymbols pji x sym
+            let othersFromImport x = importOtherSymbols' pji x sym
             importSearchResult <- Module.searchM othersFromImport imports
             case importSearchResult of
                 Just (i,_) -> do
-                    otherSyms <- importSymbolTree pji i sym
+                    otherSyms <- importSymbolTree' pji i sym
                     return $ map (ModuleChild mi) otherSyms
                 Nothing -> throwE $ SymbolNotFound mi sym "moduleSymbolTree"
-
+{-
 -- | Get either an internal or external module
 getAnyModule :: (ProjectModuleClass m, ProjectExternModuleClass m)
              => ProjectInfo 
@@ -482,18 +517,26 @@ getAnyModule pji mi = catchE tryLocal $ const tryExtern
   where
     tryLocal = liftM Left $ getModule pji mi
     tryExtern = liftM Right $ getExternModule pji mi
+-}
     
 
 -- | Get the symbols exported by a module
-getExternalSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
+getExternalSymbols :: ( ProjectModuleClass m
+                     , ProjectExternModuleClass m
+                     , ModuleImportClass m
+                     , ModuleDeclarationClass m
+                     , ModuleExportClass m
+                     , ExternModuleExportClass m
+                     )
                    => ProjectInfo 
                    -> ModuleInfo 
                    -> SolutionResult m u  [Symbol]
-getExternalSymbols pji mi = do
+getExternalSymbols pji mi = liftM (map getChild) $ eitherModuleExportedSymbols' pji mi
+{-pji mi = do
     m <- getAnyModule pji mi
     case m of
         Left lm -> liftM (map getChild) $ moduleExportedSymbols pji lm
-        Right em -> return $ map getChild $ ExternModule.exportedSymbols em
+        Right em -> return $ map getChild $ ExternModule.exportedSymbols em-}
 
 {-
 getExternalSymbols' :: (ProjectModuleClass m, ProjectExternModuleClass m)
@@ -508,14 +551,23 @@ getExternalSymbols' pji mi = do
 -}
 
 -- | Get the symbols availible at the top level of a module
-getInternalSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
+getInternalSymbols :: ( ProjectModuleClass m
+                     , ProjectExternModuleClass m
+                     , ModuleImportClass m
+                     , ModuleDeclarationClass m
+                     , ModuleExportClass m
+                     , ExternModuleExportClass m
+                     )
                    => ProjectInfo 
                    -> ModuleInfo 
                    -> SolutionResult m u  [Symbol]
 getInternalSymbols pji mi = do
-    m <- getModule pji mi 
-    moduleInternalSymbols pji m
+    localSyms <- moduleDeclaredSymbols pji mi
+    importedSyms <- moduleImportedSymbols' pji mi
+    return $ localSyms ++ importedSyms
 
+
+{-
 -- | Get the symbols exported by either a local or external module, annotated
 -- with that module's identifying information
 eitherModuleExportedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
@@ -525,7 +577,7 @@ eitherModuleExportedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m
 eitherModuleExportedSymbols pji m = case m of
     Left lm -> moduleExportedSymbols pji lm
     Right em -> return $ ExternModule.exportedSymbols em
-
+-}
 
 hasModule :: (ProjectModuleClass m) 
           => ProjectInfo 
@@ -564,7 +616,7 @@ externModuleExportedSymbols' :: ( ProjectExternModuleClass m
 externModuleExportedSymbols' pji mi = do
     es <- getExternExports pji mi >>= mapM (getExternExport pji mi)
     return $ map (ModuleChild mi) $ concatMap ExternModule.exportSymbols es
-
+{-
 -- | Given a symbol such as a class method of data constructor, find the rest
 -- of the related symbols exported by a local or external module.
 -- The result list's head is the data type/class, and the tail as the other
@@ -578,13 +630,14 @@ eitherModuleSymbolTree :: (ProjectModuleClass m, ProjectExternModuleClass m)
 eitherModuleSymbolTree pji m s = case m of
     Left lm -> moduleSymbolTree pji lm s
     Right em -> externModuleSymbolTree em s
-
+-}
 
 eitherModuleSymbolTree' :: ( ProjectModuleClass m
                            , ProjectExternModuleClass m
                            , ExternModuleExportClass m
                            , ModuleImportClass m
                            , ModuleDeclarationClass m
+                           , ModuleExportClass m
                            )
            => ProjectInfo
            -> ModuleInfo
@@ -597,21 +650,23 @@ eitherModuleSymbolTree' pji mi s = do
         else moduleSymbolTree' pji mi s
 
 
-
+{-
 -- | Given a symbol such as a class method of data constructor, find the rest
 -- of the related symbols exported by an external module.
 -- The result list's head is the data type/class, and the tail as the other
 -- symbols
 -- This does not return the symbol provided
 externModuleSymbolTree :: Monad m => ExternModule -> Symbol -> SolutionResult m u [ModuleChild Symbol]
-externModuleSymbolTree (ExternModule i es) s = case getFirst $ mconcat $ map look es of
+externModuleSymbolTree m s = case getFirst $ mconcat $ map look es of
     Just ss -> return $ map (ModuleChild i) ss
     Nothing -> throwE $ SymbolNotExported i s "Extern.symbolTree"
   where
+    es = Map.elems $ externModuleExports m
+    i = ExternModule.info m
     look (SingleExternExport s') | s == s' = First $ Just []
     look (MultiExternExport s' ss) | s' `elem` ss = First $ Just $ delete s' ss
     look _ = First Nothing
-
+-}
 externModuleSymbolTree' :: ( ExternModuleExportClass m 
                            )
                         => ProjectInfo

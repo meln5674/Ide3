@@ -8,13 +8,17 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 -}
-module Ide3.Module.Extern where
+module Ide3.Module.Extern 
+    ( module Ide3.Module.Extern
+    , info
+    , new
+    ) where
+
+import qualified Data.Map as Map
 
 import Ide3.Types.Internal
 
--- | Get the identifying information from an external module
-info :: ExternModule -> ModuleInfo
-info (ExternModule i _) = i
+import Ide3.Module.Extern.Internal
 
 -- | Get the symbols exported by an external module
 exportSymbols :: ExternExport -> [Symbol]
@@ -24,6 +28,6 @@ exportSymbols (MultiExternExport s ss) = s : ss
 -- | Get the symbols exported by an external module, annotated with that modules
 -- identifying information
 exportedSymbols :: ExternModule -> [ModuleChild Symbol]
-exportedSymbols (ExternModule i es) = do
-    syms <- map exportSymbols es
-    map (ModuleChild i) syms
+exportedSymbols m = do
+    syms <- map exportSymbols $ Map.elems $ externModuleExports m
+    map (ModuleChild $ info m) syms

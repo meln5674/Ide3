@@ -63,7 +63,7 @@ data FileSystemSolution
     -- | No project opened
     | Unopened
     -- | A digested path or dump file is opened if Just, a new project if Nothing
-    | Opened (Maybe (SolutionInfo, FilePath))
+    | Opened (Maybe FilePath)
 
 {-
 -- | State transformer for the mechanism
@@ -175,20 +175,20 @@ instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) whe
                               , Just $ solutionPath </> "ifaces"
                               )
                 p <- digestSolution (SolutionInfo solutionName) [project]
-                lift $ putFsp $ Opened $ Just (SolutionInfo solutionName, solutionPath)
+                lift $ putFsp $ Opened $ Just solutionPath
                 return p
             ToOpen path -> do
                 result <- liftIO $ tryIOError $ readFile path
                 case result of
                     Right contents -> case readMaybe contents of
                         Just p -> do
-                            lift $ putFsp $ Opened $ Just (solutionInfo p, path)
+                            lift $ putFsp $ Opened $ Just path
                             return p
                         Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
                     Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
-            Opened (Just (info, path)) -> do
+            Opened (Just path) -> do
                 lift $ putFsp $ ToOpen path
                 loadState
     -- | Use Show to turn the current project into a string and write it to the
@@ -196,7 +196,7 @@ instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) whe
     finalizeState p = do
         fsp <- lift getFsp
         case fsp of
-            Opened (Just (_,path)) -> do
+            Opened (Just path) -> do
                 result <- liftIO $ tryIOError $ writeFile path $ show p
                 case result of
                     Right _ -> return ()
@@ -284,11 +284,11 @@ instance ( MonadIO m
     setTargetPath path = do
         fsp <- lift getFsp
         case fsp of
-            Opened (Just (info,_)) -> lift $ putFsp $ Opened $ Just (info, path)
+            Opened (Just _) -> lift $ putFsp $ Opened $ Just path
             Opened Nothing -> do
                 let parts = splitPath path
                     solutionName = takeBaseName $ last parts
-                lift $ putFsp $ Opened $ Just (SolutionInfo solutionName, path)
+                lift $ putFsp $ Opened $ Just path
             _ -> throwE $ InvalidOperation "Cannot set target path without open project" ""
     -- | Check if either there is a new project, digested path, or Read'd file
     hasOpenedSolution = do

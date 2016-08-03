@@ -28,18 +28,19 @@ instance  (MonadBounce t, SolutionClass m, Monad (t m)) => SolutionClass (Undeci
     editProjectInfo x = bounce . editProjectInfo x
 
 instance  (MonadBounce t, ProjectModuleClass m, Monad (t m)) => ProjectModuleClass (UndecidableWrapper t m) where
-    addModule x = bounce . addModule x
+    --addModule x = bounce . addModule x
     createModule x = bounce . createModule x
     removeModule x = bounce . removeModule x
-    getModule x = bounce . getModule x
+    --getModule x = bounce . getModule x
     getModules = bounce . getModules
-    editModule x y = bounce . editModule x y
+    --editModule x y = bounce . editModule x y
     getModuleHeader x = bounce . getModuleHeader x
     editModuleHeader x y = bounce . editModuleHeader x y
 
 instance   (MonadBounce t, ProjectExternModuleClass m, Monad (t m)) => ProjectExternModuleClass (UndecidableWrapper t m) where
-    addExternModule x = bounce . addExternModule x
-    getExternModule x = bounce . getExternModule x
+    --addExternModule x = bounce . addExternModule x
+    createExternModule x = bounce . createExternModule x
+    --getExternModule x = bounce . getExternModule x
     getExternModules = bounce . getExternModules
     removeExternModule x = bounce . removeExternModule x
 

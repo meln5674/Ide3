@@ -4,7 +4,7 @@ module Ide3.NewMonad where
 
 import Control.Monad.Trans.Except
 
-import Ide3.Types.Internal
+import Ide3.Types
 
 class Monad m => PersistenceClass m where
     -- | Load a project.
@@ -47,26 +47,31 @@ class Monad m => SolutionClass m where
 
 
 class Monad m => ProjectModuleClass m where
+{-
     -- | Add a module
     addModule :: ProjectInfo 
               -> Module 
               -> SolutionResult m u ()
-    
+-}    
     -- | Create a new module
     createModule :: ProjectInfo 
                  -> ModuleInfo 
                  -> SolutionResult m u ()
+{-
     -- | Retrieve a module
     getModule :: ProjectInfo 
               -> ModuleInfo 
               -> SolutionResult m u Module
+-}
     -- | Get a list of all the availible modules
     getModules :: ProjectInfo 
                -> SolutionResult m u [ModuleInfo]
+{-
     -- | Apply a transformation to a module
     editModule :: ProjectInfo -> ModuleInfo
                -> (Module -> Either (SolutionError u) Module) 
                -> SolutionResult m u ()
+-}
     -- | Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
@@ -82,14 +87,22 @@ class Monad m => ProjectModuleClass m where
                      -> SolutionResult m u ()
 
 class Monad m => ProjectExternModuleClass m where
+{-
     -- | Add an external module
     addExternModule :: ProjectInfo 
                     -> ExternModule 
                     -> SolutionResult m u ()
+-}
+    -- | Add an external module
+    createExternModule :: ProjectInfo 
+                       -> ModuleInfo
+                       -> SolutionResult m u ()
+{-
     -- | Retrieve an external module
     getExternModule :: ProjectInfo 
                     -> ModuleInfo 
                     -> SolutionResult m u ExternModule
+-}
     getExternModules :: ProjectInfo
                      -> SolutionResult m u [ModuleInfo]
     removeExternModule :: ProjectInfo
@@ -225,10 +238,16 @@ class Monad m => ExternModuleExportClass m where
                        -> ExportId
                        -> SolutionResult m u ()
 
+class Monad m => ModuleFileClass m where
+    toFile :: ProjectInfo -> ModuleInfo -> SolutionResult m u String
+
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
 type ModuleClass m = (ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m, ModulePragmaClass m)
-type SolutionMonad m = (SolutionClass m, ProjectClass m, ModuleClass m)
+type ExternModuleClass m = (ExternModuleExportClass m)
+type SolutionMonad m = (SolutionClass m, ProjectClass m, ModuleClass m, ExternModuleClass m)
 type PersistentSolutionMonad m = (PersistenceClass m, SolutionMonad m)
+type SolutionFileMonad m = (SolutionMonad m, ModuleFileClass m)
+type PersistentSolutionFileMonad m = (PersistentSolutionMonad m, ModuleFileClass m)
 
 class MonadBounce t where
     bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a

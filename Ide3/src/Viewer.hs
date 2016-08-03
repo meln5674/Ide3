@@ -38,7 +38,7 @@ import Ide3.NewMonad.Instances.Undecidable()
 import Ide3.Types
 import Ide3.NewMonad hiding (load, new, finalize)
 import qualified Ide3.NewMonad as M
-import Ide3.Types (Solution, SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
+import Ide3.Types (SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
 

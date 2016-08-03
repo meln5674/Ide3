@@ -97,6 +97,10 @@ editModuleHeader = descend2 $ Project.editModuleHeader
 addExternModule :: Monad m => DescentChain3 Solution ProjectInfo ExternModule m u ()
 addExternModule = descend1 Project.addExternModule
 
+-- | Add an empty local module to a project
+createExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
+createExternModule = descend1 Project.createExternModule
+
 -- | Get an external module by id from a project
 getExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ExternModule
 getExternModule = descend1 Project.getExternModule
@@ -187,3 +191,18 @@ removePragma = descend2 Project.removePragma
 getPragmas :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u [Pragma]
 getPragmas = descend1 Project.getPragmas
 
+-- | Add an export and return the id assigned to it
+addExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExternExport m u ExportId
+addExternExport = descend2 $ Project.addExternExport
+
+-- | Remove an export by id
+removeExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExportId m u ()
+removeExternExport = descend2 $ Project.removeExternExport
+
+-- | Get an export by id
+getExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExportId m u ExternExport
+getExternExport = descend2 $ Project.getExternExport
+
+-- | Get the ids of all exports, or signify that all symbols are exported
+getExternExports :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u [ExportId]
+getExternExports = descend1 $ Project.getExternExports

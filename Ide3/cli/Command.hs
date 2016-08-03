@@ -54,7 +54,6 @@ import Ide3.Types
     , items
     , body
     , ProjectInfo(..)
-    , Module
     , ModuleInfo(..)
     , Symbol(..)
     , getChild
@@ -81,8 +80,20 @@ import Runner
 import Initializer
 import ProjectInitializer
 
-type ViewerAction m u = (?proxy :: Proxy u, ViewerMonad m, Show u)
-type ViewerIOAction m u = (?proxy :: Proxy u, ViewerMonad m, Show u, MonadIO m)
+type ViewerAction m u =
+    ( ?proxy :: Proxy u
+    , ViewerMonad m
+    , Show u
+    , SolutionClass m
+    , ProjectModuleClass m
+    , ProjectExternModuleClass m
+    , ModuleImportClass m
+    , ModuleExportClass m
+    , ModuleDeclarationClass m
+    , ModulePragmaClass m
+    , ExternModuleExportClass m
+    )
+type ViewerIOAction m u = (ViewerAction m u, MonadIO m)
 
 -- | Run a project command, and return either the message or error it produced
 printOnError :: ( ViewerAction m u
@@ -100,6 +111,7 @@ withSelectedProject f = printOnError $ do
         Nothing -> throwE $ InvalidOperation "No project currently selected" ""
         Just pi -> liftM processOutputs $ f pi
 
+{-
 -- | Perform some action which requires the current module open in the viewer
 withSelectedModule :: ( Show a
                       , ViewerAction m u
@@ -112,6 +124,7 @@ withSelectedModule f = printOnError $ do
     case maybeModuleInfo of
         Nothing -> throwE $ InvalidOperation "No module currently selected" ""
         Just (pi,mi) -> liftM processOutputs $ (bounce $ getModule pi mi) >>= f pi
+-}
 
 withSelectedModuleInfo :: ( Show a
                           , ViewerAction m u
@@ -236,7 +249,7 @@ doModule :: ( ViewerAction m u
          -> ViewerStateT m String
 doModule name = withSelectedProject $ \pi -> do
     let info = (ModuleInfo (Symbol name))
-    _ <- bounce $ getModule pi info
+    -- _ <- bounce $ getModule pi info
     lift $ setCurrentModule pi info
     return $ defaultOutputs []
 
@@ -264,23 +277,21 @@ doImported :: ( ViewerAction m u
               , ProjectExternModuleClass m
               )
            => ViewerStateT m String
-doImported = withSelectedModule $ \pi m -> 
+doImported = withSelectedModuleInfo $ \pi mi -> 
       liftM asShows 
     $ bounce
-    $ Module.importedSymbols pi m
+    $ Module.importedSymbols' pi mi
 
 -- | Action for the exports command
 doExports :: ( ViewerAction m u 
              , ProjectModuleClass m
              )
           => ViewerStateT m String
-doExports = withSelectedModule $ \pi m -> return $ case Module.getExports m of
-    Nothing -> [asString "Exports everything"]
-    Just exports -> asShows
-                  $ items
-                  $ (map snd . Map.toList)
-                    exports
-                   
+doExports = withSelectedModuleInfo $ \pi mi -> bounce $ do
+    result <- getExports pi mi
+    case result of
+        Nothing -> return [asString "Exports everything"]
+        Just es -> liftM (asShows . items) $ mapM (getExport pi mi) es
 
 -- | Action for the exported command
 doExported :: ( ViewerAction m u 
@@ -288,10 +299,10 @@ doExported :: ( ViewerAction m u
               , ProjectExternModuleClass m
               )
            => ViewerStateT m String
-doExported = withSelectedModule $ \pi mi -> 
+doExported = withSelectedModuleInfo $ \pi mi -> 
       liftM (asShows . map getChild)
     $ bounce 
-    $ Module.exportedSymbols pi mi
+    $ Module.exportedSymbols' pi mi
 
 -- | Action for the visible command
 doVisible :: ( ViewerAction m u 
@@ -299,7 +310,7 @@ doVisible :: ( ViewerAction m u
              , ProjectExternModuleClass m
              )
           => ViewerStateT m String
-doVisible = withSelectedModule $ \pi m -> liftM asShows $ bounce $ Module.internalSymbols pi m
+doVisible = withSelectedModuleInfo $ \pi mi -> liftM asShows $ bounce $ Module.internalSymbols' pi mi
 
 -- | Action for the cat command
 doCat :: ( ViewerAction m u 
@@ -543,10 +554,9 @@ declarationNameCompletion :: ( ViewerAction m u
 declarationNameCompletion s = do
     result <- getCurrentModule
     case result of
-        Just (pi, info@(ModuleInfo (Symbol n))) -> do
+        Just (pi, mi@(ModuleInfo (Symbol n))) -> do
             r <- runExceptT $ do
-                m <- bounce $ getModule pi info
-                let infos = map (Declaration.info . item) $ Module.getDeclarations m
+                infos <- bounce $ getDeclarations pi mi
                 let syms = for infos $ \(DeclarationInfo (Symbol sym)) -> sym
                 let matchingSyms = filter (s `isPrefixOf`) syms
                 return $ Just $ for matchingSyms $ \sym -> 

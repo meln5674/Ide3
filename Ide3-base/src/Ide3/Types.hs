@@ -19,6 +19,7 @@ module Ide3.Types
     , ImportId
     , ImportKind (..)
     , Export (..)
+    , ExternExport (..)
     , ExportId
     , DeclarationInfo (..)
     , Declaration (..)

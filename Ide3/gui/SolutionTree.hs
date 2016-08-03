@@ -15,8 +15,7 @@ import ViewerMonad
 
 data SolutionTreeElem
     = ProjectElem ProjectInfo
-    | ModuleElem ModuleInfo
-    | OrgModuleElem ModuleInfo
+    | ModuleElem ModuleInfo Bool
     | DeclElem DeclarationInfo
     | ImportsElem
     | ExportsElem
@@ -27,7 +26,7 @@ data SolutionTreeElem
 
 data TreeSearchResult
     = ProjectResult ProjectInfo
-    | ModuleResult ProjectInfo ModuleInfo
+    | ModuleResult ProjectInfo ModuleInfo Bool
     | DeclResult ProjectInfo ModuleInfo DeclarationInfo
     | ImportsResult ProjectInfo ModuleInfo
     | ExportsResult ProjectInfo ModuleInfo
@@ -49,10 +48,9 @@ instance SolutionShellM PSW where
 
 renderSolutionTreeElem :: CellRendererTextClass o => SolutionTreeElem -> [AttrOp o]
 renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [cellText := n]
-renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s))) = [cellText := s]
-renderSolutionTreeElem (ModuleElem (UnamedModule (Just path))) = [cellText := path]
-renderSolutionTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
-renderSolutionTreeElem (OrgModuleElem mi) = renderSolutionTreeElem (ModuleElem mi)
+renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [cellText := s]
+renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [cellText := path]
+renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [cellText := "???"]
 renderSolutionTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
 renderSolutionTreeElem ImportsElem = [cellText := "Imports"]
 renderSolutionTreeElem ExportsElem = [cellText := "Exports"]
@@ -73,9 +71,9 @@ makeExportsNode Nothing = Node ExportsElem []
 
 makeModuleTree :: ModuleTree -> Tree SolutionTreeElem
 makeModuleTree (OrgNode mi ts)
-    = Node (OrgModuleElem mi) $ map makeModuleTree ts
+    = Node (ModuleElem mi False) $ map makeModuleTree ts
 makeModuleTree (ModuleNode mi ts ps ds is es) 
-    = Node (ModuleElem mi) 
+    = Node (ModuleElem mi True) 
     $ makePragmasNode ps
     : makeImportsNode is 
     : makeExportsNode es 
@@ -126,12 +124,12 @@ findAtPath path treeStore = do
     ancestorNode <- treeStoreGetValue treeStore ancestorPath
     case (node,parentNode,grandparentNode,ancestorNode) of
         (ProjectElem pi,_,_,_) -> return $ ProjectResult pi
-        (ModuleElem mi,_,_,ProjectElem pi) -> return $ ModuleResult pi mi
-        (DeclElem di,ModuleElem mi,_,ProjectElem pi) -> return $ DeclResult pi mi di
-        (ImportsElem,ModuleElem mi,_,ProjectElem pi) -> return $ ImportsResult pi mi
-        (ExportsElem,ModuleElem mi,_,ProjectElem pi) -> return $ ExportsResult pi mi
-        (ImportElem ii _,_,ModuleElem mi,ProjectElem pi) -> return $ ImportResult pi mi ii
-        (ExportElem ei _,_,ModuleElem mi,ProjectElem pi) -> return $ ExportResult pi mi ei
+        (ModuleElem mi b,_,_,ProjectElem pi) -> return $ ModuleResult pi mi b
+        (DeclElem di,ModuleElem mi b,_,ProjectElem pi) -> return $ DeclResult pi mi di
+        (ImportsElem,ModuleElem mi b,_,ProjectElem pi) -> return $ ImportsResult pi mi
+        (ExportsElem,ModuleElem mi b,_,ProjectElem pi) -> return $ ExportsResult pi mi
+        (ImportElem ii _,_,ModuleElem mi b,ProjectElem pi) -> return $ ImportResult pi mi ii
+        (ExportElem ei _,_,ModuleElem mi b,ProjectElem pi) -> return $ ExportResult pi mi ei
         _ -> return NoSearchResult
 
 {-
