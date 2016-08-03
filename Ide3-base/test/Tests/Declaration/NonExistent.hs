@@ -9,6 +9,7 @@ import Ide3.NewMonad
 
 import Tests.Utils
 
+tests_nonExistentDeclaration :: Test
 tests_nonExistentDeclaration = TestList
     [ test_addDeclarationToNonExistentProject
     , test_addDeclarationToNonExistentModule
