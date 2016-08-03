@@ -17,7 +17,7 @@ import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
 
 
-import Ide3.Types hiding (body)
+import Ide3.Types.Internal hiding (body)
 import Ide3.SrcLoc
 
 -- | Convert from the third party import type

@@ -4,7 +4,7 @@ module Ide3.NewMonad where
 
 import Control.Monad.Trans.Except
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 class Monad m => PersistenceClass m where
     -- | Load a project.

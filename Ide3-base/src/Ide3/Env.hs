@@ -60,7 +60,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 
-import Ide3.Types hiding (getChild)
+import Ide3.Types.Internal hiding (getChild)
 
 import qualified Ide3.Declaration as Declaration
 

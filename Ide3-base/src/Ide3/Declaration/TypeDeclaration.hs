@@ -17,7 +17,7 @@ class
 -}
 module Ide3.Declaration.TypeDeclaration where
 
-import Ide3.Types
+import Ide3.Types.Internal
 import qualified Ide3.Constructor as Constructor
 import {-# SOURCE #-} qualified Ide3.Declaration as Declaration
 

@@ -33,7 +33,7 @@ import Language.Haskell.Exts.Extension
 
 import Ide3.SrcLoc
 
-import Ide3.Types
+import Ide3.Types.Internal
 import qualified Ide3.Constructor as Constructor
 
 -- | Convert a declaration if it is a type synonym

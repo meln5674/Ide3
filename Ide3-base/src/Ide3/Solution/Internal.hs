@@ -6,7 +6,7 @@ import qualified Data.Map as Map
 
 import Control.Monad.Trans.Except
 
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.Env
 
 addProject :: Monad m

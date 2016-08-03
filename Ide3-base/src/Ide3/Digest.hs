@@ -32,7 +32,7 @@ import System.FilePath
 
 import qualified HsInterface as Iface
 
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.NewMonad
 import Ide3.NewMonad.Utils
 

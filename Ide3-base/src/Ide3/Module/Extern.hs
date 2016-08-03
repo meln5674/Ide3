@@ -10,7 +10,7 @@ Portability : POSIX
 -}
 module Ide3.Module.Extern where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 -- | Get the identifying information from an external module
 info :: ExternModule -> ModuleInfo

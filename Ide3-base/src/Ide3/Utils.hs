@@ -5,7 +5,7 @@ import System.IO.Error
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 
 wrapIOError :: (MonadIO m) => IO a -> SolutionResult m u a

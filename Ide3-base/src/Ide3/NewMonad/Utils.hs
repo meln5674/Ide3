@@ -6,7 +6,7 @@ module Ide3.NewMonad.Utils
 
 import Control.Monad.Trans.Except
 
-import Ide3.Types 
+import Ide3.Types.Internal 
 import qualified Ide3.Module as Module 
 import qualified Ide3.Import.Parser as Import 
 import qualified Ide3.Export as Export 

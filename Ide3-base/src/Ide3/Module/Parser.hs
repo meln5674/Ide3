@@ -29,7 +29,7 @@ import Language.Haskell.Exts.SrcLoc
 import Language.Haskell.Exts.Comments
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Export.Parser as Export

@@ -1,6 +1,6 @@
 module Ide3.Module.Query where
 
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.NewMonad
 import Ide3.Query
 

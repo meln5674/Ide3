@@ -24,7 +24,7 @@ import Control.Monad
 
 import Ide3.NewMonad
 
-import Ide3.Types hiding (moduleInfo)
+import Ide3.Types.Internal hiding (moduleInfo)
 
 -- | Utility function, just map with arguments reversed
 for :: [a] -> (a -> b) -> [b]

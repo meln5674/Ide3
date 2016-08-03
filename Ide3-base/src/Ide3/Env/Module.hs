@@ -23,7 +23,7 @@ import Control.Monad.Trans.State
 
 import Ide3.Env
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import qualified Ide3.Declaration as Declaration
 

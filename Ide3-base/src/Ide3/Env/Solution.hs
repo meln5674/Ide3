@@ -20,7 +20,7 @@ import Control.Monad.Trans.State
 
 import Ide3.Env
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project

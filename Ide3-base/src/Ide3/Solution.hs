@@ -2,7 +2,7 @@ module Ide3.Solution where
 
 import qualified Data.Map as Map
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 -- |Create an empry Solution
 empty :: Solution

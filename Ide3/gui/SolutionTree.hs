@@ -16,6 +16,7 @@ import ViewerMonad
 data SolutionTreeElem
     = ProjectElem ProjectInfo
     | ModuleElem ModuleInfo
+    | OrgModuleElem ModuleInfo
     | DeclElem DeclarationInfo
     | ImportsElem
     | ExportsElem
@@ -51,6 +52,7 @@ renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [cellText := n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s))) = [cellText := s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path))) = [cellText := path]
 renderSolutionTreeElem (ModuleElem (UnamedModule Nothing)) = [cellText := "???"]
+renderSolutionTreeElem (OrgModuleElem mi) = renderSolutionTreeElem (ModuleElem mi)
 renderSolutionTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
 renderSolutionTreeElem ImportsElem = [cellText := "Imports"]
 renderSolutionTreeElem ExportsElem = [cellText := "Exports"]
@@ -71,7 +73,7 @@ makeExportsNode Nothing = Node ExportsElem []
 
 makeModuleTree :: ModuleTree -> Tree SolutionTreeElem
 makeModuleTree (OrgNode mi ts)
-    = Node (ModuleElem mi) $ map makeModuleTree ts
+    = Node (OrgModuleElem mi) $ map makeModuleTree ts
 makeModuleTree (ModuleNode mi ts ps ds is es) 
     = Node (ModuleElem mi) 
     $ makePragmasNode ps

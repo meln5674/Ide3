@@ -22,7 +22,7 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
 import Ide3.Env
-import Ide3.Types
+import Ide3.Types.Internal
 
 import qualified Ide3.Module as Module (new)
 import qualified Ide3.Env.Module as Module

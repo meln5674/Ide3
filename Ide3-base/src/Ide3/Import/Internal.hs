@@ -1,6 +1,6 @@
 module Ide3.Import.Internal where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import Data.Maybe
 

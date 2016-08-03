@@ -4,7 +4,7 @@ module Ide3.NewMonad.Instances.State.Class where
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 class Monad m => StatefulSolutionClass m where
     getSolution :: SolutionResult m u Solution

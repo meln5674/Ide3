@@ -16,7 +16,7 @@ class instances
 -}
 module Ide3.Declaration.ModifierDeclaration where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 -- | Get a list of symbols that a declaration affects
 symbolsAffected :: ModifierDeclaration -> [Symbol]

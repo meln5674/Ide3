@@ -12,7 +12,7 @@ A bind declaration is a function or pattern bind, or a foreign function import
 -}
 module Ide3.Declaration.BindDeclaration where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 -- | Get the symbols this bind creates
 symbolsCreated :: BindDeclaration -> [Symbol]

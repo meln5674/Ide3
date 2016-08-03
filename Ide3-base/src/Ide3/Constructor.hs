@@ -10,7 +10,7 @@ Portability : POSIX
 -}
 module Ide3.Constructor where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import Language.Haskell.Exts.SrcLoc

@@ -16,7 +16,7 @@ module Ide3.Declaration
 
 import Data.List
 
-import Ide3.Types
+import Ide3.Types.Internal
 import qualified Ide3.Declaration.Parser as Parser
 
 import qualified Ide3.Declaration.TypeDeclaration as TypeDeclaration

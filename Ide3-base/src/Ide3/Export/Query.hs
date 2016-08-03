@@ -1,7 +1,7 @@
 module Ide3.Export.Query where
 
 import Ide3.Query
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.NewMonad
 
 symbolsProvided :: (ProjectModuleClass m, ProjectExternModuleClass m)

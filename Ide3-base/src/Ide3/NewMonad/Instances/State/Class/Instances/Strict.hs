@@ -4,7 +4,7 @@ module Ide3.NewMonad.Instances.State.Class.Instances.Strict where
 import Control.Monad.Trans
 import Control.Monad.Trans.State.Strict
 
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.NewMonad.Instances.State.Class
 
 newtype SolutionStateT m a = SolutionStateT
