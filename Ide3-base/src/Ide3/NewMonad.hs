@@ -208,6 +208,22 @@ class Monad m => ModulePragmaClass m where
                -> SolutionResult m u [Pragma]
 
 
+class Monad m => ExternModuleExportClass m where
+    addExternExport :: ProjectInfo
+                    -> ModuleInfo
+                    -> ExternExport
+                    -> SolutionResult m u ExportId
+    getExternExports :: ProjectInfo
+                     -> ModuleInfo
+                     -> SolutionResult m u [ExportId]
+    getExternExport :: ProjectInfo
+                    -> ModuleInfo
+                    -> ExportId
+                    -> SolutionResult m u ExternExport
+    removeExternExport :: ProjectInfo
+                       -> ModuleInfo
+                       -> ExportId
+                       -> SolutionResult m u ()
 
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
 type ModuleClass m = (ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m, ModulePragmaClass m)

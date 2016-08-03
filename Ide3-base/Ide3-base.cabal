@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Ide3.Types
+                     , Ide3.Types.State
                      , Ide3.Env
                      , Ide3.Env.Solution
                      , Ide3.Env.Project
@@ -64,6 +65,7 @@ library
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal
                      , Ide3.Import.Internal
+                     , Ide3.Types.Internal
                      , Ide3.Query
   build-depends:       base
                      , containers
