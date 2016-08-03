@@ -27,9 +27,7 @@ import qualified Ide3.Env.Project as Project
 
 import Ide3.Solution.Internal()
 
--- | Create a new solution from info
-new :: SolutionInfo -> Solution
-new i = Solution i Map.empty
+import Ide3.Solution
 
 -- | Add a project
 addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()

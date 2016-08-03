@@ -5,8 +5,8 @@ import GHC.Stack
 
 import Test.HUnit
 
-import Ide3.Monad
-import Ide3.Mechanism
+import Ide3.NewMonad
+import Ide3.NewMonad.Utils
 
 import Tests.Utils
 

@@ -1,4 +1,8 @@
-module Ide3.NewMonad.Utils where
+module Ide3.NewMonad.Utils 
+    ( module Ide3.NewMonad.Utils
+    , getInternalSymbols
+    , getExternalSymbols
+    ) where
 
 import Control.Monad.Trans.Except
 
@@ -9,6 +13,8 @@ import qualified Ide3.Export as Export
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.NewMonad
+
+import Ide3.Query (getInternalSymbols, getExternalSymbols)
 
 -- | Parse an import and add it to a module
 addRawImport :: (ModuleImportClass m)

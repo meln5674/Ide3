@@ -5,7 +5,7 @@ import GHC.Stack
 
 import Test.HUnit
 
-import Ide3.Monad
+import Ide3.NewMonad
 import qualified Ide3.Module as Module
 
 import Tests.Utils
