@@ -11,6 +11,11 @@ data CabalProjectInfo
     | ExecutableInfo String
     | TestSuiteInfo String
     | BenchmarkInfo String
+  deriving (Show)
+
+libraryInfo :: ProjectInfo 
+libraryInfo = ProjectInfo "library"
+
 
 editBuildInfo :: CabalProject -> (BuildInfo -> BuildInfo) -> CabalProject
 editBuildInfo (LibraryProject lib) f = LibraryProject lib{ libBuildInfo = f $ libBuildInfo lib }

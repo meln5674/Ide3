@@ -46,7 +46,7 @@ stackProjectInitializer = ProjectInitializer $ \(StackProjectInitializerArgs arg
                      { hsSourceDirs = [srcDir]
                      }
         newProjectInfo = case arg of
-                LibraryInfo -> ProjectInfo "LIBRARY"
+                LibraryInfo -> libraryInfo
                 ExecutableInfo exeName -> ProjectInfo exeName
                 TestSuiteInfo testName -> ProjectInfo testName
                 BenchmarkInfo benchName -> ProjectInfo benchName

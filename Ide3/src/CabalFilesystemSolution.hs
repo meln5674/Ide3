@@ -179,8 +179,6 @@ updateConfig pi (ExecutableProject exe) = withOpenedSolution $ \path (CabalConfi
     lift $ putFsp $ Opened $ Just $ CabalSolutionInfo path $ CabalConfiguration desc'
 -}
 
-libraryInfo :: ProjectInfo 
-libraryInfo = ProjectInfo "library"
 
 {-
 isProjectInfo :: ProjectInfo -> ProjectType -> Bool
@@ -228,7 +226,7 @@ loadInternalModule :: ( MonadIO m
 loadInternalModule pji path isMain = do
     let parser = if isMain then Module.parseMain else Module.parse
     contents <- wrapReadFile path
-    addRawModule pji contents (Just path)
+    bounce $ addRawModule pji contents (Just path)
 
 locateAndLoadInternalModule :: ( MonadIO m
                                , ProjectModuleClass m
@@ -411,9 +409,10 @@ loadProject :: ( MonadIO m
             => ProjectInfo 
             -> SolutionResult (CabalSolution m) u ()
 loadProject pi = do
+    addProject pi
     modules <- loadInternalModules pi
     --externModules <- getExternalModules pi
-    addProject pi
+    liftIO $ putStrLn $ "adding project: " ++ show pi
     let addPaths = foldr (.) id 
                  $ flip map modules 
                  $ \(mi,path) -> addModulePath pi mi path
@@ -563,6 +562,7 @@ instance ( MonadIO m
                                     >>= ExceptT . return . parseCabalConfiguration
                 lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig Map.empty
                 ps <- getCabalProjects
+                liftIO $ print ps
                 forM_ ps $ getCabalProject >=> loadProject . getProjectInfo
             Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
             Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""

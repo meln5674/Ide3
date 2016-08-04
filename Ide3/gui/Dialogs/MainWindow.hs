@@ -56,18 +56,21 @@ data MainWindow
 make :: (TextBufferClass buffer, MonadIO m)
      => (MainWindow -> GuiEnvT proxy m' p buffer m a) 
      -> GuiEnvT proxy m' p buffer m a
-make f = makeMainWindowWith $ \window -> 
-    makeVBoxWith window $ \vbox -> 
-        makeContainerWith vbox $ \container -> do
-            renderer <- makeRenderer
-            menuBar <- makeMainMenuBar vbox
-            
-            fileMenu <- makeFileMenu menuBar
-            projectMenu <- makeSolutionMenu menuBar
+make f = makeMainWindowWith $ \window -> do
+    renderer <- makeRenderer
+    makeVBoxWith window $ \container -> do
+        menuBar <- makeMainMenuBar container
+        fileMenu <- makeFileMenu menuBar
+        projectMenu <- makeSolutionMenu menuBar
+        makeVPanedWith container $ \vbox -> do
+            projectViewerBox <- makeSoloBox
+            buildViewerBox <- makeSoloBox
+            liftIO $ vbox `panedAdd1` projectViewerBox
+            liftIO $ vbox `panedAdd2` buildViewerBox
             projectViewer <- makeSolutionViewer renderer 
                                                renderSolutionTreeElem
-                                               container
-            buildViewer <- makeBuildViewer container
+                                               projectViewerBox
+            buildViewer <- makeBuildViewer buildViewerBox
             f MainWindow
               { window
               , fileMenu
@@ -79,17 +82,44 @@ make f = makeMainWindowWith $ \window ->
 makeRenderer :: (MonadIO m) => GuiEnvT proxy m' p buffer m CellRendererText
 makeRenderer = liftIO cellRendererTextNew
 
-makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> GuiEnvT proxy m' p buffer m b) -> GuiEnvT proxy m' p buffer m b
+makeSoloBox :: (MonadIO m)
+            => GuiEnvT proxy m' p buffer m VBox
+makeSoloBox = liftIO $ vBoxNew False 0
+
+makeVBoxWith :: (MonadIO m, ContainerClass self) 
+             => self 
+             -> (VBox -> GuiEnvT proxy m' p buffer m b) 
+             -> GuiEnvT proxy m' p buffer m b
 makeVBoxWith window f = do
     vbox <- liftIO $ vBoxNew False 0
     liftIO $ window `containerAdd` vbox
     f vbox
 
+makeVPanedWith :: (MonadIO m, ContainerClass self) 
+               => self 
+               -> (VPaned -> GuiEnvT proxy m' p buffer m b) 
+               -> GuiEnvT proxy m' p buffer m b
+makeVPanedWith container f = do
+    vbox <- liftIO $ vPanedNew
+    liftIO $ container `containerAdd` vbox
+    f vbox
+
+makeHPanedWith :: (MonadIO m, ContainerClass self) 
+               => self 
+               -> (HPaned -> GuiEnvT proxy m' p buffer m b) 
+               -> GuiEnvT proxy m' p buffer m b
+makeHPanedWith container f = do
+    hbox <- liftIO $ hPanedNew
+    liftIO $ container `containerAdd` hbox
+    f hbox
+
+{-
 makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT proxy m' p buffer m b) -> GuiEnvT proxy m' p buffer m b
 makeContainerWith vbox f = do
     container <- liftIO $ tableNew 2 3 False
     liftIO $ boxPackEnd vbox container PackGrow 0
     f container
+-}
 
 makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT proxy m' p buffer m MenuBar
 makeMainMenuBar vbox = do
@@ -171,7 +201,7 @@ data SolutionViewer
     }
 
 makeSolutionViewer :: (MonadIO m
-                     , TableClass self
+                     , ContainerClass self
                      , CellRendererClass cell
                      , TextBufferClass buffer
                      ) 
@@ -180,15 +210,20 @@ makeSolutionViewer :: (MonadIO m
                   -> self
                   -> GuiEnvT proxy m' p buffer m SolutionViewer
 makeSolutionViewer renderer renderFunc container = do
-    projectView <- makeProjView renderer container renderFunc
-    declView <- makeDeclView container
-    return SolutionViewer
-           { projectView
-           , declView
-           }
+    makeHPanedWith container $ \hbox -> do
+        projectViewBox <- makeSoloBox
+        declViewBox <- makeSoloBox
+        liftIO $ hbox `panedAdd1` projectViewBox
+        liftIO $ hbox `panedAdd2` declViewBox
+        projectView <- makeProjView renderer projectViewBox renderFunc
+        declView <- makeDeclView declViewBox
+        return SolutionViewer
+               { projectView
+               , declView
+               }
 
 makeProjView :: ( MonadIO m
-                , TableClass self
+                , ContainerClass self
                 , CellRendererClass cell
                 , TextBufferClass buffer
                 ) 
@@ -204,19 +239,19 @@ makeProjView renderer container renderFunc = do
     withGuiComponents $ flip withSolutionTree $ \treeStore -> 
         liftIO $ cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
     scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
-    liftIO $ scrollWindow `containerAdd` projView
-    liftIO $ tableAttach
-        container
+    liftIO $ container `containerAdd` scrollWindow
+        {-container
         scrollWindow
         0 1
         0 1
         [Expand,Fill] [Expand,Fill] 0 0
 --        [Fill] [Fill] 0 0
---        [Expand] [Expand] 0 0
+--        [Expand] [Expand] 0 0-}
+    liftIO $ scrollWindow `containerAdd` projView
     return projView
 
 makeDeclView :: ( MonadIO m
-                , TableClass self
+                , ContainerClass self
                 , TextBufferClass buffer
                 ) 
              => self -> GuiEnvT proxy m' p buffer m TextView
@@ -226,7 +261,7 @@ makeDeclView container = do
     liftIO $ monospace `fontDescriptionSetFamily` "monospace"
     liftIO $ declView `widgetModifyFont` Just monospace
     scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
-    liftIO $ scrollWindow `containerAdd` declView
+    {-
     liftIO $ tableAttach
         container
         scrollWindow
@@ -235,6 +270,9 @@ makeDeclView container = do
         [Expand,Fill] [Expand,Fill] 0 0
 --        [Fill] [Fill] 0 0
 --        [Expand] [Expand] 0 0
+    -}
+    liftIO $ container `containerAdd` scrollWindow
+    liftIO $ scrollWindow `containerAdd` declView
     return declView
 
 data BuildViewer
@@ -244,7 +282,7 @@ data BuildViewer
 
 makeBuildViewer :: ( MonadIO m
                    , TextBufferClass buffer
-                   , TableClass self
+                   , ContainerClass self
                    ) 
                 => self -> GuiEnvT proxy m' p buffer m BuildViewer
 makeBuildViewer container = do
@@ -255,22 +293,27 @@ makeBuildViewer container = do
 
 makeBuildView :: ( MonadIO m
                  , TextBufferClass buffer
-                 , TableClass self
+                 , ContainerClass self
                  ) 
               => self -> GuiEnvT proxy m' p buffer m TextView
 makeBuildView container = do
     buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
+    {-
     liftIO $ tableAttach
         container
         buildView
         0 2
         2 3
         [Expand,Fill] [Expand,Fill] 0 0
+    -}
 --        [Fill] [Fill] 0 0
 --        [Expand] [Expand] 0 0
+    liftIO $ container `containerAdd` buildView
     return buildView
 
-makeMainWindowWith :: (MonadIO m) => (Window -> GuiEnvT proxy m' p buffer m a) -> GuiEnvT proxy m' p buffer m a
+makeMainWindowWith :: (MonadIO m) 
+                   => (Window -> GuiEnvT proxy m' p buffer m a) 
+                   -> GuiEnvT proxy m' p buffer m a
 makeMainWindowWith f = do
     window <- liftIO $ do
         _ <- initGUI
