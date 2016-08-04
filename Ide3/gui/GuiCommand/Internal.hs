@@ -34,10 +34,12 @@ import GuiEnv
 import GuiMonad
 import SolutionTree
 
+import GuiViewer
+
 type UserError = ()
 
 type DialogOnErrorArg proxy m p buffer a
-    = GuiEnvT proxy m p buffer (SolutionResult (ViewerStateT m) UserError) a
+    = GuiEnvT proxy m p buffer (SolutionResult (GuiViewer (ViewerStateT m)) UserError) a
 
 type GuiCommand m p buffer
     = ( MonadIO m
@@ -73,24 +75,23 @@ doNew maybeSolutionRoot projectName templateName = do
         {- -- Why is this here?
                 bounce $ createNewFile $ projectName ++ ".proj"
         -}
-            lift $ bounce $ setDirectoryToOpen $ projectRoot </> projectName
+            lift $ bounce $ bounce $ setDirectoryToOpen $ projectRoot </> projectName
             r <- lift 
-                    $ ExceptT 
-                    $ lift 
-                    $ runExceptT 
+                    $ bounce
+                    $ bounce
                     $ runInitializer stackInitializer 
                                     (StackInitializerArgs projectName templateName)
             case r of
                 InitializerSucceeded{} -> do
-                    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
-                    lift $ saveSolution $ Just $ projectRoot </> projectName
+                    withGuiComponents $ lift . flip withSolutionTree populateTree
+                    lift $ bounce $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
 
 doOpen :: ( GuiCommand m p buffer )
        => FilePath
        -> DialogOnErrorArg proxy m p buffer ()
 doOpen path = do
-    lift $ openSolution path
+    lift $ bounce $ openSolution path
     withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
 
 
@@ -98,17 +99,20 @@ doGetDecl :: ( GuiCommand m p buffer )
           => TreePath
           -> TreeViewColumn 
           -> DialogOnErrorArg proxy m p buffer ()
-doGetDecl path _ = withGuiComponents $ \comp -> do
-    index <- lift $ wrapIOError $ withSolutionTree comp $ findAtPath path
+doGetDecl path _ = withGuiComponents $ \comp -> lift $ do
+    index <- wrapIOError $ withSolutionTree comp $ findAtPath path
+    openDecls <- lift $ getOpenDeclarations
+    lift $ mapM_ closeDeclaration openDecls
     case index of
         DeclResult pi mi di -> do
-                decl <- lift $ bounce $ getDeclaration pi mi di
-                lift $ wrapIOError $ comp `setDeclBufferText` body decl
-                lift $ lift $ setCurrentDecl pi mi di
+                decl <- getDeclaration pi mi di
+                wrapIOError $ comp `setDeclBufferText` body decl
+                bounce $ lift $ setCurrentDecl pi mi di
+                lift $ openDeclaration di
         ModuleResult pi mi True -> do
-            header <- lift $ bounce $ getModuleHeader pi mi
-            lift $ wrapIOError $ comp `setDeclBufferText` header
-            lift $ lift $ setCurrentModule pi mi
+            header <- getModuleHeader pi mi
+            wrapIOError $ comp `setDeclBufferText` header
+            bounce $ lift $ setCurrentModule pi mi
         _ -> return ()
 
 doBuild :: ( GuiCommand m p buffer
@@ -116,8 +120,8 @@ doBuild :: ( GuiCommand m p buffer
            )
         => DialogOnErrorArg proxy m p buffer ()
 doBuild = withGuiComponents $ \comp -> lift $ do
-    bounce $ prepareBuild
-    r <- bounce $ runBuilder stackBuilder
+    prepareBuild
+    r <- runBuilder stackBuilder
     let text = case r of
             BuildSucceeded out err -> out ++ err
             BuildFailed out err -> out ++ err
@@ -146,21 +150,19 @@ doSave = withGuiComponents $ \comp -> lift $ do
                 end <- textBufferGetEndIter buffer
                 textBufferGetText buffer start end False
             result <- f text
-            saveSolution Nothing
+            bounce $ saveSolution Nothing
             return result
-    declResult <- lift $ getCurrentDeclaration
-    modResult <- lift $ getCurrentModule
-    case declResult of
-        Just (pi, mi, di) -> do
+    declResult <- lift $ lift $ getCurrentDeclaration
+    modResult <- lift $ lift $ getCurrentModule
+    case (declResult,modResult) of
+        (Just (pi, mi, di),_) -> do
             di' <- doWithBuffer $ \text -> do
-                bounce $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
-            bounce $ withSolutionTree comp populateTree
-            when (di /= di') $ do
-                lift $ setCurrentDecl pi mi di'
-        _ -> case modResult of
-            Just (pi, mi) -> doWithBuffer $ \text ->
-                bounce $ editModuleHeader pi mi $ const text
-            _ -> return ()
+                editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
+            withSolutionTree comp populateTree
+            lift $ lift $ when (di /= di') $ setCurrentDecl pi mi di'
+        (_,Just (pi, mi)) -> doWithBuffer $ \text ->
+                editModuleHeader pi mi $ const text
+        _ -> return ()
         
 
 doSaveSolution :: ( GuiCommand m p buffer
@@ -168,7 +170,7 @@ doSaveSolution :: ( GuiCommand m p buffer
                  )
               => Maybe FilePath
               -> DialogOnErrorArg proxy m p buffer ()
-doSaveSolution = lift . saveSolution
+doSaveSolution = lift . bounce . saveSolution
 
 doAddModule :: ( GuiCommand m p buffer )
             => ProjectInfo

@@ -62,6 +62,8 @@ import qualified SolutionContextMenu
 
 import PseudoState
 
+import GuiViewer
+
 import CabalFilesystemSolution
 
 import Initializer
@@ -534,7 +536,7 @@ doMain :: forall proxy m p
        -> p
        -> IO ()
 doMain proxy init = do
-    projectMVar <- newMVar (Viewer Nothing Nothing Nothing, init)
+    projectMVar <- newMVar (emptyGuiViewer,(emptyViewer, init))
     components <- initializeComponents
     manager <- uiManagerNew
     group <- uiManagerGetAccelGroup manager

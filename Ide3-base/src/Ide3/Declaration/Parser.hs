@@ -45,6 +45,7 @@ parseTypeSynonym (TypeDecl _ h t)
                              )
 parseTypeSynonym _ = Nothing
 
+-- | Convert a declaration if it is a GADT newtype
 parseGADTNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
@@ -62,6 +63,7 @@ parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
                              )
 parseNewtypeDecl _ = Nothing
 
+-- | Convert a declaration if it is a GADT data
 parseGADTDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))

@@ -31,6 +31,7 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
 instance SrcInfo a => ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d
 
+-- |
 instance SrcInfo a => ToConstructor (GadtDecl a) where
     toConstructor (GadtDecl _ n (Just rs) _) = RecordConstructor (toSym n) (concatMap f rs)
       where

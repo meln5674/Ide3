@@ -74,9 +74,6 @@ deriving instance (MonadCatch m) => MonadCatch (SolutionStateT m)
 deriving instance (MonadThrow m) => MonadThrow (SolutionStateT m)
 deriving instance (MonadException m) => MonadException (SolutionStateT m)
 
-deriving instance (MonadMask m) => MonadMask (ViewerStateT m)
-deriving instance (MonadCatch m) => MonadCatch (ViewerStateT m)
-deriving instance (MonadThrow m) => MonadThrow (ViewerStateT m)
 deriving instance (MonadException m) => MonadException (ViewerStateT m)
 
 deriving instance (MonadException m) => MonadException (Cabal.CabalSolution m)

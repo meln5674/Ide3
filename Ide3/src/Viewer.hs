@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-|
 Module      : Viewer
 Description : Viewer for the demo solution
@@ -27,6 +28,7 @@ import Data.Maybe
 import System.Directory
 
 import Control.Monad
+import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
@@ -36,8 +38,9 @@ import PseudoState
 import Ide3.NewMonad.Instances.Undecidable()
 
 import Ide3.Types
-import Ide3.NewMonad hiding (load, new, finalize)
-import qualified Ide3.NewMonad as M
+--import Ide3.NewMonad hiding (load, new, finalize)
+--import qualified Ide3.NewMonad as M
+import Ide3.NewMonad
 import Ide3.Types (SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
@@ -52,7 +55,8 @@ data ViewerState
 
 -- | Transformer which adds access to the state of the program
 newtype ViewerStateT m a = ViewerStateT { runViewerStateTInternal :: StateT ViewerState m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, ViewerMonad)
+
   
 instance MonadBounce ViewerStateT where
     bounce = ExceptT . ViewerStateT . lift . runExceptT
@@ -137,11 +141,11 @@ openSolution path = do
         (True, _) -> do
             bounce $ setFileToOpen path
             lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce M.load
+            bounce load
         (_,True) -> do
             bounce $ setDirectoryToOpen path
             lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce M.load
+            bounce load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
 -- | Save the current solution, optionally with a new path to save to
@@ -155,7 +159,7 @@ saveSolution maybePath = do
                 case maybePath of
                     Just path -> bounce $ setTargetPath path
                     Nothing -> return ()
-                bounce M.finalize
+                bounce finalize
         else throwE $ InvalidOperation "No solution is currently open" ""
 
 
@@ -196,3 +200,71 @@ getCurrentDeclaration = ViewerStateT $ do
                 Nothing -> return Nothing
             Nothing -> return Nothing
         Nothing -> return Nothing
+
+
+
+
+instance (PersistenceClass m) => PersistenceClass (ViewerStateT m) where
+    load = bounce load
+    new = bounce . new
+    finalize = bounce finalize
+
+instance  (SolutionClass m) => SolutionClass (ViewerStateT m) where
+    editSolutionInfo = bounce . editSolutionInfo
+    addProject = bounce . addProject
+    removeProject = bounce . removeProject
+    getProjects = bounce getProjects
+    editProjectInfo x = bounce . editProjectInfo x
+
+instance  (ProjectModuleClass m) => ProjectModuleClass (ViewerStateT  m) where
+    --addModule x = bounce . addModule x
+    createModule x = bounce . createModule x
+    removeModule x = bounce . removeModule x
+    --getModule x = bounce . getModule x
+    getModules = bounce . getModules
+    --editModule x y = bounce . editModule x y
+    getModuleHeader x = bounce . getModuleHeader x
+    editModuleHeader x y = bounce . editModuleHeader x y
+
+instance   (ProjectExternModuleClass m) => ProjectExternModuleClass (ViewerStateT  m) where
+    --addExternModule x = bounce . addExternModule x
+    createExternModule x = bounce . createExternModule x
+    --getExternModule x = bounce . getExternModule x
+    getExternModules = bounce . getExternModules
+    removeExternModule x = bounce . removeExternModule x
+
+instance   (ModuleDeclarationClass m) => ModuleDeclarationClass (ViewerStateT  m) where
+    editDeclaration x y z = bounce . editDeclaration x y z
+    addDeclaration x y = bounce . addDeclaration x y
+    getDeclaration x y = bounce . getDeclaration x y
+    getDeclarations x = bounce . getDeclarations x
+    removeDeclaration x y = bounce . removeDeclaration x y
+
+instance   (ModuleImportClass m) => ModuleImportClass (ViewerStateT  m) where
+    addImport x y = bounce . addImport x y
+    getImport x y = bounce . getImport x y
+    removeImport x y = bounce . removeImport x y
+    getImports x = bounce . getImports x
+
+instance   (ModuleExportClass m) => ModuleExportClass (ViewerStateT  m) where
+    addExport x y = bounce . addExport x y
+    getExport x y = bounce . getExport x y
+    removeExport x y = bounce . removeExport x y
+    exportAll x = bounce . exportAll x
+    exportNothing x = bounce . exportNothing x
+    getExports x = bounce . getExports x
+
+instance   (ModulePragmaClass m) => ModulePragmaClass (ViewerStateT  m) where
+    addPragma x y = bounce . addPragma x y
+    removePragma x y = bounce . removePragma x y
+    getPragmas x = bounce . getPragmas x
+
+instance (ExternModuleExportClass m) => ExternModuleExportClass (ViewerStateT m) where
+    addExternExport x y = bounce . addExternExport x y
+    getExternExport x y = bounce . getExternExport x y
+    getExternExports x = bounce . getExternExports x
+    removeExternExport x y = bounce . removeExternExport x y
+
+deriving instance (MonadMask m) => MonadMask (ViewerStateT m)
+deriving instance (MonadCatch m) => MonadCatch (ViewerStateT m)
+deriving instance (MonadThrow m) => MonadThrow (ViewerStateT m)

@@ -46,6 +46,7 @@ executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
   other-modules:       SolutionTree
+                     , GuiViewer
                      , GuiCommand
                      , GuiCommand.Internal
                      , ProcessReader

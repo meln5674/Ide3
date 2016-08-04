@@ -16,15 +16,19 @@ import GuiHelpers
 import Viewer
 import GuiMonad
 
+import GuiViewer
+
+type MVarType p = (GuiViewerState, (ViewerState, p))
+
 data GuiEnv proxy m p buffer
     = GuiEnv
     { proxy :: proxy m
     , guiComponents :: GuiComponents buffer
-    , projectMVar :: MVar (ViewerState, p)
+    , projectMVar :: MVar (MVarType p)
     }
 
 withSolutionMVar :: (TextBufferClass buffer, Monad m)
-                => (MVar (ViewerState,p) -> GuiEnvT proxy m' p buffer m a)
+                => (MVar (MVarType p) -> GuiEnvT proxy m' p buffer m a)
                 -> GuiEnvT proxy m' p buffer m a
 withSolutionMVar f = getEnv >>= f . projectMVar 
 
