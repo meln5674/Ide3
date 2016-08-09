@@ -152,7 +152,7 @@ editDeclaration :: Monad m
                     Project 
                     ModuleInfo 
                     DeclarationInfo 
-                    (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     m u DeclarationInfo
 editDeclaration = descend2 Module.editDeclaration
 

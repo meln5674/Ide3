@@ -101,3 +101,10 @@ symbolTree' :: ( ProjectModuleClass m
            -> Symbol 
            -> SolutionResult m u [ModuleChild Symbol]
 symbolTree' = moduleSymbolTree' 
+
+
+importedBy :: (SolutionMonad m)
+           => ProjectInfo
+           -> ModuleInfo
+           -> SolutionResult m u [ProjectChild [ModuleChild [ImportId]]]
+importedBy = moduleImportedBy

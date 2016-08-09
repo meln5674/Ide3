@@ -140,7 +140,7 @@ class Monad m => ModuleDeclarationClass m where
     editDeclaration :: ProjectInfo 
                     -> ModuleInfo 
                     -> DeclarationInfo
-                    -> (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    -> (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     -> SolutionResult m u DeclarationInfo
     -- | Remove a declaration from a module
     removeDeclaration :: ProjectInfo 

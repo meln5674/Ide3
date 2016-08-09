@@ -28,6 +28,8 @@ import Text.Printf
 
 import Data.Map.Strict ( Map )
 
+import Ide3.OrderedMap
+
 -- |Attaches a string ("body") to another type
 data WithBody a = WithBody a String
     deriving (Show, Read, Eq)
@@ -118,7 +120,7 @@ type ImportCollection = Map ImportId (WithBody Import)
 type ExportCollection = Maybe (Map ExportId (WithBody Export))
 
 -- | A collection of declarations
-type DeclarationCollection = Map DeclarationInfo (WithBody Declaration)
+type DeclarationCollection = OrderedMap DeclarationInfo (WithBody Declaration)
 
 -- | A module. 
 data Module

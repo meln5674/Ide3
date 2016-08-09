@@ -8,6 +8,9 @@ import Data.List (intercalate, find)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Ide3.OrderedMap (OrderedMap)
+import qualified Ide3.OrderedMap as OMap
+
 import Control.Monad
 import Control.Monad.Trans.Except
 
@@ -51,7 +54,7 @@ empty = Module
       , modulePragmas = []
       , moduleImports = Map.empty 
       , moduleExports = Nothing
-      , moduleDeclarations = Map.empty
+      , moduleDeclarations = OMap.empty
       }
 
 -- | Create a new module from a ModuleInfo
@@ -62,7 +65,7 @@ new i = Module
       , modulePragmas = []
       , moduleImports = Map.empty 
       , moduleExports = Nothing
-      , moduleDeclarations = Map.empty
+      , moduleDeclarations = OMap.empty
       }
 
 addDeclaration :: Monad m 
@@ -70,23 +73,31 @@ addDeclaration :: Monad m
                -> WithBody Declaration
                -> Module
                -> SolutionResult m u Module
-addDeclaration di d m = case Map.lookup di $ moduleDeclarations m of
+addDeclaration di d m = case OMap.lookup di $ moduleDeclarations m of
     Just _ -> throwE $ DuplicateDeclaration (info m) di "Module.addDeclaration"
-    Nothing -> return $ m{ moduleDeclarations = Map.insert di d $ moduleDeclarations m }
+    Nothing -> return
+        $ m 
+        { moduleDeclarations = OMap.insert di d $ moduleDeclarations m 
+        }
 
 removeDeclaration :: Monad m
                   => DeclarationInfo
                   -> Module
                   -> SolutionResult m u (WithBody Declaration, Module)
-removeDeclaration di m = case Map.lookup di $ moduleDeclarations m of
+removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.removeDeclaration"
-    Just d -> return (d, m{ moduleDeclarations = Map.delete di $ moduleDeclarations m })
+    Just d -> return 
+        ( d
+        , m
+        { moduleDeclarations = OMap.delete di $ moduleDeclarations m 
+        }
+        )
 
 getDeclaration :: Monad m
                => DeclarationInfo
                -> Module
                -> SolutionResult m u (WithBody Declaration)
-getDeclaration di m = case Map.lookup di $ moduleDeclarations m of
+getDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.getDeclaration"
     Just d -> return d
 
@@ -96,12 +107,11 @@ setDeclaration :: Monad m
                -> WithBody Declaration
                -> Module
                -> SolutionResult m u Module
-setDeclaration di di' d' m = case Map.lookup di $ moduleDeclarations m of
+setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
         { moduleDeclarations
-            = Map.insert di' d' 
-            $ Map.delete di 
+            = OMap.modifyKey di di' 
             $ moduleDeclarations m
         }
 
@@ -225,7 +235,7 @@ parseUsing parser s p = case parser s p of
             Nothing -> Nothing
         iids = [0..length imports]
         imports' = Map.fromList $ zip iids imports
-        decls' = Map.fromList $ zip (map (Declaration.info . item) decls) decls
+        decls' = OMap.fromList $ zip (map (Declaration.info . item) decls) decls
     Left msg -> Left msg
 
 
@@ -246,7 +256,7 @@ getPragmas = modulePragmas
 
 -- |Get the declarations from a module
 getDeclarations :: Module -> [WithBody Declaration]
-getDeclarations = Map.elems . moduleDeclarations
+getDeclarations = OMap.elems . moduleDeclarations
 
 
 -- |Get the exports from a module
@@ -260,13 +270,22 @@ getImportIds :: Module -> [ImportId]
 getImportIds = Map.keys . moduleImports
 
 
+makeExportList :: [String] -> String
+makeExportList exportBodies@[_,_,_,_] = "(" ++ intercalate "," exportBodies ++ ") where"
+makeExportList exportBodies
+    = unlines 
+    $ map ("\t" ++)
+        $ "(" 
+        : map (", " ++) exportBodies 
+        ++ [") where"]
+
 -- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
 getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
     withNoExportList = "module " ++ name ++ " where"
-    withExportList es = "module " ++ name ++ "(" ++ intercalate "," exportBodies ++ ") where"
+    withExportList es = "module " ++ name ++ makeExportList exportBodies
       where
         exportBodies = bodies $ Map.elems es
 
@@ -278,15 +297,15 @@ toFile m = intercalate "\n" parts
     pragmas = modulePragmas m
     header = getHeaderText m
     imports = bodies $ Map.elems $ moduleImports m
-    declarations = bodies $ Map.elems $ moduleDeclarations m
+    declarations = bodies $ OMap.elems $ moduleDeclarations m
     parts = headerComment : pragmas ++ header : imports ++ declarations
 
 -- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]
 modifiersOf s m
   = map (qualify m . Declaration.info . item) 
-  . Map.elems
-  . Map.filter ((`Declaration.affectsSymbol` s) . item)
+  . OMap.elems
+  . OMap.filter ((`Declaration.affectsSymbol` s) . item)
   $ moduleDeclarations m
 
 -- | Tag a value as belonging to this module

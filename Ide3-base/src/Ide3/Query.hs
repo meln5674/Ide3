@@ -165,6 +165,8 @@ importSymbolsProvided' pji i = Import.qualifySymbols
   where
     qualification = Import.importedModuleName i
     shouldQualify = Import.isQualified i
+
+
 {-
 -- | Test if an import provides a symbol
 importProvidesSymbol :: (ProjectModuleClass m, ProjectExternModuleClass m)
@@ -682,3 +684,38 @@ externModuleSymbolTree' pji mi s = do
     look (SingleExternExport s') | s == s' = First $ Just []
     look (MultiExternExport s' ss) | s' `elem` ss = First $ Just $ delete s' ss
     look _ = First Nothing
+
+
+moduleImportedByInModule :: (SolutionMonad m)
+                         => ProjectInfo
+                         -> ModuleInfo
+                         -> ProjectInfo
+                         -> ModuleInfo
+                         -> SolutionResult m u [ImportId]
+moduleImportedByInModule pji mi@(ModuleInfo sym) pji' mi' = do
+    iis <- getImports pji' mi'
+    flip filterM iis $ \ii -> do
+        i <- getImport pji' mi' ii
+        return $ Import.moduleName (item i) == sym
+
+moduleImportedByInProject :: (SolutionMonad m)
+                          => ProjectInfo
+                          -> ModuleInfo
+                          -> ProjectInfo
+                          -> SolutionResult m u [ModuleChild [ImportId]]
+moduleImportedByInProject pji mi@(ModuleInfo sym) pji' = do
+    mis <- getModules pji'
+    forM mis $ \mi' -> do
+        iis <- moduleImportedByInModule pji mi pji' mi' 
+        return $ ModuleChild mi iis
+
+moduleImportedBy :: (SolutionMonad m)
+                 => ProjectInfo
+                 -> ModuleInfo
+                 -> SolutionResult m u [ProjectChild [ModuleChild [ImportId]]]
+moduleImportedBy pji mi = do
+    pjis <- getProjects
+    forM pjis $ \pji' -> do
+        mis <- moduleImportedByInProject pji mi pji'
+        return $ ProjectChild pji' mis
+    

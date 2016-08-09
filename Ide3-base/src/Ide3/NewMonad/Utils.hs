@@ -5,6 +5,7 @@ module Ide3.NewMonad.Utils
     ) where
 
 import qualified Data.Map as Map
+import qualified Ide3.OrderedMap as OMap
 
 import Control.Monad
 import Control.Monad.Trans.Except
@@ -64,7 +65,7 @@ addRawModule pji str p = case Module.parse str p of
         --addModule pji m
         let mi = Module.info m
         createModule pji mi
-        mapM (addDeclaration pji mi) $ Map.elems $ moduleDeclarations m
+        mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations m
         mapM (addImport pji mi) $ Map.elems $ moduleImports m
         maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports m
         mapM (addPragma pji mi) $ modulePragmas m

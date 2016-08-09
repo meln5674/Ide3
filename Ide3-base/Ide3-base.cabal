@@ -30,6 +30,7 @@ library
                      , Ide3.Module.Parser
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
+                     , Ide3.Refactor
                      , Ide3.NewMonad
                      , Ide3.NewMonad.Utils
                      , Ide3.NewMonad.Instances.Undecidable
@@ -71,6 +72,7 @@ library
                      , Ide3.Import.Internal
                      , Ide3.Types.Internal
                      , Ide3.Query
+                     , Ide3.OrderedMap
   build-depends:       base
                      , containers
                      , mtl

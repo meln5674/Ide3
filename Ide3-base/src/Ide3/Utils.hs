@@ -1,5 +1,7 @@
 module Ide3.Utils where
 
+import Data.List
+
 import System.IO.Error
 
 import Control.Monad.Trans
@@ -23,3 +25,11 @@ wrapReadFile :: (MonadIO m) => FilePath -> SolutionResult m u String
 wrapReadFile path = wrapIOErrorWithMsg errMsg $ readFile path
   where
     errMsg = "When reading " ++ path
+
+replace :: String -> String -> String -> String
+replace toReplace replacement str = go str
+  where
+    go [] = []
+    go y@(x:xs)
+        | toReplace `isPrefixOf` y = replacement ++ go (drop (length toReplace) y)
+        | otherwise = x : go xs

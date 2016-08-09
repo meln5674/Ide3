@@ -15,6 +15,7 @@ module Ide3.Env.Module where
 import Data.List
 
 import qualified Data.Map as Map
+import qualified Ide3.OrderedMap as OMap
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
@@ -64,19 +65,19 @@ removeDeclaration = do
 
 -- | Get the ids of all declarations
 getDeclarations :: Monad m => DescentChain1 Module m u [DeclarationInfo]
-getDeclarations = gets $ Map.keys . moduleDeclarations
+getDeclarations = gets $ OMap.keys . moduleDeclarations
 
 -- | Apply a transformation to a declaration
 editDeclaration :: Monad m 
                 => DescentChain3 
                     Module
                     DeclarationInfo 
-                    (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     m u DeclarationInfo
 editDeclaration = descend1 $ do
     f <- lift ask
     d <- get
-    case f $ item d of
+    case f d of
         Right d' -> do
             put d'
             return $ Declaration.info $ item d'
