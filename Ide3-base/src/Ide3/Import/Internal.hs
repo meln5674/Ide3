@@ -1,6 +1,7 @@
 module Ide3.Import.Internal where
 
 import Data.Maybe
+import Data.List
 
 import Ide3.Utils
 import Ide3.Types.Internal
@@ -38,6 +39,23 @@ importedModuleName i = fromMaybe name rename
     name = moduleName i
     rename = renamed i        
 
+
+splitByDots :: String -> [String]
+splitByDots s = go s []
+  where
+    go [] ys = reverse ys
+    go xs ys = go (drop 1 $ dropWhile (/='.') xs) (takeWhile (/='.') xs : ys)
+
+commonPath :: Import -> Import -> Bool
+commonPath i1 i2 = sameCount /= 0
+  where
+    m1 = getSymbol $ moduleName i1
+    m2 = getSymbol $ moduleName i2
+    p1 = splitByDots m1
+    p2 = splitByDots m2
+    inits1 = tail $ inits p1
+    inits2 = tail $ inits p2
+    sameCount = length $ takeWhile id $ zipWith (==) inits1 inits2
 
 -- | Apply a transformation to the name of the module being imported
 editModuleName :: (Symbol -> Symbol) 

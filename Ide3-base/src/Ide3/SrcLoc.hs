@@ -60,7 +60,27 @@ contacts a b s = case (a2i,b1i) of
     a2i = a2 `indexIn` s
     b1i = b1 `indexIn` s
 
--- | Filter out from a list of spannables those which contact another spannable on the left side
+sameStart :: SrcSpan -> SrcSpan -> String -> Bool
+sameStart a b s = case (a2i,b1i) of
+    (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
+    _ -> False
+  where
+    a2 = srcSpanStart a
+    b1 = srcSpanStart b
+    a2i = a2 `indexIn` s
+    b1i = b1 `indexIn` s
+
+sameEnd :: SrcSpan -> SrcSpan -> String -> Bool
+sameEnd a b s = case (a2i,b1i) of
+    (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
+    _ -> False
+  where
+    a2 = srcSpanEnd a
+    b1 = srcSpanEnd b
+    a2i = a2 `indexIn` s
+    b1i = b1 `indexIn` s
+
+-- | Filter out from -a list of spannables those which contact another spannable on the left side
 leftBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 leftBoundaries s y = filter $ \x -> contacts (getSpan x) (getSpan y) s
 
@@ -72,6 +92,37 @@ rightBoundaries s y = filter $ \x -> contacts (getSpan y) (getSpan x) s
 boundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 boundaries s y = filter $ \x -> contacts (getSpan x) (getSpan y) s
                              || contacts (getSpan y) (getSpan x) s
+
+intersectors :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
+intersectors s y = filter $ \x -> sameEnd (getSpan x) (getSpan y) s
+                               || sameStart (getSpan x) (getSpan y) s
+
+subtractSrcSpan :: (Spannable a, Spannable b) => a -> b -> String -> SrcSpan
+subtractSrcSpan a' b' s
+  | b1i <= a1i && a1i <= b2i && b2i <= a2i = SrcSpan filename b2l b2c a2l a2c
+  | a1i <= b1i && b1i <= a2i && a2i <= b2i = SrcSpan filename a1l a1c b1l b1c
+  | otherwise = a
+  where
+    a = getSpan a'
+    b = getSpan b'
+    a1 = srcSpanStart a
+    a2 = srcSpanEnd a
+    b1 = srcSpanStart b
+    b2 = srcSpanEnd b
+    a1i = a1 `indexIn` s
+    a2i = a2 `indexIn` s
+    b1i = b1 `indexIn` s
+    b2i = b2 `indexIn` s
+    filename = srcSpanFilename a
+    a1l = fst a1
+    a1c = snd a1
+    a2l = fst a2
+    a2c = snd a2
+    b1l = fst b1
+    b1c = snd b1
+    b2l = fst b2
+    b2c = snd b2
+
 -- | 
 instance Spannable SrcSpan where
     getSpan = id
@@ -79,4 +130,14 @@ instance Spannable SrcSpan where
 -- | 
 instance Spannable SrcSpanInfo where
     getSpan = srcInfoSpan
-
+{-    getSpan x = SrcSpan
+        { srcSpanFilename = srcSpanFilename $ srcInfoSpan x
+        , srcSpanStartLine = srcSpanStartLine s0
+        , srcSpanStartColumn = srcSpanStartColumn s0
+        , srcSpanEndLine = srcSpanEndLine s1
+        , srcSpanEndColumn = srcSpanEndColumn s1
+        } 
+      where
+        s0 = head $ srcInfoPoints x
+        s1 = last $ srcInfoPoints x-}
+    

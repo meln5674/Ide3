@@ -152,7 +152,7 @@ instance SrcInfo a => HasNames (InstRule a) where
     findName (IRule _ _ _ h) = findName h
     findName (IParen _ h) = findName h
 
--- | 
+-- |
 instance SrcInfo a => HasNames (InstHead a) where
     findName (IHCon _ n) = [toSym n]
     findName (IHInfix _ t n) = [toSym t, toSym n]
@@ -219,13 +219,20 @@ convertWithBody :: (Show a, Spannable a, SrcInfo a)
                 -> Decl a
                 -> Either (SolutionError u) (WithBody Declaration)
 convertWithBody str cs x = case tryConvert x of
-    Just decl -> Right $ WithBody decl (spanWithComments >< str)
+    Just decl -> Right $ WithBody decl $ finalSpan >< str
       where
-        leftBoundaryComments = leftBoundaries str (ann x) cs 
-        spanWithComments = case leftBoundaryComments of
-            [] -> getSpan $ ann x
-            (c:_) -> mergeSrcSpan (getSpan c) (getSpan $ ann x)
-        
+        leftBoundaryComments sp = case leftBoundaries str sp cs of
+            [] -> sp
+            (c:_) -> leftBoundaryComments $ mergeSrcSpan (getSpan c) sp
+        -- This is here because of a bug in the haskell-src-exts library
+        -- that causes the sourece spans reported for instance declarations 
+        -- to contain the whitespace and comments up to the next declaration.
+        -- By finding comments which "intersect" with the declaration, we can
+        -- remove the offending span section
+        noIntersectors sp = case intersectors str sp cs of
+            [] -> sp
+            (c:_) -> sp `subtractSrcSpan` c $ str
+        finalSpan = leftBoundaryComments $ noIntersectors $ getSpan $ ann x
     Nothing -> Left $ Unsupported $ (ann x >< str) ++ " " ++ show (ann x)
 
 -- | Take a list of declarations and combine the first type signature with the first bind

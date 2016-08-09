@@ -3,7 +3,7 @@
 module Ide3.Module.Internal where
 
 import Data.Maybe
-import Data.List (intercalate, find)
+import Data.List (intercalate, find, intersperse)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -20,7 +20,7 @@ import Ide3.Env
 
 import Ide3.Module.Parser (ExtractionResults(..))
 import qualified Ide3.Module.Parser as Parser
-
+import qualified Ide3.Import.Internal as Import
 import qualified Ide3.Declaration as Declaration
 
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
@@ -111,7 +111,8 @@ setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
         { moduleDeclarations
-            = OMap.modifyKey di di' 
+            = OMap.modifyKey di di'
+            $ OMap.insert' di' d'
             $ moduleDeclarations m
         }
 
@@ -289,6 +290,22 @@ getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
       where
         exportBodies = bodies $ Map.elems es
 
+splitOver :: (a -> a -> Bool) -> [a] -> [[a]]
+splitOver _ [] = []
+splitOver f xs = go xs [] []
+  where
+    go [] ys zs = reverse (reverse ys : zs)
+    go (x:xs) [] zs = go xs [x] zs
+    go (x:xs) (y:ys) zs
+        | f x y = go xs [x] (reverse (y : ys) : zs)
+        | otherwise = go xs (x:y:ys) zs
+    
+
+spaceImports :: [WithBody Import] -> [String]
+spaceImports is = concatMap ((++[""]) . bodies) partitionedImports
+  where
+    partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item i1) (item i2)
+
 -- | Reconstruct the source code from a Module
 toFile :: Module -> String
 toFile m = intercalate "\n" parts
@@ -296,9 +313,9 @@ toFile m = intercalate "\n" parts
     headerComment = moduleHeader m
     pragmas = modulePragmas m
     header = getHeaderText m
-    imports = bodies $ Map.elems $ moduleImports m
-    declarations = bodies $ OMap.elems $ moduleDeclarations m
-    parts = headerComment : pragmas ++ header : imports ++ declarations
+    imports = spaceImports $ Map.elems $ moduleImports m
+    declarations = intersperse "" $ bodies $ OMap.elems $ moduleDeclarations m
+    parts = headerComment : "" : pragmas ++ header : "" : imports ++ declarations
 
 -- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]

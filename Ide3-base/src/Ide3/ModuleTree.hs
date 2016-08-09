@@ -16,14 +16,12 @@ symbols specifying the heirarchy.
 module Ide3.ModuleTree where
 
 import Data.List
-
 import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Control.Monad
 
 import Ide3.NewMonad
-
 import Ide3.Types.Internal hiding (moduleInfo)
 
 -- | Utility function, just map with arguments reversed
