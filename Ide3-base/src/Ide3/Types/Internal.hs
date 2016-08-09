@@ -28,7 +28,7 @@ import Text.Printf
 
 import Data.Map.Strict ( Map )
 
-import Ide3.OrderedMap
+import Ide3.OrderedMap (OrderedMap)
 
 -- |Attaches a string ("body") to another type
 data WithBody a = WithBody a String

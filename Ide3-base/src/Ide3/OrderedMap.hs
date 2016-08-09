@@ -27,9 +27,10 @@ module Ide3.OrderedMap
     , fromList
     , filter
     , modifyKey
+    , map
     ) where
 
-import Prelude hiding (lookup, filter)
+import Prelude hiding (lookup, filter, map)
 import qualified Prelude
 
 import Data.Map (Map)
@@ -54,7 +55,7 @@ instance (Show k, Show v, Ord k) => Show (OrderedMap k v) where
     show m = "fromList " ++ (show $ toList m)
 
 instance (Read k, Read v, Ord k) => Read (OrderedMap k v) where
-    readsPrec i = \s -> map (firstElem fromList) $ readsPrec i s
+    readsPrec i = \s -> Prelude.map (firstElem fromList) $ readsPrec i s
       where
         firstElem f (a,b) = (f a,b)
 
@@ -108,11 +109,11 @@ keys = Map.elems . orderMap
 
 -- | Retreive the elements of a map, in the order their keys were inserted
 elems :: Ord k => OrderedMap k v -> [v]
-elems m = map (fst . (itemMap m Map.!)) $ keys m
+elems m = Prelude.map (fst . (itemMap m Map.!)) $ keys m
 
 -- | Convert the map to a list of key-value pairs, in order the keys were inserted
 toList :: Ord k => OrderedMap k v -> [(k,v)]
-toList m = map (\k -> (k, fst $ itemMap m Map.! k)) $ keys m
+toList m = Prelude.map (\k -> (k, fst $ itemMap m Map.! k)) $ keys m
 
 -- | Create a map from a list of key-value pairs. The order of the keys is taken
 -- as the insertion order
@@ -140,3 +141,6 @@ modifyKey k k' m = m{ itemMap = itemMap', orderMap = orderMap' }
     (v,ord) = itemMap m Map.! k
     itemMap' = Map.insert k' (v,ord) $ Map.delete k $ itemMap m
     orderMap' = Map.insert ord k' $ orderMap m
+
+map :: Ord k => (v -> v') -> OrderedMap k v -> OrderedMap k v'
+map f m = m { itemMap = flip Map.map (itemMap m) $ \(x,ord) -> (f x,ord) }

@@ -16,6 +16,9 @@ module Ide3.Declaration
 
 import Data.List
 
+import Ide3.OrderedMap (OrderedMap)
+import qualified Ide3.OrderedMap as OMap
+
 import Ide3.Types.Internal
 import qualified Ide3.Declaration.Parser as Parser
 
@@ -30,17 +33,17 @@ import Data.Map (Map)
 -- | Create a map from a list by applying a function to each item
 -- The result of the function is used as the key, and the values
 -- in the map are lists of items which produced the same key
-partitionBy :: (Ord k) => (a -> k) -> [a] -> Map k [a]
-partitionBy f ys = go ys Map.empty
+partitionBy :: (Ord k) => (a -> k) -> [a] -> OrderedMap k [a]
+partitionBy f ys = OMap.map reverse $ go ys OMap.empty
   where
     go [] m = m
     go (x:xs) m = go xs m'
       where
         k = f x
-        v' = case Map.lookup k m of
+        v' = case OMap.lookup k m of
             Just v -> x:v
             Nothing -> [x]
-        m' = Map.insert k v' m
+        m' = OMap.insert k v' m
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
@@ -66,8 +69,8 @@ combineMany :: [WithBody Declaration] -> [WithBody Declaration]
 combineMany ds = ds'
   where
     m = partitionBy (info . item) ds
-    m' = Map.map Parser.combineFuncAndTypeSig m
-    ds' = concat $ Map.elems m'
+    m' = OMap.map Parser.combineFuncAndTypeSig m
+    ds' = concat $ OMap.elems m'
 
 -- | Get the identifying information from a declaration
 info :: Declaration -> DeclarationInfo
