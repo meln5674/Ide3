@@ -301,6 +301,15 @@ onNewExportClicked pi mi = do
             return False
     return False
 
+onExportAllClicked :: forall proxy m p buffer
+               . ( GuiClass m p buffer )
+              => ProjectInfo
+              -> ModuleInfo
+              -> GuiEnvT proxy m p buffer (EventM EButton) Bool
+onExportAllClicked pi mi = mapGuiEnv liftIO $ do
+    doExportAll pi mi
+    return False
+    
 
 onEditExportClicked :: forall proxy m p buffer
                . ( GuiClass m p buffer )
@@ -362,10 +371,10 @@ setupModuleContextMenu pi mi = mapGuiEnv liftIO $ do
     menu <- SolutionContextMenu.makeModuleMenu pi mi
     menu `onGuiM` SolutionContextMenu.newSubModuleClickedEvent $ do
         onNewModuleClicked pi $ case mi of
-            mi@(ModuleInfo (Symbol prefix)) -> (Just prefix)
+            mi@(ModuleInfo (Symbol prefix)) -> Just prefix
             mi -> Nothing
     menu `onGuiM` SolutionContextMenu.newDeclClickedEvent $ do
-        mapGuiEnv liftIO $ doAddDeclaration pi mi (DeclarationInfo (Symbol "New Declaration"))
+        mapGuiEnv liftIO $ doAddDeclaration pi mi $ DeclarationInfo $ Symbol "New Declaration"
         return False
     menu `onGuiM` SolutionContextMenu.deleteModuleClickedEvent $ do
         mapGuiEnv liftIO $ doRemoveModule pi mi
@@ -431,6 +440,7 @@ setupExportsContextMenu :: forall proxy m p buffer m'
 setupExportsContextMenu pi mi = mapGuiEnv liftIO $ do
     menu <- SolutionContextMenu.makeExportsMenu pi mi
     menu `onGuiM` SolutionContextMenu.newExportClickedEvent $ onNewExportClicked pi mi
+    menu `onGuiM` SolutionContextMenu.exportAllClickedEvent $ onExportAllClicked pi mi
     return menu
 
 setupImportContextMenu :: forall proxy m p buffer m'

@@ -197,7 +197,12 @@ doAddDeclaration :: ( GuiCommand m p buffer )
 doAddDeclaration pi mi di = do
     let newdecl = WithBody (UnparseableDeclaration di) ""
     lift $ bounce $ addDeclaration pi mi newdecl
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    withGuiComponents $ \comp -> lift $ do
+        bounce $ withSolutionTree comp populateTree
+        decl <- getDeclaration pi mi di
+        wrapIOError $ comp `setDeclBufferText` body decl
+        bounce $ lift $ setCurrentDecl pi mi di
+        lift $ openDeclaration di
 
 doRemoveDeclaration :: ( GuiCommand m p buffer )
                     => ProjectInfo
@@ -338,3 +343,9 @@ doEditExport pi mi ei exportStr = do
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
             err -> lift $ throwE err
+
+doExportAll :: ( GuiCommand m p buffer )
+            => ProjectInfo
+            -> ModuleInfo
+            -> DialogOnErrorArg proxy m p buffer ()
+doExportAll pi mi = lift $ bounce $ exportAll pi mi

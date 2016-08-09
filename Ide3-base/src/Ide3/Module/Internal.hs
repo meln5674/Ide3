@@ -111,8 +111,8 @@ setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
         { moduleDeclarations
-            = OMap.modifyKey di di'
-            $ OMap.insert' di' d'
+            = OMap.insert' di' d'
+            $ OMap.modifyKey di di'
             $ moduleDeclarations m
         }
 

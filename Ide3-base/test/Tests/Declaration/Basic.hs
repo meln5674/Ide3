@@ -16,6 +16,8 @@ tests_basicDeclaration = TestList
     , test_addAndRemoveDeclaration
     , test_addRemoveAndRetreiveDeclaration
     , test_addRemoveAndReAddDeclaration
+    , test_renameDeclaration
+    , test_renameAndRetreiveDeclaration
     ]
 
 test_addDeclaration :: (?loc :: CallStack) => Test    
@@ -53,3 +55,18 @@ test_addRemoveAndReAddDeclaration = expectSuccess $ do
     addDeclaration newProjectInfo newModuleInfo newDeclaration
     removeDeclaration newProjectInfo newModuleInfo newDeclarationInfo
     addDeclaration newProjectInfo newModuleInfo newDeclaration
+
+test_renameDeclaration :: (?loc :: CallStack) => Test
+test_renameDeclaration = expectSuccess $ do
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    editDeclaration newProjectInfo newModuleInfo newDeclarationInfo $ const $ return newDeclaration2
+
+test_renameAndRetreiveDeclaration :: (?loc :: CallStack) => Test
+test_renameAndRetreiveDeclaration = expectResult newDeclaration2 $ do
+    addProject newProjectInfo
+    createModule newProjectInfo newModuleInfo
+    addDeclaration newProjectInfo newModuleInfo newDeclaration
+    editDeclaration newProjectInfo newModuleInfo newDeclarationInfo $ const $ return $ newDeclaration2
+    getDeclaration newProjectInfo newModuleInfo newDeclarationInfo2

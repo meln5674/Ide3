@@ -308,7 +308,9 @@ makeBuildView container = do
     -}
 --        [Fill] [Fill] 0 0
 --        [Expand] [Expand] 0 0
-    liftIO $ container `containerAdd` buildView
+    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
+    liftIO $ scrollWindow `containerAdd` buildView
+    liftIO $ container `containerAdd` scrollWindow
     return buildView
 
 makeMainWindowWith :: (MonadIO m) 

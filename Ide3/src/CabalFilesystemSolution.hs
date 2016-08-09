@@ -26,6 +26,8 @@ module CabalFilesystemSolution
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Monoid
 
 import System.Directory
@@ -76,6 +78,8 @@ data CabalSolutionInfo = CabalSolutionInfo
     { solutionPath :: FilePath
     , cabalConfig :: CabalConfiguration
     , modulePathMap :: ModulePathMap
+    , dirtyModules :: Set (ProjectInfo, ModuleInfo)
+    , cabalFileDirty :: Bool
     }
 
 -- | Map from modules to file paths, used to keep track of which modules came
@@ -91,6 +95,35 @@ addModulePath :: ProjectInfo
               -> CabalSolutionInfo
               -> CabalSolutionInfo
 addModulePath pi mi p conf = conf { modulePathMap = Map.insert (pi,mi) p $ modulePathMap conf }
+
+setModuleDirty :: Monad m 
+               => ProjectInfo
+               -> ModuleInfo 
+               -> SolutionResult (CabalSolution m) u ()
+setModuleDirty pji mi = withOpenedSolution $ \info -> do
+    lift $ putFsp $ Opened $ Just info{ dirtyModules = Set.insert (pji, mi) $ dirtyModules info }
+
+setModulesClean :: Monad m => SolutionResult (CabalSolution m) u ()
+setModulesClean = withOpenedSolution $ \info -> do
+    lift $ putFsp $ Opened $ Just info{ dirtyModules = Set.empty }
+
+isModuleDirty :: Monad m 
+              => ProjectInfo
+              -> ModuleInfo
+              -> SolutionResult (CabalSolution m) u Bool
+isModuleDirty pji mi = withOpenedSolution $ \info -> do
+    return $ (pji,mi) `Set.member` dirtyModules info
+    
+setCabalFileDirty :: Monad m => SolutionResult (CabalSolution m) u ()
+setCabalFileDirty = withOpenedSolution $ \info -> do
+    lift $ putFsp $ Opened $ Just info{ cabalFileDirty = True }
+
+setCabalFileClean :: Monad m => SolutionResult (CabalSolution m) u ()
+setCabalFileClean = withOpenedSolution $ \info -> do
+    lift $ putFsp $ Opened $ Just info{ cabalFileDirty = False }
+
+isCabalFileDirty :: Monad m => SolutionResult (CabalSolution m) u Bool
+isCabalFileDirty = withOpenedSolution $ return . cabalFileDirty 
 
 -- | Type wrapper for using a cabal file as a solution setup and the module
 -- files to store code normally
@@ -126,6 +159,9 @@ modifyFsp :: (Monad m)
           => (FileSystemSolution -> FileSystemSolution) 
           -> CabalSolution m ()
 modifyFsp = CabalSolution . modify
+
+
+    
 
 -- | Perform an action on an open solution, or throw an error if not open
 withOpenedSolution :: (Monad m) 
@@ -474,6 +510,7 @@ addModuleToConfig :: (Monad m)
                   -> ModuleInfo 
                   -> SolutionResult (CabalSolution m) u ()
 addModuleToConfig pi mi = do
+    setCabalFileDirty
     moduleName <- case mi of
         (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
         _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
@@ -493,6 +530,7 @@ removeModuleFromConfig :: (Monad m)
                        -> ModuleInfo 
                        -> SolutionResult (CabalSolution m) u ()
 removeModuleFromConfig pi mi = do
+    setCabalFileDirty
     moduleName <- case mi of
         (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
         _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
@@ -512,6 +550,7 @@ removeModuleFromConfig pi mi = do
 -}
 
 writeModulesAndConfig :: ( MonadIO m
+                         , ModuleFileClass m
                          , ProjectModuleClass m
                          , ProjectExternModuleClass m
                          ) 
@@ -520,27 +559,32 @@ writeModulesAndConfig = do
     fsp <- lift getFsp
     case fsp of
         Opened (Just si) -> do
-            let cabalConfigOutput = reformCabalConfiguration $ cabalConfig si
-            cabalConfigPath <- getCabalConfigPath $ solutionPath si 
-            wrapIOError $ writeFile cabalConfigPath cabalConfigOutput
+            isDirty <- isCabalFileDirty
+            when isDirty $ do
+                let cabalConfigOutput = reformCabalConfiguration $ cabalConfig si
+                cabalConfigPath <- getCabalConfigPath $ solutionPath si 
+                wrapIOError $ writeFile cabalConfigPath cabalConfigOutput
+                setCabalFileClean
             let writeProject ptype = do
                     let pi = getProjectInfo ptype
                     moduleInfos <- getModules pi
-                    --modules <- mapM (getModule pi) moduleInfos
-                    --mapM_ (writeModule pi) modules
+                    dirtyModuleInfos <- filterM (isModuleDirty pi) moduleInfos
+                    mapM_ (writeModule pi) dirtyModuleInfos
                     return ()
             getCabalProjects >>= mapM_ (getCabalProject >=> writeProject)
+            setModulesClean
         _ -> throwE $ InvalidOperation "No solution to save" ""
 
 
 instance ( MonadIO m
          , SolutionClass m
-       , ProjectModuleClass m
-       , ProjectExternModuleClass m
-        , ModuleDeclarationClass m
-        , ModuleImportClass m
-        , ModuleExportClass m
-        , ModulePragmaClass m
+         , ProjectModuleClass m
+         , ProjectExternModuleClass m
+         , ModuleDeclarationClass m
+         , ModuleImportClass m
+         , ModuleExportClass m
+         , ModulePragmaClass m
+         , ModuleFileClass m
          ) => PersistenceClass (CabalSolution m) where
     -- | Set up an empty solution
     new i = do
@@ -560,7 +604,7 @@ instance ( MonadIO m
                 wrapIOError $ setCurrentDirectory cabalDirectory
                 cabalConfig <- wrapReadFile cabalConfigPath
                                     >>= ExceptT . return . parseCabalConfiguration
-                lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig Map.empty
+                lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig Map.empty Set.empty False
                 ps <- getCabalProjects
                 liftIO $ print ps
                 forM_ ps $ getCabalProject >=> loadProject . getProjectInfo
@@ -587,6 +631,7 @@ instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution 
         addModuleToConfig pji $ Module.info m-}
 
     createModule pji mi = do
+        setModuleDirty pji mi
         bounce $ createModule pji mi
         addModuleToConfig pji mi
 
@@ -597,7 +642,9 @@ instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution 
         bounce $ removeModule pji mi
         removeModuleFromConfig pji mi
     getModuleHeader pji mi = bounce $ getModuleHeader pji mi
-    editModuleHeader pji mi f = bounce $ editModuleHeader pji mi f
+    editModuleHeader pji mi f = do
+        setModuleDirty pji mi
+        bounce $ editModuleHeader pji mi f
 
 instance (MonadIO m, ProjectExternModuleClass m) => ProjectExternModuleClass (CabalSolution m) where
     --addExternModule pji m = bounce $ addExternModule pji m
@@ -608,29 +655,51 @@ instance (MonadIO m, ProjectExternModuleClass m) => ProjectExternModuleClass (Ca
 
 
 instance (MonadIO m, ModuleDeclarationClass m) => ModuleDeclarationClass (CabalSolution m) where
-    addDeclaration pji mi d = bounce $ addDeclaration pji mi d
+    addDeclaration pji mi d = do
+        setModuleDirty pji mi
+        bounce $ addDeclaration pji mi d
     getDeclaration pji mi di = bounce $ getDeclaration pji mi di
     getDeclarations a b = bounce $ getDeclarations a b
-    editDeclaration a b c d = bounce $ editDeclaration a b c d
-    removeDeclaration a b c = bounce $ removeDeclaration a b c
+    editDeclaration a b c d = do
+        setModuleDirty a b
+        bounce $ editDeclaration a b c d
+    removeDeclaration a b c = do
+        setModuleDirty a b
+        bounce $ removeDeclaration a b c
 
 instance (MonadIO m, ModuleImportClass m) => ModuleImportClass (CabalSolution m) where
-    addImport a b c = bounce $ addImport a b c
+    addImport a b c = do
+        setModuleDirty a b
+        bounce $ addImport a b c
     getImport a b c = bounce $ getImport a b c
-    removeImport a b c = bounce $ removeImport a b c
+    removeImport a b c = do
+        setModuleDirty a b
+        bounce $ removeImport a b c
     getImports a b = bounce $ getImports a b
     
-instance (MonadIO m, ModuleExportClass m) => ModuleExportClass (CabalSolution m) where
-    addExport a b c = bounce $ addExport a b c 
+instance ( MonadIO m, ModuleExportClass m) => ModuleExportClass (CabalSolution m) where
+    addExport a b c = do
+        setModuleDirty a b
+        bounce $ addExport a b c 
     getExport a b c = bounce $ getExport a b c
-    removeExport a b c = bounce $ removeExport a b c 
-    exportAll a b = bounce $ exportAll a b
-    exportNothing a b = bounce $ exportNothing a b
+    removeExport a b c = do
+        setModuleDirty a b
+        bounce $ removeExport a b c 
+    exportAll a b = do
+        setModuleDirty a b
+        bounce $ exportAll a b
+    exportNothing a b = do
+        setModuleDirty a b
+        bounce $ exportNothing a b
     getExports a b = bounce $ getExports a b
 
 instance (MonadIO m, ModulePragmaClass m) => ModulePragmaClass (CabalSolution m) where
-    addPragma a b c = bounce $ addPragma a b c
-    removePragma a b c = bounce $ removePragma a b c
+    addPragma a b c = do
+        setModuleDirty a b
+        bounce $ addPragma a b c
+    removePragma a b c = do
+        setModuleDirty a b
+        bounce $ removePragma a b c
     getPragmas a b = bounce $ getPragmas a b
 
 instance (MonadIO m, ExternModuleExportClass m) => ExternModuleExportClass (CabalSolution m) where
@@ -644,6 +713,7 @@ instance ( MonadIO m
          , SolutionClass m
          , ProjectModuleClass m
          , ProjectExternModuleClass m
+         , ModuleFileClass m
          ) => ViewerMonad (CabalSolution m) where
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
@@ -754,6 +824,7 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                             benches' = Map.toList $ Map.insert s bench' benches
                         return $ conf{condBenchmarks = benches'}
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
+        setCabalFileDirty
     lookupCabalProject i@(ProjectInfo s) = withOpenedSolution $ \info -> do
         let (CabalConfiguration conf) = cabalConfig info
             exes = Map.fromList $ condExecutables conf
@@ -810,6 +881,7 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                     Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
             _ -> throwE $ InternalError "Mismatched project info and type" ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
+        setCabalFileDirty
     getCabalProjectInfo i@(ProjectInfo s) = withOpenedSolution $ \info -> do
         let (CabalConfiguration conf) = cabalConfig info
             exes = Map.fromList $ condExecutables conf
@@ -860,3 +932,4 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                         return $ conf{ condBenchmarks = benches' }
                     Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
+        setCabalFileDirty

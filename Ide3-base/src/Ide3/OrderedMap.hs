@@ -33,7 +33,7 @@ module Ide3.OrderedMap
 import Prelude hiding (lookup, filter, map)
 import qualified Prelude
 
-import Data.Map (Map)
+import Data.Map.Strict (Map)
 import qualified Data.Map as Map
 
 import Control.Monad

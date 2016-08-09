@@ -218,3 +218,9 @@ doEditExport :: ( GuiCommand m p buffer )
              -> String
              -> GuiEnvT proxy m p buffer IO (Maybe (SolutionError UserError))
 doEditExport pi mi ei importStr = dialogOnError Nothing $ Internal.doEditExport pi mi ei importStr
+
+doExportAll :: ( GuiCommand m p buffer )
+            => ProjectInfo
+            -> ModuleInfo
+            -> GuiEnvT proxy m p buffer IO ()
+doExportAll pi mi = dialogOnError () $ Internal.doExportAll pi mi

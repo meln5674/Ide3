@@ -95,11 +95,20 @@ newModuleInfo = ModuleInfo $ Symbol "New.Module"
 newModuleInfo2 = ModuleInfo $ Symbol "New.Module2"
 newDeclarationInfo = DeclarationInfo newDeclarationSymbol
 newDeclarationSymbol = Symbol "TestType"
+newDeclarationInfo2 = DeclarationInfo newDeclarationSymbol2
+newDeclarationSymbol2 = Symbol "TestType2"
 newDeclaration = WithBody
     (TypeDeclaration newDeclarationInfo
                     $ TypeSynonym (Symbol "TestType")
                                   (Symbol "String"))
     "type TestType = String"
+newDeclaration2 = WithBody
+    (TypeDeclaration newDeclarationInfo2
+                    $ TypeSynonym (Symbol "TestType2")
+                                  (Symbol "String"))
+    "type TestType2 = String"
+
+
 newDeclarationExport = WithBody (SingleExport newDeclarationSymbol) "TestType"
 newDeclarationImport = WithBody (WhitelistImport (Symbol "New.Module2") False Nothing [NameImport newDeclarationSymbol]) "import New.Module2 (TestType)"
 
