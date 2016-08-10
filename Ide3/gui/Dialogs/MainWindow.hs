@@ -33,6 +33,7 @@ import Control.Monad.Trans
 
 import Graphics.UI.Gtk
 
+import BetterTextView
 
 import GuiEnv
 import GuiMonad
@@ -197,7 +198,7 @@ makeRunButton = makeMenuButton "Run"
 data SolutionViewer
     = SolutionViewer
     { projectView :: TreeView
-    , declView :: TextView
+    , declView :: BetterTextView
     }
 
 makeSolutionViewer :: (MonadIO m
@@ -254,9 +255,9 @@ makeDeclView :: ( MonadIO m
                 , ContainerClass self
                 , TextBufferClass buffer
                 ) 
-             => self -> GuiEnvT proxy m' p buffer m TextView
+             => self -> GuiEnvT proxy m' p buffer m BetterTextView
 makeDeclView container = do
-    declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . textViewNewWithBuffer
+    declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . betterTextViewNewWithBuffer
     monospace <- liftIO fontDescriptionNew
     liftIO $ monospace `fontDescriptionSetFamily` "monospace"
     liftIO $ declView `widgetModifyFont` Just monospace
