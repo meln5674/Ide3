@@ -46,7 +46,6 @@ import Ide3.NewMonad.Utils
 
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Module as Module
-import qualified Ide3.Module.Query as Module
 
 import Ide3.Utils
 import Ide3.Types
@@ -102,6 +101,8 @@ printOnError :: ( ViewerAction m u
              -> ViewerStateT m String
 printOnError f = liftM (either show id) $ runExceptT f
 
+-- | Perform an action only if there is an selected project, otherwise return
+-- an error
 withSelectedProject :: (Show a, ViewerAction m u)
                     => (ProjectInfo -> SolutionResult (ViewerStateT m) u [Output a])
                     -> ViewerStateT m String
@@ -111,21 +112,7 @@ withSelectedProject f = printOnError $ do
         Nothing -> throwE $ InvalidOperation "No project currently selected" ""
         Just pi -> liftM processOutputs $ f pi
 
-{-
--- | Perform some action which requires the current module open in the viewer
-withSelectedModule :: ( Show a
-                      , ViewerAction m u
-                      , ProjectModuleClass m
-                      ) 
-                   => (ProjectInfo -> Module -> SolutionResult (ViewerStateT m) u [Output a])
-                   -> ViewerStateT m String
-withSelectedModule f = printOnError $ do
-    maybeModuleInfo <- lift $ getCurrentModule
-    case maybeModuleInfo of
-        Nothing -> throwE $ InvalidOperation "No module currently selected" ""
-        Just (pi,mi) -> liftM processOutputs $ (bounce $ getModule pi mi) >>= f pi
--}
-
+-- | Perform an action only if there is a selected module, other return an error
 withSelectedModuleInfo :: ( Show a
                           , ViewerAction m u
                           )
@@ -142,17 +129,20 @@ withSelectedModuleInfo f = printOnError $ do
 doHelp :: ViewerAction m u => CommandT u' (ViewerStateT m) String
 doHelp = printHelp
 
+-- | Action for the shell command
 doShell :: ViewerIOAction m u => String -> ViewerStateT m String
 doShell cmd = printOnError $ do
     let p = shell cmd
     (_, out, err) <- liftIO $ readCreateProcessWithExitCode p ""
     return $ out ++ err
 
+-- | Action for the cd command
 doCd :: ViewerIOAction m u => FilePath -> ViewerStateT m String
 doCd path = printOnError $ do
     liftIO $ setCurrentDirectory path
     return ""
 
+-- | Action for the new command
 doNew :: (ViewerAction m u, Args a) => Initializer a m u -> String -> ViewerStateT m String
 doNew initializer arg = printOnError $ do
     case runInitializerWithInput initializer =<< (parseArityN arg) of
@@ -193,12 +183,14 @@ doSaveAs p = printOnError $ do
     saveSolution $ Just p
     return "Saved"
 
+-- | Action for the projects command
 doProjects :: ( ViewerAction m u
               , SolutionClass m
               ) 
            => ViewerStateT m String
 doProjects = printOnError $ liftM (intercalate "\n" . map show) $ bounce getProjects
 
+-- | Action for the project command
 doProject :: ( ViewerAction m u
              , SolutionClass m
              ) 
@@ -208,6 +200,7 @@ doProject n = printOnError $ do
     lift $ setCurrentProject (ProjectInfo n)
     return ""
     
+-- | Action for the add project command
 doAddProject :: ( ViewerAction m u
                 , Args a
                 , SolutionClass m
@@ -224,6 +217,7 @@ doAddProject projectInitializer arg = printOnError $ do
                 ProjectInitializerSucceeded out err -> return $ out ++ err
                 ProjectInitializerFailed out err -> return $ out ++ err
 
+-- | Action for the remove project command
 doRemoveProject :: ( ViewerAction m u
                    , SolutionClass m
                    ) 
@@ -342,6 +336,7 @@ doRemoveModule moduleName = withSelectedProject $ \pi -> do
     bounce $ removeModule pi (ModuleInfo (Symbol moduleName))
     return $ defaultOutputs $ [asString "Removed"]
 
+-- | Action for the add export command
 doAddExport :: ( ViewerAction m u 
                , ModuleExportClass m
                )
@@ -351,6 +346,7 @@ doAddExport export = withSelectedModuleInfo $ \pi mi -> do
     _ <- bounce $ addRawExport pi mi export
     return [asString "Added" :: Output Bool]
 
+-- | Action for the remove export command
 doRemoveExport :: ( ViewerAction m u 
                   , ModuleExportClass m
                   )
@@ -358,6 +354,7 @@ doRemoveExport :: ( ViewerAction m u
                -> ViewerStateT m String
 doRemoveExport = undefined
 
+-- | Action for the add import command
 doAddImport :: ( ViewerAction m u 
                , ModuleImportClass m
                )
@@ -367,6 +364,7 @@ doAddImport import_ = withSelectedModuleInfo $ \pi mi -> do
     _ <- bounce $ addRawImport pi mi $ "import " ++ import_
     return [asString "Added" :: Output Bool]
 
+-- | Action for the remove import command
 doRemoveImport :: ( ViewerAction m u 
                   , ModuleImportClass m
                   ) 
@@ -428,6 +426,7 @@ doEdit editor sym = withSelectedModuleInfo $ \pi mi -> do
             return [asShow "Delete completed"]
         EditCanceled -> return [asShow "Edit canceled"]
 
+-- | Action for the build command
 doBuild :: ( ViewerIOAction m u
            ) 
         => Builder m u 
@@ -439,6 +438,7 @@ doBuild builder = printOnError $ do
         BuildSucceeded out err -> return $ out ++ err
         BuildFailed out err -> return $ out ++ err
 
+-- | Action for the run command
 doRun :: ( ViewerIOAction m u
          ) 
       => Runner m u 
@@ -489,7 +489,8 @@ doQuit = do
     setExitFlag
     return "Exiting..."
 
-
+-- | Do completion with the files and directories in the current working
+-- directory
 fileNameCompletion :: ( ViewerIOAction m u 
                       )
                    => String 
@@ -498,6 +499,7 @@ fileNameCompletion s = do
     comps <- listFiles s
     return $ Just $ flip map comps $ \comp -> comp{replacement = drop (length s) $ replacement comp }
 
+-- | Do completion with the names of the projects loaded
 projectNameCompletion :: ( ViewerAction m u 
                          , SolutionClass m
                          )
@@ -518,7 +520,7 @@ projectNameCompletion s = do
         Left _ -> Nothing
 
 
--- | Given a prefix, find module names that have that prefix
+-- | Do completion with the names of the modules in the currently selected project
 moduleNameCompletion :: ( ViewerAction m u 
                         , ProjectModuleClass m
                         )
@@ -544,8 +546,7 @@ moduleNameCompletion s = do
                 Right x -> x
                 Left _ -> Nothing
 
--- | Given a prefix, find declarations in the current module which have that
--- prefix
+-- | Do completion for the declarations in the currently selected module
 declarationNameCompletion :: ( ViewerAction m u 
                              , ProjectModuleClass m
                              )
@@ -584,6 +585,7 @@ helpCmd = Command
     , action = \_ -> doHelp
     }
 
+-- | The shell command, executes a command in the system shell
 shellCmd :: ( ViewerIOAction m u 
             )
          => Command u' (ViewerStateT m)
@@ -596,6 +598,7 @@ shellCmd = Command
     , action = liftCmd . doShell
     }
 
+-- | The cd command, changes the current working directory
 cdCmd :: ( ViewerIOAction m u 
          )
       => Command u' (ViewerStateT m)
@@ -608,6 +611,7 @@ cdCmd = Command
     , action = liftCmd . doCd
     }
 
+-- | The new command, creates a new solution using the provided initializer
 newCmd :: ( ViewerIOAction m u
           , Args a
           , Show u
@@ -638,7 +642,7 @@ openCmd = Command
     , action = liftCmd . doOpen
     }
 
--- | The save command, saves the project at whatever path was last used to save
+-- | The save command, saves the solution
 saveCmd :: ( ViewerIOAction m u
            , PersistenceClass m
            ) 
@@ -666,6 +670,7 @@ saveAsCmd = Command
     , action = liftCmd . doSaveAs
     }
 
+-- | The projects command, lists availible projects
 projectsCmd :: ( ViewerIOAction m u
                , SolutionClass m
                ) 
@@ -679,6 +684,7 @@ projectsCmd = Command
     , action = const $ liftCmd doProjects
     }
 
+-- | The project command, selects a project
 projectCmd :: ( ViewerIOAction m u
               , SolutionClass m
               ) 
@@ -692,6 +698,8 @@ projectCmd = Command
     , action = liftCmd . doProject
     }
 
+-- | The add project command, creates a new project using the provided project
+-- initializer
 addProjectCmd :: ( ViewerIOAction m u
                  , Args a
                  , Show u
@@ -708,6 +716,7 @@ addProjectCmd projectInitializer = Command
     , action = liftCmd . doAddProject projectInitializer
     }
 
+-- | The remove project command, removes a project
 removeProjectCmd :: ( ViewerIOAction m u
                     , SolutionClass m
                     ) 
@@ -879,6 +888,7 @@ removeModuleCmd = Command
     , action = liftCmd . doRemoveModule
     }
 
+-- | The add export command, adds an export to the currently selected module
 addExportCmd :: ( ViewerAction m u 
                 , ProjectModuleClass m
                 , ModuleExportClass m
@@ -893,6 +903,7 @@ addExportCmd = Command
     , action = liftCmd . doAddExport
     }
 
+-- | The remove export command, removes an export from the currently selected module
 removeExportCmd :: ( ViewerAction m u 
                    , ProjectModuleClass m
                    , ModuleExportClass m
@@ -907,7 +918,7 @@ removeExportCmd = Command
     , action = liftCmd . doRemoveExport
     }
 
-
+-- | The add import command, adds an import to the currently selected module
 addImportCmd :: ( ViewerAction m u 
                 , ProjectModuleClass m
                 , ModuleImportClass m
@@ -922,6 +933,7 @@ addImportCmd = Command
     , action = liftCmd . doAddImport
     }
 
+-- | The remove import command, removes an import from the currently selected module
 removeImportCmd :: ( ViewerAction m u 
                    , ProjectModuleClass m
                    , ModuleImportClass m
@@ -983,6 +995,7 @@ editCmd editor = Command
     , action = liftCmd . doEdit editor
     }
 
+-- | The build command, builds the solution using the provided builder
 buildCmd :: ( ViewerIOAction m u
             ) 
          => Builder m u 
@@ -996,6 +1009,7 @@ buildCmd builder = Command
     , action = \_ -> liftCmd $ doBuild builder
     }
 
+-- | The run command, runs the solution using the provided runner
 runCmd :: ( ViewerIOAction m u
           ) 
        => Runner m u 
@@ -1009,7 +1023,8 @@ runCmd runner = Command
     , action = \_ -> liftCmd $ doRun runner
     }
 
--- | The tree command, displays the project as a tree of modules and declarations
+-- | The tree command, displays the solution as a tree of projects, modules,
+-- and declarations
 treeCmd :: ( ViewerAction m u 
            , ProjectModuleClass m
            , ModuleExportClass m
@@ -1055,8 +1070,3 @@ quitCmd = Command
     , completion = \_ -> return $  Just []
     , action = \_ -> doQuit
     }
-
-
-          
-
-

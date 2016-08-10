@@ -170,10 +170,10 @@ instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) whe
                 let parts = splitPath solutionPath
                     projectName = last parts
                     solutionName = last parts
-                    project = ( ProjectInfo projectName
-                              , solutionPath
-                              , Just $ solutionPath </> "ifaces"
-                              )
+                    project = Params
+                              ( ProjectInfo projectName )
+                                solutionPath
+                              ( Just $ solutionPath </> "ifaces" )
                 p <- digestSolution (SolutionInfo solutionName) [project]
                 lift $ putFsp $ Opened $ Just solutionPath
                 return p

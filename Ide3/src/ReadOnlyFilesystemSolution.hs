@@ -95,10 +95,10 @@ instance MonadIO m => StatefulPersistenceClass (StateT FileSystemSolution m) whe
                 let parts = splitPath solutionPath
                     projectName = last parts
                     solutionName = last parts
-                    project = ( ProjectInfo projectName
-                              , solutionPath
-                              , Just $ solutionPath </> "ifaces"
-                              )
+                    project = Params
+                                (ProjectInfo projectName)
+                                solutionPath
+                                (Just $ solutionPath </> "ifaces")
                 p <- digestSolution (SolutionInfo solutionName) [project]
                 lift $ put $ Opened (SolutionInfo solutionName) solutionPath
                 return p
@@ -106,10 +106,10 @@ instance MonadIO m => StatefulPersistenceClass (StateT FileSystemSolution m) whe
             Opened info solutionPath -> do
                 let (SolutionInfo solutionName) = info
                     projectName = solutionName
-                    project = ( ProjectInfo projectName
-                              , solutionPath
-                              , Just $ solutionPath </> "ifaces"
-                              )
+                    project = Params
+                                ( ProjectInfo projectName )
+                                  solutionPath
+                                ( Just $ solutionPath </> "ifaces" )
                 digestSolution info [project]
     -- | Not supported
     finalizeState _ = throwE $ Unsupported "Cannot save a read-only project"

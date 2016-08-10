@@ -53,16 +53,17 @@ import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Utils
 
-import qualified Ide3.Env.Solution as Solution
+
 import qualified Ide3.Project as Project
-import qualified Ide3.Env.Project as Project
 import qualified Ide3.Module as Module
 
-import Ide3.Env
+
 
 import ViewerMonad
 import PseudoState
 import CabalMonad
+import DirtyModuleClass (DirtyModuleClass)
+import qualified DirtyModuleClass
 
 -- | State of the mechanism
 data FileSystemSolution
@@ -933,3 +934,7 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                     Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
         setCabalFileDirty
+
+
+instance Monad m => DirtyModuleClass (CabalSolution m) where
+    isModuleDirty = CabalFilesystemSolution.isModuleDirty
