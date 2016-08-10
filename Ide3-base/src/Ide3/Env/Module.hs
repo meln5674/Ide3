@@ -25,23 +25,11 @@ import Control.Monad.Trans.State
 import Ide3.Env
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.Module
-
-{-
--- | Determine the next id to assign to an import
-nextImportId :: Module -> ImportId
-nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
-
--- | Determine the next id to assign to an export
-nextExportId :: Module -> ExportId
-nextExportId m = case moduleExports m of
-    Nothing -> 0
-    Just es -> 1 + maximum (-1 : Map.keys es)
--}
-
 
 -- | Add a declaration
 addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) m u ()

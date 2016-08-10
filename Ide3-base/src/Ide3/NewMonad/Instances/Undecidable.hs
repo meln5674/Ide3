@@ -1,9 +1,26 @@
+{-|
+Module      : Ide3.NewMonad.Instances.Undecidable
+Description : Experimental instances of the NewMonad typeclasses
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+This module was an attempt to remove boilerplate from creating new instances of
+the NewMonad typeclasses. Often, the new instances were simply calling
+`bounce $ method`. The goal was to find some way to automatically generate these
+instances.
+
+So far, this has not yet succeeded.
+-}
+
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Ide3.NewMonad.Instances.Undecidable where
 
 import Control.Monad.Trans
@@ -28,19 +45,14 @@ instance  (MonadBounce t, SolutionClass m, Monad (t m)) => SolutionClass (Undeci
     editProjectInfo x = bounce . editProjectInfo x
 
 instance  (MonadBounce t, ProjectModuleClass m, Monad (t m)) => ProjectModuleClass (UndecidableWrapper t m) where
-    --addModule x = bounce . addModule x
     createModule x = bounce . createModule x
     removeModule x = bounce . removeModule x
-    --getModule x = bounce . getModule x
     getModules = bounce . getModules
-    --editModule x y = bounce . editModule x y
     getModuleHeader x = bounce . getModuleHeader x
     editModuleHeader x y = bounce . editModuleHeader x y
 
 instance   (MonadBounce t, ProjectExternModuleClass m, Monad (t m)) => ProjectExternModuleClass (UndecidableWrapper t m) where
-    --addExternModule x = bounce . addExternModule x
     createExternModule x = bounce . createExternModule x
-    --getExternModule x = bounce . getExternModule x
     getExternModules = bounce . getExternModules
     removeExternModule x = bounce . removeExternModule x
 

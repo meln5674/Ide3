@@ -1,3 +1,14 @@
+{-|
+Module      : Ide3.Query
+Description : Refactoring solutions
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
 module Ide3.Refactor where
 
 import Control.Monad
@@ -13,7 +24,7 @@ import Ide3.NewMonad
 import Ide3.Utils
 
 
--- | Take a declaration and rename a list of symbols
+-- | Rename a list of symbols in a declaration
 renameSymbols :: (SolutionMonad m)
              => ProjectInfo
              -> ModuleInfo

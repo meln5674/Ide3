@@ -1,5 +1,5 @@
 {-|
-Module      : Ide3.Types
+Module      : Ide3.Types.Internal
 Description : Top level types used by Ide3
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -12,6 +12,7 @@ This module contains all of the top level types which are used throughout this
 project. The structures here describe a haskell project as a collection of
 modules, each of which contain exports, imports, and declarations.
 -}
+
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Ide3.Types.Internal where
@@ -68,13 +69,6 @@ joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
 data SolutionInfo = SolutionInfo String
   deriving (Show, Read, Eq, Ord)
 
--- | A solution, a collection of projects
-data Solution
-    = Solution
-    { solutionInfo :: SolutionInfo
-    , solutionProjects :: Map ProjectInfo Project
-    }
-  deriving (Show, Read)
 
 -- |Information about a project
 data ProjectInfo = ProjectInfo String
@@ -83,16 +77,6 @@ data ProjectInfo = ProjectInfo String
 data BuildInfo = BuildInfo
     deriving (Show, Read, Eq)
 
--- |Top level type, contains information about a project, how to build it,
---  and the modules it contains
-data Project
-    = Project
-    { projectInfo :: ProjectInfo
-    , projectModules :: Map ModuleInfo Module
-    , projectBuildInfo :: BuildInfo
-    , projectExternModules :: Map ModuleInfo ExternModule
-    }
-    deriving (Show, Read, Eq)
 
 -- | A dependency for a project
 data Dependency = Dependency String
@@ -105,48 +89,17 @@ data ModuleInfo
     | UnamedModule (Maybe FilePath)     
     deriving (Show, Read, Eq, Ord)
 
--- | Get the name of a module from its info
-getModuleName :: ModuleInfo -> Symbol
-getModuleName (ModuleInfo n) = n
-getModuleName _ = Symbol "UNNAMED MODULE"
+
 
 -- | A module pragma
 type Pragma = String
 
--- | A collection of imports
-type ImportCollection = Map ImportId (WithBody Import)
 
--- | A collection of exports, or a mark that everything is exported
-type ExportCollection = Maybe (Map ExportId (WithBody Export))
-
--- | A collection of declarations
-type DeclarationCollection = OrderedMap DeclarationInfo (WithBody Declaration)
-
--- | A module. 
-data Module
-    = Module 
-    { moduleInfo :: ModuleInfo  -- ^ Identifying information
-    , moduleHeader :: String -- ^ Header text
-    , modulePragmas :: [Pragma] -- ^ Pragmas
-    , moduleImports :: ImportCollection
-    , moduleExports :: ExportCollection
-    , moduleDeclarations :: DeclarationCollection
-    }
-    deriving (Show, Read, Eq)
 
 -- | An external export from an external module
 data ExternExport
     = SingleExternExport Symbol
     | MultiExternExport Symbol [Symbol]
-    deriving (Show, Eq, Read, Ord)
-
--- | A module which is external to the project, only a list of exported symbols
---  are availible
-data ExternModule
-    = ExternModule
-    { externModuleInfo :: ModuleInfo
-    , externModuleExports :: Map ExportId ExternExport
-    }
     deriving (Show, Eq, Read, Ord)
 
 -- |A value which is tagged as belonging to a module

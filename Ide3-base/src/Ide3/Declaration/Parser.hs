@@ -132,6 +132,7 @@ parsePatBind (PatBind _ p _ _) = case findName p of
     ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
 parsePatBind _ = Nothing
 
+-- | Convert a declaration if it is a standalone deriving declaration
 parseDerivingDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
@@ -212,7 +213,8 @@ parseMany s = case parseModule s of
 instance Spannable Comment where
     getSpan (Comment _ s _) = s
 
--- | Convert a declaration and extract its body
+-- | Convert a declaration and extract its body, along with the comments
+--  directly above it
 convertWithBody :: (Show a, Spannable a, SrcInfo a) 
                 => String 
                 -> [Comment]

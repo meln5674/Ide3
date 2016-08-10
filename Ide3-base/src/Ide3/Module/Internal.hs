@@ -1,3 +1,14 @@
+{-|
+Module      : Ide3.Module.Internal
+Description : Operations on modules
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
+
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Ide3.Module.Internal where
@@ -15,6 +26,7 @@ import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import Ide3.Env
 
@@ -68,6 +80,7 @@ new i = Module
       , moduleDeclarations = OMap.empty
       }
 
+-- | Add a declaration to a module
 addDeclaration :: Monad m 
                => DeclarationInfo
                -> WithBody Declaration
@@ -80,6 +93,7 @@ addDeclaration di d m = case OMap.lookup di $ moduleDeclarations m of
         { moduleDeclarations = OMap.insert di d $ moduleDeclarations m 
         }
 
+-- | Remove a declaration from a module
 removeDeclaration :: Monad m
                   => DeclarationInfo
                   -> Module
@@ -93,6 +107,7 @@ removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
         }
         )
 
+-- | Get a declaration from a module
 getDeclaration :: Monad m
                => DeclarationInfo
                -> Module
@@ -101,6 +116,7 @@ getDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.getDeclaration"
     Just d -> return d
 
+-- | Update a declaration in a module
 setDeclaration :: Monad m
                => DeclarationInfo
                -> DeclarationInfo
@@ -116,6 +132,7 @@ setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
             $ moduleDeclarations m
         }
 
+-- | Add an import to a module
 addImport :: Monad m 
           => ImportId
           -> WithBody Import
@@ -125,6 +142,7 @@ addImport ii i m = case Map.lookup ii $ moduleImports m of
     Just _ -> throwE $ InternalError "Duplicate import id" "Module.addImport"
     Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
 
+-- | Remove an import from a module
 removeImport :: Monad m
              => ImportId
              -> Module
@@ -133,6 +151,7 @@ removeImport ii m = case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.removeImport"
     Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
 
+-- | Get an import from a module
 getImport :: Monad m
           => ImportId
           -> Module
@@ -141,6 +160,7 @@ getImport ii m = case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.getImport"
     Just i -> return i
 
+-- | Update an import in a module
 setImport :: Monad m
           => ImportId
           -> ImportId
@@ -156,6 +176,7 @@ setImport ii ii' i' m = case Map.lookup ii $ moduleImports m of
             $ moduleImports m
         }
 
+-- | Add an export to a module
 addExport :: Monad m 
           => ExportId
           -> WithBody Export
@@ -167,6 +188,7 @@ addExport ei e m = case moduleExports m of
         Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e es }
     Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e Map.empty }
 
+-- | Remove an export from a module
 removeExport :: Monad m
              => ExportId
              -> Module
@@ -177,6 +199,7 @@ removeExport ei m = case moduleExports m of
         Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
         Just e -> return (e, m{ moduleExports = Just $ Map.delete ei es })
 
+-- | Get an export from a module
 getExport :: Monad m
           => ExportId
           -> Module
@@ -187,6 +210,7 @@ getExport ei m = case moduleExports m of
         Nothing -> throwE $ InvalidExportId (info m) ei "Module.getExport"
         Just e -> return e
 
+-- | Update an export in a module
 setExport :: Monad m
           => ExportId
           -> ExportId
@@ -216,6 +240,7 @@ parse = parseUsing Parser.parse
 parseMain :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseMain = parseUsing Parser.parseMain
 
+-- | Generalization of parse and parseMain
 parseUsing :: (String -> Maybe FilePath 
                       -> Either (SolutionError u) ExtractionResults)
            -> String 
@@ -240,56 +265,56 @@ parseUsing parser s p = case parser s p of
     Left msg -> Left msg
 
 
--- |Get the imports from a module
+-- | Get the imports from a module
 getImports :: Module -> [WithBody Import]
 getImports = Map.elems . moduleImports
 
-{-
-getImport :: Module -> ImportId -> Either (SolutionError u) (WithBody Import)
-getImport m iid = case Map.lookup iid $ moduleImports m of
-    Just i -> Right i
-    Nothing -> Left $ InvalidImportId mi iid "Module.getImport"
--}
-
+-- | Get the pragmas from a module
 getPragmas :: Module -> [Pragma]
 getPragmas = modulePragmas
-
 
 -- |Get the declarations from a module
 getDeclarations :: Module -> [WithBody Declaration]
 getDeclarations = OMap.elems . moduleDeclarations
 
-
 -- |Get the exports from a module
 getExports :: Module -> Maybe (Map ExportId (WithBody Export))
 getExports = moduleExports
 
+-- | Get the ids of all exports in a module structure, or signal that the module
+--  exports everything
 getExportIds :: Module -> Maybe [ExportId]
 getExportIds = liftM Map.keys . moduleExports
 
+-- | Get the ids of all imports in a module structure
 getImportIds :: Module -> [ImportId]
 getImportIds = Map.keys . moduleImports
 
-
+-- | Take the strings representing an export list and format them
 makeExportList :: [String] -> String
-makeExportList exportBodies@[_,_,_,_] = "(" ++ intercalate "," exportBodies ++ ") where"
 makeExportList exportBodies
-    = unlines 
-    $ map ("\t" ++)
-        $ "(" 
-        : map (", " ++) exportBodies 
-        ++ [") where"]
-
+    | length exportBodies < 4 = "(" ++ intercalate "," exportBodies ++ ") where"
+    -- If there are 1, 2 or 3 exports, just put them in parenthesis
+    -- If there are 4 or more, put them on separate lines
+    | otherwise = unlines 
+        $ ""
+        : ( map ("    " ++)
+            $ ("( " ++ head exportBodies)
+            : (map (", " ++) $ tail exportBodies)
+            ++ [") where"]
+          )
 -- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> String
 getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
     withNoExportList = "module " ++ name ++ " where"
-    withExportList es = "module " ++ name ++ makeExportList exportBodies
-      where
-        exportBodies = bodies $ Map.elems es
+    withExportList es = "module " ++ name ++ (makeExportList $ bodies $ Map.elems es)
 
+-- | Take a list and a predicate over two elements at a time.
+-- Split the list into a list of lists at the points where the predicate returns
+-- true
+-- i.e. splitOver (<) [5,4,1,2,10,8] == [[5,4,1],[2],[10,8]]
 splitOver :: (a -> a -> Bool) -> [a] -> [[a]]
 splitOver _ [] = []
 splitOver f xs = go xs [] []
@@ -300,7 +325,8 @@ splitOver f xs = go xs [] []
         | f x y = go xs [x] (reverse (y : ys) : zs)
         | otherwise = go xs (x:y:ys) zs
     
-
+-- | Take a list of imports, return a list of lines for them, grouping them by
+-- common module path
 spaceImports :: [WithBody Import] -> [String]
 spaceImports is = concatMap ((++[""]) . bodies) partitionedImports
   where
@@ -328,8 +354,6 @@ modifiersOf s m
 -- | Tag a value as belonging to this module
 qualify :: Module -> a -> ModuleChild a
 qualify = ModuleChild . moduleInfo
-
-
 
 -- | Find all of the symbols that are created within this module
 allSymbols :: Module -> [ModuleChild Symbol]
@@ -361,6 +385,8 @@ searchM f xs = do
 infoMatches :: Module -> ModuleInfo -> Bool
 infoMatches m mi = info m == mi
 
+-- | Get the value one higher than the maximum key in a map, or a default value
+-- if the map is empty
 nextId :: (Enum k, Ord k) => k -> Map k v -> k
 nextId default_ m = succ $ maximum (pred default_ : Map.keys m)
 
@@ -371,11 +397,3 @@ nextImportId = nextId 0 . moduleImports
 -- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
 nextExportId = maybe 0 (nextId 0) . moduleExports
-  
-{-
--- | Test if a module has a matching declaration
-hasDeclarationInfo :: Module -> DeclarationInfo -> Bool
-hasDeclarationInfo m di = case getDeclaration m di of
-    Right _ -> True
-    Left  _ -> False
--}

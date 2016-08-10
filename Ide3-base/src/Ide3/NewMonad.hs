@@ -1,32 +1,42 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-|
+Module      : Ide3.NewMonad
+Description : Typesclasses for creating, editing, and reading haskell projects
+Copyright   : (c) Andrew Melnick, 2016
 
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+The classes in this module are populated by monads which can perform operations
+on specific parts of a haskell project.
+
+-}
+
+{-# LANGUAGE ConstraintKinds #-}
 module Ide3.NewMonad where
 
 import Control.Monad.Trans.Except
 
 import Ide3.Types
 
+-- | Class of monads which can create, save, and load haskell projects
+-- The methods in this class take no arguments such as file paths, and this is
+-- intentional. Monads in this class are expected to be able to store the 
+-- information for its specific type of loading.
 class Monad m => PersistenceClass m where
     -- | Load a project.
-    --  This function takes no arguments, and this is by design. Instances will
-    --  need to be able to encode information on how to load in their own type.
-    --  While this means that types will need to either contain extra data or
-    --  constructors, this means that new methods of loading can be added without
-    --  breaking the interface, and does not require every instance to support
-    --  all methods of loading.
     load :: SolutionResult m u ()
     -- | Create a new project
-    --  See 'load' for discussion of lack of additional parameters
     new :: SolutionInfo 
         -> SolutionResult m u ()
     -- | Perform what ever actions are necessary to be able to load the current
     --  project at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
-    --  See 'load' for discussion of lack of additional parameters
     finalize :: SolutionResult m u ()
 
-
+-- | Class of monads which can add, remove, edit, and retreive projects.
 class Monad m => SolutionClass m where
     -- | Edit the solution's info
     editSolutionInfo :: (SolutionInfo -> SolutionInfo) 
@@ -45,64 +55,37 @@ class Monad m => SolutionClass m where
                     -> (ProjectInfo -> ProjectInfo) 
                     -> SolutionResult m u ()
 
-
+-- | Class of monads which can add, remove, edit, and retreive modules
 class Monad m => ProjectModuleClass m where
-{-
-    -- | Add a module
-    addModule :: ProjectInfo 
-              -> Module 
-              -> SolutionResult m u ()
--}    
     -- | Create a new module
     createModule :: ProjectInfo 
                  -> ModuleInfo 
                  -> SolutionResult m u ()
-{-
-    -- | Retrieve a module
-    getModule :: ProjectInfo 
-              -> ModuleInfo 
-              -> SolutionResult m u Module
--}
     -- | Get a list of all the availible modules
     getModules :: ProjectInfo 
                -> SolutionResult m u [ModuleInfo]
-{-
-    -- | Apply a transformation to a module
-    editModule :: ProjectInfo -> ModuleInfo
-               -> (Module -> Either (SolutionError u) Module) 
-               -> SolutionResult m u ()
--}
     -- | Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
     removeModule :: ProjectInfo 
                  -> ModuleInfo 
                  -> SolutionResult m u ()
+    -- | Get the header of a module
     getModuleHeader :: ProjectInfo
                     -> ModuleInfo
                     -> SolutionResult m u String
+    -- | Edit the header of a module
     editModuleHeader :: ProjectInfo
                      -> ModuleInfo
                      -> (String -> String)
                      -> SolutionResult m u ()
 
+-- | Class of monads which can create, remove, and retrieve external modules
 class Monad m => ProjectExternModuleClass m where
-{-
-    -- | Add an external module
-    addExternModule :: ProjectInfo 
-                    -> ExternModule 
-                    -> SolutionResult m u ()
--}
     -- | Add an external module
     createExternModule :: ProjectInfo 
                        -> ModuleInfo
                        -> SolutionResult m u ()
-{-
-    -- | Retrieve an external module
-    getExternModule :: ProjectInfo 
-                    -> ModuleInfo 
-                    -> SolutionResult m u ExternModule
--}
     getExternModules :: ProjectInfo
                      -> SolutionResult m u [ModuleInfo]
     removeExternModule :: ProjectInfo
@@ -121,6 +104,7 @@ class Monad m => ProjectDependencyClass m where
                     -> SolutionResult m u [Dependency]
 -}
 
+-- | Class of monads which can add, edit, remove, and retreive declarations
 class Monad m => ModuleDeclarationClass m where
     -- | Add a declaration to a module
     addDeclaration :: ProjectInfo 
@@ -148,6 +132,7 @@ class Monad m => ModuleDeclarationClass m where
                       -> DeclarationInfo 
                       -> SolutionResult m u ()
 
+-- | Class of monads which can add, remove, and retrieve imports
 class Monad m => ModuleImportClass m where
     -- | Add an import to a module
     addImport :: ProjectInfo
@@ -171,6 +156,8 @@ class Monad m => ModuleImportClass m where
                -> ModuleInfo 
                -> SolutionResult m u [ImportId]
 
+-- | Class of monads which can add, remove, and retrieve exports, or mark a
+-- module as exporting everything
 class Monad m => ModuleExportClass m where
     -- | Add an export to a module
     addExport :: ProjectInfo 
@@ -201,7 +188,7 @@ class Monad m => ModuleExportClass m where
                -> ModuleInfo 
                -> SolutionResult m u (Maybe [ExportId])
 
-
+-- | Class of monads which can add, remove, and retrieve pragmas
 class Monad m => ModulePragmaClass m where
     -- | Add a pragma to a module
     addPragma :: ProjectInfo 
@@ -220,7 +207,7 @@ class Monad m => ModulePragmaClass m where
                -> ModuleInfo 
                -> SolutionResult m u [Pragma]
 
-
+-- | Class of monads which can add, remove, and retrieve external exports
 class Monad m => ExternModuleExportClass m where
     addExternExport :: ProjectInfo
                     -> ModuleInfo
@@ -238,16 +225,35 @@ class Monad m => ExternModuleExportClass m where
                        -> ExportId
                        -> SolutionResult m u ()
 
+-- | Class of monads which can convert modules to a string
 class Monad m => ModuleFileClass m where
     toFile :: ProjectInfo -> ModuleInfo -> SolutionResult m u String
 
+-- | Wrapper for monads which have all project features
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
+
+-- | Wrapper for monads which have all module features 
 type ModuleClass m = (ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m, ModulePragmaClass m)
+
+-- | Wrapper for monads that have all external module features
 type ExternModuleClass m = (ExternModuleExportClass m)
+
+-- | Wrapper for monads which have all features for solutions, projects,
+-- modules, and external modules
 type SolutionMonad m = (SolutionClass m, ProjectClass m, ModuleClass m, ExternModuleClass m)
+
+-- | Wrapper for monads which have the features of SolutionMonad, but are also persistent
 type PersistentSolutionMonad m = (PersistenceClass m, SolutionMonad m)
+
+-- | Wrapper for monads which have the features of SolutionMonad, but also can
+-- produce files for modules
 type SolutionFileMonad m = (SolutionMonad m, ModuleFileClass m)
+
+-- | Wrapper for monads which have the features of SolutionMonad, but also can
+-- produce files for modules and is persistent
 type PersistentSolutionFileMonad m = (PersistentSolutionMonad m, ModuleFileClass m)
 
+-- | A utility class. Types in this class can insert themselves underneath
+-- ExceptT in a monad transformer stack
 class MonadBounce t where
     bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a

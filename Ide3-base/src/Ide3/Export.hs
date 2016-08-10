@@ -7,9 +7,8 @@ License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
-
-This module provides operation on export statements
 -}
+
 module Ide3.Export 
     ( module Ide3.Export.Parser
     , module Ide3.Export.Query

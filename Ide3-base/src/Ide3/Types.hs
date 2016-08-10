@@ -1,3 +1,15 @@
+{-|
+Module      : Ide3.Types
+Description : Top level types used by Ide3
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 module Ide3.Types 
     ( WithBody (..)
     , body
@@ -10,7 +22,6 @@ module Ide3.Types
     , BuildInfo (..)
     , Dependency (..)
     , ModuleInfo (..)
-    , getModuleName
     , Pragma
     , ModuleChild (..)
     , ProjectChild (..)

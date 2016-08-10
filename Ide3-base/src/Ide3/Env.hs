@@ -60,6 +60,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Reader
 
+import Ide3.Types.State
 import Ide3.Types.Internal hiding (getChild)
 
 import qualified Ide3.Declaration as Declaration
@@ -93,6 +94,7 @@ instance EnvParamClass ExternModule ModuleInfo where
 instance EnvParamClass (WithBody Declaration) DeclarationInfo where
     getParam = Declaration.info . item
 
+-- | Same as addChildT, but with no monad stack underneath
 addChild :: ParamEnvClass parentEnv childParam childEnv e 
          => childParam
          -> childEnv
@@ -100,18 +102,21 @@ addChild :: ParamEnvClass parentEnv childParam childEnv e
          -> Either e parentEnv
 addChild k v t = runIdentity $ runExceptT $ addChildT k v t
 
+-- | Same as removeChildT, but with no monad stack underneath
 removeChild :: ParamEnvClass parentEnv childParam childEnv e 
             => childParam
             -> parentEnv
             -> Either e (childEnv,parentEnv)
 removeChild k t = runIdentity $ runExceptT $ removeChildT k t
 
+-- | Same as getChildT, but with no monad stack underneath
 getChild :: ParamEnvClass parentEnv childParam childEnv e 
          => childParam
          -> parentEnv
          -> Either e childEnv
 getChild k t = runIdentity $ runExceptT $ getChildT k t
 
+-- | Same as setChildT, but with no monad stack underneath
 setChild :: ParamEnvClass parentEnv childParam childEnv e 
          => childParam
          -> childParam
@@ -275,6 +280,7 @@ throw3 = lift . lift . lift . throwE
 throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d m u r
 throw4 = lift . lift . lift . lift . throwE
 
+-- | Run a descent over a state and a environment with a list of keys
 mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u ([r],a)
 mapDescent2 f a bs = runStateT rs a
   where
@@ -282,6 +288,7 @@ mapDescent2 f a bs = runStateT rs a
     r b = StateT $ \a' -> runReaderT (g a') b
     rs = mapM r bs
 
+-- | Same as mapDescent2, but discards the result of each operation
 mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u a
 mapDescent2_ f a bs = do
     (_,a') <- mapDescent2 f a bs

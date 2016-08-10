@@ -21,6 +21,7 @@ import Control.Monad.Trans.State
 import Ide3.Env
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
@@ -34,7 +35,7 @@ addProject = do
     s <- get
     put =<< lift (lift $ addChildT pji (Project.new pji) s)
 
--- | Remove a project by id
+-- | Remove a project
 removeProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 removeProject = do
     pji <- lift ask
@@ -55,7 +56,7 @@ getProject = descend0 get
 editProjectInfo :: Monad m => DescentChain3 Solution ProjectInfo (ProjectInfo -> ProjectInfo) m u ()
 editProjectInfo = descend1 Project.editProjectInfo
 
--- | Get the ids of all modules in aproject
+-- | Get the ids of all modules in a project
 allModules :: Monad m => DescentChain2 Solution ProjectInfo m u [ModuleInfo]
 allModules = descend0 Project.allModules
 
@@ -85,10 +86,12 @@ editModule :: Monad m
                 m u ()
 editModule = descend2 Project.editModule
 
+-- | Get the header from a module
 getModuleHeader :: Monad m
                 => DescentChain3 Solution ProjectInfo ModuleInfo m u String
 getModuleHeader = descend1 $ Project.getModuleHeader
     
+-- | Edit the header of a module
 editModuleHeader :: Monad m
                  => DescentChain4 Solution ProjectInfo ModuleInfo (String -> String) m u ()
 editModuleHeader = descend2 $ Project.editModuleHeader
@@ -105,9 +108,11 @@ createExternModule = descend1 Project.createExternModule
 getExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ExternModule
 getExternModule = descend1 Project.getExternModule
 
+-- | Get the ids of all external modules in a project
 getExternModules :: Monad m => DescentChain2 Solution ProjectInfo m u [ModuleInfo]
 getExternModules = descend0 Project.getExternModules
 
+-- | Remove an external module from a project
 removeExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
 removeExternModule = descend1 Project.removeExternModule
 

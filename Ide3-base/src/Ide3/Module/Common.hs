@@ -8,6 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 -}
+
 module Ide3.Module.Common 
     ( module Ide3.Module.Common
     , EitherModule

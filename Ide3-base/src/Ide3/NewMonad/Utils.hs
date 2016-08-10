@@ -1,7 +1,19 @@
+{-|
+Module      : Ide3.NewMonad.Utils
+Description : Operations which utilize the NewMonad typeclasses
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+The functions in this module perform operations using the typeclasses found in
+Ide3.NewMonad, allowing them to work with any instance of them.
+-}
+
 module Ide3.NewMonad.Utils 
     ( module Ide3.NewMonad.Utils
-    , getInternalSymbols
-    , getExternalSymbols
     ) where
 
 import qualified Data.Map as Map
@@ -11,14 +23,13 @@ import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types.Internal 
+import Ide3.Types.State
 import qualified Ide3.Module as Module 
 import qualified Ide3.Import.Parser as Import 
 import qualified Ide3.Export as Export 
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.NewMonad
-
-import Ide3.Query (getInternalSymbols, getExternalSymbols)
 
 -- | Parse an import and add it to a module
 addRawImport :: (ModuleImportClass m)
@@ -62,7 +73,6 @@ addRawModule :: ( ProjectModuleClass m
              -> SolutionResult m u ModuleInfo
 addRawModule pji str p = case Module.parse str p of
     Right (m,_,_) -> do
-        --addModule pji m
         let mi = Module.info m
         createModule pji mi
         mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations m

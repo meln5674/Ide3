@@ -15,7 +15,6 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.NewMonad.Instances.State.Class.Instances.Strict
 
 import qualified Ide3.Solution as Solution
-import qualified Ide3.Env.Solution as Solution
 
 instance Monad m => StatefulPersistenceClass (SolutionStateT m) where
     loadState = error "CAN'T LOAD"

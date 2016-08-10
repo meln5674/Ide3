@@ -1,4 +1,23 @@
-module Ide3.Import.Internal where
+{-|
+Module      : Ide3.Import.Internal
+Description : Operations on import declarations
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
+
+module Ide3.Import.Internal
+    ( moduleName
+    , isQualified
+    , renamed
+    , qualifySymbols
+    , importedModuleName
+    , commonPath
+    , editModuleName
+    ) where
 
 import Data.Maybe
 import Data.List
@@ -46,6 +65,7 @@ splitByDots s = go s []
     go [] ys = reverse ys
     go xs ys = go (drop 1 $ dropWhile (/='.') xs) (takeWhile (/='.') xs : ys)
 
+-- | Test if two imports have a common module path, i.e. Data.List and Data.Map
 commonPath :: Import -> Import -> Bool
 commonPath i1 i2 = sameCount /= 0
   where
@@ -62,8 +82,11 @@ editModuleName :: (Symbol -> Symbol)
                -> WithBody Import
                -> WithBody Import
 editModuleName f (WithBody (ModuleImport sym a b) s)
-    = WithBody (ModuleImport (f sym) a b) $ replace (getSymbol sym) (getSymbol $ f sym) s
+    = WithBody (ModuleImport (f sym) a b) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (WhitelistImport sym a b c) s)
-    = WithBody (WhitelistImport (f sym) a b c) $ replace (getSymbol sym) (getSymbol $ f sym) s
+    = WithBody (WhitelistImport (f sym) a b c) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (BlacklistImport sym a b c) s)
-    = WithBody (BlacklistImport (f sym) a b c) $ replace (getSymbol sym) (getSymbol $ f sym) s
+    = WithBody (BlacklistImport (f sym) a b c) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s

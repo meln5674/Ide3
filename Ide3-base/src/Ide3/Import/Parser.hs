@@ -7,9 +7,8 @@ License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
-
-This module provides functions to parse import statements
 -}
+
 module Ide3.Import.Parser where
 
 import Language.Haskell.Exts.Annotated.Parser

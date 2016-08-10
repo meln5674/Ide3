@@ -24,6 +24,7 @@ import Control.Monad.Trans.State
 import Ide3.Env
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import Ide3.Module.Extern.Internal
 

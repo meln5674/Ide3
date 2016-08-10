@@ -17,6 +17,7 @@ tree and construct a project from them
 module Ide3.Digest
     ( digestSolutionM
     , digestSolution
+    , ProjectDigestParams (..)
     ) where
 
 import Data.List
@@ -33,6 +34,7 @@ import System.FilePath
 import qualified HsInterface as Iface
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 import Ide3.NewMonad
 import Ide3.NewMonad.Utils
 
@@ -138,48 +140,43 @@ digestProjectM pji p maybeip = do
             ifaceFile <- liftIO $ readFile ip
             mapM_ (digestInterfaceM pji) (read ifaceFile :: [Iface.Interface])
 
+-- | Parameters for digesting a project
+data ProjectDigestParams 
+    = Params 
+        ProjectInfo         -- ^ Info to give to the project
+        FilePath            -- ^ Root directory of the project
+        (Maybe FilePath)    -- ^ Optionally, a path to the interfaces file
 
+-- | Digest a solution from the file system inside of a monad transformer
 digestSolutionM :: ( MonadIO m
                    , SolutionClass m
                    , ProjectModuleClass m
                    , ProjectExternModuleClass m
                    , ExternModuleExportClass m
                    , ModulePragmaClass m
-                  , ModuleImportClass m
-                  , ModuleExportClass m
-                  , ModuleDeclarationClass m
-                    )
-                => SolutionInfo
-                -> [(ProjectInfo,FilePath,Maybe FilePath)]
+                   , ModuleImportClass m
+                   , ModuleExportClass m
+                   , ModuleDeclarationClass m
+                   )
+                => SolutionInfo 
+                -> [ProjectDigestParams]
                 -> SolutionResult m u ()
 digestSolutionM si ps = do
     editSolutionInfo $ const si
-    forM_ ps $ \(pji,pp,ip) -> digestProjectM pji pp ip
+    forM_ ps $ \(Params pji pp ip) -> digestProjectM pji pp ip
 
-{-
-newtype Wrapper m a = Wrapper { runWrapper :: m a }
-  deriving (Functor, Applicative, Monad, MonadIO, SolutionStateM)
-
-instance MonadTrans Wrapper where
-    lift = Wrapper
-  
-
-instance Monad m => SolutionShellM (Wrapper m) where
-    load = error "IDIOT"
-    new = error "IDIOT"
-    finalize = error "IDIOT"
--}
-
-
+-- | Digest a solution from the file system
 digestSolution :: forall m u
                 . ( MonadIO m )
                => SolutionInfo
-               -> [(ProjectInfo,FilePath,Maybe FilePath)]
+               -> [ProjectDigestParams]
                -> SolutionResult m u Solution
 digestSolution si ps = do
-    let --y :: MonadIO m => SolutionResult (StatefulSolution (Wrapper (SolutionStateT m))) u Solution
-          y :: MonadIO m => SolutionResult (StatefulWrapper (SolutionStateT m)) u Solution
-          y = digestSolutionM si ps >> getSolution
-    (z,_) <- lift $ flip runStateT Solution.empty $ runSolutionStateT $ runStatefulWrapper $ runExceptT y
+    let y :: MonadIO m => SolutionResult (StatefulWrapper (SolutionStateT m)) u Solution
+        y = digestSolutionM si ps >> getSolution
+    (z,_) <- lift $ flip runStateT Solution.empty 
+                  $ runSolutionStateT 
+                  $ runStatefulWrapper 
+                  $ runExceptT y
     ExceptT $ return z
 

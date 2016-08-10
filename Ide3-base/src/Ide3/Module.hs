@@ -1,6 +1,6 @@
 {-|
 Module      : Ide3.Module
-Description : Queries over modules
+Description : Modules
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3

@@ -142,5 +142,6 @@ modifyKey k k' m = m{ itemMap = itemMap', orderMap = orderMap' }
     itemMap' = Map.insert k' (v,ord) $ Map.delete k $ itemMap m
     orderMap' = Map.insert ord k' $ orderMap m
 
+-- | Apply a transformation to each value in the map
 map :: Ord k => (v -> v') -> OrderedMap k v -> OrderedMap k v'
 map f m = m { itemMap = flip Map.map (itemMap m) $ \(x,ord) -> (f x,ord) }

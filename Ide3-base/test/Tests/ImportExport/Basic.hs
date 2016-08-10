@@ -8,6 +8,8 @@ import Test.HUnit
 import Ide3.NewMonad
 import Ide3.NewMonad.Utils
 
+import qualified Ide3.Module as Module
+
 import Tests.Utils
 
 tests_basicImportExport :: Test
@@ -29,7 +31,7 @@ test_importNonExistentSymbol = expectFailure $ do
     createModule newProjectInfo newModuleInfo2
     addExport newProjectInfo newModuleInfo2 nonExistentDeclarationExport
     addImport newProjectInfo newModuleInfo newModule2Import
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
 
 test_importSymbol :: (?loc :: CallStack) => Test
 test_importSymbol = expectPredicate (newDeclarationSymbol `elem`) $ do
@@ -39,7 +41,7 @@ test_importSymbol = expectPredicate (newDeclarationSymbol `elem`) $ do
     addDeclaration newProjectInfo newModuleInfo2 newDeclaration
     addExport newProjectInfo newModuleInfo2 newDeclarationExport
     addImport newProjectInfo newModuleInfo newModule2Import
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
 
 test_importUnexportedSymbol :: (?loc :: CallStack) => Test
 test_importUnexportedSymbol = expectFailure $ do
@@ -49,7 +51,7 @@ test_importUnexportedSymbol = expectFailure $ do
     addDeclaration newProjectInfo newModuleInfo2 newDeclaration
     exportNothing newProjectInfo newModuleInfo2
     addImport newProjectInfo newModuleInfo newDeclarationImport
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
     
 test_nonExportedSymbolNotVisible :: (?loc :: CallStack) => Test 
 test_nonExportedSymbolNotVisible = expectPredicate (not . (newDeclarationSymbol `elem`)) $ do
@@ -59,7 +61,7 @@ test_nonExportedSymbolNotVisible = expectPredicate (not . (newDeclarationSymbol 
     addDeclaration newProjectInfo newModuleInfo2 newDeclaration
     exportNothing newProjectInfo newModuleInfo2
     addImport newProjectInfo newModuleInfo newModule2Import
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
 
 test_importCompoundSymbol :: (?loc :: CallStack) => Test
 test_importCompoundSymbol = expectPredicate (\ss -> all (\s -> s `elem` ss) newCompoundDeclarationSymbols) $ do
@@ -68,7 +70,7 @@ test_importCompoundSymbol = expectPredicate (\ss -> all (\s -> s `elem` ss) newC
     createModule newProjectInfo newModuleInfo2
     addDeclaration newProjectInfo newModuleInfo2 newCompoundDeclaration
     addImport newProjectInfo newModuleInfo newModule2Import
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
 
 test_partialImportCompoundSymbol :: (?loc :: CallStack) => Test
 test_partialImportCompoundSymbol = expectPredicate
@@ -80,7 +82,7 @@ test_partialImportCompoundSymbol = expectPredicate
     createModule newProjectInfo newModuleInfo2
     addDeclaration newProjectInfo newModuleInfo2 newCompoundDeclaration
     addImport newProjectInfo newModuleInfo newCompoundDeclarationPartialImport
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
                     
 
 test_partialExportCompoundSymbol :: (?loc :: CallStack) => Test
@@ -94,7 +96,7 @@ test_partialExportCompoundSymbol = expectPredicate
     addDeclaration newProjectInfo newModuleInfo2 newCompoundDeclaration
     addExport newProjectInfo newModuleInfo2 newCompoundDeclarationPartialExport
     addImport newProjectInfo newModuleInfo newModule2Import
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo
 
 test_partialImportExportCompoundSymbol :: (?loc :: CallStack) => Test
 test_partialImportExportCompoundSymbol = expectPredicate
@@ -107,4 +109,4 @@ test_partialImportExportCompoundSymbol = expectPredicate
     addDeclaration newProjectInfo newModuleInfo2 newCompoundDeclaration
     addExport newProjectInfo newModuleInfo2 newCompoundDeclarationPartialExport
     addImport newProjectInfo newModuleInfo newCompoundDeclarationPartialImport
-    getInternalSymbols newProjectInfo newModuleInfo
+    Module.internalSymbols' newProjectInfo newModuleInfo

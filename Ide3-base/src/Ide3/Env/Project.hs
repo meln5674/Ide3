@@ -23,6 +23,7 @@ import Control.Monad.Trans.Except
 
 import Ide3.Env
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import qualified Ide3.Module as Module (new)
 import qualified Ide3.Env.Module as Module
@@ -86,11 +87,12 @@ editModule = descend1 $ do
         Right m' -> put m'
         Left err -> throw2 err
 
-
+-- | Get the header from a module
 getModuleHeader :: Monad m
                 => DescentChain2 Project ModuleInfo m u String
 getModuleHeader = descend0 $ gets moduleHeader
-    
+
+-- | Edit the header of a module
 editModuleHeader :: Monad m
                  => DescentChain3 Project ModuleInfo (String -> String) m u ()
 editModuleHeader = descend1 $ do
@@ -121,6 +123,7 @@ getExternModule = descend0 get
 getExternModules :: Monad m => DescentChain1 Project m u [ModuleInfo]
 getExternModules = gets $ Map.keys . projectExternModules
 
+-- | Remove an external module from a project
 removeExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 removeExternModule = do
     p <- get
@@ -208,18 +211,18 @@ removePragma = descend1 Module.removePragma
 getPragmas :: Monad m => DescentChain2 Project ModuleInfo m u [Pragma]
 getPragmas = descend0 Module.getPragmas
 
--- | Add an export and return the id assigned to it
+-- | Add an external export and return the id assigned to it
 addExternExport :: Monad m => DescentChain3 Project ModuleInfo ExternExport m u ExportId
 addExternExport = descend1 $ ExternModule.addExternExport
 
--- | Remove an export by id
+-- | Remove an external export by id
 removeExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ()
 removeExternExport = descend1 $ ExternModule.removeExternExport
 
--- | Get an export by id
+-- | Get an external export by id
 getExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ExternExport
 getExternExport = descend1 $ ExternModule.getExternExport
 
--- | Get the ids of all exports, or signify that all symbols are exported
+-- | Get the ids of all external exports, or signify that all symbols are exported
 getExternExports :: Monad m => DescentChain2 Project ModuleInfo m u [ExportId]
 getExternExports = descend0 $ ExternModule.getExternExports

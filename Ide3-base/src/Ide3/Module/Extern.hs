@@ -8,6 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 -}
+
 module Ide3.Module.Extern 
     ( module Ide3.Module.Extern
     , info
@@ -17,6 +18,7 @@ module Ide3.Module.Extern
 import qualified Data.Map as Map
 
 import Ide3.Types.Internal
+import Ide3.Types.State
 
 import Ide3.Module.Extern.Internal
 

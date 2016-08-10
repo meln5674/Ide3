@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-|
 Module      : Ide3.Module.Extern.Internal
 Description : External modules
@@ -10,6 +8,9 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 -}
+
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Ide3.Module.Extern.Internal where
 
 import Data.Map (Map)
@@ -18,6 +19,7 @@ import qualified Data.Map as Map
 import Control.Monad
 import Control.Monad.Trans.Except
 
+import Ide3.Types.State
 import Ide3.Types.Internal
 
 import Ide3.Env
@@ -26,9 +28,11 @@ import Ide3.Env
 info :: ExternModule -> ModuleInfo
 info (ExternModule i _) = i
 
+-- | Create an empty external module which exports nothing
 new :: ModuleInfo -> ExternModule
 new i = ExternModule i Map.empty
 
+-- | Get the next id for exports in an external module
 nextId :: (Enum k, Ord k) => k -> Map k v -> k
 nextId default_ m = succ $ maximum (pred default_ : Map.keys m)
 
@@ -42,6 +46,7 @@ instance ParamEnvClass ExternModule ExportId ExternExport (SolutionError u) wher
     getChildT = getExport
     setChildT = setExport
 
+-- | Add an external export to an external module
 addExport :: Monad m 
           => ExportId
           -> ExternExport
@@ -51,6 +56,7 @@ addExport ei e m = case Map.lookup ei $ externModuleExports m of
     Just _ -> throwE $ InternalError "Duplicate export id" "ExternModule.addExport"
     Nothing -> return $ m{ externModuleExports = Map.insert ei e $ externModuleExports m }
 
+-- | Remove an external export from an external module
 removeExport :: Monad m
              => ExportId
              -> ExternModule
@@ -59,6 +65,7 @@ removeExport ei m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (externModuleInfo m) ei "ExternModule.removeExport"
     Just e -> return (e, m{ externModuleExports = Map.delete ei $ externModuleExports m })
 
+-- | Get an external export from an external module
 getExport :: Monad m
           => ExportId
           -> ExternModule
@@ -67,6 +74,7 @@ getExport ei m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (info m) ei "ExternModule.getExport"
     Just e -> return e
 
+-- | Update an external export in an external module
 setExport :: Monad m
           => ExportId
           -> ExportId
