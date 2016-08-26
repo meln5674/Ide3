@@ -51,7 +51,7 @@ addExport :: Monad m
           => ExportId
           -> ExternExport
           -> ExternModule
-          -> SolutionResult m u ExternModule
+          -> SolutionResult u m ExternModule
 addExport ei e m = case Map.lookup ei $ externModuleExports m of
     Just _ -> throwE $ InternalError "Duplicate export id" "ExternModule.addExport"
     Nothing -> return $ m{ externModuleExports = Map.insert ei e $ externModuleExports m }
@@ -60,7 +60,7 @@ addExport ei e m = case Map.lookup ei $ externModuleExports m of
 removeExport :: Monad m
              => ExportId
              -> ExternModule
-             -> SolutionResult m u (ExternExport, ExternModule)
+             -> SolutionResult u m (ExternExport, ExternModule)
 removeExport ei m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (externModuleInfo m) ei "ExternModule.removeExport"
     Just e -> return (e, m{ externModuleExports = Map.delete ei $ externModuleExports m })
@@ -69,7 +69,7 @@ removeExport ei m = case Map.lookup ei $ externModuleExports m of
 getExport :: Monad m
           => ExportId
           -> ExternModule
-          -> SolutionResult m u (ExternExport)
+          -> SolutionResult u m (ExternExport)
 getExport ei m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (info m) ei "ExternModule.getExport"
     Just e -> return e
@@ -80,7 +80,7 @@ setExport :: Monad m
           -> ExportId
           -> ExternExport
           -> ExternModule
-          -> SolutionResult m u ExternModule
+          -> SolutionResult u m ExternModule
 setExport ei ei' e' m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (info m) ei "ExternModule.setExport"
     Just _ -> return $ m

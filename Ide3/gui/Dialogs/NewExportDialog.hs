@@ -37,14 +37,14 @@ makeEdit existing = Generic.make NewExportDialog "Edit Export" (Just existing)
 close :: (MonadIO m) => NewExportDialog -> m ()
 close = Generic.close
 
-type NewExportDialogSignal proxy m' p buffer m object m'' a
-    = GenericNewDialogSignal proxy m' p buffer m NewExportDialog object m'' a
+type NewExportDialogSignal proxy m' p  m object m'' a
+    = GenericNewDialogSignal proxy m' p  m NewExportDialog object m'' a
 
 getExport :: (MonadIO m) => NewExportDialog -> m String
 getExport = Generic.getEnteredText
 
-confirmClickedEvent :: (Monad m) => NewExportDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+confirmClickedEvent :: (Monad m) => NewExportDialogSignal proxy m' p  m Button (EventM EButton) Bool
 confirmClickedEvent = Generic.confirmClickedEvent
 
-cancelClickedEvent :: (Monad m) => NewExportDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+cancelClickedEvent :: (Monad m) => NewExportDialogSignal proxy m' p  m Button (EventM EButton) Bool
 cancelClickedEvent = Generic.cancelClickedEvent

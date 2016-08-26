@@ -37,10 +37,10 @@ data RunnerResult
     | RunSucceeded String String
 
 -- | The Runner abstract type. Use runRunner to execute the actions of a runner.
-newtype Runner m u = MkRunner { runRunnerInternal :: SolutionResult m u RunnerResult }
+newtype Runner m u = MkRunner { runRunnerInternal :: SolutionResult u m RunnerResult }
 
 -- | Execute the actions of a runner
-runRunner :: Runner m u -> SolutionResult m u RunnerResult
+runRunner :: Runner m u -> SolutionResult u m RunnerResult
 runRunner = runRunnerInternal
 
 -- | A Runner that represents no ability to run, and will always result in an error

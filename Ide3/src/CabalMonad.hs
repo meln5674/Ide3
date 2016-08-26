@@ -37,10 +37,10 @@ data CabalProject
     | BenchmarkProject ProjectInfo Benchmark
 
 class Monad m => CabalMonad m u where
-    getCabalProjects :: SolutionResult m u [CabalProjectInfo] 
-    getCabalProject :: CabalProjectInfo -> SolutionResult m u CabalProject
-    getCabalProjectInfo :: ProjectInfo -> SolutionResult m u CabalProjectInfo
-    lookupCabalProject :: ProjectInfo -> SolutionResult m u CabalProject
-    addCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult m u ()
-    updateCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult m u ()
-    removeCabalProject :: CabalProjectInfo -> SolutionResult m u ()
+    getCabalProjects :: SolutionResult u m [CabalProjectInfo] 
+    getCabalProject :: CabalProjectInfo -> SolutionResult u m CabalProject
+    getCabalProjectInfo :: ProjectInfo -> SolutionResult u m CabalProjectInfo
+    lookupCabalProject :: ProjectInfo -> SolutionResult u m CabalProject
+    addCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
+    updateCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
+    removeCabalProject :: CabalProjectInfo -> SolutionResult u m ()

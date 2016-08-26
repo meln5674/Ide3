@@ -85,7 +85,7 @@ addDeclaration :: Monad m
                => DeclarationInfo
                -> WithBody Declaration
                -> Module
-               -> SolutionResult m u Module
+               -> SolutionResult u m Module
 addDeclaration di d m = case OMap.lookup di $ moduleDeclarations m of
     Just _ -> throwE $ DuplicateDeclaration (info m) di "Module.addDeclaration"
     Nothing -> return
@@ -97,7 +97,7 @@ addDeclaration di d m = case OMap.lookup di $ moduleDeclarations m of
 removeDeclaration :: Monad m
                   => DeclarationInfo
                   -> Module
-                  -> SolutionResult m u (WithBody Declaration, Module)
+                  -> SolutionResult u m (WithBody Declaration, Module)
 removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.removeDeclaration"
     Just d -> return 
@@ -111,7 +111,7 @@ removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
 getDeclaration :: Monad m
                => DeclarationInfo
                -> Module
-               -> SolutionResult m u (WithBody Declaration)
+               -> SolutionResult u m (WithBody Declaration)
 getDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.getDeclaration"
     Just d -> return d
@@ -122,7 +122,7 @@ setDeclaration :: Monad m
                -> DeclarationInfo
                -> WithBody Declaration
                -> Module
-               -> SolutionResult m u Module
+               -> SolutionResult u m Module
 setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
@@ -137,7 +137,7 @@ addImport :: Monad m
           => ImportId
           -> WithBody Import
           -> Module
-          -> SolutionResult m u Module
+          -> SolutionResult u m Module
 addImport ii i m = case Map.lookup ii $ moduleImports m of
     Just _ -> throwE $ InternalError "Duplicate import id" "Module.addImport"
     Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
@@ -146,7 +146,7 @@ addImport ii i m = case Map.lookup ii $ moduleImports m of
 removeImport :: Monad m
              => ImportId
              -> Module
-             -> SolutionResult m u (WithBody Import, Module)
+             -> SolutionResult u m (WithBody Import, Module)
 removeImport ii m = case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.removeImport"
     Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
@@ -155,7 +155,7 @@ removeImport ii m = case Map.lookup ii $ moduleImports m of
 getImport :: Monad m
           => ImportId
           -> Module
-          -> SolutionResult m u (WithBody Import)
+          -> SolutionResult u m (WithBody Import)
 getImport ii m = case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.getImport"
     Just i -> return i
@@ -166,7 +166,7 @@ setImport :: Monad m
           -> ImportId
           -> WithBody Import
           -> Module
-          -> SolutionResult m u Module
+          -> SolutionResult u m Module
 setImport ii ii' i' m = case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.setImport"
     Just _ -> return $ m
@@ -181,7 +181,7 @@ addExport :: Monad m
           => ExportId
           -> WithBody Export
           -> Module
-          -> SolutionResult m u Module
+          -> SolutionResult u m Module
 addExport ei e m = case moduleExports m of
     Just es -> case Map.lookup ei es of
         Just _ -> throwE $ InternalError "Duplicate export id" "Module.addExport"
@@ -192,7 +192,7 @@ addExport ei e m = case moduleExports m of
 removeExport :: Monad m
              => ExportId
              -> Module
-             -> SolutionResult m u (WithBody Export, Module)
+             -> SolutionResult u m (WithBody Export, Module)
 removeExport ei m = case moduleExports m of
     Nothing -> throwE $ InvalidOperation "Can't remove export from an export all" "Module.removeExport"
     Just es -> case Map.lookup ei es of
@@ -203,7 +203,7 @@ removeExport ei m = case moduleExports m of
 getExport :: Monad m
           => ExportId
           -> Module
-          -> SolutionResult m u (WithBody Export)
+          -> SolutionResult u m (WithBody Export)
 getExport ei m = case moduleExports m of
     Nothing -> throwE $ InvalidOperation "Can't get export from an export all" "Module.getExport"
     Just es -> case Map.lookup ei es of
@@ -216,7 +216,7 @@ setExport :: Monad m
           -> ExportId
           -> WithBody Export
           -> Module
-          -> SolutionResult m u Module
+          -> SolutionResult u m Module
 setExport ei ei' e' m = case moduleExports m of
     Just es -> case Map.lookup ei es of
         Nothing -> throwE $ InternalError "Tried to set an export in an export all" "Module.setExport"

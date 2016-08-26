@@ -37,6 +37,7 @@ import PseudoState
 
 import Ide3.NewMonad.Instances.Undecidable()
 
+import Ide3.Utils
 import Ide3.Types
 --import Ide3.NewMonad hiding (load, new, finalize)
 --import qualified Ide3.NewMonad as M
@@ -44,6 +45,16 @@ import Ide3.NewMonad
 import Ide3.Types (SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
+
+class ViewerMonad m => ViewerStateClass m where
+    getCurrentProject :: m (Maybe ProjectInfo)
+    getCurrentModule :: m (Maybe (ProjectInfo, ModuleInfo))
+    getCurrentDeclaration :: m (Maybe (ProjectInfo, ModuleInfo,DeclarationInfo))
+    setCurrentProject :: ProjectInfo -> m ()
+    setCurrentModule :: ProjectInfo -> ModuleInfo -> m ()
+    -- | Set the current declaration of the program
+    setCurrentDecl :: ProjectInfo -> ModuleInfo -> DeclarationInfo -> m ()
+    setNoCurrentDecl :: m ()
 
 -- | The state of the program
 data ViewerState
@@ -119,91 +130,78 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     return (result,Resume viewer' fsp' proj')
 -}
 
-hasCurrentProject :: (Monad m) => ViewerStateT m Bool
+hasCurrentProject :: (ViewerStateClass m) => m Bool
 hasCurrentProject = liftM isJust getCurrentProject
 
 -- | Check if the program currently has a module open
-hasCurrentModule :: (Monad m) => ViewerStateT m Bool
+hasCurrentModule :: (ViewerStateClass m) => m Bool
 hasCurrentModule = liftM isJust getCurrentModule
 
 
-hasCurrentDeclaration :: (Monad m) => ViewerStateT m Bool
+hasCurrentDeclaration :: (ViewerStateClass m) => m Bool
 hasCurrentDeclaration = liftM isJust getCurrentDeclaration
 
 -- | Open a solution at a given path
-openSolution :: (MonadIO m, ViewerMonad m, PersistenceClass m)
+openSolution :: ( MonadIO m, ViewerStateClass m, PersistenceClass m )
             => FilePath 
-            -> SolutionResult (ViewerStateT m) u ()
+            -> SolutionResult u m ()
 openSolution path = do
     isFile <- liftIO $ doesFileExist path
     isDir <- liftIO $ doesDirectoryExist path
     case (isFile, isDir) of
         (True, _) -> do
-            bounce $ setFileToOpen path
-            lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce load
+            setFileToOpen path
+            lift $ setNoCurrentDecl
+            load
         (_,True) -> do
-            bounce $ setDirectoryToOpen path
-            lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce load
+            setDirectoryToOpen path
+            lift $ setNoCurrentDecl
+            load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
 -- | Save the current solution, optionally with a new path to save to
-saveSolution :: (MonadIO m, ViewerMonad m, PersistenceClass m) 
+saveSolution :: (ViewerMonad m, PersistenceClass m, ViewerStateClass m) 
             => Maybe FilePath
-            -> SolutionResult (ViewerStateT m) u ()
+            -> SolutionResult u m ()
 saveSolution maybePath = do
-    cond <- lift $ ViewerStateT $ lift $ hasOpenedSolution
+    cond <- lift hasOpenedSolution
     if cond
         then do 
                 case maybePath of
-                    Just path -> bounce $ setTargetPath path
+                    Just path -> setTargetPath path
                     Nothing -> return ()
-                bounce finalize
+                finalize
         else throwE $ InvalidOperation "No solution is currently open" ""
 
 
-
-setCurrentProject :: Monad m => ProjectInfo -> ViewerStateT m ()
-setCurrentProject pi = ViewerStateT $ put $ Viewer (Just pi) Nothing Nothing
-
-setCurrentModule :: Monad m => ProjectInfo -> ModuleInfo -> ViewerStateT m ()
-setCurrentModule pi mi = ViewerStateT $ put $ Viewer (Just pi) (Just mi) Nothing
-
--- | Set the current declaration of the program
-setCurrentDecl :: Monad m => ProjectInfo -> ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
-setCurrentDecl pi mi di = ViewerStateT $ put $ Viewer (Just pi) (Just mi) (Just di)
-
-
-getCurrentProject :: Monad m => ViewerStateT m (Maybe ProjectInfo)
-getCurrentProject = ViewerStateT $ gets currentProject
-
-getCurrentModule :: Monad m => ViewerStateT m (Maybe (ProjectInfo, ModuleInfo))
-getCurrentModule = ViewerStateT $ do
-    pi <- gets currentProject
-    mi <- gets currentModule
-    case pi of
-        Just pi -> case mi of
-            Just mi -> return $ Just (pi,mi)
-            Nothing -> return Nothing
-        Nothing -> return Nothing
-
-getCurrentDeclaration :: Monad m => ViewerStateT m (Maybe (ProjectInfo, ModuleInfo,DeclarationInfo))
-getCurrentDeclaration = ViewerStateT $ do
-    pi <- gets currentProject
-    mi <- gets currentModule
-    di <- gets currentDecl
-    case pi of
-        Just pi -> case mi of
-            Just mi -> case di of
-                Just di -> return $ Just (pi,mi,di)
+instance ViewerMonad m => ViewerStateClass (ViewerStateT m) where
+    setCurrentProject pi = ViewerStateT $ put $ Viewer (Just pi) Nothing Nothing
+    setCurrentModule pi mi = ViewerStateT $ put $ Viewer (Just pi) (Just mi) Nothing
+    setCurrentDecl pi mi di = ViewerStateT $ put $ Viewer (Just pi) (Just mi) (Just di)
+    getCurrentProject = ViewerStateT $ gets currentProject
+    getCurrentModule = ViewerStateT $ do
+        pi <- gets currentProject
+        mi <- gets currentModule
+        case pi of
+            Just pi -> case mi of
+                Just mi -> return $ Just (pi,mi)
                 Nothing -> return Nothing
             Nothing -> return Nothing
-        Nothing -> return Nothing
-
-
-
-
+    getCurrentDeclaration = ViewerStateT $ do
+        pi <- gets currentProject
+        mi <- gets currentModule
+        di <- gets currentDecl
+        case pi of
+            Just pi -> case mi of
+                Just mi -> case di of
+                    Just di -> return $ Just (pi,mi,di)
+                    Nothing -> return Nothing
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+    setNoCurrentDecl = ViewerStateT $ put $ Viewer Nothing Nothing Nothing
+    
+    
+    
 instance (PersistenceClass m) => PersistenceClass (ViewerStateT m) where
     load = bounce load
     new = bounce . new

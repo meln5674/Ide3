@@ -33,7 +33,7 @@ data GenericNewDialog
     , confirmButton :: Button
     , cancelButton :: Button
     }
-
+{-
 makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
 makeVBoxWith window f = do
     vbox <- liftIO $ vBoxNew False 0
@@ -45,7 +45,7 @@ makeHBoxWith vbox f = do
     hbox <- liftIO $ hBoxNew False 0
     liftIO $ boxPackEnd vbox hbox PackNatural 0
     f hbox
-
+-}
 
 makeTextEntryBox :: (MonadIO m, BoxClass self) => self -> EntryBuffer -> m Entry
 makeTextEntryBox vbox buffer = liftIO $ do
@@ -90,14 +90,14 @@ close = liftIO . widgetDestroy . window . getGenericDialog
 getEnteredText :: (MonadIO m, NewDialog dialog) => dialog -> m String
 getEnteredText = liftIO . flip get entryBufferText . textEntryBuffer . getGenericDialog
 
-type GenericNewDialogSignal proxy m' p buffer m dialog object m'' a
-    = GuiEnvSignal proxy m' p buffer m dialog object m'' a
+type GenericNewDialogSignal proxy m' p  m dialog object m'' a
+    = GuiEnvSignal proxy m' p  m dialog object m'' a
 
 
 
-confirmClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p buffer m dialog Button (EventM EButton) Bool 
+confirmClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p  m dialog Button (EventM EButton) Bool 
 confirmClickedEvent = (confirmButton . getGenericDialog) `mkGuiEnvSignal` buttonPressEvent
 
-cancelClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p buffer m dialog Button (EventM EButton) Bool
+cancelClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p  m dialog Button (EventM EButton) Bool
 cancelClickedEvent = (cancelButton . getGenericDialog) `mkGuiEnvSignal` buttonPressEvent
 

@@ -236,7 +236,7 @@ makeFileListing :: ( ProjectModuleClass m
                    , ModulePragmaClass m
                    ) 
                 => ProjectInfo 
-                -> SolutionResult m u FileListing
+                -> SolutionResult u m FileListing
 makeFileListing pi = do
     t <- makeTree pi
     let dirs (OrgNode i ts) =  (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
@@ -257,11 +257,11 @@ makeFileListing pi = do
            }
 
 -- | Write an output pair to disc
-writeOutputPair :: (MonadIO m) => OutputPair -> SolutionResult m u ()
+writeOutputPair :: (MonadIO m) => OutputPair -> SolutionResult u m ()
 writeOutputPair pair = wrapIOError $ writeFile (filePath pair) (fileContents pair)
 
 -- | Create the directories needed and write the files to be written
-executeFileListing :: (MonadIO m) => FileListing -> SolutionResult m u ()
+executeFileListing :: (MonadIO m) => FileListing -> SolutionResult u m ()
 executeFileListing listing = do
     wrapIOError $ forM_ (directoriesNeeded listing) $ createDirectoryIfMissing True
     forM_ (outputs listing) $ writeOutputPair

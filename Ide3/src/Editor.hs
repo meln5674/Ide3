@@ -42,10 +42,10 @@ data EditorResult
     | EditCanceled
 
 -- | Abstract type for editors
-newtype Editor m u = MkEditor { runEditorInternal :: String -> SolutionResult m u EditorResult }
+newtype Editor m u = MkEditor { runEditorInternal :: String -> SolutionResult u m EditorResult }
 
 -- | Run an editor on a given string
-runEditor :: Editor m u -> String -> SolutionResult m u EditorResult
+runEditor :: Editor m u -> String -> SolutionResult u m EditorResult
 runEditor = runEditorInternal
 
 -- | An editor which represents no editing capability and will always result in an error

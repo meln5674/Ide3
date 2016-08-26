@@ -46,9 +46,9 @@ type SolutionState = SolutionStateT Identity
 
 -- | Class of monads which can load, create, and save an in-memory solution
 class Monad m => SolutionShellM m where
-    load :: SolutionResult m u Solution
-    new :: SolutionInfo -> SolutionResult m u Solution
-    finalize :: Solution -> SolutionResult m u ()
+    load :: SolutionResult u m Solution
+    new :: SolutionInfo -> SolutionResult u m Solution
+    finalize :: Solution -> SolutionResult u m ()
 
 -- | Class of monads which can retreive and overwrite an in-memory solution
 class Monad m => SolutionStateM m where

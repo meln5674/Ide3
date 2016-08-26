@@ -42,10 +42,19 @@ library
                      , containers
     default-language:  Haskell2010
 
+executable OverlayTest
+  hs-source-dirs:      overlay
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , gtk3
+
+
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
   other-modules:       SolutionTree
+                     , BetterTextView
                      , GuiViewer
                      , GuiCommand
                      , GuiCommand.Internal
@@ -67,7 +76,7 @@ executable Ide3-GUI
   build-depends:       base
                      , Ide3-base
                      , Ide3
-                     , gtk
+                     , gtk3
                      , glib
                      , transformers
                      , mtl
@@ -80,6 +89,7 @@ executable Ide3-GUI
                      , conduit
                      , conduit-extra
                      , haskell-src-exts
+                     , parsec
   default-language:    Haskell2010
                      
 executable Ide3-CLI

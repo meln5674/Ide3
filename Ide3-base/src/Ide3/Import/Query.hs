@@ -27,7 +27,7 @@ whitelistTree' :: ( ProjectModuleClass m
                => ProjectInfo
                -> ModuleInfo  -- ^ Info for module symbols are being imported from
                -> ImportKind     -- ^ Specific import to search for
-               -> SolutionResult m u [Symbol]
+               -> SolutionResult u m [Symbol]
 whitelistTree' = importWhitelistTree' 
 
 -- | Find the symbols to import from a module using a blacklist import
@@ -41,7 +41,7 @@ blacklistTree' :: ( ProjectModuleClass m
                => ProjectInfo
                -> ModuleInfo -- ^ Module symbols are being imported from
                -> ImportKind     -- ^ Import to blacklist
-               -> SolutionResult m u [Symbol]
+               -> SolutionResult u m [Symbol]
 blacklistTree' = importBlacklistTree' 
 
 -- | Get the symbols provided by an import, ignoring qualification
@@ -54,7 +54,7 @@ unqualSymbolsProvided' :: ( ProjectModuleClass m
                           )
                        => ProjectInfo 
                        -> Import 
-                       -> SolutionResult m u [Symbol]
+                       -> SolutionResult u m [Symbol]
 unqualSymbolsProvided' = importUnqualSymbolsProvided'
 
 -- | Get the symbols provided by an import
@@ -67,7 +67,7 @@ symbolsProvided' :: ( ProjectModuleClass m
                     )
                  => ProjectInfo 
                  -> Import 
-                 -> SolutionResult m u [Symbol]
+                 -> SolutionResult u m [Symbol]
 symbolsProvided' = importSymbolsProvided' 
 
 -- | Test if an import provides a symbol
@@ -81,7 +81,7 @@ providesSymbol' :: ( ProjectModuleClass m
                 => ProjectInfo 
                 -> Import 
                 -> Symbol 
-                -> SolutionResult m u Bool
+                -> SolutionResult u m Bool
 providesSymbol' = importProvidesSymbol' 
 
 -- | If this import provides a symbol, get all of the other symbols it provides
@@ -95,7 +95,7 @@ otherSymbols' :: ( ProjectModuleClass m
               => ProjectInfo 
               -> Import 
               -> Symbol 
-              -> SolutionResult m u (Maybe [Symbol])
+              -> SolutionResult u m (Maybe [Symbol])
 otherSymbols' = importOtherSymbols' 
 
 -- | Given a sub-symbol (class method, data constructor, etc...), find the other
@@ -111,5 +111,5 @@ symbolTree' :: ( ProjectModuleClass m
             => ProjectInfo 
             -> Import 
             -> Symbol 
-            -> SolutionResult m u [Symbol]
+            -> SolutionResult u m [Symbol]
 symbolTree' = importSymbolTree' 

@@ -4,11 +4,11 @@ module SyntaxHighlighter where
 
 import Data.Char
 
+import Graphics.UI.Gtk
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-
-import Graphics.UI.Gtk
 
 import Language.Haskell.Exts.Annotated.Syntax
 import Language.Haskell.Exts.Annotated.Parser

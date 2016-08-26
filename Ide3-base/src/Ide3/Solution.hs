@@ -10,12 +10,17 @@ Portability : POSIX
 
 -}
 
-module Ide3.Solution where
+module Ide3.Solution 
+    ( module Ide3.Solution
+    , module Ide3.Solution.Query
+    ) where
 
 import qualified Data.Map as Map
 
 import Ide3.Types.Internal
 import Ide3.Types.State
+
+import Ide3.Solution.Query
 
 -- |Create an empry Solution
 empty :: Solution

@@ -45,20 +45,20 @@ data ProjectInitializerResult
 -- | The initializer abstract type. Use runInitializer or runInitializerWithInput
 -- to execute the actions of an initializer
 newtype ProjectInitializer a m u = ProjectInitializer
-    { runProjectInitializerInternal :: a -> SolutionResult m u ProjectInitializerResult }
+    { runProjectInitializerInternal :: a -> SolutionResult u m ProjectInitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
 runProjectInitializerWithInput :: (Monad m, Args a)
                => ProjectInitializer a m u 
                -> [String]
-               -> Either String (SolutionResult m u ProjectInitializerResult)
+               -> Either String (SolutionResult u m ProjectInitializerResult)
 runProjectInitializerWithInput initializer = liftM (runProjectInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
 runProjectInitializer :: (Monad m, Args a)
                => ProjectInitializer a m u
                -> a
-               -> SolutionResult m u ProjectInitializerResult
+               -> SolutionResult u m ProjectInitializerResult
 runProjectInitializer = runProjectInitializerInternal
 
 -- | An Initializer that represents no initialization capability, and will

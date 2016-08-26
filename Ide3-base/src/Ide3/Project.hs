@@ -12,7 +12,8 @@ Portability : POSIX
 
 module Ide3.Project 
     ( module Ide3.Project.Internal
+    , module Ide3.Project.Query
     ) where
 
-
+import Ide3.Project.Query
 import Ide3.Project.Internal (new, empty)

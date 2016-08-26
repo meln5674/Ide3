@@ -26,5 +26,5 @@ symbolsProvided' :: ( ProjectModuleClass m
                  => ProjectInfo 
                  -> ModuleInfo
                  -> Export 
-                 -> SolutionResult m u [Symbol]
+                 -> SolutionResult u m [Symbol]
 symbolsProvided' = exportSymbolsProvided'

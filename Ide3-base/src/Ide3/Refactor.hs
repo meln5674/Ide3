@@ -30,7 +30,7 @@ renameSymbols :: (SolutionMonad m)
              -> ModuleInfo
              -> DeclarationInfo
              -> [(Symbol,Symbol)]
-             -> SolutionResult m u DeclarationInfo
+             -> SolutionResult u m DeclarationInfo
 renameSymbols pji mi di pairs = do
     let edit str = foldr (\(Symbol old,Symbol new) str -> replace old new str) str pairs
     editDeclaration pji mi di $ \d -> do
@@ -48,7 +48,7 @@ renameModule :: (SolutionMonad m)
              => ProjectInfo
              -> ModuleInfo
              -> ModuleInfo
-             -> SolutionResult m u ()
+             -> SolutionResult u m ()
 renameModule pji src@(ModuleInfo msym) dest@(ModuleInfo msym') = do
     projectResult <- Module.importedBy pji src
     forM_ projectResult $ \(ProjectChild pji' moduleResult) -> do

@@ -34,25 +34,25 @@ f p s = case p of
 -}
 
 -- | Parse an import and add it to a module
-addRawImport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ImportId
+addRawImport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult u m ImportId
 addRawImport pji mi str = case Import.parse str of
     Right i -> addImport pji mi $ WithBody i str
     Left err -> throwE err 
 
 -- | Parse an export and add it to a module
-addRawExport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ExportId
+addRawExport :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult u m ExportId
 addRawExport pji mi str = case Export.parse str of
     Right e -> addExport pji mi $ WithBody e str
     Left err -> throwE err
 
 -- | Parse a declaration and add it to a module
-addRawDeclaration :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult m u ()
+addRawDeclaration :: SolutionM m => ProjectInfo -> ModuleInfo -> String -> SolutionResult u m ()
 addRawDeclaration pji mi str = case Declaration.parse str of
     Right d -> addDeclaration pji mi $ WithBody d str
     Left err -> throwE err
 
 -- | Parse an entire module and add it to the project
-addRawModule :: SolutionM m => ProjectInfo -> String -> Maybe FilePath -> SolutionResult m u ModuleInfo
+addRawModule :: SolutionM m => ProjectInfo -> String -> Maybe FilePath -> SolutionResult u m ModuleInfo
 addRawModule pji str p = case Module.parse str p of
     Right (m,_,_) -> do
         addModule pji m
@@ -60,7 +60,7 @@ addRawModule pji str p = case Module.parse str p of
     Left err -> throwE err
 
 -- | Get either an internal or external module
-getAnyModule :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u EitherModule
+getAnyModule :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult u m EitherModule
 getAnyModule pji mi = catchE tryLocal $ const tryExtern
   where
     tryLocal = liftM Left $ getModule pji mi
@@ -68,7 +68,7 @@ getAnyModule pji mi = catchE tryLocal $ const tryExtern
     
 
 -- | Get the symbols exported by a module
-getExternalSymbols :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult m u  [Symbol]
+getExternalSymbols :: SolutionM m => ProjectInfo -> ModuleInfo -> SolutionResult u m  [Symbol]
 getExternalSymbols pji mi = do
     m <- getAnyModule pji mi
     case m of
@@ -79,14 +79,14 @@ getExternalSymbols pji mi = do
 getInternalSymbols :: SolutionM m 
                    => ProjectInfo 
                    -> ModuleInfo 
-                   -> SolutionResult m u  [Symbol]
+                   -> SolutionResult u m  [Symbol]
 getInternalSymbols pji mi = do
     m <- getModule pji mi 
     Module.internalSymbols pji m
 
 {-
 
-renameModule :: SolutionM m => ModuleInfo -> ModuleInfo -> SolutionResult m u ()
+renameModule :: SolutionM m => ModuleInfo -> ModuleInfo -> SolutionResult u m ()
 renameModule (ModuleInfo src) (ModuleInfo dest) = do
     editModule src $ \(Module _ ps es is ds) -> Right $ Module dest ps es is ds
     allModules <- getModules

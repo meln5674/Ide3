@@ -1,6 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 module SolutionTree where
 
 import Data.Tree
+import Data.List
 
 import Control.Monad
 import Control.Monad.Trans
@@ -8,21 +10,13 @@ import Control.Monad.Trans
 import Ide3.Types
 import Ide3.ModuleTree
 import Ide3.NewMonad
+import Ide3.Utils
 
-import Graphics.UI.Gtk
+import GuiClass
 
 import ViewerMonad
 
-data SolutionTreeElem
-    = ProjectElem ProjectInfo
-    | ModuleElem ModuleInfo Bool
-    | DeclElem DeclarationInfo
-    | ImportsElem
-    | ExportsElem
-    | PragmasElem
-    | ImportElem ImportId (WithBody Import)
-    | ExportElem ExportId (WithBody Export)
-    | PragmaElem Pragma
+import DeclarationPath
 
 data TreeSearchResult
     = ProjectResult ProjectInfo
@@ -46,18 +40,8 @@ instance SolutionShellM PSW where
     finalize = error "STOP"
 -}
 
-renderSolutionTreeElem :: CellRendererTextClass o => SolutionTreeElem -> [AttrOp o]
-renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [cellText := n]
-renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [cellText := s]
-renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [cellText := path]
-renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [cellText := "???"]
-renderSolutionTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
-renderSolutionTreeElem ImportsElem = [cellText := "Imports"]
-renderSolutionTreeElem ExportsElem = [cellText := "Exports"]
-renderSolutionTreeElem PragmasElem = [cellText := "Pragmas"]
-renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := importBody] 
-renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
-renderSolutionTreeElem (PragmaElem p) = [cellText := p]
+
+
 
 makePragmasNode :: [Pragma] -> Tree SolutionTreeElem
 makePragmasNode ps = Node PragmasElem $ map (flip Node [] . PragmaElem) ps
@@ -84,9 +68,76 @@ makeProjectTree :: ProjectInfo -> [ModuleTree] -> Tree SolutionTreeElem
 makeProjectTree pi branches = Node (ProjectElem pi) $ map makeModuleTree branches
 
 makeSolutionTree :: [(ProjectInfo,[ModuleTree])] -> [Tree SolutionTreeElem]
-makeSolutionTree = map $ uncurry makeProjectTree
+makeSolutionTree = map (uncurry makeProjectTree)
 
-populateTree :: ( MonadIO m
+searchTree
+    :: ( SolutionViewClass m --t (SolutionResult u m)
+       ) 
+    => DeclarationPath
+    -> m {-t (SolutionResult u m)-} [TreePath]
+searchTree path = do
+    --tree <- treeStoreGetTree store [0]
+    trees <- getForestAtSolutionPath []
+    return $ searchTree' path $ Node undefined trees
+
+searchTree' :: DeclarationPath -> Tree SolutionTreeElem -> [TreePath]
+searchTree' path tree = map fst $ case path of
+    DeclarationPath{} -> declMatches
+    ModulePath{} -> moduleMatches
+    ProjectPath{} -> map (\(i,x) -> ([i],x)) projectMatches
+  where
+    (pi,mi,di) = case path of
+        DeclarationPath pi mi di -> (pi,mi,di)
+        ModulePath pi mi -> (pi,mi,undefined)
+        ProjectPath pi -> (pi,undefined,undefined)
+    projectMatches = searchTreeForProject pi tree
+    moduleMatches = flip concatMap projectMatches 
+        $ \(projectIndex, projectTree) -> flip map (searchTreeForModule mi $ projectTree)
+            $ \(moduleIndices, moduleTree) -> (projectIndex : moduleIndices, moduleTree)
+    declMatches = flip concatMap moduleMatches 
+        $ \(moduleIndices, moduleTree) -> flip map (searchTreeForDeclaration di $ moduleTree)
+            $ \(declarationIndex, declarationTree) -> (moduleIndices ++ [declarationIndex], declarationTree)
+
+searchTreeForModulePart :: ModuleInfo -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
+searchTreeForModulePart (ModuleInfo (Symbol s)) = searchTree''' moduleNameIsPrefixOf
+  where
+    moduleNameIsPrefixOf (ModuleElem (ModuleInfo (Symbol s')) _) = s' `isPrefixOf` s && case drop (length s') s of
+        [] -> True
+        ('.':_) -> True
+        _ -> False
+    moduleNameIsPrefixOf _ = False
+
+searchTreeForModule :: ModuleInfo -> Tree SolutionTreeElem -> [([Int], Tree SolutionTreeElem)]
+searchTreeForModule mi tree = case searchTree''' matchesModule tree of
+    [] -> let partMatches = searchTreeForModulePart mi tree
+          in flip concatMap partMatches $ 
+                \(i, nextTree) -> map (\(is,moduleTree) -> (i:is,moduleTree)) 
+                             $ searchTreeForModule mi nextTree
+    xs -> map (\(i, tree') -> ([i],tree')) xs
+  where
+    matchesModule (ModuleElem mi' _) = mi == mi'
+    matchesModule _ = False
+
+searchTreeForDeclaration :: DeclarationInfo -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
+searchTreeForDeclaration di = searchTree''' matchesDeclaration
+  where
+    matchesDeclaration = ((DeclElem di) ==)
+
+searchTreeForProject :: ProjectInfo -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
+searchTreeForProject pi = searchTree''' matchesProject
+  where
+    matchesProject = ((ProjectElem pi) ==)
+
+
+
+
+searchTree''' :: (SolutionTreeElem -> Bool) -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
+searchTree''' f tree = filter (f . rootLabel . snd) $ zip [0..] $ subForest tree
+
+populateTree :: ( MonadTrans t
+                , MonadSplice t
+                , Monad (t (SolutionResult u m))
+                , SolutionViewClass (t m)
                 , ViewerMonad m
                 , SolutionClass m
                 , ProjectModuleClass m
@@ -95,19 +146,21 @@ populateTree :: ( MonadIO m
                 , ModuleDeclarationClass m
                 , ModulePragmaClass m
                 ) 
-             => TreeStore SolutionTreeElem -> SolutionResult m u ()
-populateTree treeStore = do
-    projects <- getProjects
-    trees <- forM projects $ \pi -> do
+             => t (SolutionResult u m) ()
+populateTree = do
+    projects <- lift getProjects
+    trees <- lift $ forM projects $ \pi -> do
         tree <- makeTree pi
         return (pi, tree)
-    let forest = makeSolutionTree trees
-    liftIO $ do
-        treeStoreClear treeStore
-        treeStoreInsertForest treeStore [] 0 forest
+    --let forest = makeSolutionTree trees
+    --liftIO $ do
+        --treeStoreClear treeStore
+        --treeStoreInsertForest treeStore [] 0 forest
+    splice $ setSolutionTree $ makeSolutionTree trees
 
-findAtPath :: TreePath -> TreeStore SolutionTreeElem -> IO TreeSearchResult
-findAtPath path treeStore = do
+findAtPath :: ( SolutionViewClass m
+              ) => TreePath -> m TreeSearchResult
+findAtPath path = do
     let parentPath = case path of
             [] -> []
             _ -> init path
@@ -118,10 +171,14 @@ findAtPath path treeStore = do
         ancestorPath = case path of
             [] -> []
             (x:_) -> [x]
-    node <- treeStoreGetValue treeStore path
-    parentNode <- treeStoreGetValue treeStore parentPath
-    grandparentNode <- treeStoreGetValue treeStore grandparentPath
-    ancestorNode <- treeStoreGetValue treeStore ancestorPath
+    --node <- treeStoreGetValue treeStore path
+    node <- getElemAtSolutionPath path
+    --parentNode <- treeStoreGetValue treeStore parentPath
+    parentNode <- getElemAtSolutionPath parentPath
+    --grandparentNode <- treeStoreGetValue treeStore grandparentPath
+    grandparentNode <- getElemAtSolutionPath grandparentPath
+    --ancestorNode <- treeStoreGetValue treeStore ancestorPath
+    ancestorNode <- getElemAtSolutionPath ancestorPath
     case (node,parentNode,grandparentNode,ancestorNode) of
         (ProjectElem pi,_,_,_) -> return $ ProjectResult pi
         (ModuleElem mi b,_,_,ProjectElem pi) -> return $ ModuleResult pi mi b

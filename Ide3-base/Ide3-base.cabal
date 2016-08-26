@@ -20,7 +20,9 @@ library
                      , Ide3.Types.State
                      , Ide3.SrcLoc
                      , Ide3.Solution
+                     , Ide3.Solution.Query
                      , Ide3.Project
+                     , Ide3.Project.Query
                      , Ide3.Module
                      , Ide3.Module.Extern
                      , Ide3.Module.Common

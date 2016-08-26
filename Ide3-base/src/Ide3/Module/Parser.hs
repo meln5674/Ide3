@@ -119,11 +119,11 @@ parse s p = case parseModuleWithComments parseMode s of
     parseMode = case p of
         Just fn -> defaultParseMode
                  { parseFilename=fn
-                 , extensions=exts
+                 , extensions= EnableExtension MultiParamTypeClasses : exts
                  , fixities=Just[]
                  }
         Nothing -> defaultParseMode
-                 { extensions=exts
+                 { extensions= EnableExtension MultiParamTypeClasses : exts
                  , fixities=Just[]
                  }
 
@@ -144,10 +144,11 @@ parseMain s p = case parseModuleWithComments parseMode s of
     parseMode = case p of
         Just fn -> defaultParseMode
                  { parseFilename=fn
-                 , extensions=exts
-                 , fixities=Just[]
+                    -- temporary workaround for https://github.com/haskell-suite/haskell-src-exts/issues/304
+                 , extensions = EnableExtension MultiParamTypeClasses : exts
+                 , fixities = Just[]
                  }
         Nothing -> defaultParseMode
-                 { extensions=exts
-                 , fixities=Just[]
+                 { extensions = EnableExtension MultiParamTypeClasses : exts
+                 , fixities = Just[]
                  }

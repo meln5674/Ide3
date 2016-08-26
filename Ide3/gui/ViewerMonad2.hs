@@ -61,4 +61,3 @@ instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad2 
     interupt2 (s,s2) f = do
         ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
         return (x,(s',s2'))
-

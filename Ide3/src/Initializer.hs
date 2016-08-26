@@ -48,20 +48,20 @@ data InitializerResult
 -- | The initializer abstract type. Use runInitializer or runInitializerWithInput
 -- to execute the actions of an initializer
 newtype Initializer a m u = Initializer
-    { runInitializerInternal :: a -> SolutionResult m u InitializerResult }
+    { runInitializerInternal :: a -> SolutionResult u m InitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
 runInitializerWithInput :: (Monad m, Args a) 
                => Initializer a m u 
                -> [String]
-               -> Either String (SolutionResult m u InitializerResult)
+               -> Either String (SolutionResult u m InitializerResult)
 runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
 runInitializer :: (Monad m, Args a)
                => Initializer a m u
                -> a
-               -> SolutionResult m u InitializerResult
+               -> SolutionResult u m InitializerResult
 runInitializer = runInitializerInternal
 
 -- | The name of a stack template

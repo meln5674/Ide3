@@ -12,6 +12,7 @@ Portability : POSIX
 
 module Ide3.NewMonad.Instances.State.SolutionClass where
 
+import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
@@ -24,7 +25,7 @@ import Ide3.Types.State
 -- | 
 instance StatefulSolutionClass m => SolutionClass (StatefulWrapper m) where
     editSolutionInfo f = modifySolution $ \s -> s{ solutionInfo = f $ solutionInfo s }
-    addProject a = modifySolutionER $ \s -> runDescent2 Solution.addProject s a
-    removeProject a = modifySolutionER $ \s -> runDescent2 Solution.removeProject s a
-    getProjects = modifySolutionER $ \s -> runDescent1 Solution.getProjects s
-    editProjectInfo a b = modifySolutionER $ \s -> runDescent3 Solution.editProjectInfo s a b
+    addProject = modifySolutionER .-. runDescent2 Solution.addProject
+    removeProject = modifySolutionER .-. runDescent2 Solution.removeProject
+    getProjects = modifySolutionER $ runDescent1 Solution.getProjects
+    editProjectInfo = modifySolutionER .-.. runDescent3 Solution.editProjectInfo

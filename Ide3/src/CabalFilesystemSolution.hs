@@ -100,30 +100,30 @@ addModulePath pi mi p conf = conf { modulePathMap = Map.insert (pi,mi) p $ modul
 setModuleDirty :: Monad m 
                => ProjectInfo
                -> ModuleInfo 
-               -> SolutionResult (CabalSolution m) u ()
+               -> SolutionResult u (CabalSolution m) ()
 setModuleDirty pji mi = withOpenedSolution $ \info -> do
     lift $ putFsp $ Opened $ Just info{ dirtyModules = Set.insert (pji, mi) $ dirtyModules info }
 
-setModulesClean :: Monad m => SolutionResult (CabalSolution m) u ()
+setModulesClean :: Monad m => SolutionResult u (CabalSolution m) ()
 setModulesClean = withOpenedSolution $ \info -> do
     lift $ putFsp $ Opened $ Just info{ dirtyModules = Set.empty }
 
 isModuleDirty :: Monad m 
               => ProjectInfo
               -> ModuleInfo
-              -> SolutionResult (CabalSolution m) u Bool
+              -> SolutionResult u (CabalSolution m) Bool
 isModuleDirty pji mi = withOpenedSolution $ \info -> do
     return $ (pji,mi) `Set.member` dirtyModules info
     
-setCabalFileDirty :: Monad m => SolutionResult (CabalSolution m) u ()
+setCabalFileDirty :: Monad m => SolutionResult u (CabalSolution m) ()
 setCabalFileDirty = withOpenedSolution $ \info -> do
     lift $ putFsp $ Opened $ Just info{ cabalFileDirty = True }
 
-setCabalFileClean :: Monad m => SolutionResult (CabalSolution m) u ()
+setCabalFileClean :: Monad m => SolutionResult u (CabalSolution m) ()
 setCabalFileClean = withOpenedSolution $ \info -> do
     lift $ putFsp $ Opened $ Just info{ cabalFileDirty = False }
 
-isCabalFileDirty :: Monad m => SolutionResult (CabalSolution m) u Bool
+isCabalFileDirty :: Monad m => SolutionResult u (CabalSolution m) Bool
 isCabalFileDirty = withOpenedSolution $ return . cabalFileDirty 
 
 -- | Type wrapper for using a cabal file as a solution setup and the module
@@ -136,6 +136,9 @@ newtype CabalSolution m a
     , Monad
     , MonadIO
     )
+
+instance MonadTrans CabalSolution where
+    lift = CabalSolution . lift
 
 instance MonadBounce CabalSolution where
     bounce = ExceptT . CabalSolution . lift . runExceptT
@@ -166,8 +169,8 @@ modifyFsp = CabalSolution . modify
 
 -- | Perform an action on an open solution, or throw an error if not open
 withOpenedSolution :: (Monad m) 
-                  => (CabalSolutionInfo -> SolutionResult (CabalSolution m) u a)
-                  -> SolutionResult (CabalSolution m) u a
+                  => (CabalSolutionInfo -> SolutionResult u (CabalSolution m) a)
+                  -> SolutionResult u (CabalSolution m) a
 withOpenedSolution f = do
     fsp <- lift getFsp
     case fsp of
@@ -207,7 +210,7 @@ updateExecutable (ProjectInfo n) exe desc@GenericPackageDescription{condExecutab
 updateConfig :: (Monad m) 
              => ProjectInfo
              -> CabalProject
-             -> SolutionResult (CabalSolution m) u ()
+             -> SolutionResult u (CabalSolution m) ()
 updateConfig pi (LibraryProject lib) = withOpenedSolution $ \path (CabalConfiguration desc) -> do
     let desc' = updateLibrary pi lib desc
     lift $ putFsp $ Opened $ Just $ CabalSolutionInfo path $ CabalConfiguration desc'
@@ -223,7 +226,7 @@ isProjectInfo pi (LibraryProject _) = pi == libraryInfo
 isProjectInfo (ProjectInfo projectName) (ExecutableProject exe) = exeName exe == projectName
 
 
-getProject :: Monad m => ProjectInfo -> SolutionResult (CabalSolution m) u CabalProject
+getProject :: Monad m => ProjectInfo -> SolutionResult u (CabalSolution m) CabalProject
 getProject pi = do
     ps <- getAllProjects
     case filter (isProjectInfo pi) ps of
@@ -259,7 +262,7 @@ loadInternalModule :: ( MonadIO m
                    => ProjectInfo 
                    -> FilePath
                    -> Bool
-                   -> SolutionResult (CabalSolution m) u ModuleInfo
+                   -> SolutionResult u (CabalSolution m) ModuleInfo
 loadInternalModule pji path isMain = do
     let parser = if isMain then Module.parseMain else Module.parse
     contents <- wrapReadFile path
@@ -277,7 +280,7 @@ locateAndLoadInternalModule :: ( MonadIO m
                             -> [FilePath]
                             -> Bool
                             -> ModuleName.ModuleName
-                            -> SolutionResult (CabalSolution m) u (ModuleInfo,FilePath)
+                            -> SolutionResult u (CabalSolution m) (ModuleInfo,FilePath)
 locateAndLoadInternalModule pji roots isMain mn = do
     locateResult <- locateModule roots mn
     case locateResult of
@@ -296,7 +299,7 @@ loadInternalModules :: (MonadIO m
                         , ProjectModuleClass m
                         )  
                    => ProjectInfo 
-                   -> SolutionResult (CabalSolution m) u [(ModuleInfo,FilePath)]
+                   -> SolutionResult u (CabalSolution m) [(ModuleInfo,FilePath)]
 loadInternalModules pji = do
     p <- lookupCabalProject pji
     roots <- getProjectSourceRoots p
@@ -324,7 +327,7 @@ loadInternalModules pji = do
 -- | Get the external modules used by a cabal solution. * INCOMPLETE *
 getExternalModules :: (MonadIO m) 
                    => ProjectInfo 
-                   -> SolutionResult (CabalSolution m) u [ExternModule]
+                   -> SolutionResult u (CabalSolution m) [ExternModule]
 getExternalModules pi = return []
 -}
 {-
@@ -345,7 +348,7 @@ parseCabalConfiguration s = case parsePackageDescription s of
 -- If it refers to a cabal file, get the directory it is in as well
 -- If it refers to a directory, ensure that the X.cabal file is present in that directory
 -- In either case, if successful, return the cabal solution root directory and the path to the cabal file
-getCabalDirectoryAndConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u (FilePath,FilePath)
+getCabalDirectoryAndConfigPath :: (MonadIO m) => FilePath -> SolutionResult u m (FilePath,FilePath)
 getCabalDirectoryAndConfigPath path = do
     let upperDirectory = takeDirectory path
         solutionName = takeBaseName $ dropExtension path
@@ -361,7 +364,7 @@ getCabalDirectoryAndConfigPath path = do
             then return (upperDirectory, path)
             else throwE $ InvalidOperation (path ++ " is not a valid cabal file or cabal solution root") ""
 {-
-getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
+getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult u m FilePath
 getCabalDirectory path = do
     p <- wrapIOError $ doesDirectoryExist path
     if p
@@ -379,7 +382,7 @@ getCabalDirectory path = do
             
             
             
-getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
+getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult u m FilePath
 getCabalConfigPath path = do
     if ".cabal" `isSuffixOf` path
         then do
@@ -396,11 +399,11 @@ getCabalConfigPath path = do
 -}
 
 -- | Given either a cabal solution root or a cabal solution file, get the solution root
-getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
+getCabalDirectory :: (MonadIO m) => FilePath -> SolutionResult u m FilePath
 getCabalDirectory = liftM fst . getCabalDirectoryAndConfigPath
 
 -- | Given either a cabal solution root or a cabal solution file, get the cabal solution file
-getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult m u FilePath
+getCabalConfigPath :: (MonadIO m) => FilePath -> SolutionResult u m FilePath
 getCabalConfigPath = liftM snd . getCabalDirectoryAndConfigPath
 
 -- | Not entirely sure what this is supposed to do
@@ -420,7 +423,7 @@ reformCabalConfiguration (CabalConfiguration desc)
 
 
 {-
-getAllProjects :: (Monad m) => SolutionResult (CabalSolution m) u [ProjectType]
+getAllProjects :: (Monad m) => SolutionResult u (CabalSolution m) [ProjectType]
 getAllProjects = withOpenedSolution $ \_ (CabalConfiguration desc) -> do
     let exes = map (ExecutableProject . condTreeData . snd) $ condExecutables desc
     case condTreeData <$> condLibrary desc of
@@ -444,7 +447,7 @@ loadProject :: ( MonadIO m
                 , ModulePragmaClass m
                 ) 
             => ProjectInfo 
-            -> SolutionResult (CabalSolution m) u ()
+            -> SolutionResult u (CabalSolution m) ()
 loadProject pi = do
     addProject pi
     modules <- loadInternalModules pi
@@ -471,7 +474,7 @@ loadProject pi = do
 
 {-
 -- | Get the type of a solution
-getProjectType :: (Monad m) => SolutionResult (CabalSolution m) u ProjectType
+getProjectType :: (Monad m) => SolutionResult u (CabalSolution m) ProjectType
 getProjectType = withOpenedSolution $ \_ (CabalConfiguration desc) -> do
     case condLibrary desc of
         Just CondNode{condTreeData=lib} -> return $ LibraryProject $ lib
@@ -481,7 +484,7 @@ getProjectType = withOpenedSolution $ \_ (CabalConfiguration desc) -> do
 -}
 
 -- | Get the directory that a solution stores its code files in
-getProjectSourceRoots :: (Monad m) => CabalProject -> SolutionResult (CabalSolution m) u [FilePath]
+getProjectSourceRoots :: (Monad m) => CabalProject -> SolutionResult u (CabalSolution m) [FilePath]
 getProjectSourceRoots p = withBuildInfo p $ \b -> case hsSourceDirs b of
     [] -> return [""]
     x -> return x
@@ -492,7 +495,7 @@ writeModule :: ( MonadIO m
                ) 
             => ProjectInfo 
             -> ModuleInfo 
-            -> SolutionResult (CabalSolution m) u ()
+            -> SolutionResult u (CabalSolution m) ()
 writeModule pji mi = withOpenedSolution $ \info -> do
     let modulePathLookup = Map.lookup (pji, mi) $ modulePathMap info
     modulePath <- case modulePathLookup of
@@ -509,7 +512,7 @@ writeModule pji mi = withOpenedSolution $ \info -> do
 addModuleToConfig :: (Monad m) 
                   => ProjectInfo 
                   -> ModuleInfo 
-                  -> SolutionResult (CabalSolution m) u ()
+                  -> SolutionResult u (CabalSolution m) ()
 addModuleToConfig pi mi = do
     setCabalFileDirty
     moduleName <- case mi of
@@ -529,7 +532,7 @@ addModuleToConfig pi mi = do
 removeModuleFromConfig :: (Monad m) 
                        => ProjectInfo 
                        -> ModuleInfo 
-                       -> SolutionResult (CabalSolution m) u ()
+                       -> SolutionResult u (CabalSolution m) ()
 removeModuleFromConfig pi mi = do
     setCabalFileDirty
     moduleName <- case mi of
@@ -555,7 +558,7 @@ writeModulesAndConfig :: ( MonadIO m
                          , ProjectModuleClass m
                          , ProjectExternModuleClass m
                          ) 
-                      => SolutionResult (CabalSolution m) u ()
+                      => SolutionResult u (CabalSolution m) ()
 writeModulesAndConfig = do
     fsp <- lift getFsp
     case fsp of
@@ -703,11 +706,13 @@ instance (MonadIO m, ModulePragmaClass m) => ModulePragmaClass (CabalSolution m)
         bounce $ removePragma a b c
     getPragmas a b = bounce $ getPragmas a b
 
+
+
 instance (MonadIO m, ExternModuleExportClass m) => ExternModuleExportClass (CabalSolution m) where
-    addExternExport a b c = bounce $ addExternExport a b c
-    getExternExport a b c = bounce $ getExternExport a b c
-    removeExternExport a b c = bounce $ removeExternExport a b c
-    getExternExports a b = bounce $ getExternExports a b
+    addExternExport = bounce .-... addExternExport
+    getExternExport = bounce .-... getExternExport
+    removeExternExport = bounce .-... removeExternExport
+    getExternExports = bounce .-.. getExternExports
 
 
 instance ( MonadIO m

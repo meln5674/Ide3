@@ -230,39 +230,39 @@ descend3 f = do
     return result
 
 -- | A stateful operation over a value
-type DescentChain1 a m u = StateT a (SolutionResult m u)
+type DescentChain1 a m u = StateT a (SolutionResult u m)
 
 -- | A stateful operation over a value with an environment with a key
-type DescentChain2 a b m u = StateT a (ReaderT b (SolutionResult m u))
+type DescentChain2 a b m u = StateT a (ReaderT b (SolutionResult u m))
 
 -- | A stateful operation over a value with an environment with two keys
-type DescentChain3 a b c m u = StateT a (ReaderT b (ReaderT c (SolutionResult m u)))
+type DescentChain3 a b c m u = StateT a (ReaderT b (ReaderT c (SolutionResult u m)))
 
 -- | A stateful operation over a value with an environment with three keys
-type DescentChain4 a b c d m u = StateT a (ReaderT b (ReaderT c (ReaderT d (SolutionResult m u))))
+type DescentChain4 a b c d m u = StateT a (ReaderT b (ReaderT c (ReaderT d (SolutionResult u m))))
 
 -- | A stateful operation over a value with an environment with four keys
-type DescentChain5 a b c d e m u = StateT a (ReaderT b (ReaderT c (ReaderT d (ReaderT e (SolutionResult m u)))))
+type DescentChain5 a b c d e m u = StateT a (ReaderT b (ReaderT c (ReaderT d (ReaderT e (SolutionResult u m)))))
 
 -- | Run a stateful operation over a value
-runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult m u (r,a)
+runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult u m (r,a)
 runDescent1 = runStateT
 
 -- | Run a stateful operation over a value with an environment with a key
-runDescent2 :: Monad m => DescentChain2 a b m u r -> a -> b -> SolutionResult m u (r,a)
-runDescent2 f a = runReaderT (runStateT f a)
+runDescent2 :: Monad m => DescentChain2 a b m u r -> b -> a -> SolutionResult u m (r,a)
+runDescent2 f b a = runReaderT (runStateT f a) b
 
 -- | Run a stateful operation over a value with an environment with two keys
-runDescent3 :: Monad m => DescentChain3 a b c m u r -> a -> b -> c -> SolutionResult m u (r,a)
-runDescent3 f a b = runReaderT (runReaderT (runStateT f a) b)
+runDescent3 :: Monad m => DescentChain3 a b c m u r -> b -> c -> a -> SolutionResult u m (r,a)
+runDescent3 f b c a = runReaderT (runReaderT (runStateT f a) b) c
 
 -- | Run a stateful operation over a value with an environment with three keys
-runDescent4 :: Monad m => DescentChain4 a b c d m u r -> a -> b -> c -> d -> SolutionResult m u (r,a)
-runDescent4 f a b c = runReaderT (runReaderT (runReaderT (runStateT f a) b) c)
+runDescent4 :: Monad m => DescentChain4 a b c d m u r -> b -> c -> d -> a -> SolutionResult u m (r,a)
+runDescent4 f b c d a= runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
 
 -- | Run a stateful operation over a value with an environment with four keys
-runDescent5 :: Monad m => DescentChain5 a b c d e m u r -> a -> b -> c -> d -> e -> SolutionResult m u (r,a)
-runDescent5 f a b c d = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d)
+runDescent5 :: Monad m => DescentChain5 a b c d e m u r -> b -> c -> d -> e -> a -> SolutionResult u m (r,a)
+runDescent5 f b c d e a = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d) e
 
 -- | Wrapper for throwing an exception
 throw1 :: Monad m => SolutionError u -> DescentChain1 a m u r
@@ -281,7 +281,7 @@ throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d m u r
 throw4 = lift . lift . lift . lift . throwE
 
 -- | Run a descent over a state and a environment with a list of keys
-mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u ([r],a)
+mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult u m ([r],a)
 mapDescent2 f a bs = runStateT rs a
   where
     g = runStateT f
@@ -289,7 +289,7 @@ mapDescent2 f a bs = runStateT rs a
     rs = mapM r bs
 
 -- | Same as mapDescent2, but discards the result of each operation
-mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult m u a
+mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult u m a
 mapDescent2_ f a bs = do
     (_,a') <- mapDescent2 f a bs
     return a'

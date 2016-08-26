@@ -83,7 +83,7 @@ fillTree :: ( ModuleExportClass m
             )
          => ProjectInfo 
          -> ModuleTree 
-         -> SolutionResult m u ModuleTree
+         -> SolutionResult u m ModuleTree
 fillTree pji (OrgNode i ts) = do
     ts' <- mapM (fillTree pji) ts
     return $ OrgNode i ts'
@@ -109,7 +109,7 @@ makeTree :: ( ProjectModuleClass m
             , ModulePragmaClass m
             )
          => ProjectInfo 
-         -> SolutionResult m u [ModuleTree]
+         -> SolutionResult u m [ModuleTree]
 makeTree pji = do
     modules <- getModules pji
     let emptyTree = makeTreeSkeleton modules

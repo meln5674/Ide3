@@ -19,7 +19,6 @@ newtype BetterTextView = BetterTextView { getBetterTextView :: TextView }
     , ContainerClass
     , GObjectClass
     , WidgetClass
-    , ObjectClass
     , TextViewClass
     )
 

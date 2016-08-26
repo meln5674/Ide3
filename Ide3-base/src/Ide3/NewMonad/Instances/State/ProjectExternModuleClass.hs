@@ -12,6 +12,7 @@ Portability : POSIX
 
 module Ide3.NewMonad.Instances.State.ProjectExternModuleClass where
 
+import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
@@ -20,6 +21,6 @@ import qualified Ide3.Env.Solution as Solution
 
 -- | 
 instance StatefulSolutionClass m => ProjectExternModuleClass (StatefulWrapper m) where
-    createExternModule a b = modifySolutionER $ \s -> runDescent3 Solution.createExternModule s a b
-    getExternModules a = modifySolutionER $ \s -> runDescent2 Solution.getExternModules s a
-    removeExternModule a b = modifySolutionER $ \s -> runDescent3 Solution.removeExternModule s a b
+    createExternModule = modifySolutionER .-.. runDescent3 Solution.createExternModule
+    getExternModules = modifySolutionER .-. runDescent2 Solution.getExternModules
+    removeExternModule = modifySolutionER .-.. runDescent3 Solution.removeExternModule

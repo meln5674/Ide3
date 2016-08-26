@@ -14,7 +14,13 @@ module Dialogs.MainWindow
     , buildClickedEvent
     , runClickedEvent
     , windowClosedEvent
+    --, findClickedEvent
+    --, navigateClickedEvent
+    --, searchClickedEvent
+    , gotoDeclarationClickedEvent
     , getSolutionPathClicked
+    --, setSearchBarVisible
+    --, setSearchMode
     , addAccelGroup
     , addNewClickedEventAccelerator
     , addOpenClickedEventAccelerator
@@ -23,6 +29,10 @@ module Dialogs.MainWindow
     , addSaveSolutionClickedEventAccelerator
     , addBuildClickedEventAccelerator
     , addRunClickedEventAccelerator
+    --, addFindClickedEventAccelerator
+    --, addNavigateClickedEventAccelerator
+    --, addSearchClickedEventAccelerator
+    , addGotoDeclarationEventAccelerator
     ) where
 
 import Data.Text
@@ -33,6 +43,8 @@ import Control.Monad.Trans
 
 import Graphics.UI.Gtk
 
+import Ide3.Types
+
 import BetterTextView
 
 import GuiEnv
@@ -42,27 +54,57 @@ import SolutionTree
 
 import GuiHelpers
 
+import Dialogs.SearchBar (SearchBar)
+import qualified Dialogs.SearchBar as SearchBar
+
+import SearchMode
+
+import GuiClass (SolutionTreeElem (..))
+
 data MainWindow
     = MainWindow
     { window :: Window
     , fileMenu :: FileMenu
     , projectMenu :: SolutionMenu
+    , searchMenu :: SearchMenu
     , projectViewer :: SolutionViewer
     , buildViewer :: BuildViewer
+    --, searchBar :: SearchBar
     }  
+
+
+renderSolutionTreeElem :: CellRendererTextClass o => SolutionTreeElem -> [AttrOp o]
+renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [cellText := n]
+renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [cellText := s]
+renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [cellText := path]
+renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [cellText := "???"]
+renderSolutionTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
+renderSolutionTreeElem ImportsElem = [cellText := "Imports"]
+renderSolutionTreeElem ExportsElem = [cellText := "Exports"]
+renderSolutionTreeElem PragmasElem = [cellText := "Pragmas"]
+renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := importBody] 
+renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
+renderSolutionTreeElem (PragmaElem p) = [cellText := p]
 
 
 --make :: GuiEnv proxy m p buffer -> (MainWindow -> m a) -> m ()
 
-make :: (TextBufferClass buffer, MonadIO m)
-     => (MainWindow -> GuiEnvT proxy m' p buffer m a) 
-     -> GuiEnvT proxy m' p buffer m a
+make :: (MonadIO m)
+     => (MainWindow -> GuiEnvT proxy m' p  m a) 
+     -> GuiEnvT proxy m' p  m a
 make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
+    --makeOverlayWith window $ \overlay -> do
+        --searchBarBox <- liftIO $ vBoxNew False 0
+        --liftIO $ overlay `overlayAdd` searchBarBox
+        --searchBar <- SearchBar.make searchBarBox
+        --liftIO $ SearchBar.setVisible searchBar False
+        --makeVBoxWith overlay $ \container -> do
     makeVBoxWith window $ \container -> do
         menuBar <- makeMainMenuBar container
         fileMenu <- makeFileMenu menuBar
         projectMenu <- makeSolutionMenu menuBar
+        searchMenu <- makeSearchMenu menuBar
         makeVPanedWith container $ \vbox -> do
             projectViewerBox <- makeSoloBox
             buildViewerBox <- makeSoloBox
@@ -76,30 +118,24 @@ make f = makeMainWindowWith $ \window -> do
               { window
               , fileMenu
               , projectMenu
+              , searchMenu
               , projectViewer
               , buildViewer
+              --, searchBar
               }
 
-makeRenderer :: (MonadIO m) => GuiEnvT proxy m' p buffer m CellRendererText
+makeRenderer :: (MonadIO m) => GuiEnvT proxy m' p  m CellRendererText
 makeRenderer = liftIO cellRendererTextNew
 
 makeSoloBox :: (MonadIO m)
-            => GuiEnvT proxy m' p buffer m VBox
+            => GuiEnvT proxy m' p  m VBox
 makeSoloBox = liftIO $ vBoxNew False 0
 
-makeVBoxWith :: (MonadIO m, ContainerClass self) 
-             => self 
-             -> (VBox -> GuiEnvT proxy m' p buffer m b) 
-             -> GuiEnvT proxy m' p buffer m b
-makeVBoxWith window f = do
-    vbox <- liftIO $ vBoxNew False 0
-    liftIO $ window `containerAdd` vbox
-    f vbox
 
 makeVPanedWith :: (MonadIO m, ContainerClass self) 
                => self 
-               -> (VPaned -> GuiEnvT proxy m' p buffer m b) 
-               -> GuiEnvT proxy m' p buffer m b
+               -> (VPaned -> GuiEnvT proxy m' p  m b) 
+               -> GuiEnvT proxy m' p  m b
 makeVPanedWith container f = do
     vbox <- liftIO $ vPanedNew
     liftIO $ container `containerAdd` vbox
@@ -107,22 +143,22 @@ makeVPanedWith container f = do
 
 makeHPanedWith :: (MonadIO m, ContainerClass self) 
                => self 
-               -> (HPaned -> GuiEnvT proxy m' p buffer m b) 
-               -> GuiEnvT proxy m' p buffer m b
+               -> (HPaned -> GuiEnvT proxy m' p  m b) 
+               -> GuiEnvT proxy m' p  m b
 makeHPanedWith container f = do
     hbox <- liftIO $ hPanedNew
     liftIO $ container `containerAdd` hbox
     f hbox
 
 {-
-makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT proxy m' p buffer m b) -> GuiEnvT proxy m' p buffer m b
+makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT proxy m' p  m b) -> GuiEnvT proxy m' p  m b
 makeContainerWith vbox f = do
     container <- liftIO $ tableNew 2 3 False
     liftIO $ boxPackEnd vbox container PackGrow 0
     f container
 -}
 
-makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT proxy m' p buffer m MenuBar
+makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT proxy m' p  m MenuBar
 makeMainMenuBar vbox = do
     menuBar <- liftIO $ menuBarNew
     liftIO $ boxPackStart vbox menuBar PackNatural 0
@@ -137,7 +173,7 @@ data FileMenu
     , saveSolutionButton :: MenuItem
     }
 
-makeFileMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p buffer m FileMenu
+makeFileMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m FileMenu
 makeFileMenu = makeFileMenuWith $ \fileMenu -> do
     newButton <- makeNewButton fileMenu
     openButton <- makeOpenButton fileMenu
@@ -152,22 +188,22 @@ makeFileMenu = makeFileMenuWith $ \fileMenu -> do
            , saveSolutionButton
            }
 
-makeFileMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p buffer m b) -> MenuBar -> GuiEnvT proxy m' p buffer m b
+makeFileMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
 makeFileMenuWith = makeMenuWith "File"
 
-makeNewButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
+makeNewButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
 makeNewButton = makeMenuButton "New Solution"
 
-makeOpenButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
+makeOpenButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
 makeOpenButton = makeMenuButton "Open"
 
-makeDigestButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
+makeDigestButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
 makeDigestButton = makeMenuButton "Digest"
 
-makeSaveButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
+makeSaveButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
 makeSaveButton = makeMenuButton "Save"
 
-makeSaveSolutionButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p buffer m MenuItem
+makeSaveSolutionButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
 makeSaveSolutionButton = makeMenuButton "Save Solution"
 
  
@@ -177,7 +213,7 @@ data SolutionMenu
     , runButton :: MenuItem
     }
 
-makeSolutionMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p buffer m SolutionMenu
+makeSolutionMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m SolutionMenu
 makeSolutionMenu = makeSolutionMenuWith $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
     runButton <- makeRunButton projectMenu
@@ -186,14 +222,44 @@ makeSolutionMenu = makeSolutionMenuWith $ \projectMenu -> do
            , runButton
            }
 
-makeSolutionMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p buffer m b) -> MenuBar -> GuiEnvT proxy m' p buffer m b
+makeSolutionMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
 makeSolutionMenuWith = makeMenuWith "Solution"
 
-makeBuildButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p buffer m MenuItem
+makeBuildButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
 makeBuildButton = makeMenuButton "Build"
 
-makeRunButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p buffer m MenuItem
+makeRunButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
 makeRunButton = makeMenuButton "Run"
+
+data SearchMenu
+    = SearchMenu
+    { findButton :: MenuItem
+    , navigateButton :: MenuItem
+    , gotoDeclarationButton :: MenuItem
+    }
+
+makeSearchMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m SearchMenu
+makeSearchMenu = makeSearchMenuWith $ \searchMenu -> do
+    findButton <- makeFindButton searchMenu
+    navigateButton <- makeNavigateButton searchMenu
+    gotoDeclarationButton <- makeGotoDeclarationButton searchMenu
+    return SearchMenu
+        { findButton
+        , navigateButton
+        , gotoDeclarationButton
+        }
+
+makeSearchMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
+makeSearchMenuWith = makeMenuWith "Search"
+
+makeFindButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeFindButton = makeMenuButton "Find"
+
+makeNavigateButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeNavigateButton = makeMenuButton "Navigate"
+
+makeGotoDeclarationButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeGotoDeclarationButton = makeMenuButton "Go to Declaration"
 
 data SolutionViewer
     = SolutionViewer
@@ -204,12 +270,11 @@ data SolutionViewer
 makeSolutionViewer :: (MonadIO m
                      , ContainerClass self
                      , CellRendererClass cell
-                     , TextBufferClass buffer
                      ) 
                   => cell
                   -> (SolutionTreeElem -> [AttrOp cell])
                   -> self
-                  -> GuiEnvT proxy m' p buffer m SolutionViewer
+                  -> GuiEnvT proxy m' p  m SolutionViewer
 makeSolutionViewer renderer renderFunc container = do
     makeHPanedWith container $ \hbox -> do
         projectViewBox <- makeSoloBox
@@ -226,12 +291,11 @@ makeSolutionViewer renderer renderFunc container = do
 makeProjView :: ( MonadIO m
                 , ContainerClass self
                 , CellRendererClass cell
-                , TextBufferClass buffer
                 ) 
              => cell 
              -> self 
              -> (SolutionTreeElem -> [AttrOp cell]) 
-             -> GuiEnvT proxy m' p buffer m TreeView
+             -> GuiEnvT proxy m' p  m TreeView
 makeProjView renderer container renderFunc = do
     treeViewColumn <- liftIO treeViewColumnNew
     projView <- withGuiComponents $ flip withSolutionTree $ liftIO . treeViewNewWithModel
@@ -253,9 +317,8 @@ makeProjView renderer container renderFunc = do
 
 makeDeclView :: ( MonadIO m
                 , ContainerClass self
-                , TextBufferClass buffer
                 ) 
-             => self -> GuiEnvT proxy m' p buffer m BetterTextView
+             => self -> GuiEnvT proxy m' p  m BetterTextView
 makeDeclView container = do
     declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . betterTextViewNewWithBuffer
     monospace <- liftIO fontDescriptionNew
@@ -282,10 +345,9 @@ data BuildViewer
     }
 
 makeBuildViewer :: ( MonadIO m
-                   , TextBufferClass buffer
                    , ContainerClass self
                    ) 
-                => self -> GuiEnvT proxy m' p buffer m BuildViewer
+                => self -> GuiEnvT proxy m' p  m BuildViewer
 makeBuildViewer container = do
     buildView <- makeBuildView container
     return BuildViewer
@@ -293,10 +355,9 @@ makeBuildViewer container = do
            }
 
 makeBuildView :: ( MonadIO m
-                 , TextBufferClass buffer
                  , ContainerClass self
                  ) 
-              => self -> GuiEnvT proxy m' p buffer m TextView
+              => self -> GuiEnvT proxy m' p  m TextView
 makeBuildView container = do
     buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
     {-
@@ -314,9 +375,12 @@ makeBuildView container = do
     liftIO $ container `containerAdd` scrollWindow
     return buildView
 
+
+
+
 makeMainWindowWith :: (MonadIO m) 
-                   => (Window -> GuiEnvT proxy m' p buffer m a) 
-                   -> GuiEnvT proxy m' p buffer m a
+                   => (Window -> GuiEnvT proxy m' p  m a) 
+                   -> GuiEnvT proxy m' p  m a
 makeMainWindowWith f = do
     window <- liftIO $ do
         _ <- initGUI
@@ -327,78 +391,103 @@ makeMainWindowWith f = do
         mainGUI
     return r
 
+type MainWindowSignal proxy m' p  m object m'' a
+    = GuiEnvSignal proxy m' p  m MainWindow object m'' a
 
-type MainWindowSignal proxy m' p buffer m object m'' a
-    = GuiEnvSignal proxy m' p buffer m MainWindow object m'' a
-
-type MainWindowSignal2 proxy m' p buffer m object f m'' a
-    = GuiEnvSignal2 proxy m' p buffer m MainWindow object f m'' a
+type MainWindowSignal2 proxy m' p  m object f m'' a
+    = GuiEnvSignal2 proxy m' p  m MainWindow object f m'' a
 
 mkFileMenuSignal :: (Monad m, MonadIO m'')
                  => (FileMenu -> object)
                  -> Signal object (m'' a)
-                 -> MainWindowSignal proxy m' p buffer m object m'' a
+                 -> MainWindowSignal proxy m' p  m object m'' a
 mkFileMenuSignal = mkGuiEnvSignalFor fileMenu
 
 mkSolutionMenuSignal :: (Monad m, MonadIO m'')
                  => (SolutionMenu -> object)
                  -> Signal object (m'' a)
-                 -> MainWindowSignal proxy m' p buffer m object m'' a
+                 -> MainWindowSignal proxy m' p  m object m'' a
 mkSolutionMenuSignal = mkGuiEnvSignalFor projectMenu
+
+mkSearchMenuSignal :: (Monad m, MonadIO m'')
+                 => (SearchMenu -> object)
+                 -> Signal object (m'' a)
+                 -> MainWindowSignal proxy m' p  m object m'' a
+mkSearchMenuSignal = mkGuiEnvSignalFor searchMenu
 
 mkSolutionViewerSignal :: (Monad m, MonadIO m'')
                  => (SolutionViewer -> object)
                  -> Signal object (m'' a)
-                 -> MainWindowSignal proxy m' p buffer m object m'' a
+                 -> MainWindowSignal proxy m' p  m object m'' a
 mkSolutionViewerSignal = mkGuiEnvSignalFor projectViewer
 
 mkSolutionViewerSignal2 :: (Monad m, MonadIO m'', Functor f)
                  => (SolutionViewer -> object)
                  -> Signal object (f (m'' a))
-                 -> MainWindowSignal2 proxy m' p buffer m object f m'' a
+                 -> MainWindowSignal2 proxy m' p  m object f m'' a
 mkSolutionViewerSignal2 = mkGuiEnvSignal2For projectViewer
 
 newClickedEvent :: (Monad m) 
-                => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
 newClickedEvent = newButton `mkFileMenuSignal` menuItemActivated
 
 
 openClickedEvent :: (Monad m) 
-                 => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                 => MainWindowSignal proxy m' p  m MenuItem IO ()
 openClickedEvent = openButton `mkFileMenuSignal` menuItemActivated
 
 digestClickedEvent :: (Monad m) 
-                   => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                   => MainWindowSignal proxy m' p  m MenuItem IO ()
 digestClickedEvent = digestButton `mkFileMenuSignal` menuItemActivated
 
 saveClickedEvent :: (Monad m) 
-                 => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                 => MainWindowSignal proxy m' p  m MenuItem IO ()
 saveClickedEvent = saveButton `mkFileMenuSignal` menuItemActivated
 
 saveSolutionClickedEvent :: (Monad m) 
-                        => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                        => MainWindowSignal proxy m' p  m MenuItem IO ()
 saveSolutionClickedEvent = saveSolutionButton `mkFileMenuSignal` menuItemActivated
 
 buildClickedEvent :: (Monad m) 
-                  => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                  => MainWindowSignal proxy m' p  m MenuItem IO ()
 buildClickedEvent = buildButton `mkSolutionMenuSignal` menuItemActivated
 
 runClickedEvent :: (Monad m) 
-                => MainWindowSignal proxy m' p buffer m MenuItem IO ()
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
 runClickedEvent = runButton `mkSolutionMenuSignal` menuItemActivated
 
 declClickedEvent :: (Monad m) 
-                 => MainWindowSignal2 proxy m' p buffer m TreeView 
+                 => MainWindowSignal2 proxy m' p  m TreeView 
                           (Compose ((->) TreePath) ((->) TreeViewColumn)) IO ()
 declClickedEvent = projectView `mkSolutionViewerSignal2` (editSignal rowActivated getCompose)
 
 projectViewClickedEvent :: (Monad m) 
-                     => MainWindowSignal proxy m' p buffer m TreeView (EventM EButton) Bool
+                     => MainWindowSignal proxy m' p  m TreeView (EventM EButton) Bool
 projectViewClickedEvent = projectView `mkSolutionViewerSignal` buttonPressEvent
 
 windowClosedEvent :: (Monad m) 
-                  => MainWindowSignal proxy m' p buffer m Window (EventM EAny) Bool
+                  => MainWindowSignal proxy m' p  m Window (EventM EAny) Bool
 windowClosedEvent = window `mkGuiEnvSignal` deleteEvent
+
+findClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
+findClickedEvent = findButton `mkSearchMenuSignal` menuItemActivated
+
+navigateClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
+navigateClickedEvent = navigateButton `mkSearchMenuSignal` menuItemActivated
+
+gotoDeclarationClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
+gotoDeclarationClickedEvent = gotoDeclarationButton `mkSearchMenuSignal` menuItemActivated
+
+{-
+searchClickedEvent :: (Monad m)
+                   => MainWindowSignal proxy m' p  m Button IO ()
+searchClickedEvent = wrapGuiEnvSignal searchBar SearchBar.searchClickedEvent
+-}
+
+
 
 getSolutionPathClicked :: (MonadIO m)
                       => Point
@@ -406,24 +495,27 @@ getSolutionPathClicked :: (MonadIO m)
                       -> m (Maybe (TreePath, TreeViewColumn, Point))
 getSolutionPathClicked p = liftIO . flip treeViewGetPathAtPos p . projectView . projectViewer 
 
-{-addAccel :: (WidgetClass object, MonadIO m) 
-         => (MainWindow -> object) 
-         -> String 
-         -> MainWindow 
-         -> _ 
-         -> String 
-         -> [Modifier] 
-         -> [AccelFlags] 
-         -> m ()-}
-addAccel f e w g kn ms fs = do
-    k <- keyvalFromName $ pack kn
-    widgetAddAccelerator (f w) e g k ms fs
+{-
+setSearchBarVisible :: (MonadIO m)
+                    => MainWindow
+                    -> Bool
+                    -> m ()
+setSearchBarVisible window v = liftIO $ SearchBar.setVisible (searchBar window) v
+
+setSearchMode :: (MonadIO m)
+              => MainWindow
+              -> SearchMode
+              -> m ()
+setSearchMode window v = liftIO $ SearchBar.setSearchMode (searchBar window) v
+-}
+
 
 {-addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()-}
 addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g
 
 addFileMenuAccelerator f e = (f . fileMenu) `addAccel` e
 addSolutionMenuAccelerator f e = (f . projectMenu) `addAccel` e
+addSearchMenuAccelerator f e = (f . searchMenu) `addAccel` e
 
 {-addNewClickedEventAccelerator :: (MonadIO m)
                               => MainWindow 
@@ -441,4 +533,7 @@ addSaveSolutionClickedEventAccelerator = saveSolutionButton `addFileMenuAccelera
 addBuildClickedEventAccelerator = buildButton `addSolutionMenuAccelerator` "activate"
 addRunClickedEventAccelerator = runButton `addSolutionMenuAccelerator` "activate"
 
-
+--addFindClickedEventAccelerator = findButton `addSearchMenuAccelerator` "activate"
+--addNavigateClickedEventAccelerator = navigateButton `addSearchMenuAccelerator` "activate"
+--addSearchClickedEventAccelerator = SearchBar.addSearchClickedEventAccelerator . searchBar
+addGotoDeclarationEventAccelerator = gotoDeclarationButton `addSearchMenuAccelerator` "acitvate"

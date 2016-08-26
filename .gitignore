@@ -3,4 +3,5 @@
 *.o
 *.stack-work
 *commitmsg
+*.bak
 stashes

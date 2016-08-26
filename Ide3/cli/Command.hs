@@ -97,14 +97,14 @@ type ViewerIOAction m u = (ViewerAction m u, MonadIO m)
 -- | Run a project command, and return either the message or error it produced
 printOnError :: ( ViewerAction m u
                 )
-             => SolutionResult (ViewerStateT m) u String 
+             => SolutionResult u (ViewerStateT m) String 
              -> ViewerStateT m String
 printOnError f = liftM (either show id) $ runExceptT f
 
 -- | Perform an action only if there is an selected project, otherwise return
 -- an error
 withSelectedProject :: (Show a, ViewerAction m u)
-                    => (ProjectInfo -> SolutionResult (ViewerStateT m) u [Output a])
+                    => (ProjectInfo -> SolutionResult u (ViewerStateT m) [Output a])
                     -> ViewerStateT m String
 withSelectedProject f = printOnError $ do
     maybeProjectInfo <- lift $ getCurrentProject
@@ -116,7 +116,7 @@ withSelectedProject f = printOnError $ do
 withSelectedModuleInfo :: ( Show a
                           , ViewerAction m u
                           )
-                       => (ProjectInfo -> ModuleInfo -> SolutionResult (ViewerStateT m) u [Output a])
+                       => (ProjectInfo -> ModuleInfo -> SolutionResult u (ViewerStateT m) [Output a])
                        -> ViewerStateT m String
 withSelectedModuleInfo f = printOnError $ do
     maybeModuleInfo <- lift $ getCurrentModule

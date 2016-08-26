@@ -1,10 +1,17 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 module GuiCommand.Internal where
+
+import Data.Char
+import Data.List
 
 import System.Directory
 import System.FilePath
-
-import Graphics.UI.Gtk
 
 import Control.Monad.Catch
 
@@ -20,6 +27,8 @@ import Ide3.Utils
 import Ide3.NewMonad
 
 import qualified Ide3.Declaration as Declaration
+import qualified Ide3.Project as Project
+import qualified Ide3.Solution as Solution (findSymbol)
 import qualified Ide3.Import as Import
 import qualified Ide3.Export as Export
 
@@ -30,22 +39,46 @@ import Runner
 import Viewer
 import ViewerMonad2
 
-import GuiEnv
-import GuiMonad
+import GuiClass
+--import GuiEnv
+--import GuiMonad
 import SolutionTree
 
-import GuiViewer
+import GuiViewer.Class
 
-type UserError = ()
+import SearchMode
+import DeclarationPath (DeclarationPath(..))
+import qualified DeclarationPath
 
-type DialogOnErrorArg proxy m p buffer a
-    = GuiEnvT proxy m p buffer (SolutionResult (GuiViewer (ViewerStateT m)) UserError) a
+import GuiError
 
-type GuiCommand m p buffer
-    = ( MonadIO m
+type UserError = GuiError
+
+{-
+type DialogOnErrorArg t proxy m p  a
+    = GuiEnvT proxy m p  (SolutionResult (GuiViewer (ViewerStateT m)) UserError) a
+-}
+
+{-
+newtype DialogOnErrorArg t m a = DialogOnErrorArg 
+    { runDialogOnErrorArg :: t (SolutionResult (GuiViewer (ViewerStateT m)) UserError) a
+    }
+
+instance MonadTrans t => MonadTrans (DialogOnErrorArg t) where
+    lift = DialogOnErrorArg . lift . lift . lift . lift
+
+deriving instance (MonadTrans t, SolutionViewClass m) => SolutionViewClass (DialogOnErrorArg t m)
+
+  
+type GuiCommand t m p 
+    = ( MonadTrans t
+      , Monad m
+      {-, Monad (t m)
+      , Monad (t (SolutionResult m UserError))
+      , Monad (t (SolutionResult (GuiViewer m) UserError))
+      , Monad (t (SolutionResult (GuiViewer (ViewerStateT m)) UserError))-}
       , ViewerMonad m
-      , TextBufferClass buffer
-      , InteruptMonad2 p m
+      --, InteruptMonad2 p m
       , SolutionClass m
       , PersistenceClass m
       , ProjectModuleClass m
@@ -56,170 +89,208 @@ type GuiCommand m p buffer
       , ModulePragmaClass m
       , ExternModuleExportClass m
       )
+-}
 
-doError :: ( GuiCommand m p buffer ) => SolutionError UserError -> DialogOnErrorArg proxy m p buffer a
+type GuiCommand t m = 
+    ( MonadTrans t
+    , MonadSplice t
+    , ViewerMonad m
+    , SolutionClass m
+    , PersistenceClass m
+    , ProjectModuleClass m
+    , ProjectExternModuleClass m
+    , ModuleExportClass m
+    , ModuleImportClass m
+    , ModuleDeclarationClass m
+    , ModulePragmaClass m
+    , ExternModuleExportClass m
+    , GuiViewerClass m
+    , SolutionViewClass (t m)
+    , EditorBufferClass (t m)
+    , BuildBufferClass (t m)
+    , SearchBarClass (t m)
+    , Monad (t (SolutionResult UserError m))
+    , GuiViewerClass (t m)
+    , ViewerStateClass m
+    )
+
+doError :: ( GuiCommand t m ) => SolutionError UserError -> t (SolutionResult UserError m) a
 doError = lift . throwE 
 
 
-doNew ::  ( GuiCommand m p buffer )
+doNew ::  ( GuiCommand t m
+          , MonadIO m
+          )
       => Maybe FilePath
       -> String
       -> Maybe String
-      -> DialogOnErrorArg proxy m p buffer ()
+      -> t (SolutionResult UserError m) ()
 doNew maybeSolutionRoot projectName templateName = do
     case maybeSolutionRoot of
         Nothing -> lift $ throwE $ InvalidOperation "Please choose a directory" ""
         Just projectRoot -> do
-            lift $ do
-                wrapIOError $ setCurrentDirectory projectRoot
-        {- -- Why is this here?
-                bounce $ createNewFile $ projectName ++ ".proj"
-        -}
-            lift $ bounce $ bounce $ setDirectoryToOpen $ projectRoot </> projectName
+            lift $ wrapIOError $ setCurrentDirectory projectRoot
+            lift $ setDirectoryToOpen $ projectRoot </> projectName
             r <- lift 
-                    $ bounce
-                    $ bounce
                     $ runInitializer stackInitializer 
                                     (StackInitializerArgs projectName templateName)
             case r of
                 InitializerSucceeded{} -> do
-                    withGuiComponents $ lift . flip withSolutionTree populateTree
-                    lift $ bounce $ saveSolution $ Just $ projectRoot </> projectName
+                    --withGuiComponents $ lift . flip withSolutionTree populateTree
+                    populateTree
+                    lift $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
 
-doOpen :: ( GuiCommand m p buffer )
+doOpen :: ( GuiCommand t m, MonadIO m )
        => FilePath
-       -> DialogOnErrorArg proxy m p buffer ()
+       -> t (SolutionResult UserError m)  ()
 doOpen path = do
-    lift $ bounce $ openSolution path
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ openSolution path
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
 
-doGetDecl :: ( GuiCommand m p buffer )
+doGetDecl :: ( GuiCommand t m )
           => TreePath
-          -> TreeViewColumn 
-          -> DialogOnErrorArg proxy m p buffer ()
-doGetDecl path _ = withGuiComponents $ \comp -> lift $ do
-    index <- wrapIOError $ withSolutionTree comp $ findAtPath path
-    openDecls <- lift $ getOpenDeclarations
-    lift $ mapM_ closeDeclaration openDecls
+          -> t (SolutionResult UserError m)  ()
+doGetDecl path = do --withGuiComponents $ \comp -> lift $ do
+    --index <- wrapIOError $ withSolutionTree comp $ findAtPath path
+    index <- splice $ findAtPath path
+    openDecls <- lift $ lift $ getOpenDeclarations
+    lift $ lift $ mapM_ closeDeclaration openDecls
     case index of
         DeclResult pi mi di -> do
-                decl <- getDeclaration pi mi di
-                wrapIOError $ comp `setDeclBufferText` body decl
-                bounce $ lift $ setCurrentDecl pi mi di
-                lift $ openDeclaration di
+                decl <- lift $ getDeclaration pi mi di
+                --wrapIOError $ comp `setDeclBufferText` body decl
+                splice $ setEditorBufferTextHighlighted $ body decl
+                lift $ lift $ setCurrentDecl pi mi di
+                lift $ lift $ openDeclaration di
         ModuleResult pi mi True -> do
-            header <- getModuleHeader pi mi
-            wrapIOError $ comp `setDeclBufferText` header
-            bounce $ lift $ setCurrentModule pi mi
+            header <- lift $ getModuleHeader pi mi
+            --wrapIOError $ comp `setDeclBufferText` header
+            splice $ setEditorBufferTextHighlighted header
+            lift $ lift $ setCurrentModule pi mi
         _ -> return ()
 
-doBuild :: ( GuiCommand m p buffer
+doBuild :: ( GuiCommand t m
            , MonadMask m
+           , MonadIO m
            )
-        => DialogOnErrorArg proxy m p buffer ()
-doBuild = withGuiComponents $ \comp -> lift $ do
-    prepareBuild
-    r <- runBuilder stackBuilder
+        => t (SolutionResult UserError m) ()
+doBuild = do --withGuiComponents $ \comp -> lift $ do
+    lift $ prepareBuild
+    r <- lift $ runBuilder stackBuilder
     let text = case r of
             BuildSucceeded out err -> out ++ err
             BuildFailed out err -> out ++ err
-    wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+    --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+    splice $ setBuildBufferText text
 
-doRun :: ( GuiCommand m p buffer
+doRun :: ( GuiCommand t m
          , MonadMask m
+         , MonadIO m
          )
-      => DialogOnErrorArg proxy m p buffer ()
-doRun = withGuiComponents $ \comp -> lift $ do
-    r <- ExceptT $ lift $ runExceptT $ runRunner stackRunner
+      => t (SolutionResult UserError m) ()
+doRun = do --withGuiComponents $ \comp -> lift $ do
+    r <- lift $ runRunner stackRunner
     let text = case r of
             RunSucceeded out err -> out ++ err
             RunFailed out err -> out ++ err
-    wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+    --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+    splice $ setBuildBufferText text
 
 
-doSave :: ( GuiCommand m p buffer
+doSave :: forall t m
+        . ( GuiCommand t m
           , MonadMask m
           )
-       => DialogOnErrorArg proxy m p buffer ()
-doSave = withGuiComponents $ \comp -> lift $ do
-    let doWithBuffer f = do
-            text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
+       => t (SolutionResult UserError m) ()
+doSave = do --withGuiComponents $ \comp -> lift $ do
+    let doWithBuffer :: (String -> t (SolutionResult UserError m) a )
+                     -> t (SolutionResult UserError m) a
+        doWithBuffer f = do
+            {-text <- wrapIOError $ withEditorBuffer comp $ \buffer -> do
                 start <- textBufferGetStartIter buffer
                 end <- textBufferGetEndIter buffer
-                textBufferGetText buffer start end False
+                textBufferGetText buffer start end False-}
+            text <- splice $ getEditorBufferText Nothing Nothing
             result <- f text
-            bounce $ saveSolution Nothing
+            lift $ saveSolution Nothing
             return result
     declResult <- lift $ lift $ getCurrentDeclaration
     modResult <- lift $ lift $ getCurrentModule
     case (declResult,modResult) of
         (Just (pi, mi, di),_) -> do
             di' <- doWithBuffer $ \text -> do
-                editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
-            withSolutionTree comp populateTree
-            lift $ lift $ when (di /= di') $ setCurrentDecl pi mi di'
-        (_,Just (pi, mi)) -> doWithBuffer $ \text ->
-                editModuleHeader pi mi $ const text
+                lift $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
+            --withSolutionTree comp populateTree
+            populateTree
+            when (di /= di') $ lift $ lift $ setCurrentDecl pi mi di'
+        (_,Just (pi, mi)) -> doWithBuffer $
+                lift . editModuleHeader pi mi . const
         _ -> return ()
         
 
-doSaveSolution :: ( GuiCommand m p buffer
-                 , MonadMask m
-                 )
+doSaveSolution :: ( GuiCommand t m
+                  , MonadMask m
+                  )
               => Maybe FilePath
-              -> DialogOnErrorArg proxy m p buffer ()
-doSaveSolution = lift . bounce . saveSolution
+              -> t (SolutionResult UserError m)  ()
+doSaveSolution = lift . saveSolution
 
-doAddModule :: ( GuiCommand m p buffer )
+doAddModule :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
-            -> DialogOnErrorArg proxy m p buffer ()
+            -> t (SolutionResult UserError m)  ()
 doAddModule pi mi = do
-    lift $ bounce $ createModule pi mi
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ createModule pi mi
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
-doRemoveModule :: ( GuiCommand m p buffer )
+doRemoveModule :: ( GuiCommand t m )
                => ProjectInfo
                -> ModuleInfo
-               -> DialogOnErrorArg proxy m p buffer ()
+               -> t (SolutionResult UserError m)  ()
 doRemoveModule pi mi = do
-    lift $ bounce $ removeModule pi mi
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ removeModule pi mi
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
 
-doAddDeclaration :: ( GuiCommand m p buffer )
+doAddDeclaration :: ( GuiCommand t m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> DeclarationInfo
-                 -> DialogOnErrorArg proxy m p buffer ()
+                 -> t (SolutionResult UserError m)  ()
 doAddDeclaration pi mi di = do
     let newdecl = WithBody (UnparseableDeclaration di) ""
-    lift $ bounce $ addDeclaration pi mi newdecl
-    withGuiComponents $ \comp -> lift $ do
-        bounce $ withSolutionTree comp populateTree
-        decl <- getDeclaration pi mi di
-        wrapIOError $ comp `setDeclBufferText` body decl
-        bounce $ lift $ setCurrentDecl pi mi di
-        lift $ openDeclaration di
+    lift $ addDeclaration pi mi newdecl
+    --withGuiComponents $ \comp -> lift $ do
+    --bounce $ withSolutionTree comp populateTree
+    populateTree
+    decl <- lift $ getDeclaration pi mi di
+    --wrapIOError  $ comp `setDeclBufferText` body decl
+    splice $ setEditorBufferTextHighlighted $ body decl
+    lift $ lift $ setCurrentDecl pi mi di
+    splice $ openDeclaration di
 
-doRemoveDeclaration :: ( GuiCommand m p buffer )
+doRemoveDeclaration :: ( GuiCommand t m )
                     => ProjectInfo
                     -> ModuleInfo
                     -> DeclarationInfo
-                    -> DialogOnErrorArg proxy m p buffer ()
+                    -> t (SolutionResult UserError m)  ()
 doRemoveDeclaration pi mi di = do
-    lift $ bounce $ removeDeclaration pi mi di
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ removeDeclaration pi mi di
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
-doUnExportDeclaration :: ( GuiCommand m p buffer )
+doUnExportDeclaration :: ( GuiCommand t m )
                     => ProjectInfo
                     -> ModuleInfo
                     -> DeclarationInfo
-                    -> DialogOnErrorArg proxy m p buffer ()
+                    -> t (SolutionResult UserError m)  ()
 doUnExportDeclaration pi mi (DeclarationInfo sym) = do
-    matches <- lift $ bounce $ do
+    matches <- lift $ do
         es <- do
             --m <- getModule pi mi
             maybeEis <- getExports pi mi
@@ -235,117 +306,230 @@ doUnExportDeclaration pi mi (DeclarationInfo sym) = do
         [] -> lift $ throwE $ SymbolNotExported mi sym ""
         [(ei,syms)] -> do
             case syms of
-                [] -> lift $ throwE $ InvalidOperation "Internal Error" "doUnExportDeclaration"
+                [] -> doError $ InvalidOperation "Internal Error" "doUnExportDeclaration"
                 [_] -> do
-                    lift $ bounce $ removeExport pi mi ei
-                    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
-                _ -> lift $ throwE $ Unsupported "Symbol is exported with other symbols, please remove export manually"
-        _ -> lift $ throwE $ Unsupported "Multiple exports found, please remove exports manually"
+                    lift $ removeExport pi mi ei
+                    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+                    populateTree
+                _ -> doError $ Unsupported "Symbol is exported with other symbols, please remove export manually"
+        _ -> doError $ Unsupported "Multiple exports found, please remove exports manually"
 
-doAddImport :: ( GuiCommand m p buffer )
+doAddImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> String
-            -> DialogOnErrorArg proxy m p buffer (Maybe (SolutionError UserError))
+            -> t (SolutionResult UserError m)  (Maybe (SolutionError UserError))
 doAddImport pi mi importStr = do
     case Import.parse importStr of
         Right newImport -> do
-            _ <- lift $ bounce $ addImport pi mi (WithBody newImport importStr)
-            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            _ <- lift $ addImport pi mi (WithBody newImport importStr)
+            --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
             err -> lift $ throwE err
 
-doRemoveImport :: ( GuiCommand m p buffer )
+doRemoveImport :: ( GuiCommand t m )
                => ProjectInfo
                -> ModuleInfo
                -> ImportId
-               -> DialogOnErrorArg proxy m p buffer ()
+               -> t (SolutionResult UserError m) ()
 doRemoveImport pi mi ii = do
-    lift $ bounce $ removeImport pi mi ii
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ removeImport pi mi ii
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
 
-doGetImport :: ( GuiCommand m p buffer )
+doGetImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> ImportId
-            -> DialogOnErrorArg proxy m p buffer (Maybe String)
+            -> t (SolutionResult UserError m)  (Maybe String)
 doGetImport pi mi ii = do
-    (WithBody _ b) <- lift $ bounce $ getImport pi mi ii
+    (WithBody _ b) <- lift $ getImport pi mi ii
     return $ Just b
 
-doEditImport :: ( GuiCommand m p buffer )
+doEditImport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
              -> ImportId
              -> String
-             -> DialogOnErrorArg proxy m p buffer (Maybe (SolutionError UserError))
+             -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
 doEditImport pi mi ii importStr = do
     case Import.parse importStr of
         Right newImport -> do
-            lift $ bounce $ removeImport pi mi ii
-            _ <- lift $ bounce $ addImport pi mi (WithBody newImport importStr)
-            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            lift $ removeImport pi mi ii
+            _ <- lift $ addImport pi mi (WithBody newImport importStr)
+            --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
             err -> lift $ throwE err
 
-doAddExport :: ( GuiCommand m p buffer )
+doAddExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> String
-            -> DialogOnErrorArg proxy m p buffer (Maybe (SolutionError UserError))
+            -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
 doAddExport pi mi exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
-            _ <- lift $ bounce $ addExport pi mi (WithBody newExport exportStr)
-            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            _ <- lift $ addExport pi mi (WithBody newExport exportStr)
+            --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
             err -> lift $ throwE err
 
-doRemoveExport :: ( GuiCommand m p buffer )
+doRemoveExport :: ( GuiCommand t m )
                => ProjectInfo
                -> ModuleInfo
                -> ExportId
-               -> DialogOnErrorArg proxy m p buffer ()
+               -> t (SolutionResult UserError m)  ()
 doRemoveExport pi mi ei = do
-    lift $ bounce $ removeExport pi mi ei
-    withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    lift $ removeExport pi mi ei
+    --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+    populateTree
 
 
-doGetExport :: ( GuiCommand m p buffer )
+doGetExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> ExportId
-            -> DialogOnErrorArg proxy m p buffer (Maybe String)
+            -> t (SolutionResult UserError m)  (Maybe String)
 doGetExport pi mi ei = do
-    (WithBody _ b) <- lift $ bounce $ getExport pi mi ei
+    (WithBody _ b) <- lift $ getExport pi mi ei
     return $ Just b
 
-doEditExport :: ( GuiCommand m p buffer )
+doEditExport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
              -> ExportId
              -> String
-             -> DialogOnErrorArg proxy m p buffer (Maybe (SolutionError UserError))
+             -> t (SolutionResult UserError m)  (Maybe (SolutionError UserError))
 doEditExport pi mi ei exportStr = do
     case Export.parse exportStr of
         Right newExport -> do
-            lift $ bounce $ removeExport pi mi ei
-            _ <- lift $ bounce $ addExport pi mi (WithBody newExport exportStr)
-            withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            lift $ removeExport pi mi ei
+            _ <- lift $ addExport pi mi (WithBody newExport exportStr)
+            --withGuiComponents $ lift . bounce . flip withSolutionTree populateTree
+            populateTree
             return Nothing
         Left parseError -> case parseError of
             err@ParseError{} -> return $ Just err
             err -> lift $ throwE err
 
-doExportAll :: ( GuiCommand m p buffer )
+doExportAll :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
-            -> DialogOnErrorArg proxy m p buffer ()
-doExportAll pi mi = lift $ bounce $ exportAll pi mi
+            -> t (SolutionResult UserError m)  ()
+doExportAll pi mi = lift $ exportAll pi mi
+
+doSearch :: ( GuiCommand t m 
+            )
+         => t (SolutionResult UserError m) ()
+doSearch = do
+    mode <- lift $ lift $ getSearchMode
+    s <- --withGuiComponents $ flip withSearchBuffer $ \buffer -> lift $ do
+        --liftIO $ get buffer entryBufferText
+        splice getSearchBarText
+    case mode of
+        Find -> do --withGuiComponents $ flip withEditorBuffer $ \buffer -> lift $ do
+            --start <- liftIO $ textBufferGetStartIter buffer
+            --end <- liftIO $ textBufferGetEndIter buffer
+            --cursorMark <- liftIO $ textBufferGetInsert buffer
+            --cursor <- liftIO $ textBufferGetIterAtMark buffer cursorMark
+            (start,end) <- splice getEditorBufferCursor
+            --textBefore <- liftIO $ textBufferGetText buffer start cursor False
+            textBefore <- splice $ getEditorBufferText (Just start) Nothing
+            --textAfter <- liftIO $ textBufferGetText buffer cursor end False
+            textAfter <- splice $ getEditorBufferText Nothing (Just end) 
+            let search substr supstr = go supstr 0
+                  where
+                    go supstr@(_:xs) i
+                      | length substr > length supstr = Nothing
+                      | substr `isPrefixOf` supstr = Just i
+                      | otherwise = go xs (i+1)
+            result <- return $ case (search s textAfter, search s textBefore) of
+                (Just offset,_) -> Just offset
+                (_,Just offset) -> Just offset
+                _ -> Nothing
+            case result of
+                Just offset -> do
+                    --highlightStart <- liftIO $ textBufferGetIterAtOffset buffer offset
+                    highlightStart <- splice $ getEditorBufferPositionAtIndex offset
+                    --highlightEnd <- liftIO $ textBufferGetIterAtOffset buffer $ offset + length s
+                    highlightEnd <- splice $ getEditorBufferPositionAtIndex $ offset + length s
+                    --liftIO $ textBufferSelectRange buffer highlightStart highlightEnd
+                    splice $ selectEditorBufferText highlightStart highlightEnd
+                _ -> lift $ throwE $ UserError $ TempError "Not Found"
+        Navigate -> do
+            case DeclarationPath.parse s of
+                Nothing -> lift $ throwE $ UserError $ TempError "Not Found"
+                Just dpath -> do
+                    --tpaths <- withGuiComponents $ lift . bounce . flip withSolutionTree (searchTree dpath)
+                    tpaths <- splice $ searchTree dpath
+                    case tpaths of
+                        [] -> lift $ throwE $ UserError $ TempError "Not Found"
+                        (tpath:_) -> doGetDecl tpath
+                            
+
+doSetSearchMode 
+    :: ( GuiCommand t m
+       )
+    => SearchMode
+    -> t (SolutionResult UserError m) ()
+doSetSearchMode mode = lift $ lift $ setSearchMode mode
+
+getCurrentWord :: String -> Int -> Int -> (Char -> Bool) -> String
+getCurrentWord text startOffset endOffset isChar = nextPreStart ++ between ++ nextPostEnd
+  where
+    preStart = take startOffset text
+    postEnd = drop endOffset text
+    between = take (endOffset - startOffset) $ drop startOffset text
+    nextPreStart = reverse $ takeWhile isChar $ reverse preStart
+    nextPostEnd = takeWhile isChar $ postEnd
+
+doGotoDeclaration
+    :: ( GuiCommand t m
+       )
+    => t (SolutionResult UserError m) ()
+doGotoDeclaration = do
+    text <- splice $ getEditorBufferText Nothing Nothing
+    (startPos,endPos) <- splice $ getEditorBufferCursor
+    startOffset <- splice $ getEditorBufferIndexAtPosition startPos
+    endOffset <- splice $ getEditorBufferIndexAtPosition endPos
+    when (startOffset >= length text || endOffset >= length text)
+        $ lift $ throwE $ UserError $ TempError $ show (startOffset, endOffset, length text)
+    let currentWord = getCurrentWord text startOffset endOffset isChar
+        isIdentChar c = isLower c || isUpper c || c == '_' || c == '\''
+        isSymChar c = c `elem` "!@#$%^&*:.<-=>|"
+        firstIs f  = startOffset < length text && f (text !! startOffset) 
+        lastIs f = (endOffset < length text && f (text !! startOffset))
+                      || (not (null text) && f (last text))
+        isChar 
+            | firstIs isIdentChar && lastIs isIdentChar = isIdentChar
+            | firstIs isSymChar && lastIs isSymChar = isSymChar
+            | otherwise = const False
+    --lift $ throwE $ UserError $ TempError $ currentWord
+    hits <- lift $ Solution.findSymbol $ Symbol $ currentWord
+    {-
+    let a = fmap (fmap (fmap sequenceA)) hits :: [ProjectChild [[ModuleChild DeclarationInfo]]]
+    let b = fmap (fmap join) a :: [ProjectChild [ModuleChild DeclarationInfo]]
+    let c = fmap sequenceA b :: [[ProjectChild (ModuleChild DeclarationInfo)]]
+    let d = join c :: [ProjectChild (ModuleChild DeclarationInfo)]
+    -}
+    let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits :: [ProjectChild (ModuleChild DeclarationInfo)]
+    case hits' of
+        [] -> return ()
+        [x@(ProjectChild pji (ModuleChild mi di))] -> do
+            result <- splice $ searchTree $ DeclarationPath pji mi di
+            let [tpath] = result
+            doGetDecl tpath
+        (x:xs) -> return ()
+
+-- [P [M D]]
+-- f (g (f (h a))) -> f (f (g (h a))

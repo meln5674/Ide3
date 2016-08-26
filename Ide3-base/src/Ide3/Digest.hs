@@ -102,7 +102,7 @@ digestInterfaceM :: ( MonadIO m
                     )
                  => ProjectInfo
                  -> Iface.Interface
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
 digestInterfaceM pji iface = do
     createExternModule pji newInfo
     forM_ exports $ addExternExport pji newInfo
@@ -129,7 +129,7 @@ digestProjectM :: ( MonadIO m
                => ProjectInfo 
                -> FilePath 
                -> Maybe FilePath 
-               -> SolutionResult m u ()
+               -> SolutionResult u m ()
 digestProjectM pji p maybeip = do
     contents <- liftIO $ enumerateHaskellProject p
     addProject pji
@@ -160,7 +160,7 @@ digestSolutionM :: ( MonadIO m
                    )
                 => SolutionInfo 
                 -> [ProjectDigestParams]
-                -> SolutionResult m u ()
+                -> SolutionResult u m ()
 digestSolutionM si ps = do
     editSolutionInfo $ const si
     forM_ ps $ \(Params pji pp ip) -> digestProjectM pji pp ip
@@ -170,9 +170,9 @@ digestSolution :: forall m u
                 . ( MonadIO m )
                => SolutionInfo
                -> [ProjectDigestParams]
-               -> SolutionResult m u Solution
+               -> SolutionResult u m Solution
 digestSolution si ps = do
-    let y :: MonadIO m => SolutionResult (StatefulWrapper (SolutionStateT m)) u Solution
+    let y :: MonadIO m => SolutionResult u (StatefulWrapper (SolutionStateT m)) Solution
         y = digestSolutionM si ps >> getSolution
     (z,_) <- lift $ flip runStateT Solution.empty 
                   $ runSolutionStateT 

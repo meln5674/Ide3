@@ -13,7 +13,7 @@ importsModule' :: ( ModuleImportClass m
                      => ProjectInfo 
                      -> ModuleInfo 
                      -> Symbol 
-                     -> SolutionResult m u Bool
+                     -> SolutionResult u m Bool
 importsModule' = moduleImportsModule'
 {-
 -- | Within the context of a project, find all of the symbols this module exports
@@ -22,7 +22,7 @@ importsModule' = moduleImportsModule'
 exportedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
                 => ProjectInfo 
                 -> Module 
-                -> SolutionResult m u [ModuleChild Symbol]
+                -> SolutionResult u m [ModuleChild Symbol]
 exportedSymbols = moduleExportedSymbols
 -}
 exportedSymbols' :: ( ProjectModuleClass m
@@ -34,7 +34,7 @@ exportedSymbols' :: ( ProjectModuleClass m
                     ) 
                  => ProjectInfo 
                  -> ModuleInfo 
-                 -> SolutionResult m u [ModuleChild Symbol] 
+                 -> SolutionResult u m [ModuleChild Symbol] 
 exportedSymbols' = moduleExportedSymbols'
 {-
 -- | Within the context of a project, find all of the symbosl being imported by
@@ -42,7 +42,7 @@ exportedSymbols' = moduleExportedSymbols'
 importedSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m)
                 => ProjectInfo 
                 -> Module 
-                -> SolutionResult m u [Symbol]
+                -> SolutionResult u m [Symbol]
 importedSymbols = moduleImportedSymbols
 -}
 importedSymbols' :: ( ProjectModuleClass m
@@ -54,7 +54,7 @@ importedSymbols' :: ( ProjectModuleClass m
                           )
                 => ProjectInfo 
                 -> ModuleInfo
-                -> SolutionResult m u [Symbol]
+                -> SolutionResult u m [Symbol]
 importedSymbols' = moduleImportedSymbols'
 {-
 -- | Within the context of a project, find all of the symbols which are visible
@@ -62,7 +62,7 @@ importedSymbols' = moduleImportedSymbols'
 internalSymbols :: (ProjectModuleClass m, ProjectExternModuleClass m) 
                 => ProjectInfo 
                 -> Module 
-                -> SolutionResult m u [Symbol]
+                -> SolutionResult u m [Symbol]
 internalSymbols = moduleInternalSymbols
 -}
 internalSymbols' :: ( ProjectModuleClass m
@@ -74,7 +74,7 @@ internalSymbols' :: ( ProjectModuleClass m
                           )
                 => ProjectInfo 
                 -> ModuleInfo
-                -> SolutionResult m u [Symbol]
+                -> SolutionResult u m [Symbol]
 internalSymbols' = moduleInternalSymbols'
 {-
 -- | Given a sub-symbol, (such as a data constructor or a class method), find
@@ -86,7 +86,7 @@ symbolTree :: (ProjectModuleClass m, ProjectExternModuleClass m)
            => ProjectInfo
            -> Module 
            -> Symbol 
-           -> SolutionResult m u [ModuleChild Symbol]
+           -> SolutionResult u m [ModuleChild Symbol]
 symbolTree = moduleSymbolTree
 -}
 symbolTree' :: ( ProjectModuleClass m
@@ -99,12 +99,19 @@ symbolTree' :: ( ProjectModuleClass m
            => ProjectInfo
            -> ModuleInfo
            -> Symbol 
-           -> SolutionResult m u [ModuleChild Symbol]
+           -> SolutionResult u m [ModuleChild Symbol]
 symbolTree' = moduleSymbolTree' 
 
 
 importedBy :: (SolutionMonad m)
            => ProjectInfo
            -> ModuleInfo
-           -> SolutionResult m u [ProjectChild [ModuleChild [ImportId]]]
+           -> SolutionResult u m [ProjectChild [ModuleChild [ImportId]]]
 importedBy = moduleImportedBy
+
+findSymbol :: (SolutionMonad m)
+           => ProjectInfo
+           -> ModuleInfo
+           -> Symbol
+           -> SolutionResult u m [DeclarationInfo]
+findSymbol = moduleFindSymbol

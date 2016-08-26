@@ -41,69 +41,69 @@ class Monad m => SolutionM m where
     --  constructors, this means that new methods of loading can be added without
     --  breaking the interface, and does not require every instance to support
     --  all methods of loading.
-    load :: SolutionResult m u ()
+    load :: SolutionResult u m ()
     -- | Create a new project
     --  See 'load' for discussion of lack of additional parameters
     new :: SolutionInfo 
-        -> SolutionResult m u ()
+        -> SolutionResult u m ()
     -- | Perform what ever actions are necessary to be able to load the current
     --  project at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
     --  See 'load' for discussion of lack of additional parameters
-    finalize :: SolutionResult m u ()
+    finalize :: SolutionResult u m ()
 
     -- | Edit the solution's info
     editSolutionInfo :: (SolutionInfo -> SolutionInfo) 
-                     -> SolutionResult m u ()
+                     -> SolutionResult u m ()
 
     -- | Add a new project to the solution
     addProject :: ProjectInfo 
-               -> SolutionResult m u ()
+               -> SolutionResult u m ()
     -- | Remove a project from the solution
     removeProject :: ProjectInfo 
-                  -> SolutionResult m u ()
+                  -> SolutionResult u m ()
     -- | Get a list of the project infos in the solution
-    getProjects :: SolutionResult m u [ProjectInfo]
+    getProjects :: SolutionResult u m [ProjectInfo]
     -- | Apply a transformation to a project's identifying information
     editProjectInfo :: ProjectInfo 
                     -> (ProjectInfo -> ProjectInfo) 
-                    -> SolutionResult m u ()
+                    -> SolutionResult u m ()
 
     
     -- | Add a module
     addModule :: ProjectInfo 
               -> Module 
-              -> SolutionResult m u ()
+              -> SolutionResult u m ()
     -- | Add an external module
     addExternModule :: ProjectInfo 
                     -> ExternModule 
-                    -> SolutionResult m u ()
+                    -> SolutionResult u m ()
     -- | Create a new module
     createModule :: ProjectInfo 
                  -> ModuleInfo 
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
     -- | Retrieve a module
     getModule :: ProjectInfo 
               -> ModuleInfo 
-              -> SolutionResult m u Module
+              -> SolutionResult u m Module
     -- | Retrieve an external module
     getExternModule :: ProjectInfo 
                     -> ModuleInfo 
-                    -> SolutionResult m u ExternModule
+                    -> SolutionResult u m ExternModule
     -- | Get a list of all the availible modules
     getModules :: ProjectInfo 
-               -> SolutionResult m u [ModuleInfo]
+               -> SolutionResult u m [ModuleInfo]
     -- | Apply a transformation to a module
     editModule :: ProjectInfo -> ModuleInfo
                -> (Module -> Either (SolutionError u) Module) 
-               -> SolutionResult m u ()
+               -> SolutionResult u m ()
     -- | Remove a module
     --  Instances are expected to return a Left value if a matching module is
     --      not found
     removeModule :: ProjectInfo 
                  -> ModuleInfo 
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
     
 
 
@@ -111,96 +111,96 @@ class Monad m => SolutionM m where
     addDeclaration :: ProjectInfo 
                    -> ModuleInfo 
                    -> WithBody Declaration 
-                   -> SolutionResult m u ()
+                   -> SolutionResult u m ()
     -- | Get a declaration in a module from its info
     getDeclaration :: ProjectInfo 
                    -> ModuleInfo 
                    -> DeclarationInfo 
-                   -> SolutionResult m u (WithBody Declaration)
+                   -> SolutionResult u m (WithBody Declaration)
     -- | Get all info on all declarations in a module
     getDeclarations :: ProjectInfo 
                     -> ModuleInfo 
-                    -> SolutionResult m u [DeclarationInfo]
+                    -> SolutionResult u m [DeclarationInfo]
     -- | Apply a transformation to a declaration in a module
     editDeclaration :: ProjectInfo 
                     -> ModuleInfo 
                     -> DeclarationInfo
                     -> (Declaration -> Either (SolutionError u) (WithBody Declaration))
-                    -> SolutionResult m u DeclarationInfo
+                    -> SolutionResult u m DeclarationInfo
     -- | Remove a declaration from a module
     removeDeclaration :: ProjectInfo 
                       -> ModuleInfo 
                       -> DeclarationInfo 
-                      -> SolutionResult m u ()
+                      -> SolutionResult u m ()
 
     -- | Add an import to a module
     addImport :: ProjectInfo 
               -> ModuleInfo 
               -> WithBody Import 
-              -> SolutionResult m u ImportId
+              -> SolutionResult u m ImportId
     -- | Get an import from a module
     getImport :: ProjectInfo 
               -> ModuleInfo 
               -> ImportId 
-              -> SolutionResult m u (WithBody Import)
+              -> SolutionResult u m (WithBody Import)
     -- | Remove an import from a module
     --  Instances are expected to return a Left value if a matching import is
     --  not found
     removeImport :: ProjectInfo 
                  -> ModuleInfo 
                  -> ImportId 
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
     -- | Get a list of all of the import ids in a module
     getImports :: ProjectInfo 
                -> ModuleInfo 
-               -> SolutionResult m u [ImportId]
+               -> SolutionResult u m [ImportId]
 
 
     -- | Add an export to a module
     addExport :: ProjectInfo 
               -> ModuleInfo 
               -> WithBody Export 
-              -> SolutionResult m u ExportId
+              -> SolutionResult u m ExportId
     -- | Get an export from a module
     getExport :: ProjectInfo 
               -> ModuleInfo 
               -> ExportId 
-              -> SolutionResult m u (WithBody Export)
+              -> SolutionResult u m (WithBody Export)
     -- | Remove an export from a module
     --  Instances are expected to return a Left value if a matching export is not found
     removeExport :: ProjectInfo 
                  -> ModuleInfo
                  -> ExportId
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
     -- | Set a module to export all of its symbols
     exportAll :: ProjectInfo 
               -> ModuleInfo 
-              -> SolutionResult m u ()
+              -> SolutionResult u m ()
     -- | Set a module to export nothing
     exportNothing :: ProjectInfo 
                   -> ModuleInfo 
-                  -> SolutionResult m u  ()
+                  -> SolutionResult u m  ()
     -- | Get a list of all of the export ids in a module
     getExports :: ProjectInfo 
                -> ModuleInfo 
-               -> SolutionResult m u (Maybe [ExportId])
+               -> SolutionResult u m (Maybe [ExportId])
     
     -- | Add a pragma to a module
     addPragma :: ProjectInfo 
               -> ModuleInfo 
               -> Pragma 
-              -> SolutionResult m u ()
+              -> SolutionResult u m ()
     
     -- | Remove a pragma from a module
     removePragma :: ProjectInfo 
                  -> ModuleInfo 
                  -> Pragma 
-                 -> SolutionResult m u ()
+                 -> SolutionResult u m ()
     
     -- | Get the pragmas in a module
     getPragmas :: ProjectInfo 
                -> ModuleInfo 
-               -> SolutionResult m u [Pragma]
+               -> SolutionResult u m [Pragma]
 
 -- | Utility function which inserts an additional transformer into a stack
 -- which is topped by ExceptT

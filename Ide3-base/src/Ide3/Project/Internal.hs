@@ -53,7 +53,7 @@ addModule :: Monad m
           => ModuleInfo
           -> Module
           -> Project
-          -> SolutionResult m u Project
+          -> SolutionResult u m Project
 addModule mi m p = case Map.lookup mi $ projectModules p of
     Just _ -> throwE $ DuplicateModule (info p) mi "Project.addModule" 
     Nothing -> return $ p{ projectModules = Map.insert mi m $ projectModules p }
@@ -62,7 +62,7 @@ addModule mi m p = case Map.lookup mi $ projectModules p of
 removeModule :: Monad m
              => ModuleInfo
              -> Project
-             -> SolutionResult m u (Module,Project)
+             -> SolutionResult u m (Module,Project)
 removeModule mi p = case Map.lookup mi $ projectModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.removeModule"
     Just m -> return (m, p{ projectModules = Map.delete mi $ projectModules p })
@@ -71,7 +71,7 @@ removeModule mi p = case Map.lookup mi $ projectModules p of
 getModule :: Monad m
           => ModuleInfo
           -> Project
-          -> SolutionResult m u Module
+          -> SolutionResult u m Module
 getModule mi p = case Map.lookup mi $ projectModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.getModule"
     Just m -> return m
@@ -82,7 +82,7 @@ setModule :: Monad m
           -> ModuleInfo
           -> Module
           -> Project
-          -> SolutionResult m u Project
+          -> SolutionResult u m Project
 setModule mi mi' m' p = case Map.lookup mi $ projectModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.setModule"
     Just _ -> return $ p
@@ -97,7 +97,7 @@ addExternModule :: Monad m
                 => ModuleInfo
                 -> ExternModule
                 -> Project
-                -> SolutionResult m u Project
+                -> SolutionResult u m Project
 addExternModule mi m p = case Map.lookup mi $ projectExternModules p of
     Just _ -> throwE $ DuplicateModule (info p) mi "Project.addExternModule" 
     Nothing -> return $ p{ projectExternModules = Map.insert mi m $ projectExternModules p }
@@ -106,7 +106,7 @@ addExternModule mi m p = case Map.lookup mi $ projectExternModules p of
 removeExternModule :: Monad m
                    => ModuleInfo
                    -> Project
-                   -> SolutionResult m u (ExternModule,Project)
+                   -> SolutionResult u m (ExternModule,Project)
 removeExternModule mi p = case Map.lookup mi $ projectExternModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.removeExternModule"
     Just m -> return (m, p{ projectExternModules = Map.delete mi $ projectExternModules p })
@@ -115,7 +115,7 @@ removeExternModule mi p = case Map.lookup mi $ projectExternModules p of
 getExternModule :: Monad m
                 => ModuleInfo
                 -> Project
-                -> SolutionResult m u ExternModule
+                -> SolutionResult u m ExternModule
 getExternModule mi p = case Map.lookup mi $ projectExternModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.getExternModule"
     Just m -> return m
@@ -126,7 +126,7 @@ setExternModule :: Monad m
                 -> ModuleInfo
                 -> ExternModule
                 -> Project
-                -> SolutionResult m u Project
+                -> SolutionResult u m Project
 setExternModule mi mi' m' p = case Map.lookup mi $ projectExternModules p of
     Nothing -> throwE $ ModuleNotFound (info p) mi "Project.setExternModule"
     Just _ -> return $ p

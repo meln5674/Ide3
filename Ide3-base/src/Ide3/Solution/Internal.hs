@@ -27,7 +27,7 @@ addProject :: Monad m
            => ProjectInfo
            -> Project
            -> Solution
-           -> SolutionResult m u Solution
+           -> SolutionResult u m Solution
 addProject pji p s = case Map.lookup pji $ solutionProjects s of
     Just _ -> throwE $ DuplicateProject pji "Solution.addProject"
     Nothing -> return $ s{ solutionProjects = Map.insert pji p $ solutionProjects s }
@@ -36,7 +36,7 @@ addProject pji p s = case Map.lookup pji $ solutionProjects s of
 removeProject :: Monad m
               => ProjectInfo
               -> Solution
-              -> SolutionResult m u (Project,Solution)
+              -> SolutionResult u m (Project,Solution)
 removeProject pji s = case Map.lookup pji $ solutionProjects s of
     Nothing -> throwE $ ProjectNotFound pji "Solution.removeProject"
     Just p -> return (p, s{ solutionProjects = Map.delete pji $ solutionProjects s })
@@ -45,7 +45,7 @@ removeProject pji s = case Map.lookup pji $ solutionProjects s of
 getProject :: Monad m
            => ProjectInfo
            -> Solution
-           -> SolutionResult m u Project
+           -> SolutionResult u m Project
 getProject pji s = case Map.lookup pji $ solutionProjects s of
     Nothing -> throwE $ ProjectNotFound pji "Solution.getProject"
     Just p -> return p
@@ -56,7 +56,7 @@ setProject :: Monad m
            -> ProjectInfo
            -> Project
            -> Solution
-           -> SolutionResult m u Solution
+           -> SolutionResult u m Solution
 setProject pji pji' p' s = case Map.lookup pji $ solutionProjects s of
     Nothing -> throwE $ ProjectNotFound pji "Solution.setProject"
     Just _ -> return $ s 

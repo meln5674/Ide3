@@ -124,8 +124,22 @@ instance HasChild ProjectChild where
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi $ f x
 
+instance Foldable ModuleChild where
+    foldMap f (ModuleChild mi x) = f x
+
+instance Traversable ModuleChild where
+    sequenceA (ModuleChild mi x) = (ModuleChild mi) <$> x
+
 instance Functor ProjectChild where
     fmap f (ProjectChild pji x) = ProjectChild pji $ f x
+
+instance Foldable ProjectChild where
+    foldMap f (ProjectChild mi x) = f x
+
+
+instance Traversable ProjectChild where
+    sequenceA (ProjectChild pji x) = ProjectChild pji <$> x
+
 
 -- |An import statement. The first three fields of each are:
 --  The module being imported
@@ -370,7 +384,7 @@ instance Qualify DeclarationInfo where
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
 
 -- | Wrapper for a monad transformer which can throw solution exceptions
-type SolutionResult m u = ExceptT (SolutionError u) m
+type SolutionResult u = ExceptT (SolutionError u)
 
 {-
 data ProjectParam a = ProjectParam ProjectInfo a

@@ -40,10 +40,10 @@ data BuilderResult
 -- A build can failed in one of two ways. A ExceptT Left value indicates that
 -- the build could not start, did not complete, etc. A BuildFailed value indicates
 -- that the build went through but did not compile or link successfully.
-newtype Builder m u = MkBuilder { runBuilderInternal :: SolutionResult m u BuilderResult }
+newtype Builder m u = MkBuilder { runBuilderInternal :: SolutionResult u m BuilderResult }
 
 -- | Execute the actions of a builder inside a monad.
-runBuilder :: (Monad m) => Builder m u -> SolutionResult m u BuilderResult
+runBuilder :: (Monad m) => Builder m u -> SolutionResult u m BuilderResult
 runBuilder = runBuilderInternal
 
 -- | A builder which represents having no build capabilities and will always result in an erro
