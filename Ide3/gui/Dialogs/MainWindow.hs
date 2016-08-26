@@ -536,4 +536,4 @@ addRunClickedEventAccelerator = runButton `addSolutionMenuAccelerator` "activate
 --addFindClickedEventAccelerator = findButton `addSearchMenuAccelerator` "activate"
 --addNavigateClickedEventAccelerator = navigateButton `addSearchMenuAccelerator` "activate"
 --addSearchClickedEventAccelerator = SearchBar.addSearchClickedEventAccelerator . searchBar
-addGotoDeclarationEventAccelerator = gotoDeclarationButton `addSearchMenuAccelerator` "acitvate"
+addGotoDeclarationEventAccelerator = gotoDeclarationButton `addSearchMenuAccelerator` "activate"

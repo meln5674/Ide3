@@ -593,6 +593,8 @@ setupKeyboardShortcuts gui group = liftIO $ do
         "f" [Control] [AccelVisible]-}
     {-MainWindow.addNavigateClickedEventAccelerator gui group
         "KP_Space" [Control] [AccelVisible]-}
+    MainWindow.addGotoDeclarationEventAccelerator gui group
+        "d" [Control] [AccelVisible]
     
 doMain :: forall proxy m p 
         . ( MainGuiClass m p )
