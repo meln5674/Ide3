@@ -23,16 +23,22 @@ import ViewerMonad
 
 import SearchMode 
 
+import History (History)
+import qualified History
+
 import GuiViewer.Class
+
+import DeclarationPath
 
 data GuiViewerState
     = GuiViewerState
-    { openDeclarations :: [DeclarationInfo]
+    { openDeclarations :: [DeclarationPath]
     , searchMode :: SearchMode
+    , declarationHistory :: History (DeclarationPath, String)
     }
 
 emptyGuiViewer :: GuiViewerState
-emptyGuiViewer = GuiViewerState [] Find
+emptyGuiViewer = GuiViewerState [] Find History.empty
 
 newtype GuiViewerT m a = GuiViewer { runGuiViewer :: StateT GuiViewerState m a }
   deriving (Functor, Applicative, Monad, MonadTrans, MonadIO, ViewerMonad)
@@ -47,11 +53,60 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
     openDeclaration di = do
         isDuplicate <- declarationIsOpen di
         when (not isDuplicate) $ do
-            GuiViewer $ modify $ \s -> s{ openDeclarations = di : openDeclarations s }
+            GuiViewer $ modify $ \s -> s
+                { openDeclarations = di : openDeclarations s 
+                , declarationHistory = History.singleton (di,"")
+                }
     closeDeclaration di = GuiViewer $ do
-        modify $ \s -> s{ openDeclarations = delete di $ openDeclarations s }
+        modify $ \s -> s
+            { openDeclarations = delete di $ openDeclarations s 
+            }
     getOpenDeclarations = GuiViewer $ gets openDeclarations
     declarationIsOpen di = GuiViewer $ gets $ (di `elem`) . openDeclarations
+    openDeclarationInHistory di text = GuiViewer $ do
+        modify $ \s -> s
+            { openDeclarations = case () of
+                ()
+                    | di `elem` openDeclarations s -> openDeclarations s
+                    | otherwise -> di : openDeclarations s
+            , declarationHistory = History.insertBack (di,text) $ History.abandonFuture $ declarationHistory s
+            }
+    replaceHistoryPath di' = GuiViewer $ do
+        history <- gets declarationHistory
+        case History.present history of
+            Nothing -> return ()
+            Just (di,text) -> 
+                case History.replace (di',text) history of
+                    Just history' -> do
+                        modify $ \s -> s{ declarationHistory = history' }
+                    Nothing -> return ()
+    replaceHistoryText text' = GuiViewer $ do
+        history <- gets declarationHistory
+        case History.present history of
+            Nothing -> return ()
+            Just (di,text) -> 
+                case History.replace (di,text') history of
+                    Just history' -> do
+                        modify $ \s -> s{ declarationHistory = history' }
+                    Nothing -> return ()    
+    navigateHistoryBack = GuiViewer $ do
+        history <- gets declarationHistory
+        case History.back history of
+            Just history' -> case History.present history' of
+                Just di -> do
+                    modify $ \s -> s{ declarationHistory = history' }
+                    return $ Just di
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+    navigateHistoryForward = GuiViewer $ do
+        history <- gets declarationHistory
+        case History.forward history of
+            Just history' -> case History.present history' of
+                Just di -> do
+                    modify $ \s -> s{ declarationHistory = history' }
+                    return $ Just di
+                Nothing -> return Nothing
+            Nothing -> return Nothing
 
 instance PseudoStateT GuiViewerT GuiViewerState where
     runPseudoStateT f s = runStateT (runGuiViewer f) s

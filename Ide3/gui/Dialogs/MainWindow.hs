@@ -18,6 +18,8 @@ module Dialogs.MainWindow
     --, navigateClickedEvent
     --, searchClickedEvent
     , gotoDeclarationClickedEvent
+    , backClickedEvent
+    , forwardClickedEvent
     , getSolutionPathClicked
     --, setSearchBarVisible
     --, setSearchMode
@@ -33,6 +35,8 @@ module Dialogs.MainWindow
     --, addNavigateClickedEventAccelerator
     --, addSearchClickedEventAccelerator
     , addGotoDeclarationEventAccelerator
+    , addBackEventAccelerator
+    , addForwardEventAccelerator
     ) where
 
 import Data.Text
@@ -67,6 +71,7 @@ data MainWindow
     , fileMenu :: FileMenu
     , projectMenu :: SolutionMenu
     , searchMenu :: SearchMenu
+    , navigationMenu :: NavigationMenu
     , projectViewer :: SolutionViewer
     , buildViewer :: BuildViewer
     --, searchBar :: SearchBar
@@ -105,6 +110,7 @@ make f = makeMainWindowWith $ \window -> do
         fileMenu <- makeFileMenu menuBar
         projectMenu <- makeSolutionMenu menuBar
         searchMenu <- makeSearchMenu menuBar
+        navigationMenu <- makeNavigationMenu menuBar
         makeVPanedWith container $ \vbox -> do
             projectViewerBox <- makeSoloBox
             buildViewerBox <- makeSoloBox
@@ -120,6 +126,7 @@ make f = makeMainWindowWith $ \window -> do
               , projectMenu
               , searchMenu
               , projectViewer
+              , navigationMenu
               , buildViewer
               --, searchBar
               }
@@ -260,6 +267,30 @@ makeNavigateButton = makeMenuButton "Navigate"
 
 makeGotoDeclarationButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
 makeGotoDeclarationButton = makeMenuButton "Go to Declaration"
+
+data NavigationMenu
+    = NavigationMenu
+    { backButton :: MenuItem
+    , forwardButton :: MenuItem
+    }
+
+makeNavigationMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p m NavigationMenu
+makeNavigationMenu = makeNavigationMenuWith $ \navigationMenu -> do
+    backButton <- makeBackButton navigationMenu
+    forwardButton <- makeForwardButton navigationMenu
+    return NavigationMenu
+        { backButton
+        , forwardButton
+        }
+
+makeNavigationMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p m b) -> MenuBar -> GuiEnvT proxy m' p m b
+makeNavigationMenuWith = makeMenuWith "Navigation"
+
+makeBackButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeBackButton = makeMenuButton "Back"
+
+makeForwardButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeForwardButton = makeMenuButton "Forward"
 
 data SolutionViewer
     = SolutionViewer
@@ -415,6 +446,12 @@ mkSearchMenuSignal :: (Monad m, MonadIO m'')
                  -> MainWindowSignal proxy m' p  m object m'' a
 mkSearchMenuSignal = mkGuiEnvSignalFor searchMenu
 
+mkNavigationMenuSignal :: (Monad m, MonadIO m'')
+                 => (NavigationMenu -> object)
+                 -> Signal object (m'' a)
+                 -> MainWindowSignal proxy m' p  m object m'' a
+mkNavigationMenuSignal = mkGuiEnvSignalFor navigationMenu
+
 mkSolutionViewerSignal :: (Monad m, MonadIO m'')
                  => (SolutionViewer -> object)
                  -> Signal object (m'' a)
@@ -481,6 +518,16 @@ gotoDeclarationClickedEvent :: (Monad m)
                 => MainWindowSignal proxy m' p  m MenuItem IO ()
 gotoDeclarationClickedEvent = gotoDeclarationButton `mkSearchMenuSignal` menuItemActivated
 
+backClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
+backClickedEvent = backButton `mkNavigationMenuSignal` menuItemActivated
+
+forwardClickedEvent :: (Monad m) 
+                => MainWindowSignal proxy m' p  m MenuItem IO ()
+forwardClickedEvent = forwardButton `mkNavigationMenuSignal` menuItemActivated
+
+
+
 {-
 searchClickedEvent :: (Monad m)
                    => MainWindowSignal proxy m' p  m Button IO ()
@@ -516,6 +563,7 @@ addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g
 addFileMenuAccelerator f e = (f . fileMenu) `addAccel` e
 addSolutionMenuAccelerator f e = (f . projectMenu) `addAccel` e
 addSearchMenuAccelerator f e = (f . searchMenu) `addAccel` e
+addNavigationMenuAccelerator f e = (f . navigationMenu) `addAccel` e
 
 {-addNewClickedEventAccelerator :: (MonadIO m)
                               => MainWindow 
@@ -537,3 +585,5 @@ addRunClickedEventAccelerator = runButton `addSolutionMenuAccelerator` "activate
 --addNavigateClickedEventAccelerator = navigateButton `addSearchMenuAccelerator` "activate"
 --addSearchClickedEventAccelerator = SearchBar.addSearchClickedEventAccelerator . searchBar
 addGotoDeclarationEventAccelerator = gotoDeclarationButton `addSearchMenuAccelerator` "activate"
+addBackEventAccelerator = backButton `addNavigationMenuAccelerator` "activate"
+addForwardEventAccelerator = forwardButton `addNavigationMenuAccelerator` "activate"

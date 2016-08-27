@@ -270,3 +270,17 @@ doGotoDeclaration
        )
     => GuiEnvT proxy m p m' ()
 doGotoDeclaration = dialogOnError () $ Internal.doGotoDeclaration
+
+doBackHistory
+    :: ( GuiCommand (GuiEnvT proxy m p) m
+       , GuiCommand2 proxy m p m'
+       )
+    => GuiEnvT proxy m p m' ()
+doBackHistory = dialogOnError () $ Internal.doBackHistory
+
+doForwardHistory
+    :: ( GuiCommand (GuiEnvT proxy m p) m
+       , GuiCommand2 proxy m p m'
+       )
+    => GuiEnvT proxy m p m' ()
+doForwardHistory = dialogOnError () $ Internal.doForwardHistory

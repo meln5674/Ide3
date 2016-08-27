@@ -14,6 +14,8 @@ data DeclarationPath
     = DeclarationPath ProjectInfo ModuleInfo DeclarationInfo
     | ModulePath ProjectInfo ModuleInfo
     | ProjectPath ProjectInfo
+  deriving Eq
+
 
 instance Show DeclarationPath where
     show (ProjectPath (ProjectInfo a)) = a ++ "/"

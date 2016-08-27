@@ -150,26 +150,41 @@ doOpen path = do
     populateTree
 
 
+openItem 
+    :: ( GuiCommand t m
+       )
+    => DeclarationPath
+    -> t (SolutionResult UserError m) String
+openItem (DeclarationPath pji mi di) = do
+    decl <- lift $ getDeclaration pji mi di
+    --wrapIOError $ comp `setDeclBufferText` body decl
+    splice $ setEditorBufferTextHighlighted $ body decl
+    lift $ lift $ setCurrentDecl pji mi di
+    return $ body decl
+openItem (ModulePath pji mi) = do
+    header <- lift $ getModuleHeader pji mi
+    splice $ setEditorBufferTextHighlighted header
+    lift $ lift $ setCurrentModule pji mi
+    return $ header
+openItem _ = do
+    splice $ setEditorBufferText ""
+    return ""
+
 doGetDecl :: ( GuiCommand t m )
           => TreePath
           -> t (SolutionResult UserError m)  ()
 doGetDecl path = do --withGuiComponents $ \comp -> lift $ do
     --index <- wrapIOError $ withSolutionTree comp $ findAtPath path
     index <- splice $ findAtPath path
-    openDecls <- lift $ lift $ getOpenDeclarations
-    lift $ lift $ mapM_ closeDeclaration openDecls
+    --openDecls <- lift $ lift $ getOpenDeclarations
+    --lift $ lift $ mapM_ closeDeclaration openDecls
     case index of
         DeclResult pi mi di -> do
-                decl <- lift $ getDeclaration pi mi di
-                --wrapIOError $ comp `setDeclBufferText` body decl
-                splice $ setEditorBufferTextHighlighted $ body decl
-                lift $ lift $ setCurrentDecl pi mi di
-                lift $ lift $ openDeclaration di
+            text <- openItem $ DeclarationPath pi mi di
+            lift $ lift $ openDeclarationInHistory (DeclarationPath pi mi di) text
         ModuleResult pi mi True -> do
-            header <- lift $ getModuleHeader pi mi
-            --wrapIOError $ comp `setDeclBufferText` header
-            splice $ setEditorBufferTextHighlighted header
-            lift $ lift $ setCurrentModule pi mi
+            text <- openItem $ ModulePath pi mi
+            lift $ lift $ openDeclarationInHistory (ModulePath pi mi) text
         _ -> return ()
 
 doBuild :: ( GuiCommand t m
@@ -215,6 +230,7 @@ doSave = do --withGuiComponents $ \comp -> lift $ do
                 textBufferGetText buffer start end False-}
             text <- splice $ getEditorBufferText Nothing Nothing
             result <- f text
+            lift $ lift $ replaceHistoryText text
             lift $ saveSolution Nothing
             return result
     declResult <- lift $ lift $ getCurrentDeclaration
@@ -225,7 +241,9 @@ doSave = do --withGuiComponents $ \comp -> lift $ do
                 lift $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
             --withSolutionTree comp populateTree
             populateTree
-            when (di /= di') $ lift $ lift $ setCurrentDecl pi mi di'
+            when (di /= di') $ do
+                lift $ lift $ setCurrentDecl pi mi di'
+                lift $ lift $ replaceHistoryPath $ DeclarationPath pi mi di'
         (_,Just (pi, mi)) -> doWithBuffer $
                 lift . editModuleHeader pi mi . const
         _ -> return ()
@@ -272,7 +290,7 @@ doAddDeclaration pi mi di = do
     --wrapIOError  $ comp `setDeclBufferText` body decl
     splice $ setEditorBufferTextHighlighted $ body decl
     lift $ lift $ setCurrentDecl pi mi di
-    splice $ openDeclaration di
+    splice $ openDeclarationInHistory (DeclarationPath pi mi di) $ body decl
 
 doRemoveDeclaration :: ( GuiCommand t m )
                     => ProjectInfo
@@ -470,11 +488,8 @@ doSearch = do
             case DeclarationPath.parse s of
                 Nothing -> lift $ throwE $ UserError $ TempError "Not Found"
                 Just dpath -> do
-                    --tpaths <- withGuiComponents $ lift . bounce . flip withSolutionTree (searchTree dpath)
-                    tpaths <- splice $ searchTree dpath
-                    case tpaths of
-                        [] -> lift $ throwE $ UserError $ TempError "Not Found"
-                        (tpath:_) -> doGetDecl tpath
+                    text <- openItem dpath
+                    splice $ openDeclarationInHistory dpath text
                             
 
 doSetSearchMode 
@@ -525,11 +540,45 @@ doGotoDeclaration = do
     let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits :: [ProjectChild (ModuleChild DeclarationInfo)]
     case hits' of
         [] -> return ()
-        [x@(ProjectChild pji (ModuleChild mi di))] -> do
+        [(ProjectChild pji (ModuleChild mi di))] -> do
             result <- splice $ searchTree $ DeclarationPath pji mi di
-            let [tpath] = result
-            doGetDecl tpath
+            text <- openItem $ DeclarationPath pji mi di
+            lift $ lift $ openDeclarationInHistory (DeclarationPath pji mi di) text
         (x:xs) -> return ()
+
+doBackHistory
+    :: ( GuiCommand t m
+       )
+    => t (SolutionResult UserError m) ()
+doBackHistory = do
+    text <- splice $ getEditorBufferText Nothing Nothing
+    lift $ lift $ replaceHistoryText text
+    result <- lift $ lift $ navigateHistoryBack
+    case result of
+        Just (path,text') -> do
+            splice $ setEditorBufferTextHighlighted text'
+            lift $ lift $ case path of
+                DeclarationPath pji mi di -> setCurrentDecl pji mi di
+                ModulePath pji mi -> setCurrentModule pji mi
+                ProjectPath pji -> setCurrentProject pji
+        Nothing -> return ()
+
+doForwardHistory
+    :: ( GuiCommand t m
+       )
+    => t (SolutionResult UserError m) ()
+doForwardHistory = do
+    text <- splice $ getEditorBufferText Nothing Nothing
+    lift $ lift $ replaceHistoryText text
+    result <- lift $ lift $ navigateHistoryForward
+    case result of
+        Just (path,text') -> do
+            splice $ setEditorBufferTextHighlighted text'
+            lift $ lift $ case path of
+                DeclarationPath pji mi di -> setCurrentDecl pji mi di
+                ModulePath pji mi -> setCurrentModule pji mi
+                ProjectPath pji -> setCurrentProject pji
+        Nothing -> return ()
 
 -- [P [M D]]
 -- f (g (f (h a))) -> f (f (g (h a))

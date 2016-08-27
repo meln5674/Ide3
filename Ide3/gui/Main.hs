@@ -551,8 +551,18 @@ onGotoDeclarationClicked
      . ( MainGuiClassIO m p m' )
     => GuiEnvT proxy m p m' ()
 onGotoDeclarationClicked = doGotoDeclaration
-    
 
+onBackClicked
+    :: forall proxy m p m'
+     . ( MainGuiClassIO m p m' )
+    => GuiEnvT proxy m p m' ()
+onBackClicked = doBackHistory
+
+onForwardClicked
+    :: forall proxy m p m'
+     . ( MainGuiClassIO m p m' )
+    => GuiEnvT proxy m p m' ()
+onForwardClicked = doForwardHistory
 
 setupSignals gui = do
     gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
@@ -568,6 +578,8 @@ setupSignals gui = do
     --gui `onGuiM` MainWindow.navigateClickedEvent $ onNavigateClicked gui
     --gui `onGuiM` MainWindow.searchClickedEvent $ onSearchClicked
     gui `onGuiM` MainWindow.gotoDeclarationClickedEvent $ onGotoDeclarationClicked
+    gui `onGuiM` MainWindow.backClickedEvent $ onBackClicked
+    gui `onGuiM` MainWindow.forwardClickedEvent $ onForwardClicked
     gui `onGuiM` MainWindow.windowClosedEvent $ do
         liftIO exitSuccess
         return False
@@ -595,6 +607,10 @@ setupKeyboardShortcuts gui group = liftIO $ do
         "KP_Space" [Control] [AccelVisible]-}
     MainWindow.addGotoDeclarationEventAccelerator gui group
         "d" [Control] [AccelVisible]
+    MainWindow.addBackEventAccelerator gui group
+        "less" [Control] [AccelVisible]
+    MainWindow.addForwardEventAccelerator gui group
+        "greater" [Control] [AccelVisible]
     
 doMain :: forall proxy m p 
         . ( MainGuiClass m p )
