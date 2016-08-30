@@ -11,6 +11,8 @@ import Control.Monad.Trans.Except
 
 import Ide3.Types
 
+import ErrorParser.Types
+
 import DeclarationPath
 import SearchMode
 
@@ -45,6 +47,11 @@ class Monad m => SolutionViewClass m where
     getTreeAtSolutionPath :: TreePath -> m (Tree SolutionTreeElem)
     getForestAtSolutionPath :: TreePath -> m (Forest SolutionTreeElem)
     setSolutionTree :: [Tree SolutionTreeElem] -> m ()    
+
+
+class Monad m => ErrorListClass m where
+    clearErrorList :: m ()
+    addErrorToList :: Error ItemPath -> m ()
 
 class Monad m => ErrorClass m where
     displayError :: String -> m ()

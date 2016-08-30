@@ -149,3 +149,10 @@ removePragma = do
 getPragmas :: Monad m => DescentChain1 Module m u [Pragma]
 getPragmas = gets modulePragmas
 
+{-
+getItemAtLocation :: Monad m => DescentChain2 Module (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
+getItemAtLocation = do
+    (r,c) <- lift ask
+    m <- get
+    return $ getItemAtPosition r c m
+-}

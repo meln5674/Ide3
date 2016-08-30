@@ -10,23 +10,17 @@ Portability : POSIX
 
 A Runner is an abstract data type which attempts to run a solution
 -}
+{-# LANGUAGE RankNTypes #-}
 module Runner
-    ( Runner
+    ( Runner (..)
     , RunnerResult (..)
     , runRunner
-    , stackRunner
     , noRunner
+    , mapRunner
     )
     where
 
-import Control.Exception.Base hiding (catch)
-
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Catch
-
-import System.Exit
-import System.Process
 
 import Ide3.NewMonad
 import Ide3.Types
@@ -37,23 +31,15 @@ data RunnerResult
     | RunSucceeded String String
 
 -- | The Runner abstract type. Use runRunner to execute the actions of a runner.
-newtype Runner m u = MkRunner { runRunnerInternal :: SolutionResult u m RunnerResult }
+newtype Runner m = MkRunner { runRunnerInternal :: forall u . SolutionResult u m RunnerResult }
 
 -- | Execute the actions of a runner
-runRunner :: Runner m u -> SolutionResult u m RunnerResult
+runRunner :: Runner m -> SolutionResult u m RunnerResult
 runRunner = runRunnerInternal
 
 -- | A Runner that represents no ability to run, and will always result in an error
-noRunner :: Monad m => Runner m u
+noRunner :: Monad m => Runner m
 noRunner = MkRunner $ throwE $ Unsupported "No runner specified"
 
--- | A Runner which uses stack exec to run a solution
-stackRunner :: (MonadIO m, MonadMask m) => Runner m u
-stackRunner = MkRunner $ ExceptT $ flip catch handleException $ do
-    (_,pkgName,_) <- liftIO $ readProcessWithExitCode "stack" ["ide","packages"] ""
-    (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" ["exec",init pkgName] ""
-    case ec of
-        ExitSuccess -> return $ Right $ RunSucceeded out err
-        ExitFailure _ -> return $ Right $ RunFailed out err
-  where
-    handleException e = return $ Left $ InvalidOperation (show (e :: IOException)) ""
+mapRunner :: (forall a . m a -> m' a) -> Runner m -> Runner m'
+mapRunner f (MkRunner b) = MkRunner $ mapExceptT f b

@@ -10,12 +10,14 @@ Portability : POSIX
 
 A Builder is an abstract data type which attempts to build a solution
 -}
+
+{-# LANGUAGE RankNTypes #-}
 module Builder 
-    ( Builder
+    ( Builder (..)
     , BuilderResult (..)
     , runBuilder
     , noBuilder
-    , stackBuilder
+    , mapBuilder
     )
     where
 
@@ -31,31 +33,26 @@ import System.Process
 import Ide3.NewMonad
 import Ide3.Types
 
+import ErrorParser.Types
+
 -- | The result of a build operation
 data BuilderResult
-    = BuildFailed String String -- ^ Build failed, accompanied by stdout and stderr
-    | BuildSucceeded String String -- ^ Build succeeded, accompanied by stdout and stderr
+    = BuildFailed String [Error ErrorLocation] -- ^ Build failed, accompanied by log and errors/warnings
+    | BuildSucceeded String [Error ErrorLocation] -- ^ Build succeeded, accompanied by log and warnings
 
 -- | The builder abstract type. Use runBuilder to execute the actions of a Builder.
 -- A build can failed in one of two ways. A ExceptT Left value indicates that
 -- the build could not start, did not complete, etc. A BuildFailed value indicates
 -- that the build went through but did not compile or link successfully.
-newtype Builder m u = MkBuilder { runBuilderInternal :: SolutionResult u m BuilderResult }
+newtype Builder m = MkBuilder { runBuilderInternal :: forall u . SolutionResult u m BuilderResult }
 
 -- | Execute the actions of a builder inside a monad.
-runBuilder :: (Monad m) => Builder m u -> SolutionResult u m BuilderResult
+runBuilder :: (Monad m) => Builder m -> SolutionResult u m BuilderResult
 runBuilder = runBuilderInternal
 
 -- | A builder which represents having no build capabilities and will always result in an erro
-noBuilder :: Monad m => Builder m u
+noBuilder :: Monad m => Builder m
 noBuilder = MkBuilder $ throwE $ Unsupported "No builder specified"
 
--- | A builder which uses stack to build a stack solution
-stackBuilder :: (MonadIO m, MonadMask m) => Builder m u
-stackBuilder = MkBuilder $ ExceptT $ flip catch handleException $ do
-    (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" ["build"] ""
-    case ec of
-        ExitSuccess -> return $ Right $ BuildSucceeded out err
-        ExitFailure _ -> return $ Right $ BuildFailed out err
-  where
-    handleException e = return $ Left $ InvalidOperation (show (e :: IOException)) ""
+mapBuilder :: (forall a . m a -> m' a) -> Builder m -> Builder m'
+mapBuilder f (MkBuilder b) = MkBuilder $ mapExceptT f b

@@ -1,5 +1,6 @@
 module DeclarationPath 
     ( DeclarationPath (..)
+    , ItemPath
     , parse
     ) where
 
@@ -9,6 +10,8 @@ import Text.Parsec hiding (parse)
 import Text.Parsec.Char
 
 import Ide3.Types
+
+type ItemPath = ProjectChild (ModuleChild (Maybe ModuleItemString))
 
 data DeclarationPath 
     = DeclarationPath ProjectInfo ModuleInfo DeclarationInfo

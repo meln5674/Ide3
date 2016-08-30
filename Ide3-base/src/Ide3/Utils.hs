@@ -1,3 +1,5 @@
+
+
 module Ide3.Utils where
 
 import Data.List
@@ -13,10 +15,8 @@ import Control.Monad.Trans.State
 
 import Ide3.Types.Internal
 
-
 wrapIOError :: (MonadIO m) => IO a -> SolutionResult u m a
 wrapIOError = wrapIOErrorWithMsg ""
-
 
 wrapIOErrorWithMsg :: (MonadIO m) => String -> IO a -> SolutionResult u m a
 wrapIOErrorWithMsg msg f = do
@@ -46,17 +46,21 @@ class MonadBounce t where
 instance MonadBounce (StateT s) where
     bounce f = ExceptT $ StateT $ \s -> fmap (\a -> (a,s)) $ runExceptT f
 
+
 instance MonadBounce (ReaderT r) where
     bounce f = ExceptT $ ReaderT $ \r -> runExceptT f
+
 
 class MonadSplice t where
     splice :: (Monad m) => t m a -> t (ExceptT e m) a
 
 instance MonadSplice (StateT s) where
-    splice f = StateT $ \s -> ExceptT $ liftM Right $ runStateT f s
+    splice f = StateT $ \s -> ExceptT $ liftM Right $  runStateT f s
 
 instance MonadSplice (ReaderT r) where
     splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
+
+
 
 -- | Synonym for `.`
 (.-.) :: (b -> c) -> (a -> b) -> (a -> c)

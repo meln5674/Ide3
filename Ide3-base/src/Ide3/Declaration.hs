@@ -29,6 +29,7 @@ import qualified Ide3.Declaration.ModifierDeclaration as ModifierDeclaration
 import qualified Data.Map as Map
 import Data.Map (Map)
 
+import Ide3.Utils.Parser
 
 -- | Create a map from a list by applying a function to each item
 -- The result of the function is used as the key, and the values
@@ -52,7 +53,7 @@ parseAndCombine s fp = do
     ds <- Parser.parseWithBody s fp
     let combined = combineMany ds
     case combined of
-        [d] -> return d
+        [d] -> return $ unAnn d
         [] -> Left $ InvalidOperation "Found no declarations" "Declaration.parseAndCombine"
         _ -> Left $ InvalidOperation "Found more than 1 declaration" "Declaration.parseAndCombine"
     
@@ -65,10 +66,10 @@ parseAndCombineLenient s p di = case parseAndCombine s p of
     Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
 
 -- | Find declarations that can be merged and merge them
-combineMany :: [WithBody Declaration] -> [WithBody Declaration]
+combineMany :: [Ann Parser.SrcSpanInfo (WithBody Declaration)] -> [Ann Parser.SrcSpanInfo (WithBody Declaration)]
 combineMany ds = ds'
   where
-    m = partitionBy (info . item) ds
+    m = partitionBy (info . item . unAnn) ds
     m' = OMap.map Parser.combineFuncAndTypeSig m
     ds' = concat $ OMap.elems m'
 

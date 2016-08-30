@@ -5,6 +5,7 @@ module GuiMonad
     , withEditorBuffer
     , withBuildBuffer
     , withSearchBuffer
+    , withErrorList
     , initializeComponents
     , applyDeclBufferAttrs
     , defaultTextAttrs
@@ -18,6 +19,8 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
+import ErrorParser.Types
+
 import Graphics.UI.Gtk
 
 import SolutionTree
@@ -26,12 +29,15 @@ import SyntaxHighlighter2
 
 import GuiClass
 
+import DeclarationPath
+
 data GuiComponents
     = GuiComponents
     { projectTree :: TreeStore SolutionTreeElem
     , editorBuffer :: TextBuffer
     , buildBuffer :: TextBuffer
     , searchBuffer :: EntryBuffer
+    , errorList :: ListStore (Error ItemPath)
     }
 
 
@@ -76,6 +82,9 @@ makeBuildBuffer = textBufferNew Nothing
 makeSearchBuffer :: IO EntryBuffer
 makeSearchBuffer = entryBufferNew (Nothing :: Maybe String)
 
+makeErrorList :: IO (ListStore (Error ItemPath))
+makeErrorList = listStoreNew []
+
 initializeComponents :: (MonadIO m)
                      => m GuiComponents
 initializeComponents = liftIO $ do
@@ -83,11 +92,13 @@ initializeComponents = liftIO $ do
     editorBuffer <- makeDeclBuffer
     buildBuffer <- makeBuildBuffer
     searchBuffer <- makeSearchBuffer
+    errorList <- makeErrorList
     return GuiComponents
            { projectTree
            , editorBuffer
            , buildBuffer
            , searchBuffer
+           , errorList
            }
     
 
@@ -110,6 +121,11 @@ withSearchBuffer :: GuiComponents
                  -> (EntryBuffer -> a)
                  -> a
 withSearchBuffer comp f = f (searchBuffer comp)
+
+withErrorList :: GuiComponents
+               -> (ListStore (Error ItemPath) -> a)
+               -> a
+withErrorList comp f = f (errorList comp)
 
 {-
 setDeclBufferText :: GuiComponents

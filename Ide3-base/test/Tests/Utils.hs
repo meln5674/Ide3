@@ -30,12 +30,12 @@ runExceptProject :: SolutionResult (StatefulWrapper SolutionState) () a
 runExceptProject = runStatefulWrapper . runExceptT
 -}
 
-runExceptProjectT :: Monad m => SolutionResult (StatefulWrapper (SolutionStateT m)) () a 
+runExceptProjectT :: Monad m => SolutionResult () (StatefulWrapper (SolutionStateT m)) a 
                   -> SolutionStateT m (Either (SolutionError ()) a)
 runExceptProjectT = runStatefulWrapper . runExceptT
 
 expectFailure :: (?loc :: CallStack, Show a)
-              => SolutionResult (StatefulWrapper (SolutionStateT IO)) () a 
+              => SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
               -> Test
 expectFailure f = TestCase $ do
     (result,_) <- flip runStateT Solution.empty $ runSolutionStateT $ runExceptProjectT f
@@ -44,7 +44,7 @@ expectFailure f = TestCase $ do
         Right x -> assertFailure $ failedTestName ++ ": Expected to fail but got: " ++ show x
 
 expectSuccess :: (?loc :: CallStack, Show a)
-              => SolutionResult (StatefulWrapper (SolutionStateT IO)) () a 
+              => SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
               -> Test
 expectSuccess f = TestCase $ do
     (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f
@@ -53,7 +53,7 @@ expectSuccess f = TestCase $ do
         Right _ -> assertString ""
 
 expectResult :: (?loc :: CallStack, Show a, Eq a)
-             => a -> SolutionResult (StatefulWrapper (SolutionStateT IO)) () a 
+             => a -> SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
              -> Test
 expectResult expected f = TestCase $ do
     (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f
@@ -68,7 +68,7 @@ expectResult expected f = TestCase $ do
                                  ++ show expected
 
 expectPredicate :: (?loc :: CallStack, Show a, Eq a)
-                => (a -> Bool) -> SolutionResult (StatefulWrapper (SolutionStateT IO)) () a 
+                => (a -> Bool) -> SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
                 -> Test
 expectPredicate predicate f = TestCase $ do
     (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f

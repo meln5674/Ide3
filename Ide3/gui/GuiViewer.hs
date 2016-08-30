@@ -183,3 +183,6 @@ instance (ExternModuleExportClass m) => ExternModuleExportClass (GuiViewerT m) w
     getExternExport x y = bounce . getExternExport x y
     getExternExports x = bounce . getExternExports x
     removeExternExport x y = bounce . removeExternExport x y
+
+instance (ModuleLocationClass m) => ModuleLocationClass (GuiViewerT m) where
+    getModuleItemAtLocation = bounce .-... getModuleItemAtLocation

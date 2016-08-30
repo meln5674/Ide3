@@ -714,6 +714,60 @@ instance (MonadIO m, ExternModuleExportClass m) => ExternModuleExportClass (Caba
     removeExternExport = bounce .-... removeExternExport
     getExternExports = bounce .-.. getExternExports
 
+{-
+instance (MonadIO m, ModuleLocationClass m) => ModuleLocationClass (CabalSolution m) where
+    getModuleItemAtLocation = bounce .-... getModuleItemAtLocation
+-}
+
+instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m) => ModuleLocationClass (CabalSolution m) where
+    getModuleItemAtLocation pji mi (r,c) = do
+        path <- case mi of
+            UnamedModule Nothing -> throwE $ InvalidOperation "Can't find an unnamed module" ""
+            UnamedModule (Just path) -> return path
+            _ -> do
+                let name = toModuleName mi
+                p <- lookupCabalProject pji
+                roots <- getProjectSourceRoots p
+                result <- locateModule roots name
+                case result of
+                    Just path -> return path
+                    Nothing -> throwE $ InvalidOperation "Can't find module" ""
+        contents <- wrapIOError $ readFile path
+        result <- ExceptT $ return $ Module.parseAtLocation (r,c) contents (Just path)
+        case result of
+            Nothing -> return Nothing
+            Just (result, r', c') -> do
+                result' <- case result of
+                    HeaderCommentItem s -> return $ HeaderCommentString s
+                    PragmaItem p -> return $ PragmaString p
+                    ImportItem i -> do
+                        iis <- getImports pji mi
+                        is <- forM iis $ \ii -> do
+                            i' <- getImport pji mi ii
+                            return (ii,i')
+                        let is' = filter ((==i) . snd) is
+                        case is' of
+                            [] -> throwE $ InvalidOperation "Can't find import" ""
+                            ((ii,i'):_) -> return $ ImportString $ WithBody ii $ body i
+                    ExportItem e -> do
+                        eis <- liftM (maybe [] id) $ getExports pji mi
+                        es <- forM eis $ \ei -> do
+                            e' <- getExport pji mi ei
+                            return (ei,e')
+                        let es' = filter ((==e) . snd) es
+                        case es' of
+                            [] -> throwE $ InvalidOperation "Can't find export" ""
+                            ((ei,e'):_) -> return $ ExportString $ WithBody ei $ body e
+                    DeclarationItem d -> do
+                        dis <- getDeclarations pji mi
+                        ds <- forM dis $ \di -> do
+                            d' <- getDeclaration pji mi di
+                            return (di,d')
+                        let ds' = filter ((==d) . snd) ds
+                        case ds' of
+                            [] -> throwE $ InvalidOperation "Can't find export" ""
+                            ((di,d'):_) -> return $ DeclarationString $ WithBody di $ body d
+                return $ Just (result', r', c')
 
 instance ( MonadIO m
          , SolutionClass m
@@ -748,7 +802,7 @@ instance PseudoStateT CabalSolution FileSystemSolution where
     runPseudoStateT = runStateT . runCabalSolutionInternal
 
 
-instance (Monad m) => CabalMonad (CabalSolution m) u where
+instance (Monad m) => CabalMonad (CabalSolution m) where
     getCabalProjects = do
         fsp <- lift getFsp
         case fsp of
@@ -939,6 +993,9 @@ instance (Monad m) => CabalMonad (CabalSolution m) u where
                     Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
         setCabalFileDirty
+    getPackageDescription = withOpenedSolution $ \info -> do
+        let CabalConfiguration genericPkg = cabalConfig info 
+        return $ packageDescription genericPkg
 
 
 instance Monad m => DirtyModuleClass (CabalSolution m) where

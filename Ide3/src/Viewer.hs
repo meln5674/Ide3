@@ -263,6 +263,9 @@ instance (ExternModuleExportClass m) => ExternModuleExportClass (ViewerStateT m)
     getExternExports x = bounce . getExternExports x
     removeExternExport x y = bounce . removeExternExport x y
 
+instance (ModuleLocationClass m) => ModuleLocationClass (ViewerStateT m) where
+    getModuleItemAtLocation = bounce .-... getModuleItemAtLocation
+
 deriving instance (MonadMask m) => MonadMask (ViewerStateT m)
 deriving instance (MonadCatch m) => MonadCatch (ViewerStateT m)
 deriving instance (MonadThrow m) => MonadThrow (ViewerStateT m)

@@ -11,36 +11,42 @@ Portability : POSIX
 -}
 
 module Ide3.Types 
-    ( WithBody (..)
-    , body
-    , bodies
-    , item
-    , items
-    , Symbol (..)
-    , SolutionInfo (..)
-    , ProjectInfo (..)
-    , BuildInfo (..)
-    , Dependency (..)
-    , ModuleInfo (..)
-    , Pragma
-    , ModuleChild (..)
-    , ProjectChild (..)
-    , HasChild (..)
-    , Import (..)
-    , ImportId
-    , ImportKind (..)
-    , Export (..)
-    , ExternExport (..)
-    , ExportId
-    , DeclarationInfo (..)
-    , Declaration (..)
-    , TypeDeclaration (..)
-    , BindDeclaration (..)
-    , ModifierDeclaration (..)
-    , Constructor (..)
-    , SolutionError (..)
-    , SolutionResult
+    ( WithBody (..) 
+    , body 
+    , bodies 
+    , item 
+    , items 
+    , Symbol (..) 
+    , SolutionInfo (..) 
+    , ProjectInfo (..) 
+    , BuildInfo (..) 
+    , Dependency (..) 
+    , ModuleInfo (..) 
+    , ModuleItem (..) 
+    , ModuleItemKey (..) 
+    , ModuleItemKeyValue (..) 
+    , ModuleItemString (..) 
+    , Pragma 
+    , ModuleChild (..) 
+    , ProjectChild (..) 
+    , HasChild (..) 
+    , Import (..) 
+    , ImportId 
+    , ImportKind (..) 
+    , Export (..) 
+    , ExternExport (..) 
+    , ExportId 
+    , DeclarationInfo (..) 
+    , Declaration (..) 
+    , TypeDeclaration (..) 
+    , BindDeclaration (..) 
+    , ModifierDeclaration (..) 
+    , Constructor (..) 
+    , SolutionError (..) 
+    , SolutionResult 
     , Qualify (..)
-    ) where
+    , moduleInfoString
+    )
+    where
 
 import Ide3.Types.Internal

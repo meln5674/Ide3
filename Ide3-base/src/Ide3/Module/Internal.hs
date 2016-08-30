@@ -11,7 +11,10 @@ Portability : POSIX
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Ide3.Module.Internal where
+module Ide3.Module.Internal 
+    ( module Ide3.Module.Internal
+    , Parser.parseAtLocation
+    ) where
 
 import Data.Maybe
 import Data.List (intercalate, find, intersperse)
@@ -34,6 +37,8 @@ import Ide3.Module.Parser (ExtractionResults(..))
 import qualified Ide3.Module.Parser as Parser
 import qualified Ide3.Import.Internal as Import
 import qualified Ide3.Declaration as Declaration
+
+import Ide3.Utils.Parser
 
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
     addChildT = addDeclaration
@@ -242,26 +247,26 @@ parseMain = parseUsing Parser.parseMain
 
 -- | Generalization of parse and parseMain
 parseUsing :: (String -> Maybe FilePath 
-                      -> Either (SolutionError u) ExtractionResults)
+                      -> Either (SolutionError u) (ExtractionResults Parser.SrcSpanInfo))
            -> String 
            -> Maybe FilePath 
            -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseUsing parser s p = case parser s p of
     Right (Extracted minfo header pragmas exports imports decls) 
-            -> Right (Module newInfo header pragmas imports' exports' decls', eids, iids)
+            -> Right (Module newInfo (unAnn header) (map unAnn pragmas) imports' exports' decls', eids, iids)
       where
-        newInfo = case minfo of
+        newInfo = case unAnn minfo of
             UnamedModule Nothing -> UnamedModule p
             x -> x
         eids = case exports of
             Just exportList -> [0..length exportList]
             Nothing -> []
         exports' = case exports of
-            Just exportList -> Just $ Map.fromList $ zip eids exportList
+            Just exportList -> Just $ Map.fromList $ zip eids $ map unAnn exportList
             Nothing -> Nothing
         iids = [0..length imports]
-        imports' = Map.fromList $ zip iids imports
-        decls' = OMap.fromList $ zip (map (Declaration.info . item) decls) decls
+        imports' = Map.fromList $ zip iids $ map unAnn imports
+        decls' = OMap.fromList $ zip (map (Declaration.info . item . unAnn) decls) (map unAnn decls)
     Left msg -> Left msg
 
 
@@ -310,6 +315,7 @@ getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
     ModuleInfo (Symbol name) = info m
     withNoExportList = "module " ++ name ++ " where"
     withExportList es = "module " ++ name ++ (makeExportList $ bodies $ Map.elems es)
+        
 
 -- | Take a list and a predicate over two elements at a time.
 -- Split the list into a list of lists at the points where the predicate returns
@@ -332,16 +338,94 @@ spaceImports is = concatMap ((++[""]) . bodies) partitionedImports
   where
     partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item i1) (item i2)
 
+{-
 -- | Reconstruct the source code from a Module
 toFile :: Module -> String
 toFile m = intercalate "\n" parts
   where
     headerComment = moduleHeader m
-    pragmas = modulePragmas m
+    pragmas = PragmaItems m
     header = getHeaderText m
     imports = spaceImports $ Map.elems $ moduleImports m
     declarations = intersperse "" $ bodies $ OMap.elems $ moduleDeclarations m
     parts = headerComment : "" : pragmas ++ header : "" : imports ++ declarations
+-}
+
+toFile :: Module -> String
+toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
+
+
+-- | Annotates a string with the number of lines in it as well as the number of
+-- characters in the final line
+data Annotated x y = Annotated { annotated :: x, annotation :: y}
+
+type AnnotatedModuleItem = Annotated (Maybe ModuleItemKeyValue) [String]
+
+annotateHeaderComment :: Module -> [AnnotatedModuleItem]
+annotateHeaderComment m = [Annotated (Just $ HeaderCommentKeyValue $ moduleHeader m) (lines $ moduleHeader m)] 
+
+annotatePragmas :: Module -> [AnnotatedModuleItem]
+annotatePragmas m = flip map (modulePragmas m) 
+    $ \p -> Annotated (Just $ PragmaKeyValue p) $ lines p
+
+annotateHeader :: Module -> [AnnotatedModuleItem]
+annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
+  where
+    ModuleInfo (Symbol name) = info m
+    withNoExportList = [Annotated Nothing ["module " ++ name ++ " where"]]
+    withExportList es = 
+        (Annotated Nothing ["module " ++ name] )
+        :
+        case Map.toList es of
+            [] -> [Annotated Nothing ["    () where"]]
+            [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e]
+                         , Annotated Nothing ["    ) where"]
+                         ]
+            ((eid,e):es) -> (Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e])
+                            :
+                            (flip map es $ \(eid,e) -> Annotated (Just $ ExportKeyValue eid e) ["    , " ++ body e])
+                            ++ [Annotated Nothing ["    ) where"]]
+
+annotateImports :: Module -> [AnnotatedModuleItem]
+annotateImports m = flip map (Map.toList $ moduleImports m)
+    $ \(iid, i) -> Annotated (Just $ ImportKeyValue iid i) $ lines $ body i
+
+annotateDeclarations :: Module -> [AnnotatedModuleItem]
+annotateDeclarations m = flip map (OMap.toList $ moduleDeclarations m) 
+    $ \(did, d) -> Annotated (Just $ DeclarationKeyValue did d) $ lines $ body d
+
+toAnnotatedFile :: Module -> [AnnotatedModuleItem]
+toAnnotatedFile m 
+    =  headerCommentLines 
+    ++ pragmaLines 
+    ++ headerLines 
+    ++ importLines 
+    ++ declarationLines
+  where
+    headerCommentLines = annotateHeaderComment m
+    pragmaLines = annotateHeaderComment m
+    headerLines = annotatePragmas m
+    importLines = annotateImports m
+    declarationLines = annotateDeclarations m
+
+{-
+getItemAtPosition :: Int -> Int -> Module -> Maybe (ModuleItemString, Int, Int)
+getItemAtPosition r c = fmap (onFirst finalize) . go r c . toAnnotatedFile
+  where
+    onFirst f (a,b,c) = (f a,b,c)
+    finalize (HeaderCommentKeyValue s) = HeaderCommentString s
+    finalize (PragmaKeyValue p) = PragmaString p
+    finalize (ImportKeyValue iid i) = ImportString $ WithBody iid $ body i
+    finalize (ExportKeyValue eid e) = ExportString $ WithBody eid $ body e
+    finalize (DeclarationKeyValue did d) = DeclarationString $ WithBody did $ body d
+    go _ _ [] = Nothing
+    go r c (x:xs)
+        | r < length (annotation x) = case () of
+            ()
+                | c < length (annotation x !! r) -> flip fmap (annotated x) $ \y -> (y, r, c)
+                | otherwise -> Nothing
+        | otherwise = go (r - length (annotation x)) c xs
+-}
 
 -- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]

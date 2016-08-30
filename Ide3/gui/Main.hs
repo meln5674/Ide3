@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PolyKinds #-}
@@ -27,6 +28,7 @@ import Control.Concurrent.MVar
 import Graphics.UI.Gtk hiding (get, TreePath)
 
 import Ide3.Types
+import Ide3.Utils
 import Ide3.Types.State
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
@@ -67,12 +69,18 @@ import PseudoState
 import GuiViewer
 import GuiViewer.Class
 
+import CabalMonad
 import CabalFilesystemSolution
 
 import Initializer
 
 import GuiClass
 import GuiClass.GuiEnv
+
+import EnvironmentMonad
+import EnvironmentMonad.Stack
+
+import Args
 
 deriving instance (MonadMask m) => MonadMask (StatefulWrapper m)
 deriving instance (MonadCatch m) => MonadCatch (StatefulWrapper m)
@@ -93,21 +101,90 @@ deriving instance MonadCatch GtkIO
 deriving instance MonadThrow GtkIO
 deriving instance InteruptMonad0 GtkIO
 
+
+--deriving instance InteruptMonad0 m => InteruptMonad0 (StackEnvironment m)
+--deriving instance InteruptMonad1 p m => InteruptMonad1 p (StackEnvironment m)
+--deriving instance InteruptMonad2 p m => InteruptMonad2 p (StackEnvironment m)
+
+
+{-
+deriving instance ViewerMonad m => ViewerMonad (StackEnvironment m)
+deriving instance ViewerStateClass m => ViewerStateClass (StackEnvironment m)
+deriving instance GuiViewerClass m => GuiViewerClass (StackEnvironment m)
+deriving instance ErrorClass m => ErrorClass (StackEnvironment m)
+-}
+
+
+{-
+instance CabalMonad m => CabalMonad (ViewerStateT m) where
+    getCabalProjects = bounce getCabalProjects
+    getCabalProject = bounce .-. getCabalProject
+    getCabalProjectInfo = bounce .-. getCabalProjectInfo
+    lookupCabalProject = bounce .-. lookupCabalProject
+    addCabalProject = bounce .-.. addCabalProject
+    updateCabalProject = bounce .-.. updateCabalProject
+    removeCabalProject = bounce .-. removeCabalProject
+    getPackageDescription = bounce getPackageDescription
+
+instance CabalMonad m => CabalMonad (GuiViewerT m) where
+    getCabalProjects = bounce getCabalProjects
+    getCabalProject = bounce .-. getCabalProject
+    getCabalProjectInfo = bounce .-. getCabalProjectInfo
+    lookupCabalProject = bounce .-. lookupCabalProject
+    addCabalProject = bounce .-.. addCabalProject
+    updateCabalProject = bounce .-.. updateCabalProject
+    removeCabalProject = bounce .-. removeCabalProject
+    getPackageDescription = bounce getPackageDescription
+-}
+
+
 instance ErrorClass (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) where
     displayError msg = lift $ lift $ lift $ lift $ lift $ displayError msg
 
 declBufferEdited :: GuiEnvSignal proxy m' p IO GuiComponents TextBuffer IO ()
 declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
 
+instance BuilderMonad m => BuilderMonad (ViewerStateT m) where
+    getBuilder = liftM (mapBuilder lift) $ lift getBuilder
+
+instance BuilderMonad m => BuilderMonad (GuiViewerT m) where
+    getBuilder = liftM (mapBuilder lift) $ lift getBuilder
+    
+instance RunnerMonad m => RunnerMonad (ViewerStateT m) where
+    getRunner = liftM (mapRunner lift) $ lift getRunner
+
+instance RunnerMonad m => RunnerMonad (GuiViewerT m) where
+    getRunner = liftM (mapRunner lift) $ lift getRunner
+
+instance InitializerMonad m => InitializerMonad (ViewerStateT m) where
+    getInitializer = liftM (mapInitializer lift) $ lift getInitializer
+    type ArgType (ViewerStateT m) = ArgType m
+
+instance InitializerMonad m => InitializerMonad (GuiViewerT m) where
+    getInitializer = liftM (mapInitializer lift) $ lift getInitializer
+    type ArgType (GuiViewerT m) = ArgType m
+
+instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) where
+    getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
+    type ProjectArgType (ViewerStateT m) = ProjectArgType m
+
+instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) where
+    getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
+    type ProjectArgType (GuiViewerT m) = ProjectArgType m
+
 type MainGuiClass m p = 
     ( MonadIO m
     , ViewerMonad m
     , PersistentSolutionMonad m
+    , ModuleLocationClass m
     , MonadMask m
     , ErrorClass m
     , GuiViewerClass m
     , ViewerStateClass m
     , InteruptMonad1 (MVar (MVarType p)) m
+    , EnvironmentMonad m
+    , Args (ArgType m)
+    , Args (ProjectArgType m)
     )
 
 type MainGuiClassIO m p m' = ( MainGuiClass m p , MonadIO m' )
@@ -634,3 +711,4 @@ doMain proxy init = do
 main :: IO ()
 main = doMain (Proxy :: Proxy (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))))
               (Unopened, Solution.empty)
+

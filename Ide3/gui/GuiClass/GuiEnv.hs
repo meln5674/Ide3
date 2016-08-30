@@ -117,7 +117,7 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT proxy m p m') wher
     setBuildBufferText text
         = withGuiComponents 
         $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
-            buffer `textBufferSetText` text
+            postGUISync $ buffer `textBufferSetText` text
     getBuildBufferText maybeStart maybeEnd
         = withGuiComponents 
         $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
@@ -147,12 +147,22 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT proxy m p m') wher
             end <- textBufferGetIterAtLineOffset buffer endRow endCol
             textBufferSelectRange buffer start end
 
+instance ( Monad m, MonadIO m') => ErrorListClass (GuiEnvT proxy m p m') where
+    clearErrorList
+        = withGuiComponents
+        $ flip withErrorList $ \list -> lift $ liftIO $ do
+            postGUISync $ listStoreClear list
+    addErrorToList err
+        = withGuiComponents
+        $ flip withErrorList $ \list -> lift $ liftIO $ do
+            putStrLn $ "Adding error: " ++ show err
+            postGUISync $ void $ listStoreAppend list err
 
 newtype GtkIO a = GtkIO { runGtkIO :: IO a }
   deriving (Functor, Applicative, Monad, MonadIO)
 
 instance ErrorClass GtkIO where
-    displayError msg = GtkIO $ do
+    displayError msg = GtkIO $ postGUISync $ do
         dialog <- messageDialogNew
             Nothing
             []

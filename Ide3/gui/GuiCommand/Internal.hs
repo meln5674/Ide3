@@ -5,7 +5,10 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module GuiCommand.Internal where
+
+import Data.Proxy
 
 import Data.Char
 import Data.List
@@ -36,6 +39,8 @@ import Builder
 import Initializer
 import Runner
 
+import EnvironmentMonad
+
 import Viewer
 import ViewerMonad2
 
@@ -50,7 +55,11 @@ import SearchMode
 import DeclarationPath (DeclarationPath(..))
 import qualified DeclarationPath
 
+import Args
+
 import GuiError
+
+import ErrorParser.Types
 
 type UserError = GuiError
 
@@ -109,18 +118,22 @@ type GuiCommand t m =
     , EditorBufferClass (t m)
     , BuildBufferClass (t m)
     , SearchBarClass (t m)
+    , ErrorListClass (t m)
     , Monad (t (SolutionResult UserError m))
     , GuiViewerClass (t m)
     , ViewerStateClass m
+    , ModuleLocationClass m
     )
 
 doError :: ( GuiCommand t m ) => SolutionError UserError -> t (SolutionResult UserError m) a
 doError = lift . throwE 
 
 
-doNew ::  ( GuiCommand t m
-          , MonadIO m
-          )
+doNew :: ( GuiCommand t m
+         , MonadIO m
+         , InitializerMonad m
+         , Args (ArgType m)
+         )
       => Maybe FilePath
       -> String
       -> Maybe String
@@ -131,12 +144,17 @@ doNew maybeSolutionRoot projectName templateName = do
         Just projectRoot -> do
             lift $ wrapIOError $ setCurrentDirectory projectRoot
             lift $ setDirectoryToOpen $ projectRoot </> projectName
-            r <- lift 
-                    $ runInitializer stackInitializer 
-                                    (StackInitializerArgs projectName templateName)
+            initializer <- lift $ lift $ getInitializer
+            let args = case templateName of
+                    Just templateName -> [projectName, templateName]
+                    Nothing -> [projectName]
+            r <- case runInitializerWithInput initializer args of
+                Right x -> lift x
+                Left err -> lift $ throwE $ InternalError "Failed to parse initialization arguments" err 
             case r of
                 InitializerSucceeded{} -> do
                     --withGuiComponents $ lift . flip withSolutionTree populateTree
+                    lift $ load
                     populateTree
                     lift $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> lift $ throwE $ InvalidOperation (out ++ err) ""
@@ -190,24 +208,41 @@ doGetDecl path = do --withGuiComponents $ \comp -> lift $ do
 doBuild :: ( GuiCommand t m
            , MonadMask m
            , MonadIO m
+           , BuilderMonad m
            )
         => t (SolutionResult UserError m) ()
 doBuild = do --withGuiComponents $ \comp -> lift $ do
     lift $ prepareBuild
-    r <- lift $ runBuilder stackBuilder
-    let text = case r of
-            BuildSucceeded out err -> out ++ err
-            BuildFailed out err -> out ++ err
-    --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+    builder <- lift $ lift $ getBuilder
+    lift $ liftIO $ putStrLn "Building"
+    r <- lift $ runBuilder builder
+    let (text,errors) = case r of
+            BuildSucceeded log warnings -> (log,warnings)
+            BuildFailed log errors -> (log,errors)
+    lift $ liftIO $ putStrLn "Fetching error locations"
+    errors' <- lift $ forM errors $ mapErrorM $ \(ErrorLocation proj mod) r c s -> do
+        let pji = ProjectInfo $ getProjectName proj
+            mi = ModuleInfo $ Symbol $ getModuleName mod
+        result <- getModuleItemAtLocation pji mi ((getRow r),(getColumn c))
+        case result of
+            Just (item, r', c') -> return (ProjectChild pji $ ModuleChild mi $ Just item, Row r', Column c', s)
+            Nothing -> return (ProjectChild pji $ ModuleChild mi Nothing, Row 0, Column 0, s)
+    lift $ liftIO $ putStrLn "Setting log text"
     splice $ setBuildBufferText text
+    lift $ liftIO $ putStrLn "Clearing error list"
+    splice $ clearErrorList
+    lift $ liftIO $ putStrLn $ "Adding errors (" ++ show (length errors') ++ ")"
+    splice $ mapM_ addErrorToList errors'
 
 doRun :: ( GuiCommand t m
          , MonadMask m
          , MonadIO m
+         , RunnerMonad m
          )
       => t (SolutionResult UserError m) ()
 doRun = do --withGuiComponents $ \comp -> lift $ do
-    r <- lift $ runRunner stackRunner
+    runner <- lift $ lift $ getRunner
+    r <- lift $ runRunner runner
     let text = case r of
             RunSucceeded out err -> out ++ err
             RunFailed out err -> out ++ err
@@ -215,7 +250,7 @@ doRun = do --withGuiComponents $ \comp -> lift $ do
     splice $ setBuildBufferText text
 
 
-doSave :: forall t m
+doSave :: forall ia pia t m
         . ( GuiCommand t m
           , MonadMask m
           )
@@ -517,8 +552,8 @@ doGotoDeclaration = do
     (startPos,endPos) <- splice $ getEditorBufferCursor
     startOffset <- splice $ getEditorBufferIndexAtPosition startPos
     endOffset <- splice $ getEditorBufferIndexAtPosition endPos
-    when (startOffset >= length text || endOffset >= length text)
-        $ lift $ throwE $ UserError $ TempError $ show (startOffset, endOffset, length text)
+    {-when (startOffset >= length text || endOffset >= length text)
+        $ lift $ throwE $ UserError $ TempError $ show (startOffset, endOffset, length text)-}
     let currentWord = getCurrentWord text startOffset endOffset isChar
         isIdentChar c = isLower c || isUpper c || c == '_' || c == '\''
         isSymChar c = c `elem` "!@#$%^&*:.<-=>|"

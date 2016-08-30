@@ -3,6 +3,7 @@ module CabalMonad where
 
 import Distribution.PackageDescription
 
+
 import Ide3.Types hiding (BuildInfo)
 
 
@@ -36,7 +37,7 @@ data CabalProject
     | TestSuiteProject ProjectInfo TestSuite -- ^ A test suite project
     | BenchmarkProject ProjectInfo Benchmark
 
-class Monad m => CabalMonad m u where
+class Monad m => CabalMonad m where
     getCabalProjects :: SolutionResult u m [CabalProjectInfo] 
     getCabalProject :: CabalProjectInfo -> SolutionResult u m CabalProject
     getCabalProjectInfo :: ProjectInfo -> SolutionResult u m CabalProjectInfo
@@ -44,3 +45,4 @@ class Monad m => CabalMonad m u where
     addCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
     updateCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
     removeCabalProject :: CabalProjectInfo -> SolutionResult u m ()
+    getPackageDescription :: SolutionResult u m PackageDescription

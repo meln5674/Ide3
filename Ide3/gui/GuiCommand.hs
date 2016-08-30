@@ -18,9 +18,7 @@ import Ide3.NewMonad
 import qualified Ide3.Declaration as Declaration
 import qualified Ide3.Import as Import
 
-import Builder
-import Initializer
-import Runner
+import EnvironmentMonad
 
 import Viewer
 import ViewerMonad2
@@ -36,6 +34,8 @@ import SearchMode
 
 import qualified GuiCommand.Internal as Internal
 import GuiCommand.Internal (UserError, {-DialogOnErrorArg,-} GuiCommand )
+
+import Args
 
 type GuiCommand2 proxy m p m' = 
     ( ViewerMonad m
@@ -99,7 +99,12 @@ doError :: ( GuiCommand (GuiEnvT proxy m p) m
         -> GuiEnvT proxy m p m' ()
 doError e = dialogOnError () $ Internal.doError e
 
-doNew :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m', MonadIO m )
+doNew :: ( GuiCommand (GuiEnvT proxy m p) m
+         , GuiCommand2 proxy m p m'
+         , MonadIO m
+         , InitializerMonad m 
+         , Args (ArgType m)
+         )
       => Maybe FilePath
       -> String
       -> Maybe String
@@ -121,6 +126,7 @@ doBuild :: ( GuiCommand (GuiEnvT proxy m p) m
            , GuiCommand2 proxy m p m' 
            , MonadIO m
            , MonadMask m
+           , BuilderMonad m
            )
         => GuiEnvT proxy m p m' ThreadId
 doBuild = dialogOnErrorConc $ Internal.doBuild
@@ -129,6 +135,7 @@ doRun :: ( GuiCommand (GuiEnvT proxy m p) m
          , GuiCommand2 proxy m p m' 
          , MonadMask m
          , MonadIO m
+         , RunnerMonad m
          )
       => GuiEnvT proxy m p m' ()
 doRun = dialogOnError () $ Internal.doRun

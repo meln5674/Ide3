@@ -211,3 +211,8 @@ getExternExport = descend2 $ Project.getExternExport
 -- | Get the ids of all exports, or signify that all symbols are exported
 getExternExports :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u [ExportId]
 getExternExports = descend1 $ Project.getExternExports
+
+{-
+getItemAtLocation :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
+getItemAtLocation = descend2 Project.getItemAtLocation
+-}

@@ -240,6 +240,13 @@ class Monad m => ExternModuleExportClass m where
 class Monad m => ModuleFileClass m where
     toFile :: ProjectInfo -> ModuleInfo -> SolutionResult u m String
 
+-- | Class of monads which can 
+class ( Monad m )
+     => ModuleLocationClass m where
+    getModuleItemAtLocation :: ProjectInfo 
+                            -> ModuleInfo -> (Int, Int)
+                            -> SolutionResult u m (Maybe (ModuleItemString, Int, Int))
+
 -- | Wrapper for monads which have all project features
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
 

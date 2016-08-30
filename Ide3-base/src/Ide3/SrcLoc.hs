@@ -88,6 +88,18 @@ sameEnd a b s = case (a2i,b1i) of
     a2i = a2 `indexIn` s
     b1i = b1 `indexIn` s
 
+contains :: Spannable l => l -> SrcLoc -> Bool
+a' `contains` b = (srcSpanStartLine a < srcLine b
+                        || (srcSpanStartLine a == srcLine b 
+                                && srcSpanStartColumn a <= srcColumn b 
+                                && srcColumn b <= srcSpanEndColumn a))
+              && (srcLine b < srcSpanEndLine a
+                        || (srcSpanEndLine a == srcLine b
+                                && srcSpanStartColumn a <= srcColumn b
+                                && srcColumn b <= srcSpanEndColumn a))
+  where
+    a = getSpan a'
+    
 -- | Filter out from a list of spannables those which contact another spannable
 -- on the left side
 leftBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]

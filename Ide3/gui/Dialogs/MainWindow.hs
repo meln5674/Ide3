@@ -51,6 +51,8 @@ import Ide3.Types
 
 import BetterTextView
 
+import ErrorParser.Types
+
 import GuiEnv
 import GuiMonad
 
@@ -62,6 +64,7 @@ import Dialogs.SearchBar (SearchBar)
 import qualified Dialogs.SearchBar as SearchBar
 
 import SearchMode
+import DeclarationPath
 
 import GuiClass (SolutionTreeElem (..))
 
@@ -83,13 +86,54 @@ renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [cellText := n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [cellText := s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [cellText := path]
 renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [cellText := "???"]
-renderSolutionTreeElem (DeclElem (DeclarationInfo (Symbol s))) = [cellText := s]
+renderSolutionTreeElem (DeclElem s) = [cellText := getSymbol $ getDeclarationInfo s]
 renderSolutionTreeElem ImportsElem = [cellText := "Imports"]
 renderSolutionTreeElem ExportsElem = [cellText := "Exports"]
 renderSolutionTreeElem PragmasElem = [cellText := "Pragmas"]
 renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := importBody] 
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [cellText := p]
+
+renderImageCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderImageCell (Warning _ _ _ _) = [cellText := "W"] -- TODO: Images
+renderImageCell (Error _ _ _ _) = [cellText := "E"] -- TODO: Images
+
+renderProjectCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderProjectCell e = [cellText := unProjectInfo pji]
+  where
+    (ProjectChild pji _) = errorLocation e
+
+renderModuleCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderModuleCell e = [cellText := moduleInfoString mi "???"]
+  where
+    (ProjectChild _ (ModuleChild mi _)) = errorLocation e
+
+renderDeclarationCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderDeclarationCell e = [cellText := text]
+  where
+    (ProjectChild _ (ModuleChild _ x)) = errorLocation e
+    text = case x of
+        Just x -> case x of
+            HeaderCommentString _ -> "[MODULE HEADER]"
+            PragmaString p -> "[PRAGMA] " ++ p
+            ImportString i -> body i
+            ExportString e -> "[EXPORT] " ++ body e
+            DeclarationString di -> getSymbol $ getDeclarationInfo $ item di
+        Nothing -> ""
+
+renderRowCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderRowCell (Warning _ row _ _) = [cellText := show row]
+renderRowCell (Error _ row _ _) = [cellText := show row]
+
+renderColumnCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderColumnCell (Warning _ _ col _) = [cellText := show col]
+renderColumnCell (Error _ _ col _) = [cellText := show col]
+
+renderMessageCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
+renderMessageCell (Warning _ _ _ msg) = [cellText := msg]
+renderMessageCell (Error _ _ _ msg) = [cellText := msg]
+
+
 
 
 --make :: GuiEnv proxy m p buffer -> (MainWindow -> m a) -> m ()
@@ -327,15 +371,13 @@ makeProjView :: ( MonadIO m
              -> self 
              -> (SolutionTreeElem -> [AttrOp cell]) 
              -> GuiEnvT proxy m' p  m TreeView
-makeProjView renderer container renderFunc = do
+makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
     treeViewColumn <- liftIO treeViewColumnNew
     projView <- withGuiComponents $ flip withSolutionTree $ liftIO . treeViewNewWithModel
     _ <- liftIO $ treeViewAppendColumn projView treeViewColumn
     liftIO $ cellLayoutPackStart treeViewColumn renderer False
     withGuiComponents $ flip withSolutionTree $ \treeStore -> 
         liftIO $ cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
-    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
-    liftIO $ container `containerAdd` scrollWindow
         {-container
         scrollWindow
         0 1
@@ -350,12 +392,11 @@ makeDeclView :: ( MonadIO m
                 , ContainerClass self
                 ) 
              => self -> GuiEnvT proxy m' p  m BetterTextView
-makeDeclView container = do
+makeDeclView container = makeScrolledWindowWith container $ \scrollWindow -> do
     declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . betterTextViewNewWithBuffer
     monospace <- liftIO fontDescriptionNew
     liftIO $ monospace `fontDescriptionSetFamily` "monospace"
     liftIO $ declView `widgetModifyFont` Just monospace
-    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
     {-
     liftIO $ tableAttach
         container
@@ -366,13 +407,13 @@ makeDeclView container = do
 --        [Fill] [Fill] 0 0
 --        [Expand] [Expand] 0 0
     -}
-    liftIO $ container `containerAdd` scrollWindow
     liftIO $ scrollWindow `containerAdd` declView
     return declView
 
 data BuildViewer
     = BuildViewer
     { buildView :: TextView
+    , errorView :: TreeView
     }
 
 makeBuildViewer :: ( MonadIO m
@@ -380,16 +421,21 @@ makeBuildViewer :: ( MonadIO m
                    ) 
                 => self -> GuiEnvT proxy m' p  m BuildViewer
 makeBuildViewer container = do
-    buildView <- makeBuildView container
-    return BuildViewer
-           { buildView
-           }
+    makeNotebookWith container $ \notebook -> do
+        buildView <- makeNotebookPageWith notebook "Log" makeBuildView
+        errorView <- makeNotebookPageWith notebook "Errors" makeErrorView
+       
+            
+        return BuildViewer
+             { buildView
+             , errorView
+             }
 
 makeBuildView :: ( MonadIO m
                  , ContainerClass self
                  ) 
               => self -> GuiEnvT proxy m' p  m TextView
-makeBuildView container = do
+makeBuildView container = makeScrolledWindowWith container $ \scrollWindow -> do
     buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
     {-
     liftIO $ tableAttach
@@ -401,13 +447,76 @@ makeBuildView container = do
     -}
 --        [Fill] [Fill] 0 0
 --        [Expand] [Expand] 0 0
-    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
     liftIO $ scrollWindow `containerAdd` buildView
-    liftIO $ container `containerAdd` scrollWindow
     return buildView
 
 
-
+makeErrorView :: ( MonadIO m
+                 , ContainerClass self
+                 )
+              => self -> GuiEnvT proxy m' p m TreeView
+makeErrorView container = do
+    withGuiComponents 
+        $ flip withErrorList 
+        $ \list -> makeScrolledWindowWith container 
+        $ \scrollWindow -> liftIO $ do
+        
+            errorView <- treeViewNewWithModel list
+            
+            imageColumn <- treeViewColumnNew
+            projectColumn <- treeViewColumnNew
+            moduleColumn <- treeViewColumnNew
+            declarationColumn <- treeViewColumnNew
+            rowColumn <- treeViewColumnNew
+            columnColumn <- treeViewColumnNew
+            messageColumn <- treeViewColumnNew
+            renderer <- cellRendererTextNew
+            
+            treeViewColumnSetTitle projectColumn "Project"
+            treeViewColumnSetTitle moduleColumn "Module"
+            treeViewColumnSetTitle declarationColumn "Location"
+            treeViewColumnSetTitle rowColumn "Row"
+            treeViewColumnSetTitle columnColumn "Column"
+            treeViewColumnSetTitle messageColumn "Message"
+            
+            treeViewColumnPackStart imageColumn renderer True
+            treeViewColumnPackStart projectColumn renderer True
+            treeViewColumnPackStart moduleColumn renderer True
+            treeViewColumnPackStart declarationColumn renderer True
+            treeViewColumnPackStart rowColumn renderer True
+            treeViewColumnPackStart columnColumn renderer True
+            treeViewColumnPackStart messageColumn renderer True
+            
+            cellLayoutSetAttributes imageColumn renderer list renderImageCell
+            cellLayoutSetAttributes projectColumn renderer list renderProjectCell
+            cellLayoutSetAttributes moduleColumn renderer list renderModuleCell
+            cellLayoutSetAttributes declarationColumn renderer list renderDeclarationCell
+            cellLayoutSetAttributes rowColumn renderer list renderRowCell
+            cellLayoutSetAttributes columnColumn renderer list renderColumnCell
+            cellLayoutSetAttributes messageColumn renderer list renderMessageCell
+            
+            {-
+            treeViewColumnSetExpand declarationColumn True
+            -}
+            treeViewColumnSetExpand messageColumn True
+            
+            
+            treeViewAppendColumn errorView imageColumn
+            treeViewAppendColumn errorView projectColumn
+            treeViewAppendColumn errorView moduleColumn
+            treeViewAppendColumn errorView declarationColumn
+            treeViewAppendColumn errorView rowColumn
+            treeViewAppendColumn errorView columnColumn
+            treeViewAppendColumn errorView messageColumn
+            
+            set projectColumn [treeViewColumnResizable := True]
+            set moduleColumn [treeViewColumnResizable := True]
+            set declarationColumn [treeViewColumnResizable := True]
+            set messageColumn [treeViewColumnResizable := True]
+            
+            scrollWindow `containerAdd` errorView
+            
+            return errorView
 
 makeMainWindowWith :: (MonadIO m) 
                    => (Window -> GuiEnvT proxy m' p  m a) 

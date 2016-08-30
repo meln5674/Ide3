@@ -75,6 +75,7 @@ library
                      , Ide3.Export.Parser
                      , Ide3.Declaration.Parser
                      , Ide3.OrderedMap
+                     , Ide3.Utils.Parser
   build-depends:       base
                      , containers
                      , mtl

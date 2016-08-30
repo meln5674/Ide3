@@ -71,7 +71,7 @@ data SolutionInfo = SolutionInfo String
 
 
 -- |Information about a project
-data ProjectInfo = ProjectInfo String
+data ProjectInfo = ProjectInfo { unProjectInfo :: String }
     deriving (Show, Read, Eq, Ord)
 -- |Information on how to build a project
 data BuildInfo = BuildInfo
@@ -89,7 +89,39 @@ data ModuleInfo
     | UnamedModule (Maybe FilePath)     
     deriving (Show, Read, Eq, Ord)
 
+moduleInfoString :: ModuleInfo -> String -> String
+moduleInfoString (ModuleInfo s) _ = getSymbol s
+moduleInfoString (UnamedModule (Just path)) _ = path
+moduleInfoString _ x = x
 
+data ModuleItemKeyValue
+    = HeaderCommentKeyValue String
+    | PragmaKeyValue Pragma
+    | ImportKeyValue ImportId (WithBody Import)
+    | ExportKeyValue ExportId (WithBody Export)
+    | DeclarationKeyValue DeclarationInfo (WithBody Declaration)
+
+data ModuleItemKey
+    = HeaderCommentKey
+    | PragmaKey Pragma
+    | ImportKey ImportId
+    | ExportKey ExportId
+    | DeclarationKey DeclarationInfo
+
+data ModuleItem
+    = HeaderCommentItem String
+    | PragmaItem Pragma
+    | ImportItem (WithBody Import)
+    | ExportItem (WithBody Export)
+    | DeclarationItem (WithBody Declaration)
+
+data ModuleItemString
+    = HeaderCommentString String
+    | PragmaString Pragma
+    | ImportString (WithBody ImportId)
+    | ExportString (WithBody ExportId)
+    | DeclarationString (WithBody DeclarationInfo)
+  deriving Show
 
 -- | A module pragma
 type Pragma = String
@@ -181,7 +213,7 @@ data Export
 type ExportId = Int
 
 -- |Information identifying a declaration
-data DeclarationInfo = DeclarationInfo Symbol
+data DeclarationInfo = DeclarationInfo { getDeclarationInfo :: Symbol }
     deriving (Show, Read, Eq, Ord)
 
 

@@ -20,7 +20,7 @@ import Ide3.Types.Internal hiding (body)
 import Ide3.SrcLoc
 
 -- | Convert from the third party import type
-convert :: Show a => ImportDecl a -> Import
+convert :: ImportDecl a -> Import
 convert x = case importSpecs x of
     Nothing -> ModuleImport sym isQualified rename
     Just (ImportSpecList _ True ss) -> BlacklistImport sym isQualified rename (map getSpec ss)
@@ -34,7 +34,7 @@ convert x = case importSpecs x of
     isQualified = importQualified x
 
 -- | Convert from the third part import type and extract the body as well
-convertWithBody :: (Spannable a,Show a) => String -> ImportDecl a -> WithBody Import
+convertWithBody :: (Spannable a) => String -> ImportDecl a -> WithBody Import
 convertWithBody str x = WithBody import_ body
   where
     body = ann x >< str
@@ -47,9 +47,9 @@ parse s = case parseImportDecl s of
     ParseFailed l msg -> Left $ ParseError l msg ""
 
 -- | Convert a third party import kind
-getSpec :: Show a => ImportSpec a -> ImportKind
+getSpec :: ImportSpec a -> ImportKind
 getSpec (IVar _ n) = NameImport (toSym n)
 getSpec (IAbs _ (NoNamespace _) n) = NameImport (toSym n)
 getSpec (IThingAll _ n) = AggregateImport (toSym n) Nothing
 getSpec (IThingWith _ n ns) = AggregateImport (toSym n) $ Just $ map toSym ns
-getSpec x = error $ show x
+getSpec x = error $ "Invalid import"

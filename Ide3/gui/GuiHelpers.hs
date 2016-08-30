@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module GuiHelpers 
     ( makeMenuWith
     , makeMenuButton
@@ -8,6 +9,9 @@ module GuiHelpers
     , makeOverlayWith
     , makeVBoxWith
     , makeHBoxWith
+    , makeNotebookWith
+    , makeNotebookPageWith
+    , makeScrolledWindowWith
     , GuiSignal
     , GuiSignal2
     , onGui
@@ -83,6 +87,33 @@ makeHBoxWith window f = do
     liftIO $ window `containerAdd` hbox
     f hbox
 
+makeNotebookWith :: (MonadIO m, ContainerClass self)
+                => self
+                -> (Notebook -> m b)
+                -> m b
+makeNotebookWith self f = do
+    notebook <- liftIO $ notebookNew
+    liftIO $ self `containerAdd` notebook
+    f notebook
+
+makeNotebookPageWith :: (MonadIO m)
+                     => Notebook
+                     -> String
+                     -> (forall self . ContainerClass self => self -> m b)
+                     -> m b
+makeNotebookPageWith notebook name f = do
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ notebookAppendPage notebook vbox name
+    f vbox
+
+makeScrolledWindowWith :: (MonadIO m, ContainerClass self)
+                       => self
+                       -> (ScrolledWindow -> m b)
+                       -> m b
+makeScrolledWindowWith container f = do
+    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
+    liftIO $ container `containerAdd` scrollWindow
+    f scrollWindow
 
 
 {-

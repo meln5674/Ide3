@@ -16,7 +16,7 @@ import Language.Haskell.Exts.Parser (ParseResult (..))
 import Language.Haskell.Exts.SrcLoc hiding (loc)
 import Language.Haskell.Exts.Comments
 
-import Ide3.Types (ProjectError (..), ProjectResult)
+import Ide3.Types (SolutionError (..), SolutionResult)
 
 data Highlightable 
     = VarSym
