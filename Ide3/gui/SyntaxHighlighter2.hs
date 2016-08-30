@@ -9,9 +9,11 @@ import Language.Haskell.Exts.Parser
 
 import Language.Haskell.Exts.SrcLoc
 
-import Graphics.UI.Gtk
+--import Graphics.UI.Gtk
 
 import Ide3.Types (SolutionResult, SolutionError (..))
+
+import GuiClass.Types
 
 data SyntaxComponent
     = Comment
@@ -25,9 +27,10 @@ data SyntaxComponent
     | Literal
   deriving (Eq,Ord,Enum,Read,Show)
 
+allSyntaxComponents :: [SyntaxComponent]
 allSyntaxComponents = [Comment .. Literal]
 
-data HighlightInst = HighlightInst SyntaxComponent TextIter TextIter
+data HighlightInst = HighlightInst SyntaxComponent CursorPosition CursorPosition
 
 classifyToken :: Lex.Token -> SyntaxComponent
 classifyToken Lex.VarId{}               = VarId
@@ -182,12 +185,11 @@ classifyToken Lex.EOF{}                 = Syntax
 
 getHighlights :: (Monad m) 
               => String 
-              -> (Int -> Int -> m TextIter) 
-              -> SolutionResult m u [HighlightInst]
-getHighlights text f = case Lex.lexTokenStream text of
+              -> SolutionResult u m [HighlightInst]
+getHighlights text = case Lex.lexTokenStream text of
     ParseOk toks -> forM toks $ \Loc{loc=loc,unLoc=tok} -> lift $ do
-        start <- uncurry f $ let (s,e) = srcSpanStart loc in (s-1,e-1)
-        end <- uncurry f $ let (s,e) = srcSpanEnd loc in (s-1,e-1)
+        let start = let (s,e) = srcSpanStart loc in (Row $ s-1,Column $ e-1)
+        let end = let (s,e) = srcSpanEnd loc in (Row $ s-1,Column $ e-1)
         let tok' = classifyToken tok
         return $ HighlightInst tok' start end
     ParseFailed loc err -> throwE $ ParseError loc err ""

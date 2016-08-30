@@ -11,6 +11,7 @@ Portability : POSIX
 This module defines the Editor type which represent an action that invokes a
 text editor on a given peice of text
 -}
+{-# LANGUAGE RankNTypes #-}
 module Editor
     ( Editor
     , runEditor
@@ -42,18 +43,18 @@ data EditorResult
     | EditCanceled
 
 -- | Abstract type for editors
-newtype Editor m u = MkEditor { runEditorInternal :: String -> SolutionResult m u EditorResult }
+newtype Editor m = MkEditor { runEditorInternal :: forall u . String -> SolutionResult u m EditorResult }
 
 -- | Run an editor on a given string
-runEditor :: Editor m u -> String -> SolutionResult m u EditorResult
+runEditor :: Editor m -> String -> SolutionResult u m EditorResult
 runEditor = runEditorInternal
 
 -- | An editor which represents no editing capability and will always result in an error
-noEditor :: Monad m => Editor m u
+noEditor :: Monad m => Editor m
 noEditor = MkEditor $ \_ -> throwE $ Unsupported "No editor specified"
 
 -- | An editor which invokes the nano program
-nanoEditor :: (MonadIO m, MonadMask m) => Editor m u
+nanoEditor :: (MonadIO m, MonadMask m) => Editor m
 nanoEditor = MkEditor $ \toEdit -> ExceptT $ flip catch handleException $
     withSystemTempFile ".hs" $ \path h -> liftIO $ do
         hClose h

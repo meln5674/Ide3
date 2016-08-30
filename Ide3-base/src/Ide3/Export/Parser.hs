@@ -7,10 +7,9 @@ License     : BSD3
 Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
-
-This module provides functions for parsing exports
 -}
-module Ide3.Export.Parser where
+
+module Ide3.Export.Parser (parse, convertWithBody) where
 
 import Language.Haskell.Exts.Parser (ParseResult(..))
 import Language.Haskell.Exts.Annotated.Parser hiding (parse)
@@ -18,7 +17,7 @@ import qualified Language.Haskell.Exts.Annotated.Parser as Parser
 import Language.Haskell.Exts.Annotated.Syntax hiding (Module)
 import Language.Haskell.Exts.SrcLoc
 
-import Ide3.Types
+import Ide3.Types.Internal
 import Ide3.SrcLoc
 
 
@@ -46,5 +45,7 @@ parse s = case result of
         [export] = exportList
     ParseFailed l msg -> Left $ ParseError l msg ""
   where
+    -- Parsing an export is done by putting in a mock export list, parsing that
+    -- "module", and then pulling out the singleton list of exports
     dummyHeader = "module DUMMY (" ++ s ++ ") where"
     result = Parser.parse dummyHeader :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))

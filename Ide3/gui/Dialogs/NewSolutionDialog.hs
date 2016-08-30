@@ -59,11 +59,13 @@ getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuff
 close :: MonadIO m => NewSolutionDialog -> m ()
 close = liftIO . widgetDestroy . window
 
+{-
 makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
 makeVBoxWith window f = do
     vbox <- liftIO $ vBoxNew False 0
     liftIO $ window `containerAdd` vbox
     f vbox
+-}
 
 makeFileChooser :: (MonadIO m, BoxClass self) => self -> m FileChooserWidget
 makeFileChooser vbox = liftIO $ do
@@ -71,11 +73,13 @@ makeFileChooser vbox = liftIO $ do
     boxPackStart vbox fileChooser PackGrow 0 
     return fileChooser
 
+{-
 makeHBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b
 makeHBoxWith vbox f = do
     hbox <- liftIO $ hBoxNew False 0
     liftIO $ boxPackEnd vbox hbox PackNatural 0
     f hbox
+-}
 
 makeSolutionBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
 makeSolutionBoxWith = makeHBoxWith

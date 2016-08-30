@@ -37,7 +37,7 @@ modifySolution f = liftM f getSolution >>= putSolution
 -- exceptions and returns an additional value
 modifySolutionEnv :: SolutionStateM m 
                   => (Solution -> ExceptT (SolutionError u) m (a,Solution))
-                  -> SolutionResult m u a
+                  -> SolutionResult u m a
 modifySolutionEnv f = do
     s <- lift getSolution
     result <- lift $ runExceptT $ f s

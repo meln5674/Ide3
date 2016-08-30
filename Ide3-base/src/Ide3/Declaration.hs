@@ -16,7 +16,10 @@ module Ide3.Declaration
 
 import Data.List
 
-import Ide3.Types
+import Ide3.OrderedMap (OrderedMap)
+import qualified Ide3.OrderedMap as OMap
+
+import Ide3.Types.Internal
 import qualified Ide3.Declaration.Parser as Parser
 
 import qualified Ide3.Declaration.TypeDeclaration as TypeDeclaration
@@ -26,21 +29,22 @@ import qualified Ide3.Declaration.ModifierDeclaration as ModifierDeclaration
 import qualified Data.Map as Map
 import Data.Map (Map)
 
+import Ide3.Utils.Parser
 
 -- | Create a map from a list by applying a function to each item
 -- The result of the function is used as the key, and the values
 -- in the map are lists of items which produced the same key
-partitionBy :: (Ord k) => (a -> k) -> [a] -> Map k [a]
-partitionBy f ys = go ys Map.empty
+partitionBy :: (Ord k) => (a -> k) -> [a] -> OrderedMap k [a]
+partitionBy f ys = OMap.map reverse $ go ys OMap.empty
   where
     go [] m = m
     go (x:xs) m = go xs m'
       where
         k = f x
-        v' = case Map.lookup k m of
+        v' = case OMap.lookup k m of
             Just v -> x:v
             Nothing -> [x]
-        m' = Map.insert k v' m
+        m' = OMap.insert k v' m
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
@@ -49,7 +53,7 @@ parseAndCombine s fp = do
     ds <- Parser.parseWithBody s fp
     let combined = combineMany ds
     case combined of
-        [d] -> return d
+        [d] -> return $ unAnn d
         [] -> Left $ InvalidOperation "Found no declarations" "Declaration.parseAndCombine"
         _ -> Left $ InvalidOperation "Found more than 1 declaration" "Declaration.parseAndCombine"
     
@@ -62,12 +66,12 @@ parseAndCombineLenient s p di = case parseAndCombine s p of
     Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
 
 -- | Find declarations that can be merged and merge them
-combineMany :: [WithBody Declaration] -> [WithBody Declaration]
+combineMany :: [Ann Parser.SrcSpanInfo (WithBody Declaration)] -> [Ann Parser.SrcSpanInfo (WithBody Declaration)]
 combineMany ds = ds'
   where
-    m = partitionBy (info . item) ds
-    m' = Map.map Parser.combineFuncAndTypeSig m
-    ds' = concat $ Map.elems m'
+    m = partitionBy (info . item . unAnn) ds
+    m' = OMap.map Parser.combineFuncAndTypeSig m
+    ds' = concat $ OMap.elems m'
 
 -- | Get the identifying information from a declaration
 info :: Declaration -> DeclarationInfo

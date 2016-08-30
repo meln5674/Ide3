@@ -15,6 +15,7 @@ module Ide3.Env.Module where
 import Data.List
 
 import qualified Data.Map as Map
+import qualified Ide3.OrderedMap as OMap
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
@@ -23,24 +24,12 @@ import Control.Monad.Trans.State
 
 import Ide3.Env
 
-import Ide3.Types
+import Ide3.Types.Internal
+import Ide3.Types.State
 
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.Module
-
-{-
--- | Determine the next id to assign to an import
-nextImportId :: Module -> ImportId
-nextImportId m = 1 + maximum (-1 : (Map.keys $ moduleImports m))
-
--- | Determine the next id to assign to an export
-nextExportId :: Module -> ExportId
-nextExportId m = case moduleExports m of
-    Nothing -> 0
-    Just es -> 1 + maximum (-1 : Map.keys es)
--}
-
 
 -- | Add a declaration
 addDeclaration :: Monad m => DescentChain2 Module (WithBody Declaration) m u ()
@@ -58,25 +47,25 @@ removeDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u ()
 removeDeclaration = do
     di <- lift ask
     m <- get
-    (d,m') <- lift $ lift $ removeChildT di m
+    (d, m') <- lift $ lift $ removeChildT di m 
     let d' = d :: WithBody Declaration
-    put m'
+    put m' 
 
 -- | Get the ids of all declarations
 getDeclarations :: Monad m => DescentChain1 Module m u [DeclarationInfo]
-getDeclarations = gets $ Map.keys . moduleDeclarations
+getDeclarations = gets $ OMap.keys . moduleDeclarations
 
 -- | Apply a transformation to a declaration
 editDeclaration :: Monad m 
                 => DescentChain3 
                     Module
                     DeclarationInfo 
-                    (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     m u DeclarationInfo
 editDeclaration = descend1 $ do
     f <- lift ask
     d <- get
-    case f $ item d of
+    case f d of
         Right d' -> do
             put d'
             return $ Declaration.info $ item d'
@@ -160,3 +149,10 @@ removePragma = do
 getPragmas :: Monad m => DescentChain1 Module m u [Pragma]
 getPragmas = gets modulePragmas
 
+{-
+getItemAtLocation :: Monad m => DescentChain2 Module (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
+getItemAtLocation = do
+    (r,c) <- lift ask
+    m <- get
+    return $ getItemAtPosition r c m
+-}

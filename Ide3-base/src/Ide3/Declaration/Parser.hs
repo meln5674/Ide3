@@ -11,13 +11,16 @@ Portability : POSIX
 This module provides functions for parsing declarations
 -}
 {-# LANGUAGE FlexibleInstances #-}
-module Ide3.Declaration.Parser where
+module Ide3.Declaration.Parser 
+    ( module Ide3.Declaration.Parser
+    , SrcSpanInfo 
+    ) where
 
 import Data.Monoid
 import Data.List
 
 import Language.Haskell.Exts.Annotated.Parser
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
+import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Ann, ann)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
@@ -30,10 +33,10 @@ import Language.Haskell.Exts.Parser
     )
 import Language.Haskell.Exts.Extension
 
-
+import Ide3.Utils.Parser
 import Ide3.SrcLoc
 
-import Ide3.Types
+import Ide3.Types.Internal
 import qualified Ide3.Constructor as Constructor
 
 -- | Convert a declaration if it is a type synonym
@@ -45,6 +48,7 @@ parseTypeSynonym (TypeDecl _ h t)
                              )
 parseTypeSynonym _ = Nothing
 
+-- | Convert a declaration if it is a GADT newtype
 parseGADTNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
@@ -62,6 +66,7 @@ parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
                              )
 parseNewtypeDecl _ = Nothing
 
+-- | Convert a declaration if it is a GADT data
 parseGADTDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
@@ -130,6 +135,7 @@ parsePatBind (PatBind _ p _ _) = case findName p of
     ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
 parsePatBind _ = Nothing
 
+-- | Convert a declaration if it is a standalone deriving declaration
 parseDerivingDecl :: SrcInfo t => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
@@ -150,7 +156,7 @@ instance SrcInfo a => HasNames (InstRule a) where
     findName (IRule _ _ _ h) = findName h
     findName (IParen _ h) = findName h
 
--- | 
+-- |
 instance SrcInfo a => HasNames (InstHead a) where
     findName (IHCon _ n) = [toSym n]
     findName (IHInfix _ t n) = [toSym t, toSym n]
@@ -210,27 +216,36 @@ parseMany s = case parseModule s of
 instance Spannable Comment where
     getSpan (Comment _ s _) = s
 
--- | Convert a declaration and extract its body
-convertWithBody :: (Show a, Spannable a, SrcInfo a) 
+-- | Convert a declaration and extract its body, along with the comments
+--  directly above it
+convertWithBody :: (Show l, Spannable l, SrcInfo l)
                 => String 
                 -> [Comment]
-                -> Decl a
-                -> Either (SolutionError u) (WithBody Declaration)
+                -> Decl l
+                -> Either (SolutionError u) (Ann l (WithBody Declaration))
 convertWithBody str cs x = case tryConvert x of
-    Just decl -> Right $ WithBody decl (spanWithComments >< str)
+    Just decl -> Right $ Ann (fromSrcInfo $ noInfoSpan finalSpan) $ WithBody decl $ finalSpan >< str
       where
-        leftBoundaryComments = leftBoundaries str (ann x) cs 
-        spanWithComments = case leftBoundaryComments of
-            [] -> getSpan $ ann x
-            (c:_) -> mergeSrcSpan (getSpan c) (getSpan $ ann x)
-        
-    Nothing -> Left $ Unsupported $ (ann x >< str) ++ " " ++ show (ann x)
+        leftBoundaryComments sp = case leftBoundaries str sp cs of
+            [] -> sp
+            (c:_) -> leftBoundaryComments $ mergeSrcSpan (getSpan c) sp
+        -- This is here because of a bug in the haskell-src-exts library
+        -- that causes the sourece spans reported for instance declarations 
+        -- to contain the whitespace and comments up to the next declaration.
+        -- By finding comments which "intersect" with the declaration, we can
+        -- remove the offending span section
+        noIntersectors sp = case intersectors str sp cs of
+            [] -> sp
+            (c:_) -> sp `subtractSrcSpan` c $ str
+        finalSpan = leftBoundaryComments $ noIntersectors $ getSpan $ Syntax.ann x
+    Nothing -> Left $ Unsupported $ (Syntax.ann x >< str) ++ " " ++ show (Syntax.ann x)
 
 -- | Take a list of declarations and combine the first type signature with the first bind
 -- This function assumes that all declarations in the input list have the same symbol
-combineFuncAndTypeSig :: [WithBody Declaration] -> [WithBody Declaration]
+combineFuncAndTypeSig :: [Ann SrcSpanInfo (WithBody Declaration)] -> [Ann SrcSpanInfo (WithBody Declaration)]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
-    (WithBody sig sb:_,WithBody func fb:_) -> WithBody newDecl newBody : notFuncBinds
+    (Ann l (WithBody sig sb) : _, Ann l' (WithBody func fb) : _) 
+        -> (Ann (l <++> l') $ WithBody newDecl newBody) : notFuncBinds
       where
         ModifierDeclaration _ (TypeSignatureDeclaration _ type_) = sig
         BindDeclaration info (LocalBindDeclaration syms _) = func
@@ -238,10 +253,10 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
         newBody = sb ++ "\n" ++ fb
     _ -> ds
   where
-    (typeSigs,notTypeSigs) = partition (isTypeSig . item) ds
+    (typeSigs,notTypeSigs) = partition (isTypeSig . item . unAnn) ds
     isTypeSig (ModifierDeclaration _ (TypeSignatureDeclaration _ _)) = True
     isTypeSig _ = False
-    (funcBinds,notFuncBinds) = partition (isFuncBind . item) notTypeSigs
+    (funcBinds,notFuncBinds) = partition (isFuncBind . item . unAnn) notTypeSigs
     isFuncBind (BindDeclaration _ (LocalBindDeclaration _ _)) = True
     isFuncBind _ = False
 
@@ -255,7 +270,7 @@ parse s = case parseDecl s of
 
 
 -- |Take a string and produce the needed information for building a Module
-parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [WithBody Declaration]
+parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [Ann SrcSpanInfo (WithBody Declaration)]
 parseWithBody s p = case parseModuleWithComments parseMode s of
     ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
     ParseOk (XmlPage{}, _) -> Left $ Unsupported "Xml pages are not yet supported"

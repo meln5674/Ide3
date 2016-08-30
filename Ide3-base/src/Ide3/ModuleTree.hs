@@ -8,7 +8,7 @@ Maintainer  : meln5674@kettering.edu
 Stability   : experimental
 Portability : POSIX
 
-The ModuleTree tpe represents a tree of modules with the period separated
+The ModuleTree type represents a tree of modules with the period separated
 symbols specifying the heirarchy.
 -}
 
@@ -16,15 +16,13 @@ symbols specifying the heirarchy.
 module Ide3.ModuleTree where
 
 import Data.List
-
 import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Control.Monad
 
 import Ide3.NewMonad
-
-import Ide3.Types hiding (moduleInfo)
+import Ide3.Types.Internal hiding (moduleInfo)
 
 -- | Utility function, just map with arguments reversed
 for :: [a] -> (a -> b) -> [b]
@@ -35,10 +33,19 @@ for xs f = map f xs
 partitionBy :: Ord k => (a -> k) -> [a] -> Map k [a]
 partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -> Just (x:ys) }) (f x) m) Map.empty
 
--- | Data type used by the tree command
+-- | A tree representing a heirarchy of modules, along with the keys for
+-- reterieving their contents
 data ModuleTree
-    = OrgNode ModuleInfo [ModuleTree]
-    | ModuleNode ModuleInfo [ModuleTree] [Pragma] [DeclarationInfo] [(ImportId, WithBody Import)] (Maybe [(ExportId,WithBody Export)])
+    = OrgNode
+        ModuleInfo 
+        [ModuleTree]
+    | ModuleNode
+        ModuleInfo 
+        [ModuleTree] 
+        [Pragma] 
+        [DeclarationInfo] 
+        [(ImportId, WithBody Import)] 
+        (Maybe [(ExportId,WithBody Export)])
     deriving Show
 
 -- | Take a list of module infos and produce a module tree with no declarations
@@ -68,22 +75,6 @@ makeTreeSkeleton = go ""
             postRoot = takeWhile ('.' /= ) $ drop (length knownRoot) s
         getRootName x = x
 
-
-{-
-Take a list of module names
-Find all root module names
-Collect module names into lists tagged with the root
-For each list:
-    If the root is present:
-        remove the root
-        Repeat the process on the sub-list, not considering the root as part of the name
-        Collect the result into a ModuleNode with empty declarations
-    If the root is not present:
-        Repeat the process on the sub-list, not considering the root as part of the name
-        Collect the result into an OrgNode
-
--}
-
 -- | Take a module tree and fill each node with its declarations
 fillTree :: ( ModuleExportClass m
             , ModuleImportClass m
@@ -92,7 +83,7 @@ fillTree :: ( ModuleExportClass m
             )
          => ProjectInfo 
          -> ModuleTree 
-         -> SolutionResult m u ModuleTree
+         -> SolutionResult u m ModuleTree
 fillTree pji (OrgNode i ts) = do
     ts' <- mapM (fillTree pji) ts
     return $ OrgNode i ts'
@@ -110,7 +101,7 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
     ts' <- mapM (fillTree pji) ts
     return $ ModuleNode i ts' ps ds is es
 
--- | Make a module tree from the current project
+-- | Make a module tree from a project
 makeTree :: ( ProjectModuleClass m
             , ModuleExportClass m
             , ModuleImportClass m
@@ -118,7 +109,7 @@ makeTree :: ( ProjectModuleClass m
             , ModulePragmaClass m
             )
          => ProjectInfo 
-         -> SolutionResult m u [ModuleTree]
+         -> SolutionResult u m [ModuleTree]
 makeTree pji = do
     modules <- getModules pji
     let emptyTree = makeTreeSkeleton modules

@@ -20,16 +20,13 @@ import Control.Monad.Trans.State
 
 import Ide3.Env
 
-import Ide3.Types
+import Ide3.Types.Internal
+import Ide3.Types.State
 
 import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
 
 import Ide3.Solution.Internal()
-
--- | Create a new solution from info
-new :: SolutionInfo -> Solution
-new i = Solution i Map.empty
 
 -- | Add a project
 addProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
@@ -38,7 +35,7 @@ addProject = do
     s <- get
     put =<< lift (lift $ addChildT pji (Project.new pji) s)
 
--- | Remove a project by id
+-- | Remove a project
 removeProject :: Monad m => DescentChain2 Solution ProjectInfo m u ()
 removeProject = do
     pji <- lift ask
@@ -59,7 +56,7 @@ getProject = descend0 get
 editProjectInfo :: Monad m => DescentChain3 Solution ProjectInfo (ProjectInfo -> ProjectInfo) m u ()
 editProjectInfo = descend1 Project.editProjectInfo
 
--- | Get the ids of all modules in aproject
+-- | Get the ids of all modules in a project
 allModules :: Monad m => DescentChain2 Solution ProjectInfo m u [ModuleInfo]
 allModules = descend0 Project.allModules
 
@@ -89,17 +86,33 @@ editModule :: Monad m
                 m u ()
 editModule = descend2 Project.editModule
 
+-- | Get the header from a module
+getModuleHeader :: Monad m
+                => DescentChain3 Solution ProjectInfo ModuleInfo m u String
+getModuleHeader = descend1 $ Project.getModuleHeader
+    
+-- | Edit the header of a module
+editModuleHeader :: Monad m
+                 => DescentChain4 Solution ProjectInfo ModuleInfo (String -> String) m u ()
+editModuleHeader = descend2 $ Project.editModuleHeader
+
 -- | Add an external module to a project
 addExternModule :: Monad m => DescentChain3 Solution ProjectInfo ExternModule m u ()
 addExternModule = descend1 Project.addExternModule
+
+-- | Add an empty local module to a project
+createExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
+createExternModule = descend1 Project.createExternModule
 
 -- | Get an external module by id from a project
 getExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ExternModule
 getExternModule = descend1 Project.getExternModule
 
+-- | Get the ids of all external modules in a project
 getExternModules :: Monad m => DescentChain2 Solution ProjectInfo m u [ModuleInfo]
 getExternModules = descend0 Project.getExternModules
 
+-- | Remove an external module from a project
 removeExternModule :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u ()
 removeExternModule = descend1 Project.removeExternModule
 
@@ -118,7 +131,7 @@ editDeclaration :: Monad m
                     ProjectInfo 
                     ModuleInfo 
                     DeclarationInfo 
-                    (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     m u DeclarationInfo
 editDeclaration = descend3 Project.editDeclaration
 
@@ -183,3 +196,23 @@ removePragma = descend2 Project.removePragma
 getPragmas :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u [Pragma]
 getPragmas = descend1 Project.getPragmas
 
+-- | Add an export and return the id assigned to it
+addExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExternExport m u ExportId
+addExternExport = descend2 $ Project.addExternExport
+
+-- | Remove an export by id
+removeExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExportId m u ()
+removeExternExport = descend2 $ Project.removeExternExport
+
+-- | Get an export by id
+getExternExport :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo ExportId m u ExternExport
+getExternExport = descend2 $ Project.getExternExport
+
+-- | Get the ids of all exports, or signify that all symbols are exported
+getExternExports :: Monad m => DescentChain3 Solution ProjectInfo ModuleInfo m u [ExportId]
+getExternExports = descend1 $ Project.getExternExports
+
+{-
+getItemAtLocation :: Monad m => DescentChain4 Solution ProjectInfo ModuleInfo (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
+getItemAtLocation = descend2 Project.getItemAtLocation
+-}

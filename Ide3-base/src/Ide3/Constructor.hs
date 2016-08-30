@@ -10,7 +10,7 @@ Portability : POSIX
 -}
 module Ide3.Constructor where
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
 import Language.Haskell.Exts.SrcLoc
@@ -31,6 +31,7 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
 instance SrcInfo a => ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d
 
+-- |
 instance SrcInfo a => ToConstructor (GadtDecl a) where
     toConstructor (GadtDecl _ n (Just rs) _) = RecordConstructor (toSym n) (concatMap f rs)
       where

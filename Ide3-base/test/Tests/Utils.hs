@@ -9,51 +9,54 @@ import Control.Monad.Trans.State.Strict
 import Test.HUnit
 
 import Ide3.Types
-import Ide3.Monad
-import Ide3.Mechanism
-import Ide3.Mechanism.State
+import Ide3.NewMonad
+import Ide3.NewMonad.Instances.State
+import Ide3.NewMonad.Instances.State.Class
+import Ide3.NewMonad.Instances.State.Class.Instances.Strict
 
-import qualified Ide3.Env.Solution as Solution
+import qualified Ide3.Solution as Solution
 
-instance Monad m => SolutionShellM (SolutionStateT m) where
-    load = error "CAN'T LOAD"
-    new = return . Solution.new
-    finalize = error "CAN'T FINALIZE"
+instance Monad m => StatefulPersistenceClass (SolutionStateT m) where
+    loadState = error "CAN'T LOAD"
+    newState = return . Solution.new
+    finalizeState = error "CAN'T FINALIZE"
 
 failedTestName :: (?loc :: CallStack) => String
 failedTestName = fst . last . getCallStack $ ?loc
 
-runExceptProject :: SolutionResult (StatefulSolution SolutionState) () a 
+{-
+runExceptProject :: SolutionResult (StatefulWrapper SolutionState) () a 
                  -> SolutionState (Either (SolutionError ()) a)
-runExceptProject = runStatefulSolution . runExceptT
+runExceptProject = runStatefulWrapper . runExceptT
+-}
 
-runExceptProjectT :: Monad m => SolutionResult (StatefulSolution (SolutionStateT m)) () a 
+runExceptProjectT :: Monad m => SolutionResult () (StatefulWrapper (SolutionStateT m)) a 
                   -> SolutionStateT m (Either (SolutionError ()) a)
-runExceptProjectT = runStatefulSolution . runExceptT
+runExceptProjectT = runStatefulWrapper . runExceptT
 
 expectFailure :: (?loc :: CallStack, Show a)
-              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+              => SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
               -> Test
 expectFailure f = TestCase $ do
-    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
+    (result,_) <- flip runStateT Solution.empty $ runSolutionStateT $ runExceptProjectT f
     case result of
         Left _ -> assertString ""
         Right x -> assertFailure $ failedTestName ++ ": Expected to fail but got: " ++ show x
 
 expectSuccess :: (?loc :: CallStack, Show a)
-              => SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+              => SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
               -> Test
 expectSuccess f = TestCase $ do
-    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
+    (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right _ -> assertString ""
 
 expectResult :: (?loc :: CallStack, Show a, Eq a)
-             => a -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+             => a -> SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
              -> Test
 expectResult expected f = TestCase $ do
-    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
+    (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got: " ++ show err
         Right actual | expected == actual -> assertString ""
@@ -65,10 +68,10 @@ expectResult expected f = TestCase $ do
                                  ++ show expected
 
 expectPredicate :: (?loc :: CallStack, Show a, Eq a)
-                => (a -> Bool) -> SolutionResult (StatefulSolution (SolutionStateT IO)) () a 
+                => (a -> Bool) -> SolutionResult () (StatefulWrapper (SolutionStateT IO)) a 
                 -> Test
 expectPredicate predicate f = TestCase $ do
-    (result,_) <- runNewSolutionStateT $ runExceptProjectT f
+    (result,_) <- flip runStateT Solution.empty $ runSolutionStateT  $ runExceptProjectT f
     case result of
         Left err -> assertFailure $ failedTestName ++ ": Expected to succeed but got : " ++ show err
         Right actual | predicate actual -> assertString ""
@@ -91,11 +94,20 @@ newModuleInfo = ModuleInfo $ Symbol "New.Module"
 newModuleInfo2 = ModuleInfo $ Symbol "New.Module2"
 newDeclarationInfo = DeclarationInfo newDeclarationSymbol
 newDeclarationSymbol = Symbol "TestType"
+newDeclarationInfo2 = DeclarationInfo newDeclarationSymbol2
+newDeclarationSymbol2 = Symbol "TestType2"
 newDeclaration = WithBody
     (TypeDeclaration newDeclarationInfo
                     $ TypeSynonym (Symbol "TestType")
                                   (Symbol "String"))
     "type TestType = String"
+newDeclaration2 = WithBody
+    (TypeDeclaration newDeclarationInfo2
+                    $ TypeSynonym (Symbol "TestType2")
+                                  (Symbol "String"))
+    "type TestType2 = String"
+
+
 newDeclarationExport = WithBody (SingleExport newDeclarationSymbol) "TestType"
 newDeclarationImport = WithBody (WhitelistImport (Symbol "New.Module2") False Nothing [NameImport newDeclarationSymbol]) "import New.Module2 (TestType)"
 

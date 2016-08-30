@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-|
 Module      : Viewer
 Description : Viewer for the demo solution
@@ -27,6 +28,7 @@ import Data.Maybe
 import System.Directory
 
 import Control.Monad
+import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
@@ -35,12 +37,24 @@ import PseudoState
 
 import Ide3.NewMonad.Instances.Undecidable()
 
+import Ide3.Utils
 import Ide3.Types
-import Ide3.NewMonad hiding (load, new, finalize)
-import qualified Ide3.NewMonad as M
-import Ide3.Types (Solution, SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
+--import Ide3.NewMonad hiding (load, new, finalize)
+--import qualified Ide3.NewMonad as M
+import Ide3.NewMonad
+import Ide3.Types (SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
+
+class ViewerMonad m => ViewerStateClass m where
+    getCurrentProject :: m (Maybe ProjectInfo)
+    getCurrentModule :: m (Maybe (ProjectInfo, ModuleInfo))
+    getCurrentDeclaration :: m (Maybe (ProjectInfo, ModuleInfo,DeclarationInfo))
+    setCurrentProject :: ProjectInfo -> m ()
+    setCurrentModule :: ProjectInfo -> ModuleInfo -> m ()
+    -- | Set the current declaration of the program
+    setCurrentDecl :: ProjectInfo -> ModuleInfo -> DeclarationInfo -> m ()
+    setNoCurrentDecl :: m ()
 
 -- | The state of the program
 data ViewerState
@@ -52,7 +66,8 @@ data ViewerState
 
 -- | Transformer which adds access to the state of the program
 newtype ViewerStateT m a = ViewerStateT { runViewerStateTInternal :: StateT ViewerState m a }
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, ViewerMonad)
+
   
 instance MonadBounce ViewerStateT where
     bounce = ExceptT . ViewerStateT . lift . runExceptT
@@ -115,84 +130,142 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
     return (result,Resume viewer' fsp' proj')
 -}
 
-hasCurrentProject :: (Monad m) => ViewerStateT m Bool
+hasCurrentProject :: (ViewerStateClass m) => m Bool
 hasCurrentProject = liftM isJust getCurrentProject
 
 -- | Check if the program currently has a module open
-hasCurrentModule :: (Monad m) => ViewerStateT m Bool
+hasCurrentModule :: (ViewerStateClass m) => m Bool
 hasCurrentModule = liftM isJust getCurrentModule
 
 
-hasCurrentDeclaration :: (Monad m) => ViewerStateT m Bool
+hasCurrentDeclaration :: (ViewerStateClass m) => m Bool
 hasCurrentDeclaration = liftM isJust getCurrentDeclaration
 
 -- | Open a solution at a given path
-openSolution :: (MonadIO m, ViewerMonad m, PersistenceClass m)
+openSolution :: ( MonadIO m, ViewerStateClass m, PersistenceClass m )
             => FilePath 
-            -> SolutionResult (ViewerStateT m) u ()
+            -> SolutionResult u m ()
 openSolution path = do
     isFile <- liftIO $ doesFileExist path
     isDir <- liftIO $ doesDirectoryExist path
     case (isFile, isDir) of
         (True, _) -> do
-            bounce $ setFileToOpen path
-            lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce M.load
+            setFileToOpen path
+            lift $ setNoCurrentDecl
+            load
         (_,True) -> do
-            bounce $ setDirectoryToOpen path
-            lift $ ViewerStateT $ modify $ \s -> s{currentProject=Nothing}
-            bounce M.load
+            setDirectoryToOpen path
+            lift $ setNoCurrentDecl
+            load
         (_,_) -> throwE $ InvalidOperation (path ++ " does not exist") ""
 
 -- | Save the current solution, optionally with a new path to save to
-saveSolution :: (MonadIO m, ViewerMonad m, PersistenceClass m) 
+saveSolution :: (ViewerMonad m, PersistenceClass m, ViewerStateClass m) 
             => Maybe FilePath
-            -> SolutionResult (ViewerStateT m) u ()
+            -> SolutionResult u m ()
 saveSolution maybePath = do
-    cond <- lift $ ViewerStateT $ lift $ hasOpenedSolution
+    cond <- lift hasOpenedSolution
     if cond
         then do 
                 case maybePath of
-                    Just path -> bounce $ setTargetPath path
+                    Just path -> setTargetPath path
                     Nothing -> return ()
-                bounce M.finalize
+                finalize
         else throwE $ InvalidOperation "No solution is currently open" ""
 
 
-
-setCurrentProject :: Monad m => ProjectInfo -> ViewerStateT m ()
-setCurrentProject pi = ViewerStateT $ put $ Viewer (Just pi) Nothing Nothing
-
-setCurrentModule :: Monad m => ProjectInfo -> ModuleInfo -> ViewerStateT m ()
-setCurrentModule pi mi = ViewerStateT $ put $ Viewer (Just pi) (Just mi) Nothing
-
--- | Set the current declaration of the program
-setCurrentDecl :: Monad m => ProjectInfo -> ModuleInfo -> DeclarationInfo -> ViewerStateT m ()
-setCurrentDecl pi mi di = ViewerStateT $ put $ Viewer (Just pi) (Just mi) (Just di)
-
-
-getCurrentProject :: Monad m => ViewerStateT m (Maybe ProjectInfo)
-getCurrentProject = ViewerStateT $ gets currentProject
-
-getCurrentModule :: Monad m => ViewerStateT m (Maybe (ProjectInfo, ModuleInfo))
-getCurrentModule = ViewerStateT $ do
-    pi <- gets currentProject
-    mi <- gets currentModule
-    case pi of
-        Just pi -> case mi of
-            Just mi -> return $ Just (pi,mi)
-            Nothing -> return Nothing
-        Nothing -> return Nothing
-
-getCurrentDeclaration :: Monad m => ViewerStateT m (Maybe (ProjectInfo, ModuleInfo,DeclarationInfo))
-getCurrentDeclaration = ViewerStateT $ do
-    pi <- gets currentProject
-    mi <- gets currentModule
-    di <- gets currentDecl
-    case pi of
-        Just pi -> case mi of
-            Just mi -> case di of
-                Just di -> return $ Just (pi,mi,di)
+instance ViewerMonad m => ViewerStateClass (ViewerStateT m) where
+    setCurrentProject pi = ViewerStateT $ put $ Viewer (Just pi) Nothing Nothing
+    setCurrentModule pi mi = ViewerStateT $ put $ Viewer (Just pi) (Just mi) Nothing
+    setCurrentDecl pi mi di = ViewerStateT $ put $ Viewer (Just pi) (Just mi) (Just di)
+    getCurrentProject = ViewerStateT $ gets currentProject
+    getCurrentModule = ViewerStateT $ do
+        pi <- gets currentProject
+        mi <- gets currentModule
+        case pi of
+            Just pi -> case mi of
+                Just mi -> return $ Just (pi,mi)
                 Nothing -> return Nothing
             Nothing -> return Nothing
-        Nothing -> return Nothing
+    getCurrentDeclaration = ViewerStateT $ do
+        pi <- gets currentProject
+        mi <- gets currentModule
+        di <- gets currentDecl
+        case pi of
+            Just pi -> case mi of
+                Just mi -> case di of
+                    Just di -> return $ Just (pi,mi,di)
+                    Nothing -> return Nothing
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+    setNoCurrentDecl = ViewerStateT $ put $ Viewer Nothing Nothing Nothing
+    
+    
+    
+instance (PersistenceClass m) => PersistenceClass (ViewerStateT m) where
+    load = bounce load
+    new = bounce . new
+    finalize = bounce finalize
+
+instance  (SolutionClass m) => SolutionClass (ViewerStateT m) where
+    editSolutionInfo = bounce . editSolutionInfo
+    addProject = bounce . addProject
+    removeProject = bounce . removeProject
+    getProjects = bounce getProjects
+    editProjectInfo x = bounce . editProjectInfo x
+
+instance  (ProjectModuleClass m) => ProjectModuleClass (ViewerStateT  m) where
+    --addModule x = bounce . addModule x
+    createModule x = bounce . createModule x
+    removeModule x = bounce . removeModule x
+    --getModule x = bounce . getModule x
+    getModules = bounce . getModules
+    --editModule x y = bounce . editModule x y
+    getModuleHeader x = bounce . getModuleHeader x
+    editModuleHeader x y = bounce . editModuleHeader x y
+
+instance   (ProjectExternModuleClass m) => ProjectExternModuleClass (ViewerStateT  m) where
+    --addExternModule x = bounce . addExternModule x
+    createExternModule x = bounce . createExternModule x
+    --getExternModule x = bounce . getExternModule x
+    getExternModules = bounce . getExternModules
+    removeExternModule x = bounce . removeExternModule x
+
+instance   (ModuleDeclarationClass m) => ModuleDeclarationClass (ViewerStateT  m) where
+    editDeclaration x y z = bounce . editDeclaration x y z
+    addDeclaration x y = bounce . addDeclaration x y
+    getDeclaration x y = bounce . getDeclaration x y
+    getDeclarations x = bounce . getDeclarations x
+    removeDeclaration x y = bounce . removeDeclaration x y
+
+instance   (ModuleImportClass m) => ModuleImportClass (ViewerStateT  m) where
+    addImport x y = bounce . addImport x y
+    getImport x y = bounce . getImport x y
+    removeImport x y = bounce . removeImport x y
+    getImports x = bounce . getImports x
+
+instance   (ModuleExportClass m) => ModuleExportClass (ViewerStateT  m) where
+    addExport x y = bounce . addExport x y
+    getExport x y = bounce . getExport x y
+    removeExport x y = bounce . removeExport x y
+    exportAll x = bounce . exportAll x
+    exportNothing x = bounce . exportNothing x
+    getExports x = bounce . getExports x
+
+instance   (ModulePragmaClass m) => ModulePragmaClass (ViewerStateT  m) where
+    addPragma x y = bounce . addPragma x y
+    removePragma x y = bounce . removePragma x y
+    getPragmas x = bounce . getPragmas x
+
+instance (ExternModuleExportClass m) => ExternModuleExportClass (ViewerStateT m) where
+    addExternExport x y = bounce . addExternExport x y
+    getExternExport x y = bounce . getExternExport x y
+    getExternExports x = bounce . getExternExports x
+    removeExternExport x y = bounce . removeExternExport x y
+
+instance (ModuleLocationClass m) => ModuleLocationClass (ViewerStateT m) where
+    getModuleItemAtLocation = bounce .-... getModuleItemAtLocation
+
+deriving instance (MonadMask m) => MonadMask (ViewerStateT m)
+deriving instance (MonadCatch m) => MonadCatch (ViewerStateT m)
+deriving instance (MonadThrow m) => MonadThrow (ViewerStateT m)

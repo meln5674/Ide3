@@ -26,21 +26,21 @@ import Ide3.Types
 class Monad m => ViewerMonad m where
     -- | Set the file to open so that when SolutionM.load is called, that path is
     -- used to open a project
-    setFileToOpen :: FilePath -> SolutionResult m u ()
+    setFileToOpen :: FilePath -> SolutionResult u m ()
     -- | Set the directory to open so that when SolutionM.load is called, that
     -- path is used to open a project
-    setDirectoryToOpen :: FilePath -> SolutionResult m u ()
+    setDirectoryToOpen :: FilePath -> SolutionResult u m ()
     -- | Set the path to save to so that when SolutionM.finalize is called, that
     -- path is used to save the project
-    setTargetPath ::  String -> SolutionResult m u ()
+    setTargetPath ::  String -> SolutionResult u m ()
     -- | Check if there is a project currently open
     hasOpenedSolution :: m Bool
     -- | Set the project to an empty project at the provided file path
-    createNewFile :: FilePath -> SolutionResult m u ()
+    createNewFile :: FilePath -> SolutionResult u m ()
     -- | Set the project to an empty project at the provided directory path
-    createNewDirectory :: FilePath -> SolutionResult m u ()
+    createNewDirectory :: FilePath -> SolutionResult u m ()
     -- | Perform any actions necessary to be able to build using the 'stack build' shell command
-    prepareBuild :: SolutionResult m u ()
+    prepareBuild :: SolutionResult u m ()
 
 {-
 instance (PseudoStateT t s, SolutionM (t m), MonadTrans t, ViewerMonad m) => ViewerMonad (t m) where

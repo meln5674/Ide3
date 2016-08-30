@@ -1,9 +1,29 @@
-module Ide3.Import.Internal where
+{-|
+Module      : Ide3.Import.Internal
+Description : Operations on import declarations
+Copyright   : (c) Andrew Melnick, 2016
 
-import Ide3.Types
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
 
-import Data.List
+module Ide3.Import.Internal
+    ( moduleName
+    , isQualified
+    , renamed
+    , qualifySymbols
+    , importedModuleName
+    , commonPath
+    , editModuleName
+    ) where
+
 import Data.Maybe
+import Data.List
+
+import Ide3.Utils
+import Ide3.Types.Internal
 
 -- | Get the name of the module being imported, pre-rename
 moduleName :: Import -> Symbol
@@ -38,14 +58,35 @@ importedModuleName i = fromMaybe name rename
     name = moduleName i
     rename = renamed i        
 
+
+splitByDots :: String -> [String]
+splitByDots s = go s []
+  where
+    go [] ys = reverse ys
+    go xs ys = go (drop 1 $ dropWhile (/='.') xs) (takeWhile (/='.') xs : ys)
+
+-- | Test if two imports have a common module path, i.e. Data.List and Data.Map
+commonPath :: Import -> Import -> Bool
+commonPath i1 i2 = sameCount /= 0
+  where
+    m1 = getSymbol $ moduleName i1
+    m2 = getSymbol $ moduleName i2
+    p1 = splitByDots m1
+    p2 = splitByDots m2
+    inits1 = tail $ inits p1
+    inits2 = tail $ inits p2
+    sameCount = length $ takeWhile id $ zipWith (==) inits1 inits2
+
 -- | Apply a transformation to the name of the module being imported
 editModuleName :: (Symbol -> Symbol) 
                -> WithBody Import
                -> WithBody Import
 editModuleName f (WithBody (ModuleImport sym a b) s)
-    = WithBody (ModuleImport (f sym) a b) $ error "TODO"
+    = WithBody (ModuleImport (f sym) a b) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (WhitelistImport sym a b c) s)
-    = WithBody (WhitelistImport (f sym) a b c) $ error "TODO"
+    = WithBody (WhitelistImport (f sym) a b c) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (BlacklistImport sym a b c) s)
-    = WithBody (BlacklistImport (f sym) a b c) $ error "TODO"
-
+    = WithBody (BlacklistImport (f sym) a b c) 
+    $ replace (getSymbol sym) (getSymbol $ f sym) s

@@ -17,17 +17,16 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Ide3.Types
-                     , Ide3.Env
-                     , Ide3.Env.Solution
-                     , Ide3.Env.Project
-                     , Ide3.Env.Module
+                     , Ide3.Types.State
                      , Ide3.SrcLoc
-                     , Ide3.Project
                      , Ide3.Solution
+                     , Ide3.Solution.Query
+                     , Ide3.Project
+                     , Ide3.Project.Query
                      , Ide3.Module
-                     , Ide3.Module.Parser
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
+                     , Ide3.Refactor
                      , Ide3.NewMonad
                      , Ide3.NewMonad.Utils
                      , Ide3.NewMonad.Instances.Undecidable
@@ -39,19 +38,15 @@ library
                      , Ide3.NewMonad.Instances.State.ModuleImportClass
                      , Ide3.NewMonad.Instances.State.ModuleExportClass
                      , Ide3.NewMonad.Instances.State.ModulePragmaClass
+                     , Ide3.NewMonad.Instances.State.ExternModuleExportClass
+                     , Ide3.NewMonad.Instances.State.ModuleFileClass
                      , Ide3.NewMonad.Instances.State.Compose
                      , Ide3.NewMonad.Instances.State.Class
                      , Ide3.NewMonad.Instances.State.Class.Instances.Strict
                      , Ide3.NewMonad.Instances.State.Class.Instances.Lazy
-                     , Ide3.Export.Query
-                     , Ide3.Import.Query
-                     , Ide3.Module.Query
                      , Ide3.Import
-                     , Ide3.Import.Parser
                      , Ide3.Export
-                     , Ide3.Export.Parser
                      , Ide3.Declaration
-                     , Ide3.Declaration.Parser
                      , Ide3.Declaration.TypeDeclaration
                      , Ide3.Declaration.BindDeclaration
                      , Ide3.Declaration.ModifierDeclaration
@@ -60,12 +55,27 @@ library
                      , Ide3.Digest
                      , Ide3.Utils
   other-modules:       Ide3.Module.Internal
-                     , Ide3.Module.Common.Query
+                     , Ide3.Module.Extern.Internal
+                     , Ide3.Env
+                     , Ide3.Env.Solution
+                     , Ide3.Env.Project
+                     , Ide3.Env.Module
+                     , Ide3.Env.ExternModule
                      , Ide3.Module.Common.Types
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal
                      , Ide3.Import.Internal
+                     , Ide3.Types.Internal
                      , Ide3.Query
+                     , Ide3.Module.Query
+                     , Ide3.Module.Parser
+                     , Ide3.Export.Query
+                     , Ide3.Import.Query
+                     , Ide3.Import.Parser
+                     , Ide3.Export.Parser
+                     , Ide3.Declaration.Parser
+                     , Ide3.OrderedMap
+                     , Ide3.Utils.Parser
   build-depends:       base
                      , containers
                      , mtl

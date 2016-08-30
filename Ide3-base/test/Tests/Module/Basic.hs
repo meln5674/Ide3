@@ -5,7 +5,7 @@ import GHC.Stack
 
 import Test.HUnit
 
-import Ide3.Monad
+import Ide3.NewMonad
 import qualified Ide3.Module as Module
 
 import Tests.Utils
@@ -24,10 +24,10 @@ test_addModule = expectSuccess $ do
     createModule newProjectInfo newModuleInfo
 
 test_addAndRetreiveModule :: (?loc :: CallStack) => Test    
-test_addAndRetreiveModule = expectResult (Module.new newModuleInfo) $ do
+test_addAndRetreiveModule = expectResult (Module.toFile $ Module.new newModuleInfo) $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
-    getModule newProjectInfo newModuleInfo
+    toFile newProjectInfo newModuleInfo
 
 test_addAndRemoveModule :: (?loc :: CallStack) => Test    
 test_addAndRemoveModule = expectSuccess $ do
@@ -40,7 +40,7 @@ test_addRemoveAndRetreiveModule = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     removeModule newProjectInfo newModuleInfo
-    getModule newProjectInfo newModuleInfo
+    toFile newProjectInfo newModuleInfo
 
 test_addRemoveAndReAddModule :: (?loc :: CallStack) => Test    
 test_addRemoveAndReAddModule = expectSuccess $ do

@@ -16,10 +16,13 @@ cabal-version:       >=1.10
 library
     hs-source-dirs:    src
     exposed-modules:   Runner
+                     , Runner.Stack
                      , Builder
+                     , Builder.Stack
                      , Initializer
+                     , Initializer.Stack
                      , ProjectInitializer
-                     , ProjectInitializer.Cabal
+                     , ProjectInitializer.Stack
                      , Editor
                      , Viewer
                      , ViewerMonad
@@ -28,7 +31,12 @@ library
                      , CabalFilesystemSolution
                      , PseudoState
                      , CabalMonad
+                     , EnvironmentMonad
+                     , EnvironmentMonad.Stack
                      , Args
+                     , ErrorParser
+                     , ErrorParser.Types
+                     , DirtyModuleClass
     build-depends:     base
                      , temporary
                      , directory
@@ -39,13 +47,26 @@ library
                      , filepath
                      , Ide3-base
                      , Cabal
+                     , parsec
                      , containers
     default-language:  Haskell2010
+
+executable OverlayTest
+  hs-source-dirs:      overlay
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , gtk3
+
 
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
   other-modules:       SolutionTree
+                     , BetterTextView
+                     , DeclarationPath
+                     , GuiViewer
+                     , GuiViewer.Class
                      , GuiCommand
                      , GuiCommand.Internal
                      , ProcessReader
@@ -55,18 +76,25 @@ executable Ide3-GUI
                      , Dialogs.NewImportDialog
                      , Dialogs.NewExportDialog
                      , Dialogs.GenericNewDialog
+                     , Dialogs.SearchBar
                      , GuiMonad
                      , GuiEnv
+                     , GuiClass
+                     , GuiClass.GuiEnv
+                     , GuiClass.Types
                      , ViewerMonad2
                      , GuiHelpers
                      , SolutionContextMenu
-                     , SyntaxHighlighter
+                     --, SyntaxHighlighter
                      , SyntaxHighlighter2
+                     , History
+                     , SearchMode
+                     , GuiError
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , Ide3-base
                      , Ide3
-                     , gtk
+                     , gtk3
                      , glib
                      , transformers
                      , mtl
@@ -79,6 +107,7 @@ executable Ide3-GUI
                      , conduit
                      , conduit-extra
                      , haskell-src-exts
+                     , parsec
   default-language:    Haskell2010
                      
 executable Ide3-CLI
@@ -105,6 +134,19 @@ executable Ide3-CLI
                      , temporary 
                      , exceptions
   default-language:    Haskell2010
+
+test-suite Ide3-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test, src
+  main-is:             Main.hs
+  other-modules:       ErrorParser
+  build-depends:       base
+                     , Ide3
+                     , Ide3-base
+                     , HUnit
+                     , mtl
+                     , transformers
+                     , parsec
 
 source-repository head
   type:     git

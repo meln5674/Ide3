@@ -1,22 +1,28 @@
+{-|
+Module      : Ide3.NewMonad.Instances.State.ProjectModuleClass
+Description : Stateful implementation of the ProjectModuleClass
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 module Ide3.NewMonad.Instances.State.ProjectModuleClass where
 
-import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Except
-
+import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
-import Ide3.Types
-
+-- | 
 instance StatefulSolutionClass m => ProjectModuleClass (StatefulWrapper m) where
-    addModule a b = modifySolutionER $ \s -> runDescent3 Solution.addModule s a b
-    createModule a b = modifySolutionER $ \s -> runDescent3 Solution.createModule s a b
-    getModule a b = modifySolutionER $ \s -> runDescent3 Solution.getModule s a b
-    getModules a = modifySolutionER $ \s -> runDescent2 Solution.allModules s a
-    editModule a b c = modifySolutionER $ \s -> runDescent4 Solution.editModule s a b c
-    removeModule a b = modifySolutionER $ \s -> runDescent3 Solution.removeModule s a b
+    createModule = modifySolutionER .-.. runDescent3 Solution.createModule
+    getModules = modifySolutionER .-. runDescent2 Solution.allModules
+    removeModule = modifySolutionER .-.. runDescent3 Solution.removeModule
+    getModuleHeader = modifySolutionER .-.. runDescent3 Solution.getModuleHeader
+    editModuleHeader = modifySolutionER .-... runDescent4 Solution.editModuleHeader

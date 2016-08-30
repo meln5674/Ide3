@@ -1,8 +1,17 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 module GuiHelpers 
     ( makeMenuWith
     , makeMenuButton
+    , makeButton
+    , makeLabel
     , makeWindowWith
+    , makeOverlayWith
+    , makeVBoxWith
+    , makeHBoxWith
+    , makeNotebookWith
+    , makeNotebookPageWith
+    , makeScrolledWindowWith
     , GuiSignal
     , GuiSignal2
     , onGui
@@ -14,13 +23,24 @@ module GuiHelpers
     , mkGuiSignal
     , mkGuiSignalWith
     , editSignal
+    , wrapGuiSignal
+    , addAccel
     ) where
+
+import Data.Text
 
 import Control.Monad.Trans
 
 import System.Glib.UTFString
 
 import Graphics.UI.Gtk
+
+{-
+class ContainerShell self where
+    addToContainer :: (WidgetClass widget) => self -> widget -> IO ()
+
+instance ContainerShell 
+-}
 
 makeMenuWith :: ( MenuShellClass self
                 , System.Glib.UTFString.GlibString string
@@ -38,10 +58,63 @@ makeMenuWith label f menuBar = do
 makeWindowWith :: (MonadIO m) => (Window -> m b) -> m b
 makeWindowWith f = do
     window <- liftIO $ windowNew
-    liftIO $ windowSetModal window True
+    liftIO $ set window [windowModal := True]
     r <- f window
     liftIO $ widgetShowAll window
     return r
+
+makeOverlayWith :: (MonadIO m, ContainerClass self) => self -> (Overlay -> m b) -> m b
+makeOverlayWith container f = do
+    overlay <- liftIO $ overlayNew
+    liftIO $ container `containerAdd` overlay
+    f overlay
+
+makeVBoxWith :: (MonadIO m, ContainerClass self) 
+             => self 
+             -> (VBox -> m b) 
+             -> m b
+makeVBoxWith container f = do
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ container `containerAdd` vbox
+    f vbox
+
+makeHBoxWith :: (MonadIO m, ContainerClass self) 
+             => self 
+             -> (HBox -> m b) 
+             -> m b
+makeHBoxWith window f = do
+    hbox <- liftIO $ hBoxNew False 0
+    liftIO $ window `containerAdd` hbox
+    f hbox
+
+makeNotebookWith :: (MonadIO m, ContainerClass self)
+                => self
+                -> (Notebook -> m b)
+                -> m b
+makeNotebookWith self f = do
+    notebook <- liftIO $ notebookNew
+    liftIO $ self `containerAdd` notebook
+    f notebook
+
+makeNotebookPageWith :: (MonadIO m)
+                     => Notebook
+                     -> String
+                     -> (forall self . ContainerClass self => self -> m b)
+                     -> m b
+makeNotebookPageWith notebook name f = do
+    vbox <- liftIO $ vBoxNew False 0
+    liftIO $ notebookAppendPage notebook vbox name
+    f vbox
+
+makeScrolledWindowWith :: (MonadIO m, ContainerClass self)
+                       => self
+                       -> (ScrolledWindow -> m b)
+                       -> m b
+makeScrolledWindowWith container f = do
+    scrollWindow <- liftIO $ scrolledWindowNew Nothing Nothing
+    liftIO $ container `containerAdd` scrollWindow
+    f scrollWindow
+
 
 {-
 makeMenu label menuBar = makeProjectMenuWith menuBar $ \projectMenu -> do
@@ -61,6 +134,28 @@ makeMenuButton label menu = liftIO $ do
     button <- menuItemNewWithLabel label
     menuShellAppend menu button
     return button
+
+
+makeButton :: ( ContainerClass self
+              , System.Glib.UTFString.GlibString string
+              , MonadIO m
+              )
+           => string -> self -> m Button
+makeButton label container = liftIO $ do
+    button <- buttonNewWithLabel label
+    container `containerAdd` button
+    return button
+
+makeLabel :: ( ContainerClass self
+              , System.Glib.UTFString.GlibString string
+              , MonadIO m
+              )
+           => string -> self -> m Label
+makeLabel text container = liftIO $ do
+    label <- labelNew $ Just text
+    container `containerAdd` label
+    return label
+
 
 
 data GuiSignal2 gui object handler handlerInner where
@@ -155,3 +250,21 @@ mkGuiSignalWith x y z = GuiSignal2 y x z
 
 editSignal :: Signal object handler -> (handler2 -> handler) -> Signal object handler2
 editSignal (Signal f) t = Signal $ \b object handler -> f b object (t handler)
+
+wrapGuiSignal :: (gui -> object) 
+              -> GuiSignal2 object subobject handler innerHandler 
+              -> GuiSignal2 gui subobject handler innerHandler
+wrapGuiSignal f (GuiSignal2 sig getter handler) = GuiSignal2 sig (getter . f) handler
+
+{-addAccel :: (WidgetClass object, MonadIO m) 
+         => (MainWindow -> object) 
+         -> String 
+         -> MainWindow 
+         -> _ 
+         -> String 
+         -> [Modifier] 
+         -> [AccelFlags] 
+         -> m ()-}
+addAccel f e w g kn ms fs = do
+    k <- keyvalFromName $ pack kn
+    widgetAddAccelerator (f w) e g k ms fs

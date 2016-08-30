@@ -1,21 +1,28 @@
+{-|
+Module      : Ide3.NewMonad.Instances.State.ModuleDeclarationClass
+Description : Stateful implementation of the ModuleDeclarationClass
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 module Ide3.NewMonad.Instances.State.ModuleDeclarationClass where
 
-import Control.Monad
-import Control.Monad.Trans
-import Control.Monad.Trans.State
-import Control.Monad.Trans.Except
-
+import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
-import Ide3.Types
-
+-- |
 instance StatefulSolutionClass m => ModuleDeclarationClass (StatefulWrapper m) where
-    addDeclaration a b c = modifySolutionER $ \s -> runDescent4 Solution.addDeclaration s a b c
-    getDeclaration a b c  = modifySolutionER $ \s -> runDescent4 Solution.getDeclaration s a b c
-    getDeclarations a b = modifySolutionER $ \s -> runDescent3 Solution.getDeclarations s a b
-    editDeclaration a b c d = modifySolutionER $ \s -> runDescent5 Solution.editDeclaration s a b c d
-    removeDeclaration a b c = modifySolutionER $ \s -> runDescent4 Solution.removeDeclaration s a b c
+    addDeclaration = modifySolutionER .-... runDescent4 Solution.addDeclaration
+    getDeclaration = modifySolutionER .-... runDescent4 Solution.getDeclaration
+    getDeclarations = modifySolutionER .-.. runDescent3 Solution.getDeclarations
+    editDeclaration = modifySolutionER .-.... runDescent5 Solution.editDeclaration 
+    removeDeclaration = modifySolutionER .-... runDescent4 Solution.removeDeclaration

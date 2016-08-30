@@ -22,10 +22,13 @@ import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
 import Ide3.Env
-import Ide3.Types
+import Ide3.Types.Internal
+import Ide3.Types.State
 
 import qualified Ide3.Module as Module (new)
 import qualified Ide3.Env.Module as Module
+import qualified Ide3.Module.Extern as ExternModule
+import qualified Ide3.Env.ExternModule as ExternModule
 
 import Ide3.Project.Internal()
 
@@ -84,6 +87,19 @@ editModule = descend1 $ do
         Right m' -> put m'
         Left err -> throw2 err
 
+-- | Get the header from a module
+getModuleHeader :: Monad m
+                => DescentChain2 Project ModuleInfo m u String
+getModuleHeader = descend0 $ gets moduleHeader
+
+-- | Edit the header of a module
+editModuleHeader :: Monad m
+                 => DescentChain3 Project ModuleInfo (String -> String) m u ()
+editModuleHeader = descend1 $ do
+    f <- lift ask
+    modify $ \m -> m { moduleHeader = f $ moduleHeader m }
+    
+        
 
 -- | Add an external module
 addExternModule :: Monad m => DescentChain2 Project ExternModule m u ()
@@ -92,6 +108,12 @@ addExternModule = do
     m <- lift ask
     put =<< lift (lift $ addChildT (externModuleInfo m) m p)
 
+-- | Add an empty external module
+createExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
+createExternModule = do
+    mi <- lift ask
+    p <- get
+    put =<< lift (lift $ addChildT mi (ExternModule.new mi) p)
 
 -- | Get an external module by id
 getExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ExternModule
@@ -101,6 +123,7 @@ getExternModule = descend0 get
 getExternModules :: Monad m => DescentChain1 Project m u [ModuleInfo]
 getExternModules = gets $ Map.keys . projectExternModules
 
+-- | Remove an external module from a project
 removeExternModule :: Monad m => DescentChain2 Project ModuleInfo m u ()
 removeExternModule = do
     p <- get
@@ -132,7 +155,7 @@ editDeclaration :: Monad m
                     Project 
                     ModuleInfo 
                     DeclarationInfo 
-                    (Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
                     m u DeclarationInfo
 editDeclaration = descend2 Module.editDeclaration
 
@@ -187,3 +210,24 @@ removePragma = descend1 Module.removePragma
 -- | Get all pragmas in a module
 getPragmas :: Monad m => DescentChain2 Project ModuleInfo m u [Pragma]
 getPragmas = descend0 Module.getPragmas
+
+-- | Add an external export and return the id assigned to it
+addExternExport :: Monad m => DescentChain3 Project ModuleInfo ExternExport m u ExportId
+addExternExport = descend1 $ ExternModule.addExternExport
+
+-- | Remove an external export by id
+removeExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ()
+removeExternExport = descend1 $ ExternModule.removeExternExport
+
+-- | Get an external export by id
+getExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ExternExport
+getExternExport = descend1 $ ExternModule.getExternExport
+
+-- | Get the ids of all external exports, or signify that all symbols are exported
+getExternExports :: Monad m => DescentChain2 Project ModuleInfo m u [ExportId]
+getExternExports = descend0 $ ExternModule.getExternExports
+
+{-
+getItemAtLocation :: Monad m => DescentChain3 Project ModuleInfo (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
+getItemAtLocation = descend1 Module.getItemAtLocation
+-}

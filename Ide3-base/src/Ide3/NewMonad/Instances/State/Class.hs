@@ -1,42 +1,66 @@
+{-|
+Module      : Ide3.NewMonad.Instances.State.Class
+Description : Classes for the stateful implementation of the NewMonad typeclasses
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ide3.NewMonad.Instances.State.Class where
 
-import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.State
 import Control.Monad.Trans.Except
 
-import Ide3.NewMonad
+import Ide3.Utils
+import Ide3.Types.Internal
+import Ide3.Types.State
 
-import Ide3.Types
-
+-- | Class of monads which can get and retreive a Solution
 class Monad m => StatefulSolutionClass m where
-    getSolution :: SolutionResult m u Solution
-    putSolution :: Solution -> SolutionResult m u ()
+    -- | Get the Solution
+    getSolution :: SolutionResult u m Solution
+    -- | Set the Solution
+    putSolution :: Solution -> SolutionResult u m ()
     putSolution = modifySolution . const
-    modifySolution :: (Solution -> Solution) -> SolutionResult m u ()
+    -- | Apply a transformation to the Solution
+    modifySolution :: (Solution -> Solution) -> SolutionResult u m ()
     modifySolution f = do
         s <- getSolution
         let s' = f s
         putSolution s'
     {-# MINIMAL (getSolution, putSolution) | (getSolution, modifySolution) #-}
 
+-- | Class of monad which can create, load, and save solutions in some manner
 class Monad m => StatefulPersistenceClass m where
-    loadState :: SolutionResult m u Solution
-    newState :: SolutionInfo -> SolutionResult m u Solution
-    finalizeState :: Solution -> SolutionResult m u ()
+    -- | Load a Solution
+    loadState :: SolutionResult u m Solution
+    -- | Create a new Solution
+    newState :: SolutionInfo -> SolutionResult u m Solution
+    -- | Save a Solution
+    finalizeState :: Solution -> SolutionResult u m ()
 
+-- | A no-op wrapper used to deal with overlapping instances
 newtype StatefulWrapper m a = StatefulWrapper { runStatefulWrapper :: m a }
-  deriving (Functor, Applicative, Monad, StatefulSolutionClass, StatefulPersistenceClass, MonadIO)
-  
-{-
+  deriving ( Functor
+           , Applicative
+           , Monad
+           , StatefulSolutionClass
+           , StatefulPersistenceClass
+           , MonadIO
+           )
+
 instance MonadTrans StatefulWrapper where
     lift = StatefulWrapper
--}
-
+  
+-- | Apply a potentially failing transformation to the Solution
 modifySolutionER :: StatefulSolutionClass m 
-                 => (Solution -> SolutionResult m u (a,Solution))
-                 -> SolutionResult m u a
+                 => (Solution -> SolutionResult u m (a,Solution))
+                 -> SolutionResult u m a
 modifySolutionER f = do
     s <- getSolution
     (x,s') <- f s

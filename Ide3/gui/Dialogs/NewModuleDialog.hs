@@ -34,16 +34,16 @@ make = Generic.make NewModuleDialog "New Module Name"
 close :: (MonadIO m) => NewModuleDialog -> m ()
 close = Generic.close
 
-type NewModuleDialogSignal proxy m' p buffer m object m'' a
-    = GenericNewDialogSignal proxy m' p buffer m NewModuleDialog object m'' a
+type NewModuleDialogSignal proxy m' p  m object m'' a
+    = GenericNewDialogSignal proxy m' p  m NewModuleDialog object m'' a
 
 getModuleName :: (MonadIO m) => NewModuleDialog -> m String
 getModuleName = Generic.getEnteredText
 
-confirmClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+confirmClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p  m Button (EventM EButton) Bool
 confirmClickedEvent = Generic.confirmClickedEvent
 
-cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p buffer m Button (EventM EButton) Bool
+cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p  m Button (EventM EButton) Bool
 cancelClickedEvent = Generic.cancelClickedEvent
 
 {-
@@ -70,7 +70,7 @@ makeHBoxWith vbox f = do
 
 
 makeModuleNameBox :: (MonadIO m, BoxClass self) => self -> EntryBuffer -> m Entry
-makeModuleNameBox vbox buffer = liftIO $ do
+makeModuleNameBox vbox  = liftIO $ do
     moduleNameBox <- entryNewWithBuffer buffer
     boxPackStart vbox moduleNameBox PackGrow 0
     return moduleNameBox

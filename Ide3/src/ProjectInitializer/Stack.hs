@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-module ProjectInitializer.Cabal where
+module ProjectInitializer.Stack where
 
 import Control.Monad.Trans
 
@@ -38,15 +38,15 @@ instance Args StackProjectInitializerArgs where
 -- | An Initializer that uses the stack new command to create a new solution
 stackProjectInitializer :: ( MonadIO m
                            , PersistenceClass m
-                           , CabalMonad m u
+                           , CabalMonad m
                            )
-                        => ProjectInitializer StackProjectInitializerArgs m u
+                        => ProjectInitializer StackProjectInitializerArgs m
 stackProjectInitializer = ProjectInitializer $ \(StackProjectInitializerArgs arg srcDir) -> do
     let newBuildInfo = emptyBuildInfo
                      { hsSourceDirs = [srcDir]
                      }
         newProjectInfo = case arg of
-                LibraryInfo -> ProjectInfo "LIBRARY"
+                LibraryInfo -> libraryInfo
                 ExecutableInfo exeName -> ProjectInfo exeName
                 TestSuiteInfo testName -> ProjectInfo testName
                 BenchmarkInfo benchName -> ProjectInfo benchName

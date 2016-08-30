@@ -4,11 +4,11 @@ module GuiMonad
     , withSolutionTree
     , withEditorBuffer
     , withBuildBuffer
+    , withSearchBuffer
+    , withErrorList
     , initializeComponents
     , applyDeclBufferAttrs
     , defaultTextAttrs
-    , setDeclBufferText
-    , updateDeclBufferText
     ) where
 
 import Data.Text
@@ -19,17 +19,25 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
+import ErrorParser.Types
+
 import Graphics.UI.Gtk
 
 import SolutionTree
 
 import SyntaxHighlighter2
 
-data GuiComponents buffer
+import GuiClass
+
+import DeclarationPath
+
+data GuiComponents
     = GuiComponents
     { projectTree :: TreeStore SolutionTreeElem
-    , editorBuffer :: buffer
-    , buildBuffer :: buffer
+    , editorBuffer :: TextBuffer
+    , buildBuffer :: TextBuffer
+    , searchBuffer :: EntryBuffer
+    , errorList :: ListStore (Error ItemPath)
     }
 
 
@@ -53,9 +61,8 @@ makeDeclBuffer = do
         table `textTagTableAdd` tag 
     return buffer
 
-applyDeclBufferAttrs :: (TextBufferClass buffer) 
-                     => (SyntaxComponent -> [AttrOp TextTag]) 
-                     -> GuiComponents buffer 
+applyDeclBufferAttrs :: (SyntaxComponent -> [AttrOp TextTag]) 
+                     -> GuiComponents
                      -> IO ()
 applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
     table <- textBufferGetTagTable buffer
@@ -72,39 +79,56 @@ makeTreeStore = treeStoreNew ([] :: [Tree SolutionTreeElem])
 makeBuildBuffer :: IO TextBuffer
 makeBuildBuffer = textBufferNew Nothing
 
+makeSearchBuffer :: IO EntryBuffer
+makeSearchBuffer = entryBufferNew (Nothing :: Maybe String)
+
+makeErrorList :: IO (ListStore (Error ItemPath))
+makeErrorList = listStoreNew []
+
 initializeComponents :: (MonadIO m)
-                     => m (GuiComponents TextBuffer)
+                     => m GuiComponents
 initializeComponents = liftIO $ do
     projectTree <- makeTreeStore
     editorBuffer <- makeDeclBuffer
     buildBuffer <- makeBuildBuffer
+    searchBuffer <- makeSearchBuffer
+    errorList <- makeErrorList
     return GuiComponents
            { projectTree
            , editorBuffer
            , buildBuffer
+           , searchBuffer
+           , errorList
            }
     
 
-withSolutionTree :: (TextBufferClass buffer)
-                => GuiComponents buffer 
-                -> (TreeStore SolutionTreeElem -> a)
-                -> a
+withSolutionTree :: GuiComponents
+                 -> (TreeStore SolutionTreeElem -> a)
+                 -> a
 withSolutionTree comp f = f (projectTree comp)
 
-withEditorBuffer :: (TextBufferClass buffer)
-                 => GuiComponents buffer
-                 -> (buffer -> a)
+withEditorBuffer :: GuiComponents
+                 -> (TextBuffer -> a)
                  -> a
 withEditorBuffer comp f = f (editorBuffer comp)
 
-withBuildBuffer :: (TextBufferClass buffer)
-                 => GuiComponents buffer
-                 -> (buffer -> a)
-                 -> a
+withBuildBuffer :: GuiComponents
+                -> (TextBuffer -> a)
+                -> a
 withBuildBuffer comp f = f (buildBuffer comp)
 
-setDeclBufferText :: (TextBufferClass buffer)
-                  => GuiComponents buffer
+withSearchBuffer :: GuiComponents
+                 -> (EntryBuffer -> a)
+                 -> a
+withSearchBuffer comp f = f (searchBuffer comp)
+
+withErrorList :: GuiComponents
+               -> (ListStore (Error ItemPath) -> a)
+               -> a
+withErrorList comp f = f (errorList comp)
+
+{-
+setDeclBufferText :: GuiComponents
                   -> String
                   -> IO ()
 setDeclBufferText comp text = withEditorBuffer comp $ \buffer -> do
@@ -121,8 +145,10 @@ setDeclBufferText comp text = withEditorBuffer comp $ \buffer -> do
             forM_ hs $ \(HighlightInst tag start' end') -> do
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
         Left _ -> return ()
+-}
 
-updateDeclBufferText :: TextBufferClass self => GuiComponents self -> IO ()
+{-
+updateDeclBufferText :: GuiComponents -> IO ()
 updateDeclBufferText comp = withEditorBuffer comp $ \buffer -> do
     start <- textBufferGetStartIter buffer
     end <- textBufferGetEndIter buffer
@@ -137,5 +163,4 @@ updateDeclBufferText comp = withEditorBuffer comp $ \buffer -> do
             forM_ hs $ \(HighlightInst tag start' end') -> do
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
         Left _ -> return ()
-
-
+-}

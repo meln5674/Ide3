@@ -7,6 +7,6 @@ module Ide3.Module
 
 import Ide3.Module.Internal
 
-import Ide3.Types
+import Ide3.Types.Internal
 
 infoMatches :: Module -> ModuleInfo -> Bool

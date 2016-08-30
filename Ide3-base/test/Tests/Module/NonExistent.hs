@@ -5,7 +5,7 @@ import GHC.Stack
 
 import Test.HUnit
 
-import Ide3.Monad
+import Ide3.NewMonad
 
 import Tests.Utils
 
@@ -18,12 +18,13 @@ tests_nonExistentModule = TestList
 
 test_retrieveNonExistentProject :: (?loc :: CallStack) => Test    
 test_retrieveNonExistentProject = expectFailure $ do
-    getModule nonExistentProjectInfo nonExistentModuleInfo
+    toFile nonExistentProjectInfo nonExistentModuleInfo
 
 test_retrieveNonExistentModule :: (?loc :: CallStack) => Test    
 test_retrieveNonExistentModule = expectFailure $ do
     addProject newProjectInfo
-    getModule newProjectInfo nonExistentModuleInfo
+    toFile newProjectInfo nonExistentModuleInfo
+
 
 test_removeNonExistentProject :: (?loc :: CallStack) => Test    
 test_removeNonExistentProject = expectFailure $ do

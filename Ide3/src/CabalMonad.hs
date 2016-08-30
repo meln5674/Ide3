@@ -3,6 +3,7 @@ module CabalMonad where
 
 import Distribution.PackageDescription
 
+
 import Ide3.Types hiding (BuildInfo)
 
 
@@ -11,6 +12,11 @@ data CabalProjectInfo
     | ExecutableInfo String
     | TestSuiteInfo String
     | BenchmarkInfo String
+  deriving (Show)
+
+libraryInfo :: ProjectInfo 
+libraryInfo = ProjectInfo "library"
+
 
 editBuildInfo :: CabalProject -> (BuildInfo -> BuildInfo) -> CabalProject
 editBuildInfo (LibraryProject lib) f = LibraryProject lib{ libBuildInfo = f $ libBuildInfo lib }
@@ -31,11 +37,12 @@ data CabalProject
     | TestSuiteProject ProjectInfo TestSuite -- ^ A test suite project
     | BenchmarkProject ProjectInfo Benchmark
 
-class Monad m => CabalMonad m u where
-    getCabalProjects :: SolutionResult m u [CabalProjectInfo] 
-    getCabalProject :: CabalProjectInfo -> SolutionResult m u CabalProject
-    getCabalProjectInfo :: ProjectInfo -> SolutionResult m u CabalProjectInfo
-    lookupCabalProject :: ProjectInfo -> SolutionResult m u CabalProject
-    addCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult m u ()
-    updateCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult m u ()
-    removeCabalProject :: CabalProjectInfo -> SolutionResult m u ()
+class Monad m => CabalMonad m where
+    getCabalProjects :: SolutionResult u m [CabalProjectInfo] 
+    getCabalProject :: CabalProjectInfo -> SolutionResult u m CabalProject
+    getCabalProjectInfo :: ProjectInfo -> SolutionResult u m CabalProjectInfo
+    lookupCabalProject :: ProjectInfo -> SolutionResult u m CabalProject
+    addCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
+    updateCabalProject :: CabalProjectInfo -> CabalProject -> SolutionResult u m ()
+    removeCabalProject :: CabalProjectInfo -> SolutionResult u m ()
+    getPackageDescription :: SolutionResult u m PackageDescription
