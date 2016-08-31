@@ -1,4 +1,3 @@
-
 {-|
 Module      : Ide3.OrderedMap
 Description : Map which preserves the insertion order of keys
@@ -28,6 +27,9 @@ module Ide3.OrderedMap
     , filter
     , modifyKey
     , map
+    , mapWithKey
+    , mapWithKeyM
+    , partitionBy
     ) where
 
 import Prelude hiding (lookup, filter, map)
@@ -58,9 +60,6 @@ instance (Read k, Read v, Ord k) => Read (OrderedMap k v) where
     readsPrec i = \s -> Prelude.map (firstElem fromList) $ readsPrec i s
       where
         firstElem f (a,b) = (f a,b)
-
-instance Ord k => Foldable (OrderedMap k) where
-    foldMap f m = foldMap f $ elems m
 
 -- | An empty map
 empty :: Ord k => OrderedMap k v
@@ -145,3 +144,42 @@ modifyKey k k' m = m{ itemMap = itemMap', orderMap = orderMap' }
 -- | Apply a transformation to each value in the map
 map :: Ord k => (v -> v') -> OrderedMap k v -> OrderedMap k v'
 map f m = m { itemMap = flip Map.map (itemMap m) $ \(x,ord) -> (f x,ord) }
+
+-- | Apply a transformation to each value in the map using the key as well
+mapWithKey :: Ord k => (k -> v -> v') -> OrderedMap k v -> OrderedMap k v'
+mapWithKey f m = m { itemMap = Map.mapWithKey (\k (v,o) -> (f k v,o)) (itemMap m) }
+
+-- | Apply a monadic transformation to each value in the map using the key as well
+mapWithKeyM :: (Monad m, Ord k) => (k -> v -> m v') -> OrderedMap k v -> m (OrderedMap k v')
+mapWithKeyM f m = liftM fromList $ forM (toList m) $ \(k,v) -> do
+    v' <- f k v
+    return (k,v')
+
+-- | Create a map from a list by applying a function to each item
+-- The result of the function is used as the key, and the values
+-- in the map are lists of items which produced the same key
+partitionBy :: (Ord k) => (a -> k) -> [a] -> OrderedMap k [a]
+partitionBy f ys = map reverse $ go ys empty
+  where
+    go [] m = m
+    go (x:xs) m = go xs m'
+      where
+        k = f x
+        v' = case lookup k m of
+            Just v -> x:v
+            Nothing -> [x]
+        m' = insert k v' m
+
+instance Ord k => Functor (OrderedMap k) where
+    fmap = map
+
+instance Ord k => Foldable (OrderedMap k) where
+    foldMap f = foldMap f . elems
+
+instance Ord k => Traversable (OrderedMap k) where
+    mapM f m = do
+        itemMap' <- mapM (\(v,o) -> do { v' <- f v; return (v',o) } ) $ itemMap m
+        return m{ itemMap = itemMap' }
+    traverse f m 
+        =   pure (\itemMap' -> m{itemMap=itemMap'}) 
+        <*> (traverse (\(v,o) -> pure (\v' -> (v',o)) <*> f v) $ itemMap m)

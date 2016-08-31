@@ -94,9 +94,9 @@ renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := imp
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [cellText := p]
 
-renderImageCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
-renderImageCell (Warning _ _ _ _) = [cellText := "W"] -- TODO: Images
-renderImageCell (Error _ _ _ _) = [cellText := "E"] -- TODO: Images
+renderImageCell :: CellRendererPixbufClass o => Error ItemPath -> [AttrOp o]
+renderImageCell (Warning _ _ _ _) = [cellPixbufStockId := stockDialogWarning]
+renderImageCell (Error _ _ _ _) = [cellPixbufStockId := stockDialogError]
 
 renderProjectCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
 renderProjectCell e = [cellText := unProjectInfo pji]
@@ -471,6 +471,7 @@ makeErrorView container = do
             columnColumn <- treeViewColumnNew
             messageColumn <- treeViewColumnNew
             renderer <- cellRendererTextNew
+            imageRenderer <- cellRendererPixbufNew
             
             treeViewColumnSetTitle projectColumn "Project"
             treeViewColumnSetTitle moduleColumn "Module"
@@ -479,7 +480,7 @@ makeErrorView container = do
             treeViewColumnSetTitle columnColumn "Column"
             treeViewColumnSetTitle messageColumn "Message"
             
-            treeViewColumnPackStart imageColumn renderer True
+            treeViewColumnPackStart imageColumn imageRenderer True
             treeViewColumnPackStart projectColumn renderer True
             treeViewColumnPackStart moduleColumn renderer True
             treeViewColumnPackStart declarationColumn renderer True
@@ -487,7 +488,7 @@ makeErrorView container = do
             treeViewColumnPackStart columnColumn renderer True
             treeViewColumnPackStart messageColumn renderer True
             
-            cellLayoutSetAttributes imageColumn renderer list renderImageCell
+            cellLayoutSetAttributes imageColumn imageRenderer list renderImageCell
             cellLayoutSetAttributes projectColumn renderer list renderProjectCell
             cellLayoutSetAttributes moduleColumn renderer list renderModuleCell
             cellLayoutSetAttributes declarationColumn renderer list renderDeclarationCell

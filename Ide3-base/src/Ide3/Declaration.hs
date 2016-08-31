@@ -29,22 +29,10 @@ import qualified Ide3.Declaration.ModifierDeclaration as ModifierDeclaration
 import qualified Data.Map as Map
 import Data.Map (Map)
 
+import Ide3.SrcLoc.Types
+
 import Ide3.Utils.Parser
 
--- | Create a map from a list by applying a function to each item
--- The result of the function is used as the key, and the values
--- in the map are lists of items which produced the same key
-partitionBy :: (Ord k) => (a -> k) -> [a] -> OrderedMap k [a]
-partitionBy f ys = OMap.map reverse $ go ys OMap.empty
-  where
-    go [] m = m
-    go (x:xs) m = go xs m'
-      where
-        k = f x
-        v' = case OMap.lookup k m of
-            Just v -> x:v
-            Nothing -> [x]
-        m' = OMap.insert k v' m
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
@@ -66,10 +54,10 @@ parseAndCombineLenient s p di = case parseAndCombine s p of
     Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
 
 -- | Find declarations that can be merged and merge them
-combineMany :: [Ann Parser.SrcSpanInfo (WithBody Declaration)] -> [Ann Parser.SrcSpanInfo (WithBody Declaration)]
+combineMany :: [Ann SrcSpan (WithBody Declaration)] -> [Ann SrcSpan (WithBody Declaration)]
 combineMany ds = ds'
   where
-    m = partitionBy (info . item . unAnn) ds
+    m = OMap.partitionBy (info . item . unAnn) ds
     m' = OMap.map Parser.combineFuncAndTypeSig m
     ds' = concat $ OMap.elems m'
 

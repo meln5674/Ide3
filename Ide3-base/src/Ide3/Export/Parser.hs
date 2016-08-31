@@ -17,8 +17,12 @@ import qualified Language.Haskell.Exts.Annotated.Parser as Parser
 import Language.Haskell.Exts.Annotated.Syntax hiding (Module)
 import Language.Haskell.Exts.SrcLoc
 
+import Ide3.Types.Exts
+
 import Ide3.Types.Internal
 import Ide3.SrcLoc
+
+import Ide3.SrcLoc.Exts()
 
 
 -- | Convert from the third party export
@@ -43,7 +47,7 @@ parse s = case result of
         headAndImports = unNonGreedy ok
         ModuleHeadAndImports _ _ (Just (ModuleHead _ _ _ (Just (ExportSpecList _ exportList)))) _ = headAndImports
         [export] = exportList
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     -- Parsing an export is done by putting in a mock export list, parsing that
     -- "module", and then pulling out the singleton list of exports

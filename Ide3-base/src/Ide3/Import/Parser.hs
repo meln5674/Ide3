@@ -17,7 +17,10 @@ import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
 
 
 import Ide3.Types.Internal hiding (body)
+import Ide3.Types.Exts()
+
 import Ide3.SrcLoc
+import Ide3.SrcLoc.Exts()
 
 -- | Convert from the third party import type
 convert :: ImportDecl a -> Import
@@ -44,7 +47,7 @@ convertWithBody str x = WithBody import_ body
 parse :: String -> Either (SolutionError u) Import
 parse s = case parseImportDecl s of
     ParseOk x -> Right $ convert x
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
 
 -- | Convert a third party import kind
 getSpec :: ImportSpec a -> ImportKind

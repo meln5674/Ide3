@@ -38,6 +38,8 @@ import qualified Ide3.Module.Parser as Parser
 import qualified Ide3.Import.Internal as Import
 import qualified Ide3.Declaration as Declaration
 
+import Ide3.SrcLoc.Types
+
 import Ide3.Utils.Parser
 
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
@@ -247,7 +249,7 @@ parseMain = parseUsing Parser.parseMain
 
 -- | Generalization of parse and parseMain
 parseUsing :: (String -> Maybe FilePath 
-                      -> Either (SolutionError u) (ExtractionResults Parser.SrcSpanInfo))
+                      -> Either (SolutionError u) (ExtractionResults SrcFileSpan))
            -> String 
            -> Maybe FilePath 
            -> Either (SolutionError u) (Module,[ExportId],[ImportId])

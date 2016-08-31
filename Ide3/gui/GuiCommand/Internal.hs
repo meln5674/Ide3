@@ -8,6 +8,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module GuiCommand.Internal where
 
+import Ide3.OrderedMap (OrderedMap)
+import qualified Ide3.OrderedMap as OMap
+
 import Data.Proxy
 
 import Data.Char
@@ -220,13 +223,28 @@ doBuild = do --withGuiComponents $ \comp -> lift $ do
             BuildSucceeded log warnings -> (log,warnings)
             BuildFailed log errors -> (log,errors)
     lift $ liftIO $ putStrLn "Fetching error locations"
+    let sortedErrors = OMap.partitionBy errorLocation errors
+    let errorSrcLoc e = SrcLoc (errorRow e) (errorColumn e)
+    let fetchErrorLocations (ErrorLocation proj mod) es = do
+            let pji = ProjectInfo $ getProjectName proj
+            let mi = ModuleInfo $ Symbol $ getModuleName mod
+            let mkItemPath = ProjectChild pji . ModuleChild mi
+            let fixLocation e result = flip mapError e $ \_ _ _ msg -> case result of
+                    Just (item, SrcLoc r' c') -> (mkItemPath $ Just item, r', c', msg)
+                    Nothing -> (mkItemPath Nothing, Row 0, Column 0, errorMessage e)
+            let locs = map errorSrcLoc es 
+            locs' <- lift $ getModuleItemAtLocation pji mi locs
+            return $ map (uncurry fixLocation) (zip es locs') 
+    errors' <- liftM (concat . OMap.elems) $ OMap.mapWithKeyM fetchErrorLocations sortedErrors
+    {-
     errors' <- lift $ forM errors $ mapErrorM $ \(ErrorLocation proj mod) r c s -> do
         let pji = ProjectInfo $ getProjectName proj
             mi = ModuleInfo $ Symbol $ getModuleName mod
-        result <- getModuleItemAtLocation pji mi ((getRow r),(getColumn c))
+        result <- getModuleItemAtLocation pji mi $ SrcLoc r c
         case result of
-            Just (item, r', c') -> return (ProjectChild pji $ ModuleChild mi $ Just item, Row r', Column c', s)
+            Just (item, SrcLoc r' c') -> return (ProjectChild pji $ ModuleChild mi $ Just item, r', c', s)
             Nothing -> return (ProjectChild pji $ ModuleChild mi Nothing, Row 0, Column 0, s)
+    -}
     lift $ liftIO $ putStrLn "Setting log text"
     splice $ setBuildBufferText text
     lift $ liftIO $ putStrLn "Clearing error list"
