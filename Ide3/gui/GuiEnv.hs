@@ -61,6 +61,11 @@ instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT proxy m' p m) where
     closeDeclaration = lift . closeDeclaration
     getOpenDeclarations = lift getOpenDeclarations
     declarationIsOpen = lift . declarationIsOpen
+    openDeclarationInHistory = lift .-.. openDeclarationInHistory
+    replaceHistoryPath = lift . replaceHistoryPath
+    replaceHistoryText = lift . replaceHistoryText
+    navigateHistoryBack = lift navigateHistoryBack
+    navigateHistoryForward = lift navigateHistoryForward
 
 runGuiEnvT :: (Monad m) => GuiEnvT proxy m' p  m a -> GuiEnv proxy m' p  -> m a
 runGuiEnvT = runReaderT . runGuiEnvTInternal
