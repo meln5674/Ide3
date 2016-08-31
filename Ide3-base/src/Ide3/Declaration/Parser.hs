@@ -16,6 +16,8 @@ module Ide3.Declaration.Parser where
 import Data.Monoid
 import Data.List
 
+import Control.Monad
+
 import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Ann, ann)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
@@ -111,12 +113,16 @@ parseTypeSignature _ = Nothing
 -- | Convert a declaration if it is a class declaration
 parseClassDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
-    = Just $ TypeDeclaration (DeclarationInfo $ toSym h)
-           $ ClassDeclaration (toSym h) ds'
+    = liftM (TypeDeclaration (DeclarationInfo $ toSym h) . ClassDeclaration (toSym h)) 
+    $ ds >>= mapM parseSubDecl
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
+    parseSubDecl (ClsTyFam _ dHead _) 
+        = Just 
+        $ TypeDeclaration
+          (DeclarationInfo $ toSym dHead) 
+        $ TypeSynonym (toSym dHead) (Symbol "")
     parseSubDecl _ = Nothing
-    Just ds' = ds >>= mapM parseSubDecl
 parseClassDecl _ = Nothing
 
 -- | Convert a declaration if it is an instance declaration

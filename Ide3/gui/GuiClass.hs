@@ -46,7 +46,8 @@ class Monad m => SolutionViewClass m where
     getElemAtSolutionPath :: TreePath -> m SolutionTreeElem
     getTreeAtSolutionPath :: TreePath -> m (Tree SolutionTreeElem)
     getForestAtSolutionPath :: TreePath -> m (Forest SolutionTreeElem)
-    setSolutionTree :: [Tree SolutionTreeElem] -> m ()    
+    setSolutionTree :: [Tree SolutionTreeElem] -> m ()
+    updateSolutionTreeNode :: TreePath -> (SolutionTreeElem -> SolutionTreeElem) -> m ()
 
 
 class Monad m => ErrorListClass m where

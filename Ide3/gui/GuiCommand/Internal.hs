@@ -292,9 +292,9 @@ doSave = do --withGuiComponents $ \comp -> lift $ do
         (Just (pi, mi, di),_) -> do
             di' <- doWithBuffer $ \text -> do
                 lift $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
-            --withSolutionTree comp populateTree
-            populateTree
             when (di /= di') $ do
+                [oldPath] <- splice $ searchTree $ DeclarationPath pi mi di
+                splice $ updateSolutionTreeNode oldPath $ \(DeclElem _) -> DeclElem di'
                 lift $ lift $ setCurrentDecl pi mi di'
                 lift $ lift $ replaceHistoryPath $ DeclarationPath pi mi di'
         (_,Just (pi, mi)) -> doWithBuffer $

@@ -42,6 +42,11 @@ instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT proxy m p m') whe
         $ \tree -> do
             liftIO $ treeStoreClear tree
             liftIO $ treeStoreInsertForest tree [] (-1) forest'
+    updateSolutionTreeNode path f
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            void $ treeStoreChange tree path f
 
 instance ( Monad m, MonadIO m' ) => SearchBarClass (GuiEnvT proxy m p m') where
     getSearchBarText = withGuiComponents $ flip withSearchBuffer $ \buffer -> lift $ do
