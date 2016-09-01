@@ -1,5 +1,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 module GuiEnv where
 
 import Data.Functor.Identity
@@ -23,38 +24,48 @@ import GuiClass
 import GuiViewer
 import GuiViewer.Class
 
+import Dialogs.NewSolutionDialog.Types
+
 type MVarType p = (GuiViewerState, (ViewerState, p))
 
-data GuiEnv proxy m p
+data GuiEnv {-proxy-} m p
     = GuiEnv
-    { proxy :: proxy m
-    , guiComponents :: GuiComponents
+    { {-proxy :: proxy m
+    ,-} guiComponents :: GuiComponents
     , projectMVar :: MVar (MVarType p)
+    , newProjectDialog :: ()
+    , newSolutionDialog :: NewSolutionDialog
     }
 
 withSolutionMVar :: (Monad m)
-                => (MVar (MVarType p) -> GuiEnvT proxy m' p  m a)
-                -> GuiEnvT proxy m' p  m a
+                => (MVar (MVarType p) -> GuiEnvT {-proxy-} m' p  m a)
+                -> GuiEnvT {-proxy-} m' p  m a
 withSolutionMVar f = getEnv >>= f . projectMVar 
 
 withGuiComponents :: (Monad m)
-            => (GuiComponents  -> GuiEnvT proxy m' p  m a)
-            -> GuiEnvT proxy m' p  m a
+            => (GuiComponents  -> GuiEnvT {-proxy-} m' p  m a)
+            -> GuiEnvT {-proxy-} m' p  m a
 withGuiComponents f = getEnv >>= f . guiComponents
 
+withNewSolutionDialog :: (Monad m)
+                      => (NewSolutionDialog -> GuiEnvT {-proxy-} m' p m a)
+                      -> GuiEnvT {-proxy-} m' p m a
+withNewSolutionDialog f = getEnv >>= f . newSolutionDialog
 
-newtype GuiEnvT proxy m' p m a 
-    = GuiEnvT { runGuiEnvTInternal :: ReaderT (GuiEnv proxy m' p) m a }
+newtype GuiEnvT {-proxy-} (m' :: * -> *) p m a 
+    = GuiEnvT { runGuiEnvTInternal :: ReaderT (GuiEnv {-proxy-} m' p) m a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadTrans
     , MonadIO
+    , MonadBounce
     , MonadSplice
+    , MonadUnsplice
     )
 
-instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT proxy m' p m) where
+instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT {-proxy-} m' p m) where
     setSearchMode = lift . setSearchMode
     getSearchMode = lift getSearchMode
     openDeclaration = lift . openDeclaration
@@ -67,27 +78,27 @@ instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT proxy m' p m) where
     navigateHistoryBack = lift navigateHistoryBack
     navigateHistoryForward = lift navigateHistoryForward
 
-runGuiEnvT :: (Monad m) => GuiEnvT proxy m' p  m a -> GuiEnv proxy m' p  -> m a
+runGuiEnvT :: (Monad m) => GuiEnvT {-proxy-} m' p  m a -> GuiEnv {-proxy-} m' p  -> m a
 runGuiEnvT = runReaderT . runGuiEnvTInternal
 
-mkGuiEnvT :: (Monad m) => (GuiEnv proxy m' p  -> m a) -> GuiEnvT proxy m' p  m a
+mkGuiEnvT :: (Monad m) => (GuiEnv {-proxy-} m' p  -> m a) -> GuiEnvT {-proxy-} m' p  m a
 mkGuiEnvT = GuiEnvT . ReaderT
 
-getEnv :: (Monad m) => GuiEnvT proxy m' p  m (GuiEnv proxy m' p )
+getEnv :: (Monad m) => GuiEnvT {-proxy-} m' p  m (GuiEnv {-proxy-} m' p )
 getEnv = GuiEnvT $ ask
 
 mapGuiEnv :: (Monad m1, Monad m2) 
           => (m1 a -> m2 b) 
-          -> GuiEnvT proxy m' p  m1 a 
-          -> GuiEnvT proxy m' p  m2 b
+          -> GuiEnvT {-proxy-} m' p  m1 a 
+          -> GuiEnvT {-proxy-} m' p  m2 b
 mapGuiEnv f m = GuiEnvT $ mapReaderT f $ runGuiEnvTInternal m 
 
 
 type GuiEnvSignal proxy m' p  m gui object m'' a
-    = GuiEnvT proxy m' p  m (GuiSignal2 gui object (GuiEnvT proxy m' p  m'' a) (m'' a))
+    = GuiEnvT {-proxy-} m' p  m (GuiSignal2 gui object (GuiEnvT {-proxy-} m' p  m'' a) (m'' a))
 
 type GuiEnvSignal2 proxy m' p  m gui object f m'' a
-    = GuiEnvT proxy m' p  m (GuiSignal2 gui object (f (GuiEnvT proxy m' p  m'' a)) (f (m'' a)))
+    = GuiEnvT {-proxy-} m' p  m (GuiSignal2 gui object (f (GuiEnvT {-proxy-} m' p  m'' a)) (f (m'' a)))
 
 mkGuiEnvSignal :: (Monad m, MonadIO m'')
                => (gui -> object) 

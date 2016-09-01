@@ -33,7 +33,7 @@ make
        , ContainerClass self
        )
     => self
-    -> GuiEnvT proxy m' p  m SearchBar
+    -> GuiEnvT {-proxy-} m' p  m SearchBar
 make container = makeHBoxWith container $ \hbox -> do
     searchLabel <- makeSearchLabel hbox
     searchBox <- makeSearchBox hbox
@@ -49,21 +49,21 @@ makeSearchLabel :: ( MonadIO m
                    , ContainerClass self
                    )
                 => self
-                -> GuiEnvT proxy m' p m Label
+                -> GuiEnvT {-proxy-} m' p m Label
 makeSearchLabel = makeLabel "Find"
 
 makeSearchBox :: ( MonadIO m
                  , ContainerClass self
                  )
               => self
-              -> GuiEnvT proxy m' p  m Entry
+              -> GuiEnvT {-proxy-} m' p  m Entry
 makeSearchBox container = do
     searchBox <- withGuiComponents $ flip withSearchBuffer $ liftIO . entryNewWithBuffer
     liftIO $ container `containerAdd` searchBox
     return searchBox
 
 makeSearchButton :: (MonadIO m)
-                 => HBox -> GuiEnvT proxy m' p  m Button
+                 => HBox -> GuiEnvT {-proxy-} m' p  m Button
 makeSearchButton = makeButton "Go"
 
 searchClickedEvent :: (Monad m) => GuiEnvSignal proxy m' p  m SearchBar Button IO ()

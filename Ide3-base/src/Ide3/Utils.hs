@@ -60,7 +60,11 @@ instance MonadSplice (StateT s) where
 instance MonadSplice (ReaderT r) where
     splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
 
+class MonadUnsplice t where
+    unsplice :: (Monad m) => t m (Either e a) -> t (ExceptT e m) a
 
+instance MonadUnsplice (ReaderT r) where
+    unsplice f = ReaderT $ \r -> ExceptT $ runReaderT f r
 
 -- | Synonym for `.`
 (.-.) :: (b -> c) -> (a -> b) -> (a -> c)

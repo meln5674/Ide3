@@ -42,10 +42,12 @@ stackInitializer :: ( MonadIO m
                     ) 
                  => Initializer StackInitializerArgs m
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
+    liftIO $ putStrLn "[Solution Initialization] Starting"
     let args = case template of
             Nothing -> ["new", path]
             Just template_name -> ["new", path, template_name]
     (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" args ""
+    liftIO $ putStrLn "[Solution Initialization] Finished"
     case ec of
         ExitSuccess -> do
             {-

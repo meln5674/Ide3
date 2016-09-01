@@ -4,6 +4,7 @@ module Dialogs.NewSolutionDialog
     , NewSolutionDialogSignal
     , make
     , close
+    , setVisible
     , confirmClicked
     , cancelClicked
     , getSelectedFolder
@@ -22,25 +23,14 @@ import Graphics.UI.Gtk
 import GuiEnv
 import GuiHelpers
 
-data NewSolutionDialog
-    = NewSolutionDialog
-    { window :: Window
-    , fileChooser :: FileChooserWidget
-    , projectNameBox :: Entry
-    , projectNameBuffer :: EntryBuffer
-    , templateNameBox :: Entry
-    , templateNameBuffer :: EntryBuffer
-    , projectNameLabel :: Label
-    , templateNameLabel :: Label
-    , confirmButton :: Button
-    , cancelButton :: Button
-    }
+import Dialogs.NewSolutionDialog.Types
 
 type NewSolutionDialogSignal object handler = GuiSignal NewSolutionDialog object handler
 
+
 confirmClicked :: GuiSignal NewSolutionDialog Button (EventM EButton Bool)
 confirmClicked = confirmButton `mkGuiSignal` buttonPressEvent
-
+ 
 cancelClicked :: GuiSignal NewSolutionDialog Button (EventM EButton Bool)
 cancelClicked = cancelButton `mkGuiSignal` buttonPressEvent
 
@@ -58,6 +48,9 @@ getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuff
 
 close :: MonadIO m => NewSolutionDialog -> m ()
 close = liftIO . widgetDestroy . window
+
+setVisible :: MonadIO m => Bool -> NewSolutionDialog -> m ()
+setVisible v dialog = liftIO $ set (window dialog) [widgetVisible := v]
 
 {-
 makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
