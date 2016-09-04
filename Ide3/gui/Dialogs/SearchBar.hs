@@ -1,5 +1,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 module Dialogs.SearchBar
     ( SearchBar
     , make
@@ -11,9 +12,13 @@ module Dialogs.SearchBar
     , setVisible
     ) where
 
+import Data.Text
+
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
+import GI.Gtk hiding (SearchBar)
+import GI.Gdk 
+
 import GuiHelpers
 import GuiEnv
 import GuiMonad
@@ -30,7 +35,7 @@ data SearchBar
 
 make
     :: ( MonadIO m
-       , ContainerClass self
+       , IsContainer self
        )
     => self
     -> GuiEnvT {-proxy-} m' p  m SearchBar
@@ -46,14 +51,14 @@ make container = makeHBoxWith container $ \hbox -> do
          }
 
 makeSearchLabel :: ( MonadIO m 
-                   , ContainerClass self
+                   , IsContainer self
                    )
                 => self
                 -> GuiEnvT {-proxy-} m' p m Label
 makeSearchLabel = makeLabel "Find"
 
 makeSearchBox :: ( MonadIO m
-                 , ContainerClass self
+                 , IsContainer self
                  )
               => self
               -> GuiEnvT {-proxy-} m' p  m Entry
@@ -66,28 +71,30 @@ makeSearchButton :: (MonadIO m)
                  => HBox -> GuiEnvT {-proxy-} m' p  m Button
 makeSearchButton = makeButton "Go"
 
-searchClickedEvent :: (Monad m) => GuiEnvSignal proxy m' p  m SearchBar Button IO ()
-searchClickedEvent = searchButton `mkGuiEnvSignal` buttonActivated
+type SearchBarSignal object info = SubSignalProxy SearchBar object info
 
-setSearchMode :: SearchBar -> SearchMode -> IO ()
+searchClickedEvent :: SearchBarSignal Button ButtonClickedSignalInfo
+searchClickedEvent searchBar = (searchButton searchBar, #clicked)
+
+setSearchMode :: MonadIO m => SearchBar -> SearchMode -> m ()
 setSearchMode bar Find = do
-    set (searchLabel bar) [labelText := "Find"]
+    set (searchLabel bar) [#label := "Find"]
 setSearchMode bar Navigate = do
-    set (searchLabel bar) [labelText := "Navigate"]
+    set (searchLabel bar) [#label := "Navigate"]
     
-setCompletion :: SearchBar -> EntryCompletion -> IO ()
-setCompletion bar comp = entrySetCompletion (searchBox bar) comp
+setCompletion :: MonadIO m => SearchBar -> EntryCompletion -> m ()
+setCompletion bar comp = set (searchBox bar) [ #completion := comp ]
 
+
+addSearchClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
+                                  => SearchBar 
+                                  -> group
+                                  -> key
+                                  -> [ModifierType] 
+                                  -> [AccelFlags]
+                                  -> m ()
 addSearchClickedEventAccelerator = searchButton `addAccel` "activate"
 
-setVisible :: SearchBar -> Bool -> IO ()
+setVisible :: MonadIO m => SearchBar -> Bool -> m ()
 setVisible bar v = do
     set (searchBox bar) [widgetVisible := v]
-
-{-    mapM_ (\x -> set x [widgetVisible := v])
-        [ toWidget $ searchLabel bar
-        , toWidget $ searchBox bar 
-        , toWidget $ searchButton bar 
-        , toWidget $ searchContainer bar
-        ]
--}

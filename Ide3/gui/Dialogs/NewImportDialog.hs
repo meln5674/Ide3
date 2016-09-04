@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns, PolyKinds #-}
+{-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 module Dialogs.NewImportDialog 
     ( NewImportDialog
     , makeNew
@@ -10,12 +11,13 @@ module Dialogs.NewImportDialog
     , cancelClickedEvent
     ) where
 
-import System.Glib.UTFString
+import Data.Text
 
 import Control.Monad
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
+import GI.Gtk
+import GI.Gdk
 
 import GuiEnv
 import GuiHelpers
@@ -31,20 +33,19 @@ instance NewDialog NewImportDialog where
 makeNew :: (MonadIO m) => (NewImportDialog -> m a) -> m a
 makeNew = Generic.make NewImportDialog "New Import" (Just "import ")
 
-makeEdit :: (MonadIO m) => String -> (NewImportDialog -> m a) -> m a
+makeEdit :: (MonadIO m) => Text -> (NewImportDialog -> m a) -> m a
 makeEdit existing = Generic.make NewImportDialog "Edit Import" (Just existing)
 
 close :: (MonadIO m) => NewImportDialog -> m ()
 close = Generic.close
 
-type NewImportDialogSignal proxy m' p  m object m'' a
-    = GenericNewDialogSignal proxy m' p  m NewImportDialog object m'' a
+type NewImportDialogSignal object info = GenericNewDialogSignal NewImportDialog object info
 
-getImport :: (MonadIO m) => NewImportDialog -> m String
+getImport :: (MonadIO m) => NewImportDialog -> m Text
 getImport = Generic.getEnteredText
 
-confirmClickedEvent :: (Monad m) => NewImportDialogSignal proxy m' p  m Button (EventM EButton) Bool
+confirmClickedEvent :: NewImportDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
 
-cancelClickedEvent :: (Monad m) => NewImportDialogSignal proxy m' p  m Button (EventM EButton) Bool
+cancelClickedEvent :: NewImportDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent

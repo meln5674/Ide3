@@ -8,7 +8,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module MainSignals where
+
+import Data.Text
 
 import Data.Tree
 import Data.Proxy
@@ -26,8 +29,10 @@ import Control.Monad.Trans.State.Strict hiding (withState)
 
 import Control.Concurrent.MVar
 
-import Graphics.UI.Gtk hiding (get, TreePath)
-
+import GI.Gtk hiding (TreePath, on, after)
+import qualified GI.Gtk as Gtk
+import GI.Gdk hiding (on, after)
+import qualified GI.Gdk as Gdk
 
 import Ide3.Types
 import Ide3.Utils
@@ -129,51 +134,48 @@ onOpenClicked :: forall proxy m p m'
                . ( MainGuiClass m p m' )
               => GuiEnvT {-proxy-} m p m' ()
 onOpenClicked = do
-    dialog <- liftIO $ fileChooserDialogNew
-        Nothing
-        Nothing
-        FileChooserActionOpen
-        [ ("Close", ResponseReject)
-        , ("Open" , ResponseAccept)
+    dialog <- Gtk.new FileChooserDialog
+        [ #title := "Select solution file to open"
+        , #action := FileChooserActionOpen
         ]
-    r <- liftIO $ dialogRun dialog
+    dialogAddButton dialog "Close" $ fromIntegral $ fromEnum $ ResponseTypeReject
+    dialogAddButton dialog "Open" $ fromIntegral $ fromEnum $ ResponseTypeAccept
+    r <- liftM (toEnum . fromIntegral) $ dialogRun dialog
     case r of
-        ResponseAccept -> do
-            Just path <- liftIO $ fileChooserGetFilename dialog
-            liftIO $ widgetDestroy dialog
-            mapGuiEnv liftIO $ doOpen path
+        ResponseTypeAccept -> do
+            Just path <- fileChooserGetFilename dialog
+            widgetDestroy dialog
+            doOpen path
             liftIO $ setCurrentDirectory $ takeDirectory path
-        ResponseReject -> liftIO $ widgetDestroy dialog
-        _ -> liftIO $ widgetDestroy dialog
+        _ -> widgetDestroy dialog
 
 onDigestClicked :: forall proxy m p m'
                . ( MainGuiClass m p m' )
               => GuiEnvT {-proxy-} m p  m' ()
 onDigestClicked = do
-    dialog <- liftIO $ fileChooserDialogNew
-        Nothing
-        Nothing
-        FileChooserActionSelectFolder
-        [ ("Close", ResponseReject)
-        , ("Open" , ResponseAccept)
+    dialog <- Gtk.new FileChooserDialog 
+        [ #title := "Select directory to digest"
+        , #action := FileChooserActionSelectFolder
         ]
-    r <- liftIO $ dialogRun dialog
+    dialogAddButton dialog "Close" $ fromIntegral $ fromEnum ResponseTypeReject
+    dialogAddButton dialog "Open" $ fromIntegral $ fromEnum ResponseTypeAccept
+    r <- liftM (toEnum . fromIntegral) $ dialogRun dialog
     case r of
-        ResponseAccept -> do
-            Just path <- liftIO $ fileChooserGetFilename dialog
-            liftIO $ widgetDestroy dialog
-            mapGuiEnv liftIO $ doOpen path
+        ResponseTypeAccept -> do
+            Just path <- fileChooserGetFilename dialog
+            widgetDestroy dialog
+            doOpen path
             liftIO $ setCurrentDirectory path
-        ResponseReject -> liftIO $ widgetDestroy dialog
+        _ -> widgetDestroy dialog
 
 
 
 onDeclClicked :: forall proxy m p m'
                . ( MainGuiClass m p m' )
-              => TreePath
+              => Gtk.TreePath
               -> TreeViewColumn
               -> GuiEnvT {-proxy-} m p m' ()
-onDeclClicked path _ = doGetDecl path
+onDeclClicked path _ = withGtkTreePath path doGetDecl
 
 onBuildClicked :: forall proxy m p m'
                . ( MainGuiClassIO m p m' )
@@ -215,16 +217,16 @@ onNewModuleClicked :: forall proxy m p m'
               -> Maybe String
               -> GuiEnvT {-proxy-} m p m' Bool
 onNewModuleClicked pi modName = do
-    NewModuleDialog.make modName $ \dialog -> do
-        dialog `onGuiM` NewModuleDialog.confirmClickedEvent $ do
+    NewModuleDialog.make (fmap pack modName) $ \dialog -> do
+        dialog `on1` NewModuleDialog.confirmClickedEvent $ \event -> do
             moduleName <- NewModuleDialog.getModuleName dialog
             case moduleName of
-                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter a module name" ""
+                "" -> doError $ InvalidOperation "Please enter a module name" ""
                 name -> do
-                    mapGuiEnv liftIO $ doAddModule pi (ModuleInfo (Symbol moduleName))
+                    doAddModule pi (ModuleInfo (Symbol $ unpack moduleName))
                     NewModuleDialog.close dialog
             return False
-        dialog `onGuiM` NewModuleDialog.cancelClickedEvent $ do
+        dialog `on1` NewModuleDialog.cancelClickedEvent $ \event -> do
             NewModuleDialog.close dialog
             return False
     return False
@@ -236,17 +238,17 @@ onNewImportClicked :: forall proxy m p m'
               -> GuiEnvT {-proxy-} m p m' Bool
 onNewImportClicked pi mi = do
     NewImportDialog.makeNew $ \dialog -> do
-        dialog `onGuiM` NewImportDialog.confirmClickedEvent $ do
+        dialog `on1` NewImportDialog.confirmClickedEvent $ \event -> do
             import_ <- NewImportDialog.getImport dialog
             case import_ of
-                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an import" ""
+                "" -> doError $ InvalidOperation "Please enter an import" ""
                 import_ -> do
-                    maybeError <- mapGuiEnv liftIO $ doAddImport pi mi import_
+                    maybeError <- doAddImport pi mi $ unpack import_
                     case maybeError of
-                        Just err -> mapGuiEnv liftIO $ doError err
+                        Just err -> doError err
                         Nothing -> NewImportDialog.close dialog
             return False
-        dialog `onGuiM` NewImportDialog.cancelClickedEvent $ do
+        dialog `on1` NewImportDialog.cancelClickedEvent $ \event -> do
             NewImportDialog.close dialog
             return False
     return False
@@ -259,22 +261,22 @@ onEditImportClicked :: forall proxy m p m'
               -> ImportId
               -> GuiEnvT {-proxy-} m p m' Bool
 onEditImportClicked pi mi ii = do
-    getResult <- mapGuiEnv liftIO $ doGetImport pi mi ii
+    getResult <- doGetImport pi mi ii
     case getResult of
         Nothing -> return False
         Just importStr -> do
-            NewImportDialog.makeEdit importStr $ \dialog -> do
-                dialog `onGuiM` NewImportDialog.confirmClickedEvent $ do
+            NewImportDialog.makeEdit (pack importStr) $ \dialog -> do
+                dialog `on1` NewImportDialog.confirmClickedEvent $ \event -> do
                     import_ <- NewImportDialog.getImport dialog
                     case import_ of
-                        "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an import" ""
+                        "" -> doError $ InvalidOperation "Please enter an import" ""
                         import_ -> do
-                            maybeError <- mapGuiEnv liftIO $ doEditImport pi mi ii import_
+                            maybeError <- doEditImport pi mi ii $ unpack import_
                             case maybeError of
-                                Just err -> mapGuiEnv liftIO $ doError err
+                                Just err -> doError err
                                 Nothing -> NewImportDialog.close dialog
                     return False
-                dialog `onGuiM` NewImportDialog.cancelClickedEvent $ do
+                dialog `on1` NewImportDialog.cancelClickedEvent $ \event -> do
                     NewImportDialog.close dialog
                     return False
             return False
@@ -286,17 +288,17 @@ onNewExportClicked :: forall proxy m p m'
               -> GuiEnvT {-proxy-} m p m' Bool
 onNewExportClicked pi mi = do
     NewExportDialog.makeNew $ \dialog -> do
-        dialog `onGuiM` NewExportDialog.confirmClickedEvent $ do
+        dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
             export_ <- NewExportDialog.getExport dialog
             case export_ of
-                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an export" ""
+                "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- mapGuiEnv liftIO $ doAddExport pi mi export_
+                    maybeError <- doAddExport pi mi $ unpack export_
                     case maybeError of
                         Just err -> mapGuiEnv liftIO $ doError err
                         Nothing -> NewExportDialog.close dialog
             return False
-        dialog `onGuiM` NewExportDialog.cancelClickedEvent $ do
+        dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
             NewExportDialog.close dialog
             return False
     return False
@@ -318,22 +320,22 @@ onEditExportClicked :: forall proxy m p m'
               -> ExportId
               -> GuiEnvT {-proxy-} m p m' Bool
 onEditExportClicked pi mi ii = do
-    getResult <- mapGuiEnv liftIO $ doGetExport pi mi ii
+    getResult <- doGetExport pi mi ii
     case getResult of
         Nothing -> return False
         Just exportStr -> do
-            NewExportDialog.makeEdit exportStr $ \dialog -> do
-                dialog `onGuiM` NewExportDialog.confirmClickedEvent $ do
+            NewExportDialog.makeEdit (pack exportStr) $ \dialog -> do
+                dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
                     export_ <- NewExportDialog.getExport dialog
                     case export_ of
-                        "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an export" ""
+                        "" -> doError $ InvalidOperation "Please enter an export" ""
                         export_ -> do
-                            maybeError <- mapGuiEnv liftIO $ doEditExport pi mi ii export_
+                            maybeError <- doEditExport pi mi ii $ unpack export_
                             case maybeError of
-                                Just err -> mapGuiEnv liftIO $ doError err
+                                Just err -> doError err
                                 Nothing -> NewExportDialog.close dialog
                     return False
-                dialog `onGuiM` NewExportDialog.cancelClickedEvent $ do
+                dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
                     NewExportDialog.close dialog
                     return False
             return False
@@ -345,18 +347,18 @@ onExportDeclarationClicked :: forall proxy m p m'
               -> DeclarationInfo
               -> GuiEnvT {-proxy-} m p m' Bool
 onExportDeclarationClicked pi mi (DeclarationInfo (Symbol declStr)) = do
-    NewExportDialog.makeEdit declStr $ \dialog -> do
-        dialog `onGuiM` NewExportDialog.confirmClickedEvent $ do
+    NewExportDialog.makeEdit (pack declStr) $ \dialog -> do
+        dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
             export_ <- NewExportDialog.getExport dialog
             case export_ of
-                "" -> mapGuiEnv liftIO $ doError $ InvalidOperation "Please enter an export" ""
+                "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- mapGuiEnv liftIO $ doAddExport pi mi export_
+                    maybeError <- doAddExport pi mi $ unpack export_
                     case maybeError of
-                        Just err -> mapGuiEnv liftIO $ doError err
+                        Just err -> doError err
                         Nothing -> NewExportDialog.close dialog
             return False
-        dialog `onGuiM` NewExportDialog.cancelClickedEvent $ do
+        dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
             NewExportDialog.close dialog
             return False
     return False
@@ -367,17 +369,17 @@ setupModuleContextMenu :: forall proxy m p  m'
                  => ProjectInfo
                  -> ModuleInfo
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupModuleContextMenu pi mi = mapGuiEnv liftIO $ do
+setupModuleContextMenu pi mi = do
     menu <- SolutionContextMenu.makeModuleMenu pi mi
-    menu `onGuiM` SolutionContextMenu.newSubModuleClickedEvent $ do
+    menu `on1` SolutionContextMenu.newSubModuleClickedEvent $ \event -> do
         onNewModuleClicked pi $ case mi of
             mi@(ModuleInfo (Symbol prefix)) -> Just prefix
             mi -> Nothing
-    menu `onGuiM` SolutionContextMenu.newDeclClickedEvent $ do
-        mapGuiEnv liftIO $ doAddDeclaration pi mi $ DeclarationInfo $ Symbol "New Declaration"
+    menu `on1` SolutionContextMenu.newDeclClickedEvent $ \event -> do
+        doAddDeclaration pi mi $ DeclarationInfo $ Symbol "New Declaration"
         return False
-    menu `onGuiM` SolutionContextMenu.deleteModuleClickedEvent $ do
-        mapGuiEnv liftIO $ doRemoveModule pi mi
+    menu `on1` SolutionContextMenu.deleteModuleClickedEvent $ \event -> do
+        doRemoveModule pi mi
         return False
     return menu
 
@@ -386,20 +388,20 @@ setupProjectContextMenu :: forall proxy m p  m'
                . ( MainGuiClassIO m p  m' )
                  => ProjectInfo
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupProjectContextMenu pi = mapGuiEnv liftIO $ do
+setupProjectContextMenu pi = do
     menu <- SolutionContextMenu.makeProjectMenu pi
-    menu `onGuiM` SolutionContextMenu.newModuleClickedEvent $ do
+    menu `on1` SolutionContextMenu.newModuleClickedEvent $ \event -> do
         onNewModuleClicked pi Nothing
-    menu `onGuiM` SolutionContextMenu.deleteProjectClickedEvent $ do
+    menu `on1` SolutionContextMenu.deleteProjectClickedEvent $ \event -> do
         onDeleteProjectClicked pi
     return menu
 
 setupSolutionContextMenu :: forall proxy m p  m'
                . ( MainGuiClassIO m p  m' )
                  => GuiEnvT {-proxy-} m p  m' ContextMenu
-setupSolutionContextMenu = mapGuiEnv liftIO $ do
+setupSolutionContextMenu = do
     menu <- SolutionContextMenu.makeSolutionMenu
-    menu `onGuiM` SolutionContextMenu.newProjectClickedEvent $ do
+    menu `on1` SolutionContextMenu.newProjectClickedEvent $ \event -> do
         onNewProjectClicked
     return menu
 
@@ -409,14 +411,14 @@ setupDeclContextMenu :: forall proxy m p  m'
                  -> ModuleInfo
                  -> DeclarationInfo
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupDeclContextMenu pi mi di = mapGuiEnv liftIO $ do
+setupDeclContextMenu pi mi di = do
     menu <- SolutionContextMenu.makeDeclMenu pi mi di
-    menu `onGuiM` SolutionContextMenu.deleteDeclarationClickedEvent $ mapGuiEnv liftIO $ do
+    menu `on1` SolutionContextMenu.deleteDeclarationClickedEvent $ \event -> do
         doRemoveDeclaration pi mi di
         return False
-    menu `onGuiM` SolutionContextMenu.exportDeclarationClickedEvent $ do
+    menu `on1` SolutionContextMenu.exportDeclarationClickedEvent $ \event -> do
         onExportDeclarationClicked pi mi di
-    menu `onGuiM` SolutionContextMenu.unExportDeclarationClickedEvent $ mapGuiEnv liftIO $ do
+    menu `on1` SolutionContextMenu.unExportDeclarationClickedEvent $ \event -> do
         doUnExportDeclaration pi mi di
         return False
     return menu
@@ -428,7 +430,7 @@ setupImportsContextMenu :: forall proxy m p  m'
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
 setupImportsContextMenu pi mi = mapGuiEnv liftIO $ do
     menu <- SolutionContextMenu.makeImportsMenu pi mi
-    menu `onGuiM` SolutionContextMenu.newImportClickedEvent $ onNewImportClicked pi mi
+    menu `on1` SolutionContextMenu.newImportClickedEvent $ \event -> onNewImportClicked pi mi
     return menu
 
 
@@ -437,10 +439,10 @@ setupExportsContextMenu :: forall proxy m p  m'
                  => ProjectInfo
                  -> ModuleInfo
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupExportsContextMenu pi mi = mapGuiEnv liftIO $ do
+setupExportsContextMenu pi mi = do
     menu <- SolutionContextMenu.makeExportsMenu pi mi
-    menu `onGuiM` SolutionContextMenu.newExportClickedEvent $ onNewExportClicked pi mi
-    menu `onGuiM` SolutionContextMenu.exportAllClickedEvent $ onExportAllClicked pi mi
+    menu `on1` SolutionContextMenu.newExportClickedEvent $ \event -> onNewExportClicked pi mi
+    menu `on1` SolutionContextMenu.exportAllClickedEvent $ \event -> onExportAllClicked pi mi
     return menu
 
 setupImportContextMenu :: forall proxy m p  m'
@@ -449,12 +451,12 @@ setupImportContextMenu :: forall proxy m p  m'
                  -> ModuleInfo
                  -> ImportId
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupImportContextMenu pi mi ii = mapGuiEnv liftIO $ do
+setupImportContextMenu pi mi ii = do
     menu <- SolutionContextMenu.makeImportMenu pi mi ii
-    menu `onGuiM` SolutionContextMenu.deleteImportClickedEvent $ mapGuiEnv liftIO $ do
+    menu `on1` SolutionContextMenu.deleteImportClickedEvent $ \event -> do
         doRemoveImport pi mi ii
         return False
-    menu `onGuiM` SolutionContextMenu.editImportClickedEvent $ do
+    menu `on1` SolutionContextMenu.editImportClickedEvent $ \event -> do
         onEditImportClicked pi mi ii
         return False
     return menu
@@ -465,25 +467,26 @@ setupExportContextMenu :: forall proxy m p  m'
                  -> ModuleInfo
                  -> ExportId
                  -> GuiEnvT {-proxy-} m p  m' ContextMenu
-setupExportContextMenu pi mi ei = mapGuiEnv liftIO $ do
+setupExportContextMenu pi mi ei = do
     menu <- SolutionContextMenu.makeExportMenu pi mi ei
-    menu `onGuiM` SolutionContextMenu.deleteExportClickedEvent $ mapGuiEnv liftIO $ do
+    menu `on1` SolutionContextMenu.deleteExportClickedEvent $ \event -> do
         doRemoveExport pi mi ei
         return False
-    menu `onGuiM` SolutionContextMenu.editExportClickedEvent $ do
+    menu `on1` SolutionContextMenu.editExportClickedEvent $ \event -> do
         onEditExportClicked pi mi ei
         return False
     return menu                        
 
-onSolutionViewClicked :: forall proxy m p
-               . ( MainGuiClass m p (EventM EButton))
+onSolutionViewClicked :: forall proxy m p m'
+               . ( MainGuiClassIO m p m' )
               => MainWindow
-              -> GuiEnvT {-proxy-} m p (EventM EButton) Bool
-onSolutionViewClicked gui = do
-    button <- lift $ eventButton
-    when (button == RightButton) $ do
-        (x,y) <- lift $ eventCoordinates
-        time <- lift $ eventTime
+              -> EventButton -> GuiEnvT {-proxy-} m p m' Bool
+onSolutionViewClicked gui event = do
+    button <- Gdk.get event #button
+    when (button == fromIntegral BUTTON_SECONDARY) $ do
+        x <- Gtk.get event #x
+        y <- Gtk.get event #y
+        time <- Gtk.get event #time
         let (x',y') = (round x, round y)
         pathClicked <- MainWindow.getSolutionPathClicked (x',y') gui
         menu <- case pathClicked of
@@ -499,7 +502,7 @@ onSolutionViewClicked gui = do
                     ImportResult pi mi ii -> setupImportContextMenu pi mi ii
                     ExportResult pi mi ei -> setupExportContextMenu pi mi ei
                     NoSearchResult -> setupSolutionContextMenu
-        lift $ SolutionContextMenu.showMenu menu
+        lift $ SolutionContextMenu.showMenu menu event
     return False    
 
 
@@ -551,31 +554,45 @@ onForwardClicked
     => GuiEnvT {-proxy-} m' p m ()
 onForwardClicked = doForwardHistory
 
+onErrorClicked :: forall proxy m p m'
+               . ( MainGuiClass m p m' )
+              => MainWindow
+              -> Gtk.TreePath
+              -> TreeViewColumn
+              -> GuiEnvT {-proxy-} m p m' ()
+onErrorClicked gui path _ = do
+    shouldFocus <- withGtkTreePath path doJumpToErrorLocation
+    when shouldFocus $ MainWindow.focusDeclView gui
+        
+
+{-
 declBufferEdited :: GuiEnvSignal proxy m' p IO GuiComponents TextBuffer IO ()
 declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
+-}
+
+declBufferEdited :: SubSignalProxy GuiComponents TextBuffer TextBufferEndUserActionSignalInfo
+declBufferEdited comp = withEditorBuffer comp $ \buffer -> (buffer, #endUserAction)
 
 setupSignals :: ( MainGuiClassIO m p m') => MainWindow -> GuiEnvT m p m' ()
 setupSignals gui = do
-    gui `onGuiM` MainWindow.newClickedEvent $ onNewClicked
-    gui `onGuiM` MainWindow.openClickedEvent $ onOpenClicked
-    gui `onGuiM` MainWindow.digestClickedEvent $ onDigestClicked
-    gui `onGuiM` MainWindow.saveClickedEvent $ onSaveClicked
-    gui `onGuiM` MainWindow.saveSolutionClickedEvent $ onSaveSolutionClicked
-    gui `onGuiF` MainWindow.declClickedEvent $ Compose onDeclClicked
-    gui `onGuiM` MainWindow.projectViewClickedEvent $ onSolutionViewClicked gui
-    gui `onGuiM` MainWindow.buildClickedEvent $ onBuildClicked
-    gui `onGuiM` MainWindow.runClickedEvent $ onRunClicked
-    --gui `onGuiM` MainWindow.findClickedEvent $ onFindClicked gui
-    --gui `onGuiM` MainWindow.navigateClickedEvent $ onNavigateClicked gui
-    --gui `onGuiM` MainWindow.searchClickedEvent $ onSearchClicked
-    gui `onGuiM` MainWindow.gotoDeclarationClickedEvent $ onGotoDeclarationClicked
-    gui `onGuiM` MainWindow.backClickedEvent $ onBackClicked
-    gui `onGuiM` MainWindow.forwardClickedEvent $ onForwardClicked
-    gui `onGuiM` MainWindow.windowClosedEvent $ do
-        liftIO exitSuccess
-        return False
+    gui `on` MainWindow.newClickedEvent $ onNewClicked
+    gui `on` MainWindow.openClickedEvent $ onOpenClicked
+    gui `on` MainWindow.digestClickedEvent $ onDigestClicked
+    gui `on` MainWindow.saveClickedEvent $ onSaveClicked
+    gui `on` MainWindow.saveSolutionClickedEvent $ onSaveSolutionClicked
+    gui `on2` MainWindow.declClickedEvent $ onDeclClicked
+    gui `on1` MainWindow.projectViewClickedEvent $ onSolutionViewClicked gui
+    gui `on` MainWindow.buildClickedEvent $ onBuildClicked
+    gui `on` MainWindow.runClickedEvent $ onRunClicked
+    --gui `on` MainWindow.findClickedEvent $ onFindClicked gui
+    --gui `on` MainWindow.navigateClickedEvent $ onNavigateClicked gui
+    --gui `on` MainWindow.searchClickedEvent $ onSearchClicked
+    gui `on` MainWindow.gotoDeclarationClickedEvent $ onGotoDeclarationClicked
+    gui `on` MainWindow.backClickedEvent $ onBackClicked
+    gui `on` MainWindow.forwardClickedEvent $ onForwardClicked
+    gui `on2` MainWindow.errorClickedEvent $ onErrorClicked gui
+    gui `on` MainWindow.windowClosedEvent $ liftIO exitSuccess
     withGuiComponents $ \comp  -> do
-        mapGuiEnv liftIO $ comp `afterGuiM` declBufferEdited $ do
-            mapGuiEnv liftIO onDeclEdited
+        comp `after` declBufferEdited $ onDeclEdited
     return ()
 

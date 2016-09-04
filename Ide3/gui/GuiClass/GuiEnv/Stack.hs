@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module GuiClass.GuiEnv.Stack where
 
+import Data.Text
+
 import System.Directory
 import System.FilePath
 
@@ -16,7 +18,7 @@ import Ide3.NewMonad
 import Ide3.Types
 import Ide3.Utils
 
-import Graphics.UI.Gtk
+--import Graphics.UI.Gtk
 
 import EnvironmentMonad
 
@@ -64,13 +66,13 @@ instance ( MonadIO m
     getSolutionCreatorArg
         = withNewSolutionDialog
         $ \dialog -> do
-            projectRoot <- lift $ liftIO $ NewSolutionDialog.getSelectedFolder dialog
-            projectName <- lift $ liftIO $ NewSolutionDialog.getSolutionName dialog
-            templateName <- lift $ liftIO $ NewSolutionDialog.getTemplateName dialog
+            projectRoot <- NewSolutionDialog.getSelectedFolder dialog
+            projectName <- liftM unpack $ NewSolutionDialog.getSolutionName dialog
+            templateName <- liftM (fmap unpack) $ NewSolutionDialog.getTemplateName dialog
             runExceptT $ case projectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
-                    wrapIOError $ setCurrentDirectory projectRoot
+                    wrapIOError $ setCurrentDirectory $ projectRoot
                     bounce $ setDirectoryToOpen $ projectRoot </> projectName
                     return $ StackInitializerArgs projectName templateName
         

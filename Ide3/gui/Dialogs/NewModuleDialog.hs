@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns, PolyKinds #-}
+{-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module Dialogs.NewModuleDialog 
     ( NewModuleDialog
     , make
@@ -9,13 +10,13 @@ module Dialogs.NewModuleDialog
     , cancelClickedEvent
     ) where
 
-import System.Glib.UTFString
+import Data.Text
 
 import Control.Monad
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
-
+import GI.Gtk
+import GI.Gdk
 
 import GuiEnv
 import GuiHelpers
@@ -28,22 +29,21 @@ newtype NewModuleDialog = NewModuleDialog { getGenericDialog :: GenericNewDialog
 instance NewDialog NewModuleDialog where
     getGenericDialog = Dialogs.NewModuleDialog.getGenericDialog
 
-make :: (MonadIO m) => Maybe String -> (NewModuleDialog -> m a) -> m a
+make :: (MonadIO m) => Maybe Text -> (NewModuleDialog -> m a) -> m a
 make = Generic.make NewModuleDialog "New Module Name" 
 
 close :: (MonadIO m) => NewModuleDialog -> m ()
 close = Generic.close
 
-type NewModuleDialogSignal proxy m' p  m object m'' a
-    = GenericNewDialogSignal proxy m' p  m NewModuleDialog object m'' a
+type NewModuleDialogSignal object info = GenericNewDialogSignal NewModuleDialog object info
 
-getModuleName :: (MonadIO m) => NewModuleDialog -> m String
+getModuleName :: (MonadIO m) => NewModuleDialog -> m Text
 getModuleName = Generic.getEnteredText
 
-confirmClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p  m Button (EventM EButton) Bool
+confirmClickedEvent :: NewModuleDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
 
-cancelClickedEvent :: (Monad m) => NewModuleDialogSignal proxy m' p  m Button (EventM EButton) Bool
+cancelClickedEvent :: NewModuleDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent
 
 {-

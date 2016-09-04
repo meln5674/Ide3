@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns, PolyKinds #-}
+{-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module Dialogs.GenericNewDialog 
     ( GenericNewDialog
     , NewDialog (..)
@@ -10,13 +11,15 @@ module Dialogs.GenericNewDialog
     , cancelClickedEvent
     ) where
 
-import System.Glib.UTFString
+import Prelude hiding (length)
+
+import Data.Text
 
 import Control.Monad
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
-
+import GI.Gtk
+import GI.Gdk hiding (Window)
 
 import GuiEnv
 import GuiHelpers
@@ -47,30 +50,35 @@ makeHBoxWith vbox f = do
     f hbox
 -}
 
-makeTextEntryBox :: (MonadIO m, BoxClass self) => self -> EntryBuffer -> m Entry
+makeTextEntryBox :: (MonadIO m, IsBox self) => self -> EntryBuffer -> m Entry
 makeTextEntryBox vbox buffer = liftIO $ do
     textEntryBox <- entryNewWithBuffer buffer
-    boxPackStart vbox textEntryBox PackGrow 0
+    boxPackStart vbox textEntryBox True True 0
     return textEntryBox
 
-makeConfirmButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeConfirmButton :: (MonadIO m, IsBox self) => self -> m Button
 makeConfirmButton hbox = liftIO $ do
     confirmButton <- buttonNewWithLabel "Confirm"
-    boxPackStart hbox confirmButton PackGrow 0
+    boxPackStart hbox confirmButton True True 0
     return confirmButton
 
-makeCancelButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeCancelButton :: (MonadIO m, IsBox self) => self -> m Button
 makeCancelButton hbox = liftIO $ do
     cancelButton <- buttonNewWithLabel "Cancel"
-    boxPackEnd hbox cancelButton PackGrow 0
+    boxPackEnd hbox cancelButton True True 0
     return cancelButton
 
-make :: (MonadIO m, NewDialog dialog) => (GenericNewDialog -> dialog) -> String -> Maybe String -> (dialog -> m a) -> m a
+make :: (MonadIO m, NewDialog dialog) 
+     => (GenericNewDialog -> dialog) 
+     -> Text
+     -> Maybe Text
+     -> (dialog -> m a) 
+     -> m a
 make makeDialog title initial f = makeWindowWith
     $ \window ->  makeVBoxWith window 
     $ \vbox -> do
-        liftIO $ window `set` [windowTitle := title]
-        textEntryBuffer <- liftIO $ entryBufferNew initial
+        set window [windowTitle := title]
+        textEntryBuffer <- entryBufferNew initial $ fromIntegral $ maybe 0 length initial
         textEntryBox <- makeTextEntryBox vbox textEntryBuffer
         (confirmButton,cancelButton) <- makeHBoxWith vbox $ \hbox -> do
             confirmButton <- makeConfirmButton hbox
@@ -87,17 +95,19 @@ make makeDialog title initial f = makeWindowWith
 close :: (MonadIO m, NewDialog dialog) => dialog -> m ()
 close = liftIO . widgetDestroy . window . getGenericDialog
 
-getEnteredText :: (MonadIO m, NewDialog dialog) => dialog -> m String
+getEnteredText :: (MonadIO m, NewDialog dialog) => dialog -> m Text
 getEnteredText = liftIO . flip get entryBufferText . textEntryBuffer . getGenericDialog
 
+{-
 type GenericNewDialogSignal proxy m' p  m dialog object m'' a
     = GuiEnvSignal proxy m' p  m dialog object m'' a
+-}
 
+type GenericNewDialogSignal dialog subObject info = SubSignalProxy dialog subObject info
 
+confirmClickedEvent :: (NewDialog dialog) => GenericNewDialogSignal dialog Button WidgetButtonPressEventSignalInfo
+confirmClickedEvent dialog = (confirmButton $ getGenericDialog dialog, #buttonPressEvent)
 
-confirmClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p  m dialog Button (EventM EButton) Bool 
-confirmClickedEvent = (confirmButton . getGenericDialog) `mkGuiEnvSignal` buttonPressEvent
-
-cancelClickedEvent :: (Monad m, NewDialog dialog) => GenericNewDialogSignal proxy m' p  m dialog Button (EventM EButton) Bool
-cancelClickedEvent = (cancelButton . getGenericDialog) `mkGuiEnvSignal` buttonPressEvent
+cancelClickedEvent :: (NewDialog dialog) => GenericNewDialogSignal dialog Button WidgetButtonPressEventSignalInfo
+cancelClickedEvent dialog = (cancelButton $ getGenericDialog dialog, #buttonPressEvent)
 

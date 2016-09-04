@@ -21,12 +21,15 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
+import Control.Monad.Trans.Identity
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict hiding (withState)
 
 import Control.Concurrent.MVar
 
-import Graphics.UI.Gtk hiding (get, TreePath)
+import GI.Gtk hiding (main)
+import qualified GI.Gtk as Gtk
+import GI.Gdk hiding (window)
 
 import Ide3.Types
 import Ide3.Utils
@@ -177,27 +180,27 @@ instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) whe
 setupKeyboardShortcuts gui group = liftIO $ do
     gui `MainWindow.addAccelGroup` group
     MainWindow.addNewClickedEventAccelerator gui group
-        "n" [Control, Shift] [AccelVisible]
+        KEY_n [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
     MainWindow.addOpenClickedEventAccelerator gui group
-        "o" [Control] [AccelVisible]
+        KEY_o [ModifierTypeControlMask] [AccelFlagsVisible]
     MainWindow.addDigestClickedEventAccelerator gui group
-        "o" [Control, Shift] [AccelVisible]
+        KEY_o [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
     MainWindow.addSaveClickedEventAccelerator gui group
-        "s" [Control] [AccelVisible]
+        KEY_s [ModifierTypeControlMask] [AccelFlagsVisible]
     MainWindow.addSaveSolutionClickedEventAccelerator gui group
-        "s" [Control,Shift] [AccelVisible]
+        KEY_s [ModifierTypeControlMask,ModifierTypeShiftMask] [AccelFlagsVisible]
     MainWindow.addBuildClickedEventAccelerator gui group
-        "F5" [] [AccelVisible]
+        KEY_F5 [] [AccelFlagsVisible]
     {-MainWindow.addFindClickedEventAccelerator gui group
-        "f" [Control] [AccelVisible]-}
+        KEY_f [ModifierTypeControlMask] [AccelFlagsVisible]-}
     {-MainWindow.addNavigateClickedEventAccelerator gui group
-        "KP_Space" [Control] [AccelVisible]-}
+        KEY_KP_Space [ModifierTypeControlMask] [AccelFlagsVisible]-}
     MainWindow.addGotoDeclarationEventAccelerator gui group
-        "d" [Control] [AccelVisible]
+        KEY_d [ModifierTypeControlMask] [AccelFlagsVisible]
     MainWindow.addBackEventAccelerator gui group
-        "less" [Control] [AccelVisible]
+        KEY_less [ModifierTypeControlMask] [AccelFlagsVisible]
     MainWindow.addForwardEventAccelerator gui group
-        "greater" [Control] [AccelVisible]
+        KEY_greater [ModifierTypeControlMask] [AccelFlagsVisible]
     
 doMain :: forall proxy m p 
         . ( MainGuiClass m p IO )
@@ -206,26 +209,27 @@ doMain :: forall proxy m p
        -> IO ()
 doMain proxy init = do
     projectMVar <- newMVar (emptyGuiViewer,(emptyViewer, init))
-    _ <- initGUI
+    _ <- Gtk.init Nothing
     components <- initializeComponents
-    manager <- uiManagerNew
-    group <- uiManagerGetAccelGroup manager
+    --manager <- uiManagerNew
+    --group <- uiManagerGetAccelGroup manager
+    group <- Gtk.new AccelGroup []
     newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
-        dialog `onGui` NewSolutionDialog.cancelClicked $ do
+        runIdentityT $ dialog `on1` NewSolutionDialog.cancelClicked $ \event -> lift $ do
             NewSolutionDialog.setVisible False dialog
             return False
         return dialog
     let env = GuiEnv {-proxy-} components projectMVar () newSolutionDialog
     flip runGuiEnvT env $ do
         withGuiComponents $ liftIO . applyDeclBufferAttrs defaultTextAttrs
-        liftIO $ newSolutionDialog `onGui` NewSolutionDialog.confirmClicked $ do
+        newSolutionDialog `on1` NewSolutionDialog.confirmClicked $ \event -> do
             liftIO $ runGuiEnvT onNewSolutionConfirmed env
             return False
         MainWindow.make $ \gui -> do
             setupSignals gui :: GuiEnvT m p IO ()
             setupKeyboardShortcuts gui group
         NewSolutionDialog.setVisible False newSolutionDialog
-        liftIO mainGUI
+        Gtk.main
     return ()
 
 

@@ -1,7 +1,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GuiViewer where
+
+import Data.Text (Text)
 
 import Data.List (delete)
 
@@ -34,7 +37,7 @@ data GuiViewerState
     = GuiViewerState
     { openDeclarations :: [SolutionPath]
     , searchMode :: SearchMode
-    , declarationHistory :: History (SolutionPath, String)
+    , declarationHistory :: History (SolutionPath, Text)
     }
 
 emptyGuiViewer :: GuiViewerState

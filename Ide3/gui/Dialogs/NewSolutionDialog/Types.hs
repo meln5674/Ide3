@@ -1,17 +1,16 @@
 module Dialogs.NewSolutionDialog.Types where
 
-import Graphics.UI.Gtk
-
+import qualified GI.Gtk as Gtk
 data NewSolutionDialog
     = NewSolutionDialog
-    { window :: Window
-    , fileChooser :: FileChooserWidget
-    , projectNameBox :: Entry
-    , projectNameBuffer :: EntryBuffer
-    , templateNameBox :: Entry
-    , templateNameBuffer :: EntryBuffer
-    , projectNameLabel :: Label
-    , templateNameLabel :: Label
-    , confirmButton :: Button
-    , cancelButton :: Button
+    { window :: Gtk.Window
+    , fileChooser :: Gtk.FileChooserWidget
+    , projectNameBox :: Gtk.Entry
+    , projectNameBuffer :: Gtk.EntryBuffer
+    , templateNameBox :: Gtk.Entry
+    , templateNameBuffer :: Gtk.EntryBuffer
+    , projectNameLabel :: Gtk.Label
+    , templateNameLabel :: Gtk.Label
+    , confirmButton :: Gtk.Button
+    , cancelButton :: Gtk.Button
     }

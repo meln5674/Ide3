@@ -1,9 +1,11 @@
 {-# LANGUAGE NamedFieldPuns, PolyKinds #-}
+{-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module SolutionContextMenu where
 
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
+import GI.Gtk
+import GI.Gdk
 
 import Ide3.Types hiding (moduleInfo, projectInfo)
 
@@ -209,73 +211,76 @@ makeNewProjectButton :: (MonadIO m) => Menu -> m MenuItem
 makeNewProjectButton = makeMenuButton "New Project"
 
 
-showMenu :: ContextMenu -> EventM EButton ()
-showMenu (ContextMenu menu _) = do
-    button <- eventButton
-    time <- eventTime
-    liftIO $ do
-        widgetShowAll menu
-        menuPopup menu $ Just (button, time)
+showMenu :: MonadIO m => ContextMenu -> EventButton -> m ()
+showMenu (ContextMenu menu _) event = do
+    button <- get event #button
+    time <- get event #time
+    widgetShowAll menu
+    menuPopup menu noMenuShell noMenuItem noMenuPositionFunc button time
 
+{-
 type ContextMenuSignal proxy m' p  m object m'' a
     = GuiEnvSignal proxy m' p  m ContextMenu object m'' a
+-}
+
+type ContextMenuSignal subObject info = SubSignalProxy ContextMenu subObject info
+
+mkMenuSignal :: (ElementMenu -> object)
+             -> SignalProxy object info 
+             -> ContextMenuSignal object info
+mkMenuSignal object signal = \contextMenu -> (object $ menuItems contextMenu, signal)
 
 
-mkMenuSignal :: (Monad m, MonadIO m'') => (ElementMenu -> object)
-            -> Signal object (m'' a)
-            -> ContextMenuSignal proxy m' p  m object m'' a
-mkMenuSignal = mkGuiEnvSignalFor menuItems
+newDeclClickedEvent ::   ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
+newDeclClickedEvent = newDeclButton `mkMenuSignal` #buttonPressEvent
 
-newDeclClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newDeclClickedEvent = newDeclButton `mkMenuSignal` buttonPressEvent
+newSubModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newSubModuleClickedEvent = newSubModuleButton `mkMenuSignal` #buttonPressEvent
 
-newSubModuleClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newSubModuleClickedEvent = newSubModuleButton `mkMenuSignal` buttonPressEvent
+renameModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+renameModuleClickedEvent = renameModuleButton `mkMenuSignal` #buttonPressEvent
 
-renameModuleClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-renameModuleClickedEvent = renameModuleButton `mkMenuSignal` buttonPressEvent
+deleteModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+deleteModuleClickedEvent = deleteModuleButton `mkMenuSignal` #buttonPressEvent
 
-deleteModuleClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-deleteModuleClickedEvent = deleteModuleButton `mkMenuSignal` buttonPressEvent
+exportDeclarationClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+exportDeclarationClickedEvent = exportDeclarationButton `mkMenuSignal` #buttonPressEvent
 
-exportDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-exportDeclarationClickedEvent = exportDeclarationButton `mkMenuSignal` buttonPressEvent
+unExportDeclarationClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+unExportDeclarationClickedEvent = unExportDeclarationButton `mkMenuSignal` #buttonPressEvent
 
-unExportDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-unExportDeclarationClickedEvent = unExportDeclarationButton `mkMenuSignal` buttonPressEvent
+moveDeclarationClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+moveDeclarationClickedEvent = moveDeclarationButton `mkMenuSignal` #buttonPressEvent
 
-moveDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-moveDeclarationClickedEvent = moveDeclarationButton `mkMenuSignal` buttonPressEvent
+deleteDeclarationClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+deleteDeclarationClickedEvent = deleteDeclarationButton `mkMenuSignal` #buttonPressEvent
 
-deleteDeclarationClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-deleteDeclarationClickedEvent = deleteDeclarationButton `mkMenuSignal` buttonPressEvent
+editImportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+editImportClickedEvent = editImportButton `mkMenuSignal` #buttonPressEvent
 
-editImportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-editImportClickedEvent = editImportButton `mkMenuSignal` buttonPressEvent
+deleteImportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+deleteImportClickedEvent = deleteImportButton `mkMenuSignal` #buttonPressEvent
 
-deleteImportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-deleteImportClickedEvent = deleteImportButton `mkMenuSignal` buttonPressEvent
+editExportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+editExportClickedEvent = editExportButton `mkMenuSignal` #buttonPressEvent
 
-editExportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-editExportClickedEvent = editExportButton `mkMenuSignal` buttonPressEvent
+deleteExportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+deleteExportClickedEvent = deleteExportButton `mkMenuSignal` #buttonPressEvent
 
-deleteExportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-deleteExportClickedEvent = deleteExportButton `mkMenuSignal` buttonPressEvent
+newImportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newImportClickedEvent = newImportButton `mkMenuSignal` #buttonPressEvent
 
-newImportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newImportClickedEvent = newImportButton `mkMenuSignal` buttonPressEvent
+newExportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newExportClickedEvent = newExportButton `mkMenuSignal` #buttonPressEvent
 
-newExportClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newExportClickedEvent = newExportButton `mkMenuSignal` buttonPressEvent
+exportAllClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+exportAllClickedEvent = exportAllButton `mkMenuSignal` #buttonPressEvent
 
-exportAllClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-exportAllClickedEvent = exportAllButton `mkMenuSignal` buttonPressEvent
+newModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newModuleClickedEvent = newModuleButton `mkMenuSignal` #buttonPressEvent
 
-newModuleClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newModuleClickedEvent = newModuleButton `mkMenuSignal` buttonPressEvent
+newProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newProjectClickedEvent = newProjectButton `mkMenuSignal` #buttonPressEvent
 
-newProjectClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-newProjectClickedEvent = newProjectButton `mkMenuSignal` buttonPressEvent
-
-deleteProjectClickedEvent :: (Monad m) =>  ContextMenuSignal proxy m' p  m MenuItem (EventM EButton) Bool
-deleteProjectClickedEvent = deleteProjectButton `mkMenuSignal` buttonPressEvent
+deleteProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+deleteProjectClickedEvent = deleteProjectButton `mkMenuSignal` #buttonPressEvent
