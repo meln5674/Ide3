@@ -30,6 +30,7 @@ library
                      , SimpleFilesystemSolution
                      , CabalFilesystemSolution
                      , PseudoState
+                     , PseudoReader
                      , CabalMonad
                      , EnvironmentMonad
                      , EnvironmentMonad.Stack
@@ -63,14 +64,20 @@ executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
   other-modules:       MainSignals
+                     , GenericGuiEnv
+                     , GuiT
                      , SolutionTree
                      , BetterTextView
                      , DeclarationPath
                      , GuiViewer
                      , GuiViewer.Class
+                     , GuiViewer.Class
                      , GuiCommand
+                     , GuiCommandGeneric
                      , GuiCommand.Internal
                      , ProcessReader
+                     , Dialogs
+                     , Dialogs.Class
                      , Dialogs.MainWindow
                      , Dialogs.NewSolutionDialog
                      , Dialogs.NewSolutionDialog.Types
@@ -82,7 +89,9 @@ executable Ide3-GUI
                      , GuiMonad
                      , GuiEnv
                      , GuiClass
+                     , GuiClass.Dialogs
                      , GuiClass.GuiEnv
+                     , GuiClass.GuiEnv.Stack
                      , GuiClass.Types
                      , ViewerMonad2
                      , GuiHelpers

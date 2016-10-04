@@ -1,13 +1,38 @@
+{-|
+Module      : Dialogs.MainWindow
+Description : Main application window
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
+
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 module Dialogs.MainWindow
-    ( MainWindow
+    ( 
+    -- * Window type
+      MainWindow
     
+    -- * Functions
     , make
+
+    , getSolutionPathClicked
     
+    , focusDeclView
+    , setSearchBarVisible
+    , setSearchMode
+    
+    , addAccelGroup
+
+    -- * Signals
+    , MainWindowSignal
     , newClickedEvent
     , openClickedEvent
     , digestClickedEvent
@@ -25,15 +50,9 @@ module Dialogs.MainWindow
     , gotoDeclarationClickedEvent
     , backClickedEvent
     , forwardClickedEvent
-
-    , getSolutionPathClicked
+    , declarationEditedEvent
     
-    , focusDeclView
-    --, setSearchBarVisible
-    --, setSearchMode
-    
-    , addAccelGroup
-    
+    -- * Accelerators
     , addNewClickedEventAccelerator
     , addOpenClickedEventAccelerator
     , addDigestClickedEventAccelerator
@@ -56,7 +75,7 @@ import Data.Functor.Compose
 import Control.Monad.Trans
 
 import Data.GI.Base.Attributes
-import GI.Gtk hiding (TreePath)
+import GI.Gtk hiding (TreePath, SearchBar)
 import GI.Gdk hiding (Window, windowNew)
 import Data.GI.Gtk.ModelView.CellLayout
 
@@ -83,6 +102,7 @@ import DeclarationPath
 
 import GuiClass (SolutionTreeElem (..))
 
+-- | ADT for the main application window
 data MainWindow
     = MainWindow
     { window :: Window
@@ -92,10 +112,11 @@ data MainWindow
     , navigationMenu :: NavigationMenu
     , solutionViewer :: SolutionViewer
     , buildViewer :: BuildViewer
-    --, searchBar :: SearchBar
+    , searchBar :: SearchBar
     }  
 
 
+-- | Renderer for the solution tree
 renderSolutionTreeElem :: (AttrSetC info o "text" Text, IsCellRendererText o) 
                        => SolutionTreeElem -> [AttrOp o AttrSet]
 renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
@@ -110,23 +131,27 @@ renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [#text := pack i
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := pack exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [#text := pack p]
 
+-- | Renderer for the error list image column
 renderImageCell :: (AttrSetC info o "stockId" Text, IsCellRendererPixbuf o) 
                 => Error ItemPath -> [AttrOp o AttrSet]
 renderImageCell (Warning _ _ _ _) = [#stockId := STOCK_DIALOG_WARNING]
 renderImageCell (Error _ _ _ _) = [#stockId := STOCK_DIALOG_ERROR]
 
+-- | Renderer for the error list project column
 renderProjectCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
                   => Error ItemPath -> [AttrOp o AttrSet]
 renderProjectCell e = [#text := pack (unProjectInfo pji)]
   where
     (ProjectChild pji _) = errorLocation e
 
+-- | Renderer for the error list module column
 renderModuleCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
                  => Error ItemPath -> [AttrOp o AttrSet]
 renderModuleCell e = [#text := pack (moduleInfoString mi "???")]
   where
     (ProjectChild _ (ModuleChild mi _)) = errorLocation e
 
+-- | Renderer for the error list declaration column
 renderDeclarationCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
               => Error ItemPath -> [AttrOp o AttrSet]
 renderDeclarationCell e = [#text := text]
@@ -141,16 +166,19 @@ renderDeclarationCell e = [#text := text]
             DeclarationString di -> getSymbol $ getDeclarationInfo $ item di
         Nothing -> ""
 
+-- | Renderer for the error list row column
 renderRowCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
               => Error ItemPath -> [AttrOp o AttrSet]
 renderRowCell (Warning _ row _ _) = [#text := pack (show row)]
 renderRowCell (Error _ row _ _) = [#text := pack (show row)]
 
+-- | Renderer for the error list column column
 renderColumnCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
                  => Error ItemPath -> [AttrOp o AttrSet]
 renderColumnCell (Warning _ _ col _) = [#text := pack (show col)]
 renderColumnCell (Error _ _ col _) = [#text := pack (show col)]
 
+-- | Renderer for the error list message column
 renderMessageCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
                   => Error ItemPath -> [AttrOp o AttrSet]
 renderMessageCell (Warning _ _ _ msg) = [#text := pack msg]
@@ -158,52 +186,51 @@ renderMessageCell (Error _ _ _ msg) = [#text := pack msg]
 
 
 
-
---make :: GuiEnv {-proxy-} m p buffer -> (MainWindow -> m a) -> m ()
-
+-- | Create the main application window
 make :: (MonadIO m)
      => (MainWindow -> GuiEnvT {-proxy-} m' p  m a) 
      -> GuiEnvT {-proxy-} m' p  m a
 make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
-    --makeOverlayWith window $ \overlay -> do
-        --searchBarBox <- liftIO $ vBoxNew False 0
-        --liftIO $ overlay `overlayAdd` searchBarBox
+    makeOverlayWith window $ \overlay -> do
+        --searchBarBox <- vBoxNew False 0
+        --overlay `overlayAddOverlay` searchBarBox
+        --overlaySetOverlayPassThrough overlay searchBarBox True
         --searchBar <- SearchBar.make searchBarBox
-        --liftIO $ SearchBar.setVisible searchBar False
-        --makeVBoxWith overlay $ \container -> do
-    makeVBoxWith window $ \container -> do
-        menuBar <- makeMainMenuBar container
-        fileMenu <- makeFileMenu menuBar
-        solutionMenu <- makeSolutionMenu menuBar
-        searchMenu <- makeSearchMenu menuBar
-        navigationMenu <- makeNavigationMenu menuBar
-        makeVPanedWith container $ \vbox -> do
-            solutionViewerBox <- makeSoloBox
-            buildViewerBox <- makeSoloBox
-            liftIO $ vbox `panedAdd1` solutionViewerBox
-            liftIO $ vbox `panedAdd2` buildViewerBox
-            solutionViewer <- makeSolutionViewer renderer 
-                                               renderSolutionTreeElem
-                                               solutionViewerBox
-            buildViewer <- makeBuildViewer buildViewerBox
-            f MainWindow
-              { window
-              , fileMenu
-              , solutionMenu
-              , searchMenu
-              , solutionViewer
-              , navigationMenu
-              , buildViewer
-              --, searchBar
-              }
+        let searchBar = undefined
+        --SearchBar.setVisible searchBar False
+        makeVBoxWith overlay $ \container -> do
+            menuBar <- makeMainMenuBar container
+            fileMenu <- makeFileMenu menuBar
+            solutionMenu <- makeSolutionMenu menuBar
+            searchMenu <- makeSearchMenu menuBar
+            navigationMenu <- makeNavigationMenu menuBar
+            makeVPanedWith container $ \vbox -> do
+                solutionViewerBox <- makeSoloBox
+                buildViewerBox <- makeSoloBox
+                vbox `panedAdd1` solutionViewerBox
+                vbox `panedAdd2` buildViewerBox
+                solutionViewer <- makeSolutionViewer renderer 
+                                                   renderSolutionTreeElem
+                                                   solutionViewerBox
+                buildViewer <- makeBuildViewer buildViewerBox
+                f MainWindow
+                  { window
+                  , fileMenu
+                  , solutionMenu
+                  , searchMenu
+                  , solutionViewer
+                  , navigationMenu
+                  , buildViewer
+                  , searchBar
+                  }
 
 makeRenderer :: (MonadIO m) => GuiEnvT {-proxy-} m' p  m CellRendererText
-makeRenderer = liftIO cellRendererTextNew
+makeRenderer = cellRendererTextNew
 
 makeSoloBox :: (MonadIO m)
             => GuiEnvT {-proxy-} m' p  m VBox
-makeSoloBox = liftIO $ vBoxNew False 0
+makeSoloBox = vBoxNew False 0
 
 
 makeVPanedWith :: (MonadIO m, IsContainer self) 
@@ -211,8 +238,8 @@ makeVPanedWith :: (MonadIO m, IsContainer self)
                -> (VPaned -> GuiEnvT {-proxy-} m' p  m b) 
                -> GuiEnvT {-proxy-} m' p  m b
 makeVPanedWith container f = do
-    vbox <- liftIO $ vPanedNew
-    liftIO $ container `containerAdd` vbox
+    vbox <- vPanedNew
+    container `containerAdd` vbox
     f vbox
 
 makeHPanedWith :: (MonadIO m, IsContainer self) 
@@ -220,15 +247,15 @@ makeHPanedWith :: (MonadIO m, IsContainer self)
                -> (HPaned -> GuiEnvT {-proxy-} m' p  m b) 
                -> GuiEnvT {-proxy-} m' p  m b
 makeHPanedWith container f = do
-    hbox <- liftIO $ hPanedNew
-    liftIO $ container `containerAdd` hbox
+    hbox <- hPanedNew
+    container `containerAdd` hbox
     f hbox
 
 {-
 makeContainerWith :: (MonadIO m, IsBox self) => self -> (Table -> GuiEnvT {-proxy-} m' p  m b) -> GuiEnvT {-proxy-} m' p  m b
 makeContainerWith vbox f = do
-    container <- liftIO $ tableNew 2 3 False
-    liftIO $ boxPackEnd vbox container True True 0
+    container <- tableNew 2 3 False
+    boxPackEnd vbox container True True 0
     f container
 -}
 
@@ -377,8 +404,8 @@ makeSolutionViewer renderer renderFunc container = do
     makeHPanedWith container $ \hbox -> do
         projectViewBox <- makeSoloBox
         declViewBox <- makeSoloBox
-        liftIO $ hbox `panedAdd1` projectViewBox
-        liftIO $ hbox `panedAdd2` declViewBox
+        hbox `panedAdd1` projectViewBox
+        hbox `panedAdd2` declViewBox
         projectView <- makeProjView renderer projectViewBox renderFunc
         declView <- makeDeclView declViewBox
         return SolutionViewer
@@ -395,20 +422,13 @@ makeProjView :: ( MonadIO m
              -> (SolutionTreeElem -> [AttrOp cell AttrSet]) 
              -> GuiEnvT {-proxy-} m' p  m TreeView
 makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
-    treeViewColumn <- liftIO treeViewColumnNew
-    projView <- withGuiComponents $ flip withSolutionTree $ liftIO . treeViewNewWithModel
-    _ <- liftIO $ treeViewAppendColumn projView treeViewColumn
-    liftIO $ cellLayoutPackStart treeViewColumn renderer False
+    treeViewColumn <- treeViewColumnNew
+    projView <- withGuiComponents $ flip withSolutionTree treeViewNewWithModel
+    _ <- treeViewAppendColumn projView treeViewColumn
+    cellLayoutPackStart treeViewColumn renderer False
     withGuiComponents $ flip withSolutionTree $ \treeStore -> 
-        liftIO $ cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
-        {-container
-        scrollWindow
-        0 1
-        0 1
-        [Expand,Fill] [Expand,Fill] 0 0
---        [Fill] [Fill] 0 0
---        [Expand] [Expand] 0 0-}
-    liftIO $ scrollWindow `containerAdd` projView
+        cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
+    scrollWindow `containerAdd` projView
     return projView
 
 makeDeclView :: ( MonadIO m
@@ -417,20 +437,8 @@ makeDeclView :: ( MonadIO m
              => self -> GuiEnvT {-proxy-} m' p  m BetterTextView
 makeDeclView container = makeScrolledWindowWith container $ \scrollWindow -> do
     declView <- withGuiComponents $ flip withEditorBuffer $ betterTextViewNewWithBuffer
-    --monospace <- liftIO fontDescriptionNew
-    --liftIO $ monospace `fontDescriptionSetFamily` "monospace"
     setSub declView [ mkBTVAttr (#monospace := True) ]
-    {-
-    liftIO $ tableAttach
-        container
-        scrollWindow
-        1 2
-        0 1
-        [Expand,Fill] [Expand,Fill] 0 0
---        [Fill] [Fill] 0 0
---        [Expand] [Expand] 0 0
-    -}
-    liftIO $ scrollWindow `containerAdd` declView
+    scrollWindow `containerAdd` declView
     return declView
 
 data BuildViewer
@@ -447,8 +455,6 @@ makeBuildViewer container = do
     makeNotebookWith container $ \notebook -> do
         buildView <- makeNotebookPageWith notebook "Log" makeBuildView
         errorView <- makeNotebookPageWith notebook "Errors" makeErrorView
-       
-            
         return BuildViewer
              { buildView
              , errorView
@@ -459,18 +465,9 @@ makeBuildView :: ( MonadIO m
                  ) 
               => self -> GuiEnvT {-proxy-} m' p  m TextView
 makeBuildView container = makeScrolledWindowWith container $ \scrollWindow -> do
-    buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
-    {-
-    liftIO $ tableAttach
-        container
-        buildView
-        0 2
-        2 3
-        [Expand,Fill] [Expand,Fill] 0 0
-    -}
---        [Fill] [Fill] 0 0
---        [Expand] [Expand] 0 0
-    liftIO $ scrollWindow `containerAdd` buildView
+    buildView <- withGuiComponents $ flip withBuildBuffer textViewNewWithBuffer
+    set buildView [ #editable := False ]
+    scrollWindow `containerAdd` buildView
     return buildView
 
 
@@ -483,7 +480,7 @@ makeErrorView container = do
         $ flip withErrorList 
         $ \list -> makeScrolledWindowWith container 
         $ \scrollWindow -> liftIO $ do
-        
+
             errorView <- treeViewNewWithModel list
             
             imageColumn <- treeViewColumnNew
@@ -493,6 +490,7 @@ makeErrorView container = do
             rowColumn <- treeViewColumnNew
             columnColumn <- treeViewColumnNew
             messageColumn <- treeViewColumnNew
+
             renderer <- cellRendererTextNew
             imageRenderer <- cellRendererPixbufNew
             
@@ -553,8 +551,6 @@ makeMainWindowWith f = do
     return r
 
 type MainWindowSignal object info = SubSignalProxy MainWindow object info
-
-type FileMenuSignal object info = SubSignalProxy FileMenu object info
 
 mkMainWindowSignal :: (MainWindow -> object) -> SignalProxy object info -> MainWindowSignal object info
 mkMainWindowSignal getter signal window = (getter window, signal)
@@ -625,7 +621,8 @@ backClickedEvent = backButton `mkNavigationMenuSignal` #activate
 forwardClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
 forwardClickedEvent = forwardButton `mkNavigationMenuSignal` #activate
 
-
+declarationEditedEvent :: MainWindowSignal TextView TextViewInsertAtCursorSignalInfo
+declarationEditedEvent window = mkBTVSignal #insertAtCursor (declView $ solutionViewer window)
 
 {-
 searchClickedEvent :: (Monad m)
@@ -658,19 +655,19 @@ getSolutionPathClicked (x',y') window = do
   where
     x = fromIntegral x'
     y = fromIntegral y'
-{-
+
 setSearchBarVisible :: (MonadIO m)
                     => MainWindow
                     -> Bool
                     -> m ()
-setSearchBarVisible window v = liftIO $ SearchBar.setVisible (searchBar window) v
+setSearchBarVisible window v = SearchBar.setVisible (searchBar window) v
 
 setSearchMode :: (MonadIO m)
               => MainWindow
               -> SearchMode
               -> m ()
-setSearchMode window v = liftIO $ SearchBar.setSearchMode (searchBar window) v
--}
+setSearchMode window v = SearchBar.setSearchMode (searchBar window) v
+
 
 
 focusDeclView :: (MonadIO m)

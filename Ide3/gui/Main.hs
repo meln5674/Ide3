@@ -1,4 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Main where
 
 import Data.Tree
@@ -52,6 +52,9 @@ import GuiEnv
 
 import GuiHelpers
 
+import Dialogs
+import Dialogs.Class
+
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
@@ -65,6 +68,8 @@ import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
 import qualified SolutionContextMenu
+
+import GuiT
 
 import SearchMode
 
@@ -80,7 +85,8 @@ import Initializer
 
 import GuiClass
 import GuiClass.GuiEnv
-import GuiClass.GuiEnv.Stack
+--import GuiClass.GuiEnv.Stack
+import GuiClass.GuiT
 
 import EnvironmentMonad
 import EnvironmentMonad.Stack
@@ -177,60 +183,54 @@ instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) whe
     getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
     type ProjectArgType (GuiViewerT m) = ProjectArgType m
 
-setupKeyboardShortcuts gui group = liftIO $ do
-    gui `MainWindow.addAccelGroup` group
-    MainWindow.addNewClickedEventAccelerator gui group
-        KEY_n [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addOpenClickedEventAccelerator gui group
-        KEY_o [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addDigestClickedEventAccelerator gui group
-        KEY_o [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addSaveClickedEventAccelerator gui group
-        KEY_s [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addSaveSolutionClickedEventAccelerator gui group
-        KEY_s [ModifierTypeControlMask,ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addBuildClickedEventAccelerator gui group
-        KEY_F5 [] [AccelFlagsVisible]
-    {-MainWindow.addFindClickedEventAccelerator gui group
-        KEY_f [ModifierTypeControlMask] [AccelFlagsVisible]-}
-    {-MainWindow.addNavigateClickedEventAccelerator gui group
-        KEY_KP_Space [ModifierTypeControlMask] [AccelFlagsVisible]-}
-    MainWindow.addGotoDeclarationEventAccelerator gui group
-        KEY_d [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addBackEventAccelerator gui group
-        KEY_less [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addForwardEventAccelerator gui group
-        KEY_greater [ModifierTypeControlMask] [AccelFlagsVisible]
-    
+{-
 doMain :: forall proxy m p 
-        . ( MainGuiClass m p IO )
+        . ( MainGuiClass (GuiT m p) m p IO )
        => proxy m 
        -> p
        -> IO ()
-doMain proxy init = do
+-}
+doMain :: a -> (FileSystemSolution,Solution) -> IO ()
+doMain _ init = do
     projectMVar <- newMVar (emptyGuiViewer,(emptyViewer, init))
     _ <- Gtk.init Nothing
     components <- initializeComponents
     --manager <- uiManagerNew
     --group <- uiManagerGetAccelGroup manager
     group <- Gtk.new AccelGroup []
-    newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
-        runIdentityT $ dialog `on1` NewSolutionDialog.cancelClicked $ \event -> lift $ do
-            NewSolutionDialog.setVisible False dialog
-            return False
-        return dialog
-    let env = GuiEnv {-proxy-} components projectMVar () newSolutionDialog
-    flip runGuiEnvT env $ do
-        withGuiComponents $ liftIO . applyDeclBufferAttrs defaultTextAttrs
-        newSolutionDialog `on1` NewSolutionDialog.confirmClicked $ \event -> do
-            liftIO $ runGuiEnvT onNewSolutionConfirmed env
-            return False
-        MainWindow.make $ \gui -> do
-            setupSignals gui :: GuiEnvT m p IO ()
+    
+    let env = GuiEnv {-proxy-} components projectMVar
+    dialogs <- flip runGuiEnvT env $ do
+        withGuiComponents $ applyDeclBufferAttrs defaultTextAttrs
+        newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
+            runIdentityT $ dialog `on1` NewSolutionDialog.cancelClicked $ \event -> lift $ do
+                NewSolutionDialog.setVisible dialog False
+                return False
+            return dialog
+        mainWindow <- MainWindow.make $ \gui -> do
             setupKeyboardShortcuts gui group
-        NewSolutionDialog.setVisible False newSolutionDialog
-        Gtk.main
-    return ()
+            return gui
+        newSolutionDialog `NewSolutionDialog.setVisible` False
+        return Dialogs
+            { mainWindow
+            , newSolutionDialog
+            , newModuleDialog = undefined
+            , newExportDialog = undefined
+            , newImportDialog = undefined
+            }
+    let go :: GuiT (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) (FileSystemSolution, Solution) IO ()
+        go = do
+            gui <- liftDialogs $ withMainWindow id
+            newSolutionDialog <- liftDialogs $ withNewSolutionDialog id
+            setupSignals gui
+            newSolutionDialog `on1` NewSolutionDialog.confirmClicked $ \event -> do
+                onNewSolutionConfirmed
+                --GuiT (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) (FileSystemSolution, Solution) IO ()
+                return False
+            Gtk.main
+    
+    runGuiT go env dialogs
+
 
 
 main :: IO ()

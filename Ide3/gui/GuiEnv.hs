@@ -33,10 +33,7 @@ data GuiEnv {-proxy-} m p
     { {-proxy :: proxy m
     ,-} guiComponents :: GuiComponents
     , projectMVar :: MVar (MVarType p)
-    , newProjectDialog :: ()
-    , newSolutionDialog :: NewSolutionDialog
     }
-
 withSolutionMVar :: (Monad m)
                 => (MVar (MVarType p) -> GuiEnvT {-proxy-} m' p  m a)
                 -> GuiEnvT {-proxy-} m' p  m a
@@ -47,11 +44,12 @@ withGuiComponents :: (Monad m)
             -> GuiEnvT {-proxy-} m' p  m a
 withGuiComponents f = getEnv >>= f . guiComponents
 
+{-
 withNewSolutionDialog :: (Monad m)
                       => (NewSolutionDialog -> GuiEnvT {-proxy-} m' p m a)
                       -> GuiEnvT {-proxy-} m' p m a
 withNewSolutionDialog f = getEnv >>= f . newSolutionDialog
-
+-}
 newtype GuiEnvT {-proxy-} (m' :: * -> *) p m a 
     = GuiEnvT { runGuiEnvTInternal :: ReaderT (GuiEnv {-proxy-} m' p) m a }
   deriving

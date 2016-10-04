@@ -51,8 +51,8 @@ getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuff
 close :: MonadIO m => NewSolutionDialog -> m ()
 close = liftIO . widgetDestroy . window
 
-setVisible :: MonadIO m => Bool -> NewSolutionDialog -> m ()
-setVisible v dialog = liftIO $ set (window dialog) [widgetVisible := v]
+setVisible :: MonadIO m => NewSolutionDialog -> Bool -> m ()
+setVisible dialog v = set (window dialog) [widgetVisible := v]
 
 {-
 makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
