@@ -69,7 +69,7 @@ class (Monad m) => SolutionInitializerClass m where
 
 type SolutionInitializerClass' m m'
     = ( SolutionInitializerClass m
-      --, m' ~ ClassSolutionInitializerMonad m
+      -- , m' ~ ClassSolutionInitializerMonad m
       , InitializerMonad m'
       , Args (ArgType m')
       )

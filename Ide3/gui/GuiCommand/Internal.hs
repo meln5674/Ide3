@@ -117,7 +117,7 @@ type GuiCommand t m =
     ( MonadTrans t
     , MonadSplice t
     , MonadUnsplice t
-    , MonadIO m
+--    , MonadIO m
     , ViewerMonad m
     , SolutionClass m
     , PersistenceClass m
@@ -135,7 +135,7 @@ type GuiCommand t m =
     , SearchBarClass (t m)
     , ErrorListClass (t m)
     , Monad (t (SolutionResult UserError m))
-    , GuiViewerClass (t m)
+    --, GuiViewerClass (t m)
     , ViewerStateClass m
     , ModuleLocationClass m
 --    , ProjectInitializerClass' (t m) m
@@ -200,6 +200,7 @@ openItem
 openItem (DeclarationPath pji mi di) = do
     decl <- lift $ getDeclaration pji mi di
     splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
+    --lift $ liftIO $ print $ body decl
     lift $ lift $ setCurrentDecl pji mi di
     return $ T.pack $ body decl
 openItem (ModulePath pji mi) = do
@@ -215,15 +216,15 @@ doGetDecl :: ( GuiCommand t m )
           => TreePath
           -> t (SolutionResult UserError m)  ()
 doGetDecl path = do
-    lift $ liftIO $ putStrLn "Getting index"
+    --lift $ liftIO $ putStrLn "Getting index"
     index <- splice $ findAtPath path
     case index of
         DeclResult pi mi di -> do
-            lift $ liftIO $ putStrLn "Retreiving declaration"
+            --lift $ liftIO $ putStrLn "Retreiving declaration"
             text <- openItem $ DeclarationPath pi mi di
             lift $ lift $ openDeclarationInHistory (DeclarationPath pi mi di) text
         ModuleResult pi mi True -> do
-            lift $ liftIO $ putStrLn "Retreiving module header"
+            --lift $ liftIO $ putStrLn "Retreiving module header"
             text <- openItem $ ModulePath pi mi
             lift $ lift $ openDeclarationInHistory (ModulePath pi mi) text
         _ -> return ()
@@ -235,11 +236,11 @@ doBuild :: ( GuiCommand t m
            )
         => t (SolutionResult UserError m) ()
 doBuild = do --withGuiComponents $ \comp -> lift $ do
-    lift $ liftIO $ putStrLn "Clearing error list"
+    --lift $ liftIO $ putStrLn "Clearing error list"
     splice $ setBuildBufferText ""
     splice $ clearErrorList
     
-    lift $ liftIO $ putStrLn "Building"
+    --lift $ liftIO $ putStrLn "Building"
     lift $ prepareBuild
     builder <- lift $ lift $ getBuilder
     r <- lift $ runBuilder builder
@@ -247,7 +248,7 @@ doBuild = do --withGuiComponents $ \comp -> lift $ do
             BuildSucceeded log warnings -> (log,warnings)
             BuildFailed log errors -> (log,errors)
 
-    lift $ liftIO $ putStrLn "Fetching error locations"
+    --lift $ liftIO $ putStrLn "Fetching error locations"
     
     --   Group the errors into lists that have the same module, then batch fetch
     -- each group's offsets. 
@@ -265,10 +266,10 @@ doBuild = do --withGuiComponents $ \comp -> lift $ do
             return $ map (uncurry fixLocation) (zip es locs') 
     errors' <- liftM (concat . OMap.elems) $ OMap.mapWithKeyM fetchErrorLocations sortedErrors
 
-    lift $ liftIO $ putStrLn "Setting log text"
+    --lift $ liftIO $ putStrLn "Setting log text"
     splice $ setBuildBufferText $ T.pack text
 
-    lift $ liftIO $ putStrLn $ "Adding errors (" ++ show (length errors') ++ ")"
+    --lift $ liftIO $ putStrLn $ "Adding errors (" ++ show (length errors') ++ ")"
     splice $ mapM_ addErrorToList errors'
 
 doRun :: ( GuiCommand t m
@@ -409,7 +410,7 @@ doAddDeclaration pji mi di = do
     decl <- lift $ getDeclaration pji mi di
     splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
     lift $ lift $ setCurrentDecl pji mi di
-    splice $ openDeclarationInHistory (DeclarationPath pji mi di) $ T.pack $ body decl
+    lift $ lift $ openDeclarationInHistory (DeclarationPath pji mi di) $ T.pack $ body decl
 
 doRemoveDeclaration :: ( GuiCommand t m )
                     => ProjectInfo
@@ -603,7 +604,7 @@ doSearch = do
                 Nothing -> lift $ throwE $ UserError $ TempError "Not Found"
                 Just dpath -> do
                     text <- openItem dpath
-                    splice $ openDeclarationInHistory dpath text
+                    lift $ lift $ openDeclarationInHistory dpath text
                             
 
 doSetSearchMode 
