@@ -95,7 +95,8 @@ dialogOnErrorConc f = do
                     _ <- dialogRun dialog
                     widgetDestroy dialog-}
                     displayError $ pack $ show $ e
-                
+  
+               
 doError :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
            , GuiCommand2 proxy m p m'
            )

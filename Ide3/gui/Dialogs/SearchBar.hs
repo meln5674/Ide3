@@ -39,7 +39,9 @@ make
        )
     => self
     -> GuiEnvT {-proxy-} m' p  m SearchBar
-make container = makeHBoxWith container $ \hbox -> do
+make container = makeVBoxWith container $ \vbox -> do
+    hbox <- hBoxNew False 0
+    boxPackEnd vbox hbox False False 0
     searchLabel <- makeSearchLabel hbox
     searchBox <- makeSearchBox hbox
     searchButton <- makeSearchButton hbox
@@ -51,25 +53,32 @@ make container = makeHBoxWith container $ \hbox -> do
          }
 
 makeSearchLabel :: ( MonadIO m 
-                   , IsContainer self
+                   , IsBox self
                    )
                 => self
                 -> GuiEnvT {-proxy-} m' p m Label
-makeSearchLabel = makeLabel "Find"
+makeSearchLabel container = do
+    label <- labelNew (Just "Find")
+    boxPackStart container label False False 0
+    return label
 
 makeSearchBox :: ( MonadIO m
-                 , IsContainer self
+                 , IsBox self
                  )
               => self
               -> GuiEnvT {-proxy-} m' p  m Entry
 makeSearchBox container = do
-    searchBox <- withGuiComponents $ flip withSearchBuffer $ liftIO . entryNewWithBuffer
-    liftIO $ container `containerAdd` searchBox
+    searchBox <- withGuiComponents $ flip withSearchBuffer $ entryNewWithBuffer
+    boxPackStart container searchBox True True 0
     return searchBox
 
-makeSearchButton :: (MonadIO m)
-                 => HBox -> GuiEnvT {-proxy-} m' p  m Button
-makeSearchButton = makeButton "Go"
+makeSearchButton :: (MonadIO m, IsBox self)
+                 => self
+                 -> GuiEnvT {-proxy-} m' p  m Button
+makeSearchButton container = do
+    button <- buttonNewWithLabel "Go"
+    boxPackStart container button False False 0
+    return button
 
 type SearchBarSignal object info = SubSignalProxy SearchBar object info
 
@@ -96,5 +105,4 @@ addSearchClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key
 addSearchClickedEventAccelerator = searchButton `addAccel` "activate"
 
 setVisible :: MonadIO m => SearchBar -> Bool -> m ()
-setVisible bar v = do
-    set (searchBox bar) [widgetVisible := v]
+setVisible bar v = set (searchContainer bar) [widgetVisible := v]

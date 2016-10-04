@@ -61,9 +61,9 @@ defaultTextAttrs Literal = [textTagForeground := "lime green"]
 defaultTextAttrs Comment = [textTagForeground := "forest green", textTagWeight := 400]
 defaultTextAttrs _ = [textTagForeground := "black"]
 
-makeDeclBuffer :: IO TextBuffer
+makeDeclBuffer :: MonadIO m => m TextBuffer
 makeDeclBuffer = do
-    buffer <- textBufferNew (Nothing :: Maybe TextTagTable)
+    buffer <- textBufferNew noTextTagTable
     table <- textBufferGetTagTable buffer
     forM_ allSyntaxComponents $ \h -> do
         let name = (pack . show) h
@@ -71,9 +71,10 @@ makeDeclBuffer = do
         table `textTagTableAdd` tag 
     return buffer
 
-applyDeclBufferAttrs :: (SyntaxComponent -> [AttrOp TextTag AttrSet]) 
+applyDeclBufferAttrs :: MonadIO m 
+                     => (SyntaxComponent -> [AttrOp TextTag AttrSet]) 
                      -> GuiComponents
-                     -> IO ()
+                     -> m ()
 applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
     table <- textBufferGetTagTable buffer
     forM_ allSyntaxComponents $ \h -> do
@@ -83,21 +84,21 @@ applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
         tag `set` attr
         
 
-makeTreeStore :: IO (ForestStore SolutionTreeElem)
+makeTreeStore :: MonadIO m => m (ForestStore SolutionTreeElem)
 makeTreeStore = forestStoreNew []
 
-makeBuildBuffer :: IO TextBuffer
+makeBuildBuffer :: MonadIO m => m TextBuffer
 makeBuildBuffer = textBufferNew (Nothing :: Maybe TextTagTable)
 
-makeSearchBuffer :: IO EntryBuffer
+makeSearchBuffer :: MonadIO m => m EntryBuffer
 makeSearchBuffer = entryBufferNew (Nothing :: Maybe Text) 0
 
-makeErrorList :: IO (SeqStore (Error ItemPath))
+makeErrorList :: MonadIO m => m (SeqStore (Error ItemPath))
 makeErrorList = seqStoreNew []
 
 initializeComponents :: (MonadIO m)
                      => m GuiComponents
-initializeComponents = liftIO $ do
+initializeComponents = do
     projectTree <- makeTreeStore
     editorBuffer <- makeDeclBuffer
     buildBuffer <- makeBuildBuffer
