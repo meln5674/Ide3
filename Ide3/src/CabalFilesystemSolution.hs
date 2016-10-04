@@ -720,7 +720,7 @@ instance (MonadIO m, ModuleLocationClass m) => ModuleLocationClass (CabalSolutio
 -}
 
 instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m) => ModuleLocationClass (CabalSolution m) where
-    getModuleItemAtLocation pji mi (r,c) = do
+    getModuleItemAtLocation pji mi l = do
         path <- case mi of
             UnamedModule Nothing -> throwE $ InvalidOperation "Can't find an unnamed module" ""
             UnamedModule (Just path) -> return path
@@ -733,10 +733,10 @@ instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExport
                     Just path -> return path
                     Nothing -> throwE $ InvalidOperation "Can't find module" ""
         contents <- wrapIOError $ readFile path
-        result <- ExceptT $ return $ Module.parseAtLocation (r,c) contents (Just path)
-        case result of
+        results <- ExceptT $ return $ Module.parseAtLocation l contents (Just path)
+        forM results $ \result ->  case result of
             Nothing -> return Nothing
-            Just (result, r', c') -> do
+            Just (result, l') -> do
                 result' <- case result of
                     HeaderCommentItem s -> return $ HeaderCommentString s
                     PragmaItem p -> return $ PragmaString p
@@ -767,7 +767,7 @@ instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExport
                         case ds' of
                             [] -> throwE $ InvalidOperation "Can't find export" ""
                             ((di,d'):_) -> return $ DeclarationString $ WithBody di $ body d
-                return $ Just (result', r', c')
+                return $ Just (result', l')
 
 instance ( MonadIO m
          , SolutionClass m

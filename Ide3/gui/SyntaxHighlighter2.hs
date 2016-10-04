@@ -13,6 +13,9 @@ import Language.Haskell.Exts.SrcLoc
 
 import Ide3.Types (SolutionResult, SolutionError (..))
 
+import Ide3.SrcLoc
+import Ide3.SrcLoc.Exts
+
 import GuiClass.Types
 
 data SyntaxComponent
@@ -192,4 +195,4 @@ getHighlights text = case Lex.lexTokenStream text of
         let end = let (s,e) = srcSpanEnd loc in (Row $ s-1,Column $ e-1)
         let tok' = classifyToken tok
         return $ HighlightInst tok' start end
-    ParseFailed loc err -> throwE $ ParseError loc err ""
+    ParseFailed loc err -> throwE $ ParseError (SrcFileLoc "" $ toSrcLoc loc) err ""

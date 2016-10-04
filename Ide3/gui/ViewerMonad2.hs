@@ -149,8 +149,10 @@ instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad2 s (
 
 instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad1 (MVar (s,s')) (t m) where
     interupt1 var f = do
+        putStrLn $ "Taking MVar"
         (s,s2) <- takeMVar var
         ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
+        putStrLn $ "Replacing MVar"
         putMVar var (s',s2')
         return x
 

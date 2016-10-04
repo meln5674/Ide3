@@ -19,17 +19,13 @@ module Ide3.Types.Internal where
 
 import Control.Monad.Trans.Except
 
-import Language.Haskell.Exts.Pretty
-
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
-import Language.Haskell.Exts.SrcLoc
-
 import Text.Printf
 
 import Data.Map.Strict ( Map )
 
 import Ide3.OrderedMap (OrderedMap)
+
+import Ide3.SrcLoc.Types
 
 -- |Attaches a string ("body") to another type
 data WithBody a = WithBody a String
@@ -297,46 +293,9 @@ data TypeSearchResult
 class ToSym a where
     toSym :: a -> Symbol
 
--- | 
-instance ToSym (Name a) where
-    toSym (Ident _ n)         = Symbol n
-    toSym (Syntax.Symbol _ n) = Symbol n
-
--- | 
-instance ToSym (CName a) where
-    toSym (VarName _ n) = toSym n
-    toSym (ConName _ n) = toSym n
-
--- | 
-instance ToSym (ModuleName a) where
-    toSym (ModuleName _ n) = Symbol n
-
--- | 
-instance ToSym (SpecialCon a) where
-    toSym (UnitCon _)   = Symbol "()"
-    toSym (ListCon _)   = Symbol "[]"
-    toSym (FunCon _)    = Symbol "->"
-    toSym (TupleCon _ Unboxed n) = Symbol $ "(" ++ replicate n ',' ++ ")"
-    toSym (TupleCon _ Boxed n) = Symbol $ "(#" ++ replicate n ',' ++ "#)"
-    toSym (Cons _) = Symbol ":"
-    toSym (UnboxedSingleCon _) = Symbol "(# #)"
-
--- | 
-instance ToSym (QName a) where
-    toSym (Qual _ m n) = toSym m `joinSym` toSym n
-    toSym (UnQual _ n) = toSym n
-    toSym (Special _ s) = toSym s
-
--- | 
-instance SrcInfo a => ToSym (Syntax.Type a) where
-    toSym = Symbol . prettyPrint
-
--- | 
-instance ToSym (DeclHead a) where
-    toSym (DHead _ n) = toSym n
-    toSym (DHInfix _ _ n) = toSym n
-    toSym (DHParen _ h) = toSym h
-    toSym (DHApp _ h _) = toSym h
+-- | Class of types which can yield a list of symbols
+class HasNames a where
+    findName :: a -> [Symbol]
 
 -- |Errors that can arrise during modifying and querying a project
 data SolutionError u
@@ -354,7 +313,7 @@ data SolutionError u
     | DuplicateModule ProjectInfo ModuleInfo String
     | DuplicateProject ProjectInfo String
     | ProjectNotFound ProjectInfo String
-    | ParseError SrcLoc String String
+    | ParseError SrcFileLoc String String
     | Unsupported String
     | InternalError String String
     | UserError u

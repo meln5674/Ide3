@@ -62,7 +62,8 @@ executable OverlayTest
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
-  other-modules:       SolutionTree
+  other-modules:       MainSignals
+                     , SolutionTree
                      , BetterTextView
                      , DeclarationPath
                      , GuiViewer
@@ -72,6 +73,7 @@ executable Ide3-GUI
                      , ProcessReader
                      , Dialogs.MainWindow
                      , Dialogs.NewSolutionDialog
+                     , Dialogs.NewSolutionDialog.Types
                      , Dialogs.NewModuleDialog
                      , Dialogs.NewImportDialog
                      , Dialogs.NewExportDialog

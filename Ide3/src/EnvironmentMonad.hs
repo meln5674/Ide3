@@ -8,6 +8,7 @@ module EnvironmentMonad
     , module Runner
     , module Initializer
     , module ProjectInitializer
+    , module Args
     ) where
 
 import Args
@@ -29,7 +30,7 @@ class Monad m => InitializerMonad m where
 
 class Monad m => ProjectInitializerMonad m where
     type ProjectArgType m
-    getProjectInitializer :: Args (ArgType m) => m (ProjectInitializer (ProjectArgType m) m)
+    getProjectInitializer :: Args (ProjectArgType m) => m (ProjectInitializer (ProjectArgType m) m)
 
 
 type EnvironmentMonad m = 

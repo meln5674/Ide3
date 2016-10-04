@@ -15,6 +15,7 @@ import qualified Text.Parsec.Char as P
 
 import ErrorParser.Types
 
+import Ide3.SrcLoc
 
 data ErrorType = IsError | IsWarning deriving (Show, Eq)
 

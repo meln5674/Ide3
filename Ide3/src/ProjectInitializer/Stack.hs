@@ -19,6 +19,39 @@ import CabalMonad
 -- | The arguments to initialize a stack solution, a file path and optional a template name
 data StackProjectInitializerArgs = StackProjectInitializerArgs CabalProjectInfo FilePath
 
+
+data TestSuiteProjectArgs
+    = StdioTestSuiteArgs FilePath
+    | DetailedTestSuiteArgs FilePath
+
+data BenchmarkProjectARgs
+    = StdioBenchmarkArgsFilePath
+
+data StackProjectInitializerArgs'
+    = LibraryProjectArgs 
+    { primarySrcDir :: FilePath
+    , secondarySrcDirs :: [FilePath]
+    , dependencies :: [String]
+    }
+    | ExecutableProjectArgs
+    { primarySrcDir :: FilePath
+    , secondarySrcDirs :: [FilePath]
+    , dependencies :: [String]
+    , exeMainPath :: FilePath
+    }
+    | TestSuiteProjectArgs
+    { primarySrcDir :: FilePath
+    , secondarySrcDirs :: [FilePath]
+    , dependencies :: [String]
+    , testSuiteArgs :: TestSuiteProjectArgs
+    }
+    | BenchmarkProjectArgs
+    { primarySrcDir :: FilePath
+    , secondarySrcDirs :: [FilePath]
+    , dependencies :: [String]
+    , benchmarkArgs :: BenchmarkProjectArgs
+    }
+
 instance Args StackProjectInitializerArgs where
     getArgsFrom ["executable",exeName,srcDir]
         = Right $ StackProjectInitializerArgs (ExecutableInfo exeName) srcDir

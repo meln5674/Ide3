@@ -18,7 +18,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Ide3.Types
                      , Ide3.Types.State
+                     -- , Ide3.Types.State.Annotated
                      , Ide3.SrcLoc
+                     , Ide3.SrcLoc.Exts
                      , Ide3.Solution
                      , Ide3.Solution.Query
                      , Ide3.Project
@@ -44,6 +46,19 @@ library
                      , Ide3.NewMonad.Instances.State.Class
                      , Ide3.NewMonad.Instances.State.Class.Instances.Strict
                      , Ide3.NewMonad.Instances.State.Class.Instances.Lazy
+                     --, Ide3.NewMonad.Instances.State.Annotated.SolutionClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ProjectModuleClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ProjectExternModuleClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ModuleDeclarationClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ModuleImportClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ModuleExportClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ModulePragmaClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ExternModuleExportClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.ModuleFileClass
+                     --, Ide3.NewMonad.Instances.State.Annotated.Compose
+                     --, Ide3.NewMonad.Instances.State.Annotated.Class
+                     --, Ide3.NewMonad.Instances.State.Annotated.Class.Instances.Strict
+                     --, Ide3.NewMonad.Instances.State.Annotated.Class.Instances.Lazy
                      , Ide3.Import
                      , Ide3.Export
                      , Ide3.Declaration
@@ -54,18 +69,25 @@ library
                      , Ide3.ModuleTree
                      , Ide3.Digest
                      , Ide3.Utils
+                     , Ide3.OrderedMap
   other-modules:       Ide3.Module.Internal
                      , Ide3.Module.Extern.Internal
+                     , Ide3.SrcLoc.Types
+                     , Ide3.Constructor.Exts
                      , Ide3.Env
                      , Ide3.Env.Solution
                      , Ide3.Env.Project
                      , Ide3.Env.Module
                      , Ide3.Env.ExternModule
+--                     , Ide3.Env.Annotated.Solution
+--                     , Ide3.Env.Annotated.Project
+--                     , Ide3.Env.Annotated.Module
                      , Ide3.Module.Common.Types
                      , Ide3.Project.Internal
                      , Ide3.Solution.Internal
                      , Ide3.Import.Internal
                      , Ide3.Types.Internal
+                     , Ide3.Types.Exts
                      , Ide3.Query
                      , Ide3.Module.Query
                      , Ide3.Module.Parser
@@ -74,7 +96,6 @@ library
                      , Ide3.Import.Parser
                      , Ide3.Export.Parser
                      , Ide3.Declaration.Parser
-                     , Ide3.OrderedMap
                      , Ide3.Utils.Parser
   build-depends:       base
                      , containers

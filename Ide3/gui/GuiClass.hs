@@ -1,4 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE KindSignatures #-}
 module GuiClass 
     ( module GuiClass
     , module GuiClass.Types
@@ -20,7 +25,7 @@ import GuiClass.Types
 
 import SyntaxHighlighter2
 
-
+import EnvironmentMonad
 
 class Monad m => EditorBufferClass m where
     setEditorBufferText ::  String -> m ()
@@ -43,11 +48,48 @@ class Monad m => SearchBarClass m where
     getSearchBarText :: m String
 
 class Monad m => SolutionViewClass m where
-    getElemAtSolutionPath :: TreePath -> m SolutionTreeElem
-    getTreeAtSolutionPath :: TreePath -> m (Tree SolutionTreeElem)
-    getForestAtSolutionPath :: TreePath -> m (Forest SolutionTreeElem)
-    setSolutionTree :: [Tree SolutionTreeElem] -> m ()    
+    getElemAtSolutionTreePath :: TreePath -> m SolutionTreeElem
+    getTreeAtSolutionTreePath :: TreePath -> m (Tree SolutionTreeElem)
+    getForestAtSolutionTreePath :: TreePath -> m (Forest SolutionTreeElem)
+    lookupAtSolutionTreePath :: TreePath -> m (Maybe (Tree SolutionTreeElem))
+    setSolutionTree :: Forest SolutionTreeElem -> m ()
+    updateSolutionTreePathNode :: TreePath -> (SolutionTreeElem -> SolutionTreeElem) -> m ()
+    insertSolutionTreePathNode :: TreePath -> (Maybe Int) -> SolutionTreeElem -> m ()
+    insertSolutionTreePathTree :: TreePath -> (Maybe Int) -> Tree SolutionTreeElem -> m ()
+    removeSolutionTreePathNode :: TreePath -> m ()
+    
 
+class (Monad m) => SolutionInitializerClass m where
+    type ClassSolutionInitializerMonad m :: * -> *
+    setupSolutionCreator :: m ()
+    getSolutionCreatorArg 
+        :: m (Either (SolutionError u) (ArgType (ClassSolutionInitializerMonad m)))
+    finalizeSolutionCreator :: m ()
+
+type SolutionInitializerClass' m m'
+    = ( SolutionInitializerClass m
+      --, m' ~ ClassSolutionInitializerMonad m
+      , InitializerMonad m'
+      , Args (ArgType m')
+      )
+
+
+
+class (Monad m) => ProjectInitializerClass m where
+    type ClassProjectInitializerMonad m :: * -> *
+    setupProjectCreator :: m () -> m ()
+    getProjectCreatorArg 
+        :: m (Either (SolutionError u) (ProjectArgType (ClassProjectInitializerMonad m)))
+    finalizeProjectCreator :: m ()
+
+type ProjectInitializerClass' m m'
+    = ( ProjectInitializerClass m
+      , m' ~ ClassProjectInitializerMonad m
+      , ProjectInitializerMonad m'
+      , Args (ProjectArgType m')
+      )
+
+    
 
 class Monad m => ErrorListClass m where
     clearErrorList :: m ()

@@ -1,5 +1,8 @@
 module ErrorParser.Types where
 
+import Ide3.SrcLoc
+
+{-
 newtype Row = Row { getRow :: Int }
 newtype Column = Column { getColumn :: Int }
 
@@ -9,16 +12,18 @@ instance Show Row where
 instance Show Column where
     show = show . getColumn
 
+
 instance Read Row where
     readsPrec i s = flip map (readsPrec i s) $ \(a,s) -> (Row a,s) 
     
 instance Read Column where
     readsPrec i s = flip map (readsPrec i s) $ \(a,s) -> (Column a,s) 
+-}
 
-newtype ProjectName = ProjectName { getProjectName :: String } deriving (Read, Show)
-newtype ModuleName = ModuleName { getModuleName :: String } deriving (Read, Show)
+newtype ProjectName = ProjectName { getProjectName :: String } deriving (Read, Show, Eq, Ord)
+newtype ModuleName = ModuleName { getModuleName :: String } deriving (Read, Show, Eq, Ord)
 
-data ErrorLocation = ErrorLocation !ProjectName !ModuleName deriving Show
+data ErrorLocation = ErrorLocation !ProjectName !ModuleName deriving (Show, Eq, Ord)
 
 data Error loc
     = Error 

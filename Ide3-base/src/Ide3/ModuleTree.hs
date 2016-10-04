@@ -101,6 +101,19 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
     ts' <- mapM (fillTree pji) ts
     return $ ModuleNode i ts' ps ds is es
 
+makeModuleTree :: ( ProjectModuleClass m
+            , ModuleExportClass m
+            , ModuleImportClass m
+            , ModuleDeclarationClass m
+            , ModulePragmaClass m
+            )
+         => ProjectInfo
+         -> ModuleInfo
+         -> SolutionResult u m ModuleTree
+makeModuleTree pji mi = do
+    let [emptyTree] = makeTreeSkeleton [mi]
+    fillTree pji emptyTree
+
 -- | Make a module tree from a project
 makeTree :: ( ProjectModuleClass m
             , ModuleExportClass m

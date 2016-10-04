@@ -1,31 +1,38 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module GuiClass.GuiEnv where
 
+import Data.Tree
+
 import Data.Text hiding (reverse)
 
 import Control.Monad
 import Control.Monad.Trans
+import Control.Monad.Trans.Reader
+
+import Ide3.Types
 
 import Graphics.UI.Gtk
 
 import GuiMonad
 import GuiClass
 import GuiEnv
+import GuiHelpers
 
 import SyntaxHighlighter2
 
-instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT proxy m p m') where
-    getElemAtSolutionPath path 
+instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m') where
+    getElemAtSolutionTreePath path 
         = withGuiComponents 
         $ \comp -> withSolutionTree comp 
         $ \tree -> liftIO $ treeStoreGetValue tree path
-    getTreeAtSolutionPath path
+    getTreeAtSolutionTreePath path
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> liftIO $ treeStoreGetTree tree path
-    getForestAtSolutionPath path
+    getForestAtSolutionTreePath path
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> liftIO $ do
@@ -36,18 +43,45 @@ instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT proxy m p m') whe
                         Just tree' -> foo (tree':trees) ixs
             trees <- foo [] [0..]
             return $ reverse trees
+    lookupAtSolutionTreePath path
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            treeStoreLookup tree path
     setSolutionTree forest'
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> do
             liftIO $ treeStoreClear tree
             liftIO $ treeStoreInsertForest tree [] (-1) forest'
+    updateSolutionTreePathNode path f
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            void $ treeStoreChange tree path f
+    insertSolutionTreePathNode path ix node
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            void $ treeStoreInsert tree path (maybe (-1) id ix) node
+    insertSolutionTreePathTree path ix tree'
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            void $ treeStoreInsertTree tree path (maybe (-1) id ix) tree'
+    removeSolutionTreePathNode path
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> liftIO $ do
+            void $ treeStoreRemove tree path 
+            
 
-instance ( Monad m, MonadIO m' ) => SearchBarClass (GuiEnvT proxy m p m') where
+
+instance ( Monad m, MonadIO m' ) => SearchBarClass (GuiEnvT {-proxy-} m p m') where
     getSearchBarText = withGuiComponents $ flip withSearchBuffer $ \buffer -> lift $ do
         liftIO $ get buffer entryBufferText
 
-instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT proxy m p m') where
+instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
     setEditorBufferText text 
         = withGuiComponents
         $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do 
@@ -113,11 +147,11 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT proxy m p m') whe
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
             
 
-instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT proxy m p m') where
+instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') where
     setBuildBufferText text
         = withGuiComponents 
         $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
-            postGUISync $ buffer `textBufferSetText` text
+            postGUIAsync $ buffer `textBufferSetText` text
     getBuildBufferText maybeStart maybeEnd
         = withGuiComponents 
         $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
@@ -147,22 +181,22 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT proxy m p m') wher
             end <- textBufferGetIterAtLineOffset buffer endRow endCol
             textBufferSelectRange buffer start end
 
-instance ( Monad m, MonadIO m') => ErrorListClass (GuiEnvT proxy m p m') where
+
+instance ( Monad m, MonadIO m') => ErrorListClass (GuiEnvT {-proxy-} m p m') where
     clearErrorList
         = withGuiComponents
         $ flip withErrorList $ \list -> lift $ liftIO $ do
-            postGUISync $ listStoreClear list
+            postGUIAsync $ listStoreClear list
     addErrorToList err
         = withGuiComponents
         $ flip withErrorList $ \list -> lift $ liftIO $ do
-            putStrLn $ "Adding error: " ++ show err
-            postGUISync $ void $ listStoreAppend list err
+            postGUIAsync $ void $ listStoreAppend list err
 
 newtype GtkIO a = GtkIO { runGtkIO :: IO a }
   deriving (Functor, Applicative, Monad, MonadIO)
 
 instance ErrorClass GtkIO where
-    displayError msg = GtkIO $ postGUISync $ do
+    displayError msg = GtkIO $ postGUIAsync $ do
         dialog <- messageDialogNew
             Nothing
             []

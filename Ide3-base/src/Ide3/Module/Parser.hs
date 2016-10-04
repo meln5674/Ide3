@@ -10,10 +10,7 @@ Portability : POSIX
 -}
 
 {-# LANGUAGE LambdaCase #-}
-module Ide3.Module.Parser 
-    ( module Ide3.Module.Parser
-    , SrcSpanInfo
-    ) where
+module Ide3.Module.Parser where
 
 import Data.Monoid
 
@@ -30,7 +27,7 @@ import Language.Haskell.Exts.Parser
     )
 import Language.Haskell.Exts (readExtensions)
 import Language.Haskell.Exts.Extension
-import Language.Haskell.Exts.SrcLoc
+import Language.Haskell.Exts.SrcLoc (SrcInfo)
 import Language.Haskell.Exts.Comments
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 
@@ -53,62 +50,94 @@ data ExtractionResults l
                 [Ann l (WithBody Import)]
                 [Ann l (WithBody Declaration)]
 
+annotate :: FileSpannable l => (a -> l) -> (a -> x) -> a -> Ann SrcFileSpan x
+annotate getAnn convert a = Ann (toSrcFileSpan $ getAnn a) (convert a)
+
 -- | Extract identifying information about a module
-extractInfo :: SrcInfo l => String -> (Syntax.Module l, [Comment]) -> Ann l ModuleInfo
-extractInfo _ (Syntax.Module l' (Just (Syntax.ModuleHead l (Syntax.ModuleName _ n) _ _)) _ _ _, _) = Ann l $ ModuleInfo (Symbol n)
-extractInfo _ _ = Ann (toSrcInfo noLoc [] noLoc) $ UnamedModule Nothing
+extractInfo :: (SrcInfo l, FileSpannable l) 
+            => String 
+            -> (Syntax.Module l, [Comment]) 
+            -> Ann SrcFileSpan ModuleInfo
+extractInfo _ (Syntax.Module _ (Just mHead) _ _ _, _) = Ann mHeadAnn' mInfo
+  where
+    (Syntax.ModuleHead mHeadAnn mName _ _) = mHead 
+    (Syntax.ModuleName _ name) = mName
+    mInfo = ModuleInfo $ Symbol name
+    mHeadAnn' = toSrcFileSpan mHeadAnn
+extractInfo _ (m,_) = Ann mAnn' mInfo
+  where
+    mAnn = Syntax.ann m
+    mAnn' = mkSrcFileSpanFrom mAnn noSpan
+    mInfo = UnamedModule Nothing
 
 -- | Extract the pragmas from a module
-extractPragmas :: SrcInfo l => String -> (Syntax.Module l, [Comment]) -> [(Ann l Pragma)]
-extractPragmas _ (Syntax.Module _ _ ps _ _,_) = flip map ps $ \p -> Ann (Syntax.ann p) (prettyPrint p)
+extractPragmas :: (SrcInfo l, FileSpannable l)
+               => String 
+               -> (Syntax.Module l, [Comment]) 
+               -> [(Ann SrcFileSpan Pragma)]
+extractPragmas _ (Syntax.Module _ _ ps _ _,_) = map (annotate Syntax.ann prettyPrint) ps
+  where
 extractPragmas _ _ = []
 
 -- | Extract the header from a module
-extractHeader :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Ann SrcSpanInfo String
+extractHeader :: (SrcInfo l, FileSpannable l) 
+              => String -> (Syntax.Module l, [Comment]) 
+              -> Ann SrcFileSpan String
 extractHeader s (Syntax.Module mspan maybeHeader _ _ _,comments) = case headerComments of
-    [] -> Ann (toSrcInfo noLoc [] noLoc) ""
-    _ -> Ann (toSrcInfo headerStart [] headerEnd) $ headerSpan >< s
+    [] -> Ann (mkSrcFileSpanFrom mspan noSpan) ""
+    _ -> Ann (mkSrcFileSpanFrom mspan $ SrcSpan headerStart headerEnd) $ headerSpan >< s
   where
-    headerComments = flip filter comments $ \(Comment _ cspan _) -> cspan < moduleStart
-    moduleStart = case maybeHeader of
-        Just header -> srcInfoSpan $ Syntax.ann header
-        Nothing -> head (srcInfoPoints mspan)
+    headerComments = flip filter comments $ \(Comment _ cspan _) -> getSpanEnd cspan < moduleStart
+    moduleStart = spanStart $ toSrcSpan $ maybe mspan Syntax.ann maybeHeader 
     Comment _ firstSpan _ = head headerComments
     Comment _ lastSpan _ = last headerComments
-    headerStart = SrcLoc
-                { srcFilename = srcSpanFilename firstSpan
-                , srcLine = srcSpanStartLine firstSpan
-                , srcColumn = srcSpanStartColumn firstSpan
-                }
-    headerEnd = SrcLoc
-                { srcFilename = srcSpanFilename lastSpan
-                , srcLine = srcSpanEndLine lastSpan
-                , srcColumn = srcSpanEndColumn lastSpan
-                }
-    headerSpan = mkSrcSpan headerStart headerEnd
-extractHeader _ _ = Ann (toSrcInfo noLoc [] noLoc) ""
+    headerStart = spanStart $ toSrcSpan firstSpan 
+    headerEnd = spanEnd $ toSrcSpan lastSpan
+    headerSpan = SrcSpan headerStart headerEnd
+extractHeader _ (m,_) = Ann (mkSrcFileSpanFrom (Syntax.ann m) noSpan) ""
 
 -- | Extract the exports from a module
-extractExports :: Spannable l => String -> (Syntax.Module l, [Comment]) -> Maybe [Ann l (WithBody Export)]
-extractExports str (Syntax.Module _ (Just (Syntax.ModuleHead _ _ _ (Just (Syntax.ExportSpecList _ exports)))) _ _ _, _)
-     = Just $ flip map exports $ \e -> Ann (Syntax.ann e) (Export.convertWithBody str e)
+extractExports :: FileSpannable l 
+               => String 
+               -> (Syntax.Module l, [Comment]) 
+               -> Maybe [Ann SrcFileSpan (WithBody Export)]
+extractExports str m 
+    | (Syntax.Module _ (Just mHead) _ _ _, _)  <- m
+    , (Syntax.ModuleHead _ _ _ (Just specList)) <- mHead 
+    , (Syntax.ExportSpecList _ exports) <- specList 
+    = Just $ map (annotate Syntax.ann $ Export.convertWithBody str) exports 
+  where
 extractExports _ _ = Nothing
 
 -- | Extract the imports from a module
-extractImports :: Spannable l => String -> (Syntax.Module l, [Comment]) -> [Ann l (WithBody Import)]
-extractImports str (Syntax.Module _ _ _ imports _, _)
-    = flip map imports $ \i -> Ann (Syntax.ann i) (Import.convertWithBody str i)
+extractImports :: FileSpannable l 
+               => String 
+               -> (Syntax.Module l, [Comment]) 
+               -> [Ann SrcFileSpan (WithBody Import)]
+extractImports str m
+    | (Syntax.Module _ _ _ imports _, _) <- m
+    = map (annotate Syntax.ann $ Import.convertWithBody str) imports
+  where
 extractImports _ _ = []
 
+
 -- | Extract the declarations from a module
-extractDecls :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (SolutionError u) [Ann SrcSpanInfo (WithBody Declaration)]
-extractDecls str (Syntax.Module _ _ _ _ decls, cs)
-    = liftM Declaration.combineMany $ forM decls $ \d -> do
+extractDecls :: (SrcInfo l, FileSpannable l) 
+             => String 
+             -> (Syntax.Module l, [Comment]) 
+             -> Either (SolutionError u) [Ann SrcFileSpan (WithBody Declaration)]
+extractDecls str (Syntax.Module mAnn _ _ _ decls, cs) = do
+    converted <- forM decls $ \d -> do
         Declaration.convertWithBody str cs d
+    let pathless = Declaration.combineMany converted
+    return $ map (mapAnn $ mkSrcFileSpanFrom mAnn) pathless
 extractDecls _ _ = Right []
 
 -- | Extract the data needed for buliding a Module
-extract :: String -> (Syntax.Module SrcSpanInfo, [Comment]) -> Either (SolutionError u) (ExtractionResults SrcSpanInfo)
+extract :: (SrcInfo l, FileSpannable l)
+        => String 
+        -> (Syntax.Module l, [Comment]) 
+        -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
 extract str x = do
     let info    =  extractInfo      str x
         pragmas =  extractPragmas   str x
@@ -121,10 +150,10 @@ extract str x = do
 -- | Take a string and produce the needed information for building a Module
 parse :: String 
       -> Maybe FilePath 
-      -> Either (SolutionError u) (ExtractionResults SrcSpanInfo)
+      -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     exts = maybe [] snd $ readExtensions s
     parseMode = case p of
@@ -141,7 +170,7 @@ parse s p = case parseModuleWithComments parseMode s of
 -- | Parse a module and assume its name is "Main" if it doesn't already have one
 parseMain :: String 
           -> Maybe FilePath 
-          -> Either (SolutionError u) (ExtractionResults SrcSpanInfo)
+          -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
 parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> do
         Extracted i h ps es is ds <- extract s x
@@ -149,7 +178,7 @@ parseMain s p = case parseModuleWithComments parseMode s of
             Ann l (UnamedModule _) -> return 
                             $ Extracted (Ann l $ ModuleInfo (Symbol "Main")) h ps es is ds
             info -> return $ Extracted info h ps es is ds
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     exts = (maybe [] snd $ readExtensions s)
     parseMode = case p of
@@ -165,53 +194,33 @@ parseMain s p = case parseModuleWithComments parseMode s of
                  }
 
 
-parseAtLocation :: (Int,Int)
+parseAtLocation :: [SrcLoc]
                 -> String
                 -> Maybe FilePath
-                -> Either (SolutionError u) (Maybe (ModuleItem, Int, Int))
-parseAtLocation (r,c) s p = do
-    let l = SrcLoc (maybe "" id p) r c
+                -> Either (SolutionError u) [Maybe (ModuleItem, SrcLoc)]
+parseAtLocation ls s p = do
     Extracted _ hc ps es is ds <- Ide3.Module.Parser.parse s p
-    let tryHeader = case () of
+    let try :: (x -> ModuleItem) -> SrcLoc -> Ann SrcFileSpan x -> Maybe (ModuleItem, SrcLoc)
+        try mkItem l x = case () of
             ()
-                | (ann hc) `contains` l -> Just (mitem, r', c')
+                | xSpan `contains` l -> Just (mItem, l')
                 | otherwise -> Nothing
                   where
-                    mitem = HeaderCommentItem $ unAnn hc
-                    r' = r - startLine (ann hc) 
-                    c' = c
-        tryPragmas = flip map ps $ \p -> case () of
-            ()
-                | ann p `contains` l -> Just (mitem, r', c')
-                | otherwise -> Nothing
-                  where
-                    mitem = PragmaItem $ unAnn p
-                    r' = r - startLine (ann p)
-                    c' = c
-        tryExports = case es of
-            Just es -> flip map es $ \e -> case () of
-                ()
-                    | ann e `contains` l -> Just (mitem, r', c')
-                    | otherwise -> Nothing        
-                      where
-                        mitem = ExportItem $ unAnn e
-                        r' = r - startLine (ann e)
-                        c' = c
-            Nothing -> []
-        tryDeclarations = flip map ds $ \d -> case () of
-            ()
-                | ann d `contains` l -> Just (mitem, r', c')
-                | otherwise -> Nothing
-                  where
-                    mitem = DeclarationItem $ unAnn d
-                    r' = r - startLine (ann d)
-                    c' = c
-    
-    return $ getFirst 
-           $ mconcat 
-           $ map First 
-           $  tryHeader 
-           :  tryPragmas
-           ++ tryExports
-           ++ tryDeclarations
+                    xSpan = ann x
+                    mItem = mkItem $ unAnn x
+                    l' = l `diffRows` getSpanStart xSpan
+        tryHeader l = try HeaderCommentItem l hc
+        tryPragmas l = map (try PragmaItem l) ps
+        tryExports l = maybe [] (map $ try ExportItem l) es
+        tryImports l = map (try ImportItem l) is
+        tryDeclarations l = map (try DeclarationItem l) ds
+        tryAll l = getFirst 
+            $ mconcat 
+            $ map First 
+            $  tryHeader l
+            :  tryPragmas l
+            ++ tryExports l
+            ++ tryImports l
+            ++ tryDeclarations l
+    return $ map tryAll ls
 

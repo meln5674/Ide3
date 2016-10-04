@@ -38,6 +38,8 @@ import qualified Ide3.Module.Parser as Parser
 import qualified Ide3.Import.Internal as Import
 import qualified Ide3.Declaration as Declaration
 
+import Ide3.SrcLoc.Types
+
 import Ide3.Utils.Parser
 
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
@@ -247,7 +249,7 @@ parseMain = parseUsing Parser.parseMain
 
 -- | Generalization of parse and parseMain
 parseUsing :: (String -> Maybe FilePath 
-                      -> Either (SolutionError u) (ExtractionResults Parser.SrcSpanInfo))
+                      -> Either (SolutionError u) (ExtractionResults SrcFileSpan))
            -> String 
            -> Maybe FilePath 
            -> Either (SolutionError u) (Module,[ExportId],[ImportId])
@@ -331,12 +333,13 @@ splitOver f xs = go xs [] []
         | f x y = go xs [x] (reverse (y : ys) : zs)
         | otherwise = go xs (x:y:ys) zs
     
--- | Take a list of imports, return a list of lines for them, grouping them by
--- common module path
-spaceImports :: [WithBody Import] -> [String]
-spaceImports is = concatMap ((++[""]) . bodies) partitionedImports
+-- | Take a list of items of which each can be turned into an import, split the
+-- list into sub lists which have common module prefixes, apply a transformation
+-- to each sublist, then concatenate them into a single list
+spaceImports :: (a -> WithBody Import) -> ([a] -> [a]) -> [a] -> [a]
+spaceImports f g is = concatMap g $ partitionedImports
   where
-    partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item i1) (item i2)
+    partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item $ f i1) (item $ f i2)
 
 {-
 -- | Reconstruct the source code from a Module
@@ -394,17 +397,25 @@ annotateDeclarations :: Module -> [AnnotatedModuleItem]
 annotateDeclarations m = flip map (OMap.toList $ moduleDeclarations m) 
     $ \(did, d) -> Annotated (Just $ DeclarationKeyValue did d) $ lines $ body d
 
+blankLines :: Int -> AnnotatedModuleItem
+blankLines n = Annotated Nothing $ replicate n ""
+
+insertBlankLines :: Int -> [AnnotatedModuleItem] -> [AnnotatedModuleItem]
+insertBlankLines n = intersperse (blankLines n)
+
 toAnnotatedFile :: Module -> [AnnotatedModuleItem]
 toAnnotatedFile m 
     =  headerCommentLines 
-    ++ pragmaLines 
+    ++ blankLines 1
+    :  pragmaLines 
     ++ headerLines 
-    ++ importLines 
-    ++ declarationLines
+    ++ blankLines 1
+    :  spaceImports (\(Annotated (Just (ImportKeyValue _ x)) _)-> x) (++[blankLines 1]) importLines 
+    ++ insertBlankLines 1 declarationLines
   where
     headerCommentLines = annotateHeaderComment m
-    pragmaLines = annotateHeaderComment m
-    headerLines = annotatePragmas m
+    headerLines = annotateHeader m
+    pragmaLines = annotatePragmas m
     importLines = annotateImports m
     declarationLines = annotateDeclarations m
 

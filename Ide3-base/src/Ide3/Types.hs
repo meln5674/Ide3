@@ -46,7 +46,9 @@ module Ide3.Types
     , SolutionResult 
     , Qualify (..)
     , moduleInfoString
+    , module Ide3.SrcLoc.Types
     )
     where
 
 import Ide3.Types.Internal
+import Ide3.SrcLoc.Types

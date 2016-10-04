@@ -1,4 +1,6 @@
 {-# LANGUAGE PolyKinds, ConstraintKinds, FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module GuiCommand where
 
 import System.Directory
@@ -37,19 +39,19 @@ import GuiCommand.Internal (UserError, {-DialogOnErrorArg,-} GuiCommand )
 
 import Args
 
-type GuiCommand2 proxy m p m' = 
-    ( ViewerMonad m
-    , InteruptMonad1 (MVar (MVarType p)) m
-    , ErrorClass m
-    , MonadIO m'
+type GuiCommand2 proxy m' p m = 
+    ( ViewerMonad m'
+    , InteruptMonad1 (MVar (MVarType p)) m'
+    , ErrorClass m'
+    , MonadIO m
     )
 
 dialogOnError 
     :: forall proxy m p m' a
-     . GuiCommand2 proxy m p m'
+     . GuiCommand2 proxy m' p m
     => a
-    -> GuiEnvT proxy m p (SolutionResult UserError m) a
-    -> GuiEnvT proxy m p m' a
+    -> GuiEnvT {-proxy-} m' p (SolutionResult UserError m') a
+    -> GuiEnvT {-proxy-} m' p m a
 dialogOnError default_ f = do
     env <- getEnv
     withSolutionMVar $ \var -> liftIO $ do
@@ -72,8 +74,8 @@ dialogOnError default_ f = do
 dialogOnErrorConc 
     :: forall proxy m p m'
      . GuiCommand2 proxy m p m'
-    => GuiEnvT proxy m p (SolutionResult UserError m) ()
-    -> GuiEnvT proxy m p m' ThreadId
+    => GuiEnvT {-proxy-} m p (SolutionResult UserError m) ()
+    -> GuiEnvT {-proxy-} m p m' ThreadId
 dialogOnErrorConc f = do
     env <- getEnv
     withSolutionMVar $ \var -> liftIO $ forkIO $ do
@@ -92,14 +94,21 @@ dialogOnErrorConc f = do
                     widgetDestroy dialog-}
                     displayError $ show e
                 
-doError :: ( GuiCommand (GuiEnvT proxy m p) m
+doError :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
            , GuiCommand2 proxy m p m'
            )
         => SolutionError UserError
-        -> GuiEnvT proxy m p m' ()
+        -> GuiEnvT {-proxy-} m p m' ()
 doError e = dialogOnError () $ Internal.doError e
 
-doNew :: ( GuiCommand (GuiEnvT proxy m p) m
+doNewStart :: ( GuiCommand (GuiEnvT m p) m
+              , GuiCommand2 proxy m p m'
+              )
+           => GuiEnvT m p m' ()
+doNewStart = dialogOnError () $ Internal.doNewStart
+
+
+doNew :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
          , GuiCommand2 proxy m p m'
          , MonadIO m
          , InitializerMonad m 
@@ -108,186 +117,196 @@ doNew :: ( GuiCommand (GuiEnvT proxy m p) m
       => Maybe FilePath
       -> String
       -> Maybe String
-      -> GuiEnvT proxy m p m' ()
+      -> GuiEnvT {-proxy-} m p m' ()
 doNew maybeSolutionRoot projectName templateName 
     = dialogOnError () $ Internal.doNew maybeSolutionRoot projectName templateName 
 
-doOpen :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m', MonadIO m )
+doOpen :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m', MonadIO m )
        => FilePath
-       -> GuiEnvT proxy m p m' ()
+       -> GuiEnvT {-proxy-} m p m' ()
 doOpen path = dialogOnError () $ Internal.doOpen path
 
-doGetDecl :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doGetDecl :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
           => TreePath
-          -> GuiEnvT proxy m p m' ()
+          -> GuiEnvT {-proxy-} m p m' ()
 doGetDecl path = dialogOnError () $ Internal.doGetDecl path
 
-doBuild :: ( GuiCommand (GuiEnvT proxy m p) m
+doBuild :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
            , GuiCommand2 proxy m p m' 
            , MonadIO m
            , MonadMask m
            , BuilderMonad m
            )
-        => GuiEnvT proxy m p m' ThreadId
+        => GuiEnvT {-proxy-} m p m' ThreadId
 doBuild = dialogOnErrorConc $ Internal.doBuild
 
-doRun :: ( GuiCommand (GuiEnvT proxy m p) m 
+doRun :: ( GuiCommand (GuiEnvT {-proxy-} m p) m 
          , GuiCommand2 proxy m p m' 
          , MonadMask m
          , MonadIO m
          , RunnerMonad m
          )
-      => GuiEnvT proxy m p m' ()
+      => GuiEnvT {-proxy-} m p m' ()
 doRun = dialogOnError () $ Internal.doRun
 
 
-doSave :: ( GuiCommand (GuiEnvT proxy m p) m 
+doSave :: ( GuiCommand (GuiEnvT {-proxy-} m p) m 
           , MonadMask m
           , GuiCommand2 proxy m p m' 
           )
-        => GuiEnvT proxy m p m' ()
+        => GuiEnvT {-proxy-} m p m' ()
 doSave = dialogOnError () $ Internal.doSave
                 
 
-doSaveSolution :: ( GuiCommand (GuiEnvT proxy m p) m
+doSaveSolution :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
                   , MonadMask m
                   , GuiCommand2 proxy m p m' 
                   )
               => Maybe FilePath
-              -> GuiEnvT proxy m p m' ()
+              -> GuiEnvT {-proxy-} m p m' ()
 doSaveSolution path = dialogOnError () $ Internal.doSaveSolution path
 
-doAddModule :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doAddSolution :: forall m' p m proxy
+               . ( GuiCommand (GuiEnvT m' p) m'
+                 , m' ~ ClassSolutionInitializerMonad (GuiEnvT m' p m')
+                 , Args (ArgType m')
+                 , GuiCommand2 proxy m' p m
+                 )
+              => GuiEnvT m' p m ()
+doAddSolution = dialogOnError () $ do
+    Internal.doAddSolution 
+
+doAddModule :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
             => ProjectInfo
             -> ModuleInfo
-            -> GuiEnvT proxy m p m' ()
+            -> GuiEnvT {-proxy-} m p m' ()
 doAddModule pi mi = dialogOnError () $ Internal.doAddModule pi mi
 
-doRemoveModule :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doRemoveModule :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
                => ProjectInfo
                -> ModuleInfo
-               -> GuiEnvT proxy m p m' ()
+               -> GuiEnvT {-proxy-} m p m' ()
 doRemoveModule pi mi = dialogOnError () $ Internal.doRemoveModule pi mi
 
 
-doAddDeclaration :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doAddDeclaration :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
                  => ProjectInfo
                  -> ModuleInfo
                  -> DeclarationInfo
-                 -> GuiEnvT proxy m p m' ()
+                 -> GuiEnvT {-proxy-} m p m' ()
 doAddDeclaration pi mi di = dialogOnError () $ Internal.doAddDeclaration pi mi di
 
-doRemoveDeclaration :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doRemoveDeclaration :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
                     => ProjectInfo
                     -> ModuleInfo
                     -> DeclarationInfo
-                    -> GuiEnvT proxy m p m' ()
+                    -> GuiEnvT {-proxy-} m p m' ()
 doRemoveDeclaration pi mi di = dialogOnError () $ Internal.doRemoveDeclaration pi mi di
 
-doUnExportDeclaration :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doUnExportDeclaration :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
                       => ProjectInfo
                       -> ModuleInfo
                       -> DeclarationInfo
-                      -> GuiEnvT proxy m p m' ()
+                      -> GuiEnvT {-proxy-} m p m' ()
 doUnExportDeclaration pi mi di = dialogOnError () $ Internal.doUnExportDeclaration pi mi di
 
-doAddImport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doAddImport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
             => ProjectInfo
             -> ModuleInfo
             -> String
-            -> GuiEnvT proxy m p m' (Maybe (SolutionError UserError))
+            -> GuiEnvT {-proxy-} m p m' (Maybe (SolutionError UserError))
 doAddImport pi mi importStr = dialogOnError Nothing $ Internal.doAddImport pi mi importStr
 
-doRemoveImport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m'  )
+doRemoveImport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m'  )
                => ProjectInfo
                -> ModuleInfo
                -> ImportId
-               -> GuiEnvT proxy m p m' ()
+               -> GuiEnvT {-proxy-} m p m' ()
 doRemoveImport pi mi ii = dialogOnError () $ Internal.doRemoveImport pi mi ii
 
-doGetImport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doGetImport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
             => ProjectInfo
             -> ModuleInfo
             -> ImportId
-            -> GuiEnvT proxy m p  m' (Maybe String)
+            -> GuiEnvT {-proxy-} m p  m' (Maybe String)
 doGetImport pi mi ii = dialogOnError Nothing $ Internal.doGetImport pi mi ii
 
-doEditImport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doEditImport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
              => ProjectInfo
              -> ModuleInfo
              -> ImportId
              -> String
-             -> GuiEnvT proxy m p  m' (Maybe (SolutionError UserError))
+             -> GuiEnvT {-proxy-} m p  m' (Maybe (SolutionError UserError))
 doEditImport pi mi ii importStr = dialogOnError Nothing $ Internal.doEditImport pi mi ii importStr
 
-doAddExport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doAddExport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
             => ProjectInfo
             -> ModuleInfo
             -> String
-            -> GuiEnvT proxy m p  m' (Maybe (SolutionError UserError))
+            -> GuiEnvT {-proxy-} m p  m' (Maybe (SolutionError UserError))
 doAddExport pi mi exportStr = dialogOnError Nothing $ Internal.doAddExport pi mi exportStr
 
-doRemoveExport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doRemoveExport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
                => ProjectInfo
                -> ModuleInfo
                -> ExportId
-               -> GuiEnvT proxy m p  m' ()
+               -> GuiEnvT {-proxy-} m p  m' ()
 doRemoveExport pi mi ei = dialogOnError () $ Internal.doRemoveExport pi mi ei
 
 
-doGetExport :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doGetExport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
             => ProjectInfo
             -> ModuleInfo
             -> ExportId
-            -> GuiEnvT proxy m p  m' (Maybe String)
+            -> GuiEnvT {-proxy-} m p  m' (Maybe String)
 doGetExport pi mi ei = dialogOnError Nothing $ Internal.doGetExport pi mi ei
 
-doEditExport :: ( GuiCommand (GuiEnvT proxy m p) m
+doEditExport :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
                 , GuiCommand2 proxy m p m'
                 )
              => ProjectInfo
              -> ModuleInfo
              -> ExportId
              -> String
-             -> GuiEnvT proxy m p  m' (Maybe (SolutionError UserError))
+             -> GuiEnvT {-proxy-} m p  m' (Maybe (SolutionError UserError))
 doEditExport pi mi ei importStr = dialogOnError Nothing $ Internal.doEditExport pi mi ei importStr
 
-doExportAll :: ( GuiCommand (GuiEnvT proxy m p) m, GuiCommand2 proxy m p m' )
+doExportAll :: ( GuiCommand (GuiEnvT {-proxy-} m p) m, GuiCommand2 proxy m p m' )
             => ProjectInfo
             -> ModuleInfo
-            -> GuiEnvT proxy m p  m' ()
+            -> GuiEnvT {-proxy-} m p  m' ()
 doExportAll pi mi = dialogOnError () $ Internal.doExportAll pi mi
 
-doSearch :: ( GuiCommand (GuiEnvT proxy m p) m
+doSearch :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
             , GuiCommand2 proxy m p m'
             )
-         => GuiEnvT proxy m p m' ()
+         => GuiEnvT {-proxy-} m p m' ()
 doSearch = dialogOnError () $ Internal.doSearch
 
-doSetSearchMode :: ( GuiCommand (GuiEnvT proxy m p) m
+doSetSearchMode :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
                    , GuiCommand2 proxy m p m'
                    )
                 => SearchMode
-                -> GuiEnvT proxy m p m' ()
+                -> GuiEnvT {-proxy-} m p m' ()
 doSetSearchMode mode = dialogOnError () $ Internal.doSetSearchMode mode
 
 doGotoDeclaration
-    :: ( GuiCommand (GuiEnvT proxy m p) m
+    :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
        , GuiCommand2 proxy m p m'
        )
-    => GuiEnvT proxy m p m' ()
+    => GuiEnvT {-proxy-} m p m' ()
 doGotoDeclaration = dialogOnError () $ Internal.doGotoDeclaration
 
 doBackHistory
-    :: ( GuiCommand (GuiEnvT proxy m p) m
+    :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
        , GuiCommand2 proxy m p m'
        )
-    => GuiEnvT proxy m p m' ()
+    => GuiEnvT {-proxy-} m p m' ()
 doBackHistory = dialogOnError () $ Internal.doBackHistory
 
 doForwardHistory
-    :: ( GuiCommand (GuiEnvT proxy m p) m
+    :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
        , GuiCommand2 proxy m p m'
        )
-    => GuiEnvT proxy m p m' ()
+    => GuiEnvT {-proxy-} m p m' ()
 doForwardHistory = dialogOnError () $ Internal.doForwardHistory

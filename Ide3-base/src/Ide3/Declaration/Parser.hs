@@ -11,17 +11,17 @@ Portability : POSIX
 This module provides functions for parsing declarations
 -}
 {-# LANGUAGE FlexibleInstances #-}
-module Ide3.Declaration.Parser 
-    ( module Ide3.Declaration.Parser
-    , SrcSpanInfo 
-    ) where
+module Ide3.Declaration.Parser where
 
 import Data.Monoid
 import Data.List
 
+import Control.Monad
+
 import Language.Haskell.Exts.Annotated.Parser
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Ann, ann)
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.SrcLoc (SrcInfo)
 import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
 import Language.Haskell.Exts.Parser
@@ -35,12 +35,14 @@ import Language.Haskell.Exts.Extension
 
 import Ide3.Utils.Parser
 import Ide3.SrcLoc
+import Ide3.SrcLoc.Exts ()
 
 import Ide3.Types.Internal
 import qualified Ide3.Constructor as Constructor
+import qualified Ide3.Constructor.Exts as Constructor
 
 -- | Convert a declaration if it is a type synonym
-parseTypeSynonym :: SrcInfo t => Decl t -> Maybe Declaration
+parseTypeSynonym :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseTypeSynonym (TypeDecl _ h t)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (TypeSynonym (toSym h)
@@ -49,7 +51,7 @@ parseTypeSynonym (TypeDecl _ h t)
 parseTypeSynonym _ = Nothing
 
 -- | Convert a declaration if it is a GADT newtype
-parseGADTNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseGADTNewtypeDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
@@ -58,7 +60,7 @@ parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
 parseGADTNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a newtype declaration
-parseNewtypeDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseNewtypeDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
@@ -67,7 +69,7 @@ parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
 parseNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a GADT data
-parseGADTDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseGADTDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (DataDeclaration (toSym h)
@@ -76,7 +78,7 @@ parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
 parseGADTDecl _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
-parseDataDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseDataDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseDataDecl (DataDecl _ (DataType _) _ h cons _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (DataDeclaration (toSym h)
@@ -85,7 +87,7 @@ parseDataDecl (DataDecl _ (DataType _) _ h cons _)
 parseDataDecl _ = Nothing
 
 -- | Convert a declaration if it is a function bind
-parseFuncBind :: SrcInfo t => Decl t -> Maybe Declaration
+parseFuncBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSym n) 
                                      $ LocalBindDeclaration [toSym n] Nothing
   where
@@ -95,7 +97,7 @@ parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSy
 parseFuncBind _ = Nothing
 
 -- | Convert a declaration if it is a type signature
-parseTypeSignature :: SrcInfo t => Decl t -> Maybe Declaration
+parseTypeSignature :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseTypeSignature (TypeSig _ ns t) = case allsigs of
     Nothing -> Nothing
     Just [] -> Nothing
@@ -109,18 +111,22 @@ parseTypeSignature (TypeSig _ ns t) = case allsigs of
 parseTypeSignature _ = Nothing
 
 -- | Convert a declaration if it is a class declaration
-parseClassDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseClassDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
-    = Just $ TypeDeclaration (DeclarationInfo $ toSym h)
-           $ ClassDeclaration (toSym h) ds'
+    = liftM (TypeDeclaration (DeclarationInfo $ toSym h) . ClassDeclaration (toSym h)) 
+    $ ds >>= mapM parseSubDecl
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
+    parseSubDecl (ClsTyFam _ dHead _) 
+        = Just 
+        $ TypeDeclaration
+          (DeclarationInfo $ toSym dHead) 
+        $ TypeSynonym (toSym dHead) (Symbol "")
     parseSubDecl _ = Nothing
-    Just ds' = ds >>= mapM parseSubDecl
 parseClassDecl _ = Nothing
 
 -- | Convert a declaration if it is an instance declaration
-parseInstanceDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseInstanceDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseInstanceDecl (InstDecl _ _ r _)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
@@ -129,14 +135,14 @@ parseInstanceDecl (InstDecl _ _ r _)
 parseInstanceDecl _ = Nothing
 
 -- | Convert a declaration if it is a pattern bind
-parsePatBind :: SrcInfo t => Decl t -> Maybe Declaration
+parsePatBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
     ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
 parsePatBind _ = Nothing
 
 -- | Convert a declaration if it is a standalone deriving declaration
-parseDerivingDecl :: SrcInfo t => Decl t -> Maybe Declaration
+parseDerivingDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ DerivingDeclaration cls ts
@@ -147,45 +153,8 @@ parseDerivingDecl _ = Nothing
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
 --maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
 
--- | Class of types which can yield a list of symbols
-class HasNames a where
-    findName :: a -> [Symbol]
-
--- | 
-instance SrcInfo a => HasNames (InstRule a) where
-    findName (IRule _ _ _ h) = findName h
-    findName (IParen _ h) = findName h
-
--- |
-instance SrcInfo a => HasNames (InstHead a) where
-    findName (IHCon _ n) = [toSym n]
-    findName (IHInfix _ t n) = [toSym t, toSym n]
-    findName (IHParen _ h) = findName h
-    findName (IHApp _ h t) = toSym t : findName h
-
--- | 
-instance HasNames (Pat a) where
-    findName (PVar _ n) = [toSym n]
-    findName (PNPlusK _ n _) = [toSym n]
-    findName (PInfixApp _ p1 _ p2) = findName p1 ++ findName p2
-    findName (PApp _ _ ps) = concatMap findName ps
-    findName (PTuple _ _ ps) = concatMap findName ps
-    findName (PList _ ps) = concatMap findName ps
-    findName (PRec _ _ fs) = concatMap findName fs
-    findName (PAsPat _ n _) = [toSym n]
-    findName (PIrrPat _ p) = findName p
-    findName (PatTypeSig _ p _) = findName p
-    findName _ = [] -- TODO: rest
-
--- | 
-instance HasNames (PatField l) where
-    findName (PFieldPat _ _ p) = findName p
-    findName (PFieldPun _ n) = [toSym n]
-    findName _ = [] -- TODO: rest
-
-
 -- | Try to convert a declaration
-tryConvert :: SrcInfo t => Decl t -> Maybe Declaration
+tryConvert :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 tryConvert x
     = getFirst 
     $ mconcat
@@ -210,25 +179,22 @@ parseMany s = case parseModule s of
         Just y -> Right y
         Nothing -> Left $ Unsupported ""
     ParseOk _ -> Left $ Unsupported "" 
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
 
--- | 
-instance Spannable Comment where
-    getSpan (Comment _ s _) = s
 
 -- | Convert a declaration and extract its body, along with the comments
 --  directly above it
-convertWithBody :: (Show l, Spannable l, SrcInfo l)
+convertWithBody :: (FileSpannable l, SrcInfo l)
                 => String 
                 -> [Comment]
                 -> Decl l
-                -> Either (SolutionError u) (Ann l (WithBody Declaration))
+                -> Either (SolutionError u) (Ann SrcSpan (WithBody Declaration))
 convertWithBody str cs x = case tryConvert x of
-    Just decl -> Right $ Ann (fromSrcInfo $ noInfoSpan finalSpan) $ WithBody decl $ finalSpan >< str
+    Just decl -> Right $ Ann finalSpan $ WithBody decl $ finalSpan >< str
       where
         leftBoundaryComments sp = case leftBoundaries str sp cs of
             [] -> sp
-            (c:_) -> leftBoundaryComments $ mergeSrcSpan (getSpan c) sp
+            (c:_) -> leftBoundaryComments $ mergeSrcSpan (toSrcSpan c) sp
         -- This is here because of a bug in the haskell-src-exts library
         -- that causes the sourece spans reported for instance declarations 
         -- to contain the whitespace and comments up to the next declaration.
@@ -237,15 +203,15 @@ convertWithBody str cs x = case tryConvert x of
         noIntersectors sp = case intersectors str sp cs of
             [] -> sp
             (c:_) -> sp `subtractSrcSpan` c $ str
-        finalSpan = leftBoundaryComments $ noIntersectors $ getSpan $ Syntax.ann x
-    Nothing -> Left $ Unsupported $ (Syntax.ann x >< str) ++ " " ++ show (Syntax.ann x)
+        finalSpan = leftBoundaryComments $ noIntersectors $ toSrcSpan $ Syntax.ann x
+    Nothing -> Left $ Unsupported $ (Syntax.ann x >< str) ++ " " ++ show (toSrcFileSpan $ Syntax.ann x)
 
 -- | Take a list of declarations and combine the first type signature with the first bind
 -- This function assumes that all declarations in the input list have the same symbol
-combineFuncAndTypeSig :: [Ann SrcSpanInfo (WithBody Declaration)] -> [Ann SrcSpanInfo (WithBody Declaration)]
+combineFuncAndTypeSig :: [Ann SrcSpan (WithBody Declaration)] -> [Ann SrcSpan (WithBody Declaration)]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     (Ann l (WithBody sig sb) : _, Ann l' (WithBody func fb) : _) 
-        -> (Ann (l <++> l') $ WithBody newDecl newBody) : notFuncBinds
+        -> (Ann (l `mergeSrcSpan` l') $ WithBody newDecl newBody) : notFuncBinds
       where
         ModifierDeclaration _ (TypeSignatureDeclaration _ type_) = sig
         BindDeclaration info (LocalBindDeclaration syms _) = func
@@ -266,11 +232,11 @@ parse s = case parseDecl s of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
         Nothing -> Left $ Unsupported $ show x
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
 
 
 -- |Take a string and produce the needed information for building a Module
-parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [Ann SrcSpanInfo (WithBody Declaration)]
+parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [Ann SrcSpan (WithBody Declaration)]
 parseWithBody s p = case parseModuleWithComments parseMode s of
     ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
     ParseOk (XmlPage{}, _) -> Left $ Unsupported "Xml pages are not yet supported"
@@ -278,7 +244,7 @@ parseWithBody s p = case parseModuleWithComments parseMode s of
     ParseOk (Syntax.Module{}, _) -> Left $ InvalidOperation 
         "Found module head when trying to parse a declaration, use \"Module.parse\" instead" 
         "Declaration.parseWithBody"
-    ParseFailed l msg -> Left $ ParseError l msg ""
+    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     parseMode = case p of
         Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}

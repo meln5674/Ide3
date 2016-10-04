@@ -179,9 +179,9 @@ afterGui gui (GuiSignal2 (Signal f) getter modifier)
 
 {-
 onGuiEnv :: (MonadIO m, Monad m'') => gui 
-         -> GuiEnvT proxy m' p buffer m (GuiSignal gui object (GuiEnvT proxy m' p buffer m'' a) (m'' a)) 
-         -> GuiEnvT proxy m' p buffer m'' a
-         -> GuiEnvT proxy m' p buffer m (ConnectId object)
+         -> GuiEnvT {-proxy-} m' p buffer m (GuiSignal gui object (GuiEnvT {-proxy-} m' p buffer m'' a) (m'' a)) 
+         -> GuiEnvT {-proxy-} m' p buffer m'' a
+         -> GuiEnvT {-proxy-} m' p buffer m (ConnectId object)
 -}
 onGuiM :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'') 
        => gui 

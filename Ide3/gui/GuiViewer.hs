@@ -32,9 +32,9 @@ import DeclarationPath
 
 data GuiViewerState
     = GuiViewerState
-    { openDeclarations :: [DeclarationPath]
+    { openDeclarations :: [SolutionPath]
     , searchMode :: SearchMode
-    , declarationHistory :: History (DeclarationPath, String)
+    , declarationHistory :: History (SolutionPath, String)
     }
 
 emptyGuiViewer :: GuiViewerState

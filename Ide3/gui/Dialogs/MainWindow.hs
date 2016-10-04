@@ -94,9 +94,9 @@ renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [cellText := imp
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [cellText := exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [cellText := p]
 
-renderImageCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
-renderImageCell (Warning _ _ _ _) = [cellText := "W"] -- TODO: Images
-renderImageCell (Error _ _ _ _) = [cellText := "E"] -- TODO: Images
+renderImageCell :: CellRendererPixbufClass o => Error ItemPath -> [AttrOp o]
+renderImageCell (Warning _ _ _ _) = [cellPixbufStockId := stockDialogWarning]
+renderImageCell (Error _ _ _ _) = [cellPixbufStockId := stockDialogError]
 
 renderProjectCell :: CellRendererTextClass o => Error ItemPath -> [AttrOp o]
 renderProjectCell e = [cellText := unProjectInfo pji]
@@ -136,11 +136,11 @@ renderMessageCell (Error _ _ _ msg) = [cellText := msg]
 
 
 
---make :: GuiEnv proxy m p buffer -> (MainWindow -> m a) -> m ()
+--make :: GuiEnv {-proxy-} m p buffer -> (MainWindow -> m a) -> m ()
 
 make :: (MonadIO m)
-     => (MainWindow -> GuiEnvT proxy m' p  m a) 
-     -> GuiEnvT proxy m' p  m a
+     => (MainWindow -> GuiEnvT {-proxy-} m' p  m a) 
+     -> GuiEnvT {-proxy-} m' p  m a
 make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
     --makeOverlayWith window $ \overlay -> do
@@ -175,18 +175,18 @@ make f = makeMainWindowWith $ \window -> do
               --, searchBar
               }
 
-makeRenderer :: (MonadIO m) => GuiEnvT proxy m' p  m CellRendererText
+makeRenderer :: (MonadIO m) => GuiEnvT {-proxy-} m' p  m CellRendererText
 makeRenderer = liftIO cellRendererTextNew
 
 makeSoloBox :: (MonadIO m)
-            => GuiEnvT proxy m' p  m VBox
+            => GuiEnvT {-proxy-} m' p  m VBox
 makeSoloBox = liftIO $ vBoxNew False 0
 
 
 makeVPanedWith :: (MonadIO m, ContainerClass self) 
                => self 
-               -> (VPaned -> GuiEnvT proxy m' p  m b) 
-               -> GuiEnvT proxy m' p  m b
+               -> (VPaned -> GuiEnvT {-proxy-} m' p  m b) 
+               -> GuiEnvT {-proxy-} m' p  m b
 makeVPanedWith container f = do
     vbox <- liftIO $ vPanedNew
     liftIO $ container `containerAdd` vbox
@@ -194,22 +194,22 @@ makeVPanedWith container f = do
 
 makeHPanedWith :: (MonadIO m, ContainerClass self) 
                => self 
-               -> (HPaned -> GuiEnvT proxy m' p  m b) 
-               -> GuiEnvT proxy m' p  m b
+               -> (HPaned -> GuiEnvT {-proxy-} m' p  m b) 
+               -> GuiEnvT {-proxy-} m' p  m b
 makeHPanedWith container f = do
     hbox <- liftIO $ hPanedNew
     liftIO $ container `containerAdd` hbox
     f hbox
 
 {-
-makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT proxy m' p  m b) -> GuiEnvT proxy m' p  m b
+makeContainerWith :: (MonadIO m, BoxClass self) => self -> (Table -> GuiEnvT {-proxy-} m' p  m b) -> GuiEnvT {-proxy-} m' p  m b
 makeContainerWith vbox f = do
     container <- liftIO $ tableNew 2 3 False
     liftIO $ boxPackEnd vbox container PackGrow 0
     f container
 -}
 
-makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT proxy m' p  m MenuBar
+makeMainMenuBar :: (MonadIO m, BoxClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuBar
 makeMainMenuBar vbox = do
     menuBar <- liftIO $ menuBarNew
     liftIO $ boxPackStart vbox menuBar PackNatural 0
@@ -224,7 +224,7 @@ data FileMenu
     , saveSolutionButton :: MenuItem
     }
 
-makeFileMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m FileMenu
+makeFileMenu :: (MonadIO m) => MenuBar -> GuiEnvT {-proxy-} m' p  m FileMenu
 makeFileMenu = makeFileMenuWith $ \fileMenu -> do
     newButton <- makeNewButton fileMenu
     openButton <- makeOpenButton fileMenu
@@ -239,22 +239,22 @@ makeFileMenu = makeFileMenuWith $ \fileMenu -> do
            , saveSolutionButton
            }
 
-makeFileMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
+makeFileMenuWith :: (MonadIO m) => (Menu -> GuiEnvT {-proxy-} m' p  m b) -> MenuBar -> GuiEnvT {-proxy-} m' p  m b
 makeFileMenuWith = makeMenuWith "File"
 
-makeNewButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
+makeNewButton :: (MonadIO m) => Menu -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeNewButton = makeMenuButton "New Solution"
 
-makeOpenButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
+makeOpenButton :: (MonadIO m) => Menu -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeOpenButton = makeMenuButton "Open"
 
-makeDigestButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
+makeDigestButton :: (MonadIO m) => Menu -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeDigestButton = makeMenuButton "Digest"
 
-makeSaveButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
+makeSaveButton :: (MonadIO m) => Menu -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeSaveButton = makeMenuButton "Save"
 
-makeSaveSolutionButton :: (MonadIO m) => Menu -> GuiEnvT proxy m' p  m MenuItem
+makeSaveSolutionButton :: (MonadIO m) => Menu -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeSaveSolutionButton = makeMenuButton "Save Solution"
 
  
@@ -264,7 +264,7 @@ data SolutionMenu
     , runButton :: MenuItem
     }
 
-makeSolutionMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m SolutionMenu
+makeSolutionMenu :: (MonadIO m) => MenuBar -> GuiEnvT {-proxy-} m' p  m SolutionMenu
 makeSolutionMenu = makeSolutionMenuWith $ \projectMenu -> do
     buildButton <- makeBuildButton projectMenu
     runButton <- makeRunButton projectMenu
@@ -273,13 +273,13 @@ makeSolutionMenu = makeSolutionMenuWith $ \projectMenu -> do
            , runButton
            }
 
-makeSolutionMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
+makeSolutionMenuWith :: (MonadIO m) => (Menu -> GuiEnvT {-proxy-} m' p  m b) -> MenuBar -> GuiEnvT {-proxy-} m' p  m b
 makeSolutionMenuWith = makeMenuWith "Solution"
 
-makeBuildButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeBuildButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeBuildButton = makeMenuButton "Build"
 
-makeRunButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeRunButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeRunButton = makeMenuButton "Run"
 
 data SearchMenu
@@ -289,7 +289,7 @@ data SearchMenu
     , gotoDeclarationButton :: MenuItem
     }
 
-makeSearchMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p  m SearchMenu
+makeSearchMenu :: (MonadIO m) => MenuBar -> GuiEnvT {-proxy-} m' p  m SearchMenu
 makeSearchMenu = makeSearchMenuWith $ \searchMenu -> do
     findButton <- makeFindButton searchMenu
     navigateButton <- makeNavigateButton searchMenu
@@ -300,16 +300,16 @@ makeSearchMenu = makeSearchMenuWith $ \searchMenu -> do
         , gotoDeclarationButton
         }
 
-makeSearchMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p  m b) -> MenuBar -> GuiEnvT proxy m' p  m b
+makeSearchMenuWith :: (MonadIO m) => (Menu -> GuiEnvT {-proxy-} m' p  m b) -> MenuBar -> GuiEnvT {-proxy-} m' p  m b
 makeSearchMenuWith = makeMenuWith "Search"
 
-makeFindButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeFindButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeFindButton = makeMenuButton "Find"
 
-makeNavigateButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeNavigateButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeNavigateButton = makeMenuButton "Navigate"
 
-makeGotoDeclarationButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeGotoDeclarationButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeGotoDeclarationButton = makeMenuButton "Go to Declaration"
 
 data NavigationMenu
@@ -318,7 +318,7 @@ data NavigationMenu
     , forwardButton :: MenuItem
     }
 
-makeNavigationMenu :: (MonadIO m) => MenuBar -> GuiEnvT proxy m' p m NavigationMenu
+makeNavigationMenu :: (MonadIO m) => MenuBar -> GuiEnvT {-proxy-} m' p m NavigationMenu
 makeNavigationMenu = makeNavigationMenuWith $ \navigationMenu -> do
     backButton <- makeBackButton navigationMenu
     forwardButton <- makeForwardButton navigationMenu
@@ -327,13 +327,13 @@ makeNavigationMenu = makeNavigationMenuWith $ \navigationMenu -> do
         , forwardButton
         }
 
-makeNavigationMenuWith :: (MonadIO m) => (Menu -> GuiEnvT proxy m' p m b) -> MenuBar -> GuiEnvT proxy m' p m b
+makeNavigationMenuWith :: (MonadIO m) => (Menu -> GuiEnvT {-proxy-} m' p m b) -> MenuBar -> GuiEnvT {-proxy-} m' p m b
 makeNavigationMenuWith = makeMenuWith "Navigation"
 
-makeBackButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeBackButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeBackButton = makeMenuButton "Back"
 
-makeForwardButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT proxy m' p  m MenuItem
+makeForwardButton :: (MonadIO m, MenuShellClass self) => self -> GuiEnvT {-proxy-} m' p  m MenuItem
 makeForwardButton = makeMenuButton "Forward"
 
 data SolutionViewer
@@ -349,7 +349,7 @@ makeSolutionViewer :: (MonadIO m
                   => cell
                   -> (SolutionTreeElem -> [AttrOp cell])
                   -> self
-                  -> GuiEnvT proxy m' p  m SolutionViewer
+                  -> GuiEnvT {-proxy-} m' p  m SolutionViewer
 makeSolutionViewer renderer renderFunc container = do
     makeHPanedWith container $ \hbox -> do
         projectViewBox <- makeSoloBox
@@ -370,7 +370,7 @@ makeProjView :: ( MonadIO m
              => cell 
              -> self 
              -> (SolutionTreeElem -> [AttrOp cell]) 
-             -> GuiEnvT proxy m' p  m TreeView
+             -> GuiEnvT {-proxy-} m' p  m TreeView
 makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
     treeViewColumn <- liftIO treeViewColumnNew
     projView <- withGuiComponents $ flip withSolutionTree $ liftIO . treeViewNewWithModel
@@ -391,7 +391,7 @@ makeProjView renderer container renderFunc = makeScrolledWindowWith container $ 
 makeDeclView :: ( MonadIO m
                 , ContainerClass self
                 ) 
-             => self -> GuiEnvT proxy m' p  m BetterTextView
+             => self -> GuiEnvT {-proxy-} m' p  m BetterTextView
 makeDeclView container = makeScrolledWindowWith container $ \scrollWindow -> do
     declView <- withGuiComponents $ flip withEditorBuffer $ liftIO . betterTextViewNewWithBuffer
     monospace <- liftIO fontDescriptionNew
@@ -419,7 +419,7 @@ data BuildViewer
 makeBuildViewer :: ( MonadIO m
                    , ContainerClass self
                    ) 
-                => self -> GuiEnvT proxy m' p  m BuildViewer
+                => self -> GuiEnvT {-proxy-} m' p  m BuildViewer
 makeBuildViewer container = do
     makeNotebookWith container $ \notebook -> do
         buildView <- makeNotebookPageWith notebook "Log" makeBuildView
@@ -434,7 +434,7 @@ makeBuildViewer container = do
 makeBuildView :: ( MonadIO m
                  , ContainerClass self
                  ) 
-              => self -> GuiEnvT proxy m' p  m TextView
+              => self -> GuiEnvT {-proxy-} m' p  m TextView
 makeBuildView container = makeScrolledWindowWith container $ \scrollWindow -> do
     buildView <- withGuiComponents $ flip withBuildBuffer $ liftIO . textViewNewWithBuffer
     {-
@@ -454,7 +454,7 @@ makeBuildView container = makeScrolledWindowWith container $ \scrollWindow -> do
 makeErrorView :: ( MonadIO m
                  , ContainerClass self
                  )
-              => self -> GuiEnvT proxy m' p m TreeView
+              => self -> GuiEnvT {-proxy-} m' p m TreeView
 makeErrorView container = do
     withGuiComponents 
         $ flip withErrorList 
@@ -471,6 +471,7 @@ makeErrorView container = do
             columnColumn <- treeViewColumnNew
             messageColumn <- treeViewColumnNew
             renderer <- cellRendererTextNew
+            imageRenderer <- cellRendererPixbufNew
             
             treeViewColumnSetTitle projectColumn "Project"
             treeViewColumnSetTitle moduleColumn "Module"
@@ -479,7 +480,7 @@ makeErrorView container = do
             treeViewColumnSetTitle columnColumn "Column"
             treeViewColumnSetTitle messageColumn "Message"
             
-            treeViewColumnPackStart imageColumn renderer True
+            treeViewColumnPackStart imageColumn imageRenderer True
             treeViewColumnPackStart projectColumn renderer True
             treeViewColumnPackStart moduleColumn renderer True
             treeViewColumnPackStart declarationColumn renderer True
@@ -487,7 +488,7 @@ makeErrorView container = do
             treeViewColumnPackStart columnColumn renderer True
             treeViewColumnPackStart messageColumn renderer True
             
-            cellLayoutSetAttributes imageColumn renderer list renderImageCell
+            cellLayoutSetAttributes imageColumn imageRenderer list renderImageCell
             cellLayoutSetAttributes projectColumn renderer list renderProjectCell
             cellLayoutSetAttributes moduleColumn renderer list renderModuleCell
             cellLayoutSetAttributes declarationColumn renderer list renderDeclarationCell
@@ -519,16 +520,13 @@ makeErrorView container = do
             return errorView
 
 makeMainWindowWith :: (MonadIO m) 
-                   => (Window -> GuiEnvT proxy m' p  m a) 
-                   -> GuiEnvT proxy m' p  m a
+                   => (Window -> GuiEnvT {-proxy-} m' p  m a) 
+                   -> GuiEnvT {-proxy-} m' p  m a
 makeMainWindowWith f = do
     window <- liftIO $ do
-        _ <- initGUI
         windowNew
     r <- f window
-    liftIO $ do
-        widgetShowAll window
-        mainGUI
+    liftIO $ widgetShowAll window
     return r
 
 type MainWindowSignal proxy m' p  m object m'' a

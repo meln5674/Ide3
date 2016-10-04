@@ -244,8 +244,8 @@ class Monad m => ModuleFileClass m where
 class ( Monad m )
      => ModuleLocationClass m where
     getModuleItemAtLocation :: ProjectInfo 
-                            -> ModuleInfo -> (Int, Int)
-                            -> SolutionResult u m (Maybe (ModuleItemString, Int, Int))
+                            -> ModuleInfo -> [SrcLoc]
+                            -> SolutionResult u m [Maybe (ModuleItemString, SrcLoc)]
 
 -- | Wrapper for monads which have all project features
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
