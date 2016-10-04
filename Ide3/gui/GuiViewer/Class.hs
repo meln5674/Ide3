@@ -1,5 +1,7 @@
 module GuiViewer.Class where
 
+import Data.Text
+
 import Ide3.Types
 import SearchMode
 import DeclarationPath
@@ -12,8 +14,8 @@ class Monad m => GuiViewerClass m where
     closeDeclaration :: SolutionPath -> m ()
     getOpenDeclarations :: m [SolutionPath]
     declarationIsOpen :: SolutionPath -> m Bool
-    openDeclarationInHistory :: SolutionPath -> String -> m ()
+    openDeclarationInHistory :: SolutionPath -> Text -> m ()
     replaceHistoryPath :: SolutionPath -> m ()
-    replaceHistoryText :: String -> m ()
-    navigateHistoryBack :: m (Maybe (SolutionPath, String))
-    navigateHistoryForward :: m (Maybe (SolutionPath, String))
+    replaceHistoryText :: Text -> m ()
+    navigateHistoryBack :: m (Maybe (SolutionPath, Text))
+    navigateHistoryForward :: m (Maybe (SolutionPath, Text))

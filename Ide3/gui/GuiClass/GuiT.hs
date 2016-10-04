@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module GuiClass.GuiEnv.Stack where
+module GuiClass.GuiT where
 
 import Data.Text
 
@@ -37,13 +37,13 @@ import Dialogs.Class
 
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 
-{-
+import GuiT
+
 
 instance ( Monad m'
          , MonadIO m
-         , DialogsClass m
-         ) => ProjectInitializerClass (GuiEnvT m' p m) where
-    type ClassProjectInitializerMonad (GuiEnvT m' p m) = m'
+         ) => ProjectInitializerClass (GuiT m' p m) where
+    type ClassProjectInitializerMonad (GuiT m' p m) = m'
     setupProjectCreator onConfirm
         = id {- access the project creator dialog #-}
         $ lift $ liftIO $ do
@@ -51,7 +51,7 @@ instance ( Monad m'
             return ()
             
     getProjectCreatorArg
-        = withGuiComponents
+        = liftEnv $ withGuiComponents
         $ const {- access some kind of buffer #-}
         $ lift $ liftIO $ do
             {- get the contents of the buffer, create a stack args -}
@@ -64,46 +64,45 @@ instance ( Monad m'
             {- close the dialog -}
             return ()
 
+
 getSolutionCreatorArg' :: forall m' p m u
                         . ( MonadIO m
                           , ViewerMonad m
-                          , DialogsClass m
                           , m ~ m'
                           )
-                       => GuiEnvT m' p m (Either (SolutionError u) StackInitializerArgs)
+                       => GuiT m' p m (Either (SolutionError u) StackInitializerArgs)
 getSolutionCreatorArg'
-        = (lift :: forall a . m a -> GuiEnvT m' p m a)
+        = liftDialogs
         $ withNewSolutionDialogM
         $ \dialog -> do
             projectRoot <- NewSolutionDialog.getSelectedFolder dialog
             projectName <- liftM unpack $ NewSolutionDialog.getSolutionName dialog
             templateName <- liftM (fmap unpack) $ NewSolutionDialog.getTemplateName dialog
-            x <- runExceptT $ case projectRoot of
+            runExceptT $ case projectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
                     wrapIOError $ setCurrentDirectory $ projectRoot
-                    setDirectoryToOpen $ projectRoot </> projectName
+                    bounce $ setDirectoryToOpen $ projectRoot </> projectName
                     return $ StackInitializerArgs projectName templateName
-            return x :: m (Either (SolutionError u) StackInitializerArgs)
+            
+
 
 instance ( MonadIO m
          , ViewerMonad m
-         , DialogsClass m
          , ArgType m' ~ StackInitializerArgs
          , m ~ m'
-         ) => SolutionInitializerClass (GuiEnvT m' p m) where
-    type ClassSolutionInitializerMonad (GuiEnvT m' p m) = m'
+         ) => SolutionInitializerClass (GuiT m' p m) where
+    type ClassSolutionInitializerMonad (GuiT m' p m) = m'
     setupSolutionCreator
-        = lift
+        = liftDialogs
         $ withNewSolutionDialogM
         $ \dialog -> NewSolutionDialog.setVisible dialog True
     getSolutionCreatorArg = getSolutionCreatorArg'
         
         
     finalizeSolutionCreator 
-        = lift
+        = liftDialogs
         $ withNewSolutionDialogM
         $ \dialog -> NewSolutionDialog.setVisible dialog False
 
 
--}

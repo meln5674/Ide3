@@ -9,6 +9,7 @@ module GuiClass
     , module GuiClass.Types
     ) where
 
+import Data.Text
 import Data.Tree
 
 import Control.Monad.Trans
@@ -28,24 +29,24 @@ import SyntaxHighlighter2
 import EnvironmentMonad
 
 class Monad m => EditorBufferClass m where
-    setEditorBufferText ::  String -> m ()
-    getEditorBufferText ::  Maybe CursorPosition -> Maybe CursorPosition -> m String
+    setEditorBufferText ::  Text -> m ()
+    getEditorBufferText ::  Maybe CursorPosition -> Maybe CursorPosition -> m Text
     getEditorBufferCursor ::  m (CursorPosition, CursorPosition)
     selectEditorBufferText ::  CursorPosition -> CursorPosition -> m () 
     getEditorBufferPositionAtIndex ::  Int -> m CursorPosition
     getEditorBufferIndexAtPosition :: CursorPosition -> m Int
-    insertTextAtEditorBufferPosition ::  CursorPosition -> String -> m ()
+    insertTextAtEditorBufferPosition ::  CursorPosition -> Text -> m ()
     applySyntaxHighlighting :: [HighlightInst] -> m ()
 
 class Monad m => BuildBufferClass m where
-    setBuildBufferText :: String -> m ()
-    getBuildBufferText :: Maybe CursorPosition -> Maybe CursorPosition -> m String
+    setBuildBufferText :: Text -> m ()
+    getBuildBufferText :: Maybe CursorPosition -> Maybe CursorPosition -> m Text
     getBuildBufferCursor :: m (CursorPosition, CursorPosition)
     selectBuildBufferText :: CursorPosition -> CursorPosition -> m ()
     
         
 class Monad m => SearchBarClass m where
-    getSearchBarText :: m String
+    getSearchBarText :: m Text
 
 class Monad m => SolutionViewClass m where
     getElemAtSolutionTreePath :: TreePath -> m SolutionTreeElem
@@ -68,7 +69,7 @@ class (Monad m) => SolutionInitializerClass m where
 
 type SolutionInitializerClass' m m'
     = ( SolutionInitializerClass m
-      --, m' ~ ClassSolutionInitializerMonad m
+      -- , m' ~ ClassSolutionInitializerMonad m
       , InitializerMonad m'
       , Args (ArgType m')
       )
@@ -94,14 +95,15 @@ type ProjectInitializerClass' m m'
 class Monad m => ErrorListClass m where
     clearErrorList :: m ()
     addErrorToList :: Error ItemPath -> m ()
+    getErrorAtIndex :: Int -> m (Error ItemPath)
 
 class Monad m => ErrorClass m where
-    displayError :: String -> m ()
+    displayError :: Text -> m ()
 
-setEditorBufferTextHighlighted :: EditorBufferClass m => String -> m ()
+setEditorBufferTextHighlighted :: EditorBufferClass m => Text -> m ()
 setEditorBufferTextHighlighted text = do
     setEditorBufferText text
-    result <- runExceptT $ getHighlights text
+    result <- runExceptT $ getHighlights $ unpack text
     case result of
         Right hs -> applySyntaxHighlighting hs
         Left _ -> return ()
@@ -109,7 +111,7 @@ setEditorBufferTextHighlighted text = do
 reapplySyntaxHighlighting :: EditorBufferClass m => m ()
 reapplySyntaxHighlighting = do
     text <- getEditorBufferText Nothing Nothing
-    result <- runExceptT $ getHighlights text
+    result <- runExceptT $ getHighlights $ unpack text
     case result of
         Right hs -> applySyntaxHighlighting hs
         Left _ -> return ()

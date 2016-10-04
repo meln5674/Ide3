@@ -1,4 +1,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module GuiMonad 
     ( GuiComponents
     , withSolutionTree
@@ -19,9 +23,13 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
-import ErrorParser.Types
+import Data.GI.Base.Attributes
+import GI.Gtk
 
-import Graphics.UI.Gtk
+import Data.GI.Gtk.ModelView.ForestStore
+import Data.GI.Gtk.ModelView.SeqStore
+
+import ErrorParser.Types
 
 import SolutionTree
 
@@ -31,17 +39,19 @@ import GuiClass
 
 import DeclarationPath
 
+
+
 data GuiComponents
     = GuiComponents
-    { projectTree :: TreeStore SolutionTreeElem
+    { projectTree :: ForestStore SolutionTreeElem
     , editorBuffer :: TextBuffer
     , buildBuffer :: TextBuffer
     , searchBuffer :: EntryBuffer
-    , errorList :: ListStore (Error ItemPath)
+    , errorList :: SeqStore (Error ItemPath)
     }
 
 
-defaultTextAttrs :: SyntaxComponent -> [AttrOp TextTag]
+defaultTextAttrs :: SyntaxComponent -> [AttrOp TextTag AttrSet]
 defaultTextAttrs VarId = [textTagForeground := "navy", textTagWeight := 600]
 defaultTextAttrs ConId = [textTagForeground := "purple4", textTagWeight := 800]
 defaultTextAttrs VarSym = [textTagForeground := "grey"]
@@ -51,9 +61,9 @@ defaultTextAttrs Literal = [textTagForeground := "lime green"]
 defaultTextAttrs Comment = [textTagForeground := "forest green", textTagWeight := 400]
 defaultTextAttrs _ = [textTagForeground := "black"]
 
-makeDeclBuffer :: IO TextBuffer
+makeDeclBuffer :: MonadIO m => m TextBuffer
 makeDeclBuffer = do
-    buffer <- textBufferNew Nothing
+    buffer <- textBufferNew noTextTagTable
     table <- textBufferGetTagTable buffer
     forM_ allSyntaxComponents $ \h -> do
         let name = (pack . show) h
@@ -61,9 +71,10 @@ makeDeclBuffer = do
         table `textTagTableAdd` tag 
     return buffer
 
-applyDeclBufferAttrs :: (SyntaxComponent -> [AttrOp TextTag]) 
+applyDeclBufferAttrs :: MonadIO m 
+                     => (SyntaxComponent -> [AttrOp TextTag AttrSet]) 
                      -> GuiComponents
-                     -> IO ()
+                     -> m ()
 applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
     table <- textBufferGetTagTable buffer
     forM_ allSyntaxComponents $ \h -> do
@@ -73,21 +84,21 @@ applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do
         tag `set` attr
         
 
-makeTreeStore :: IO (TreeStore SolutionTreeElem)
-makeTreeStore = treeStoreNew ([] :: [Tree SolutionTreeElem])
+makeTreeStore :: MonadIO m => m (ForestStore SolutionTreeElem)
+makeTreeStore = forestStoreNew []
 
-makeBuildBuffer :: IO TextBuffer
-makeBuildBuffer = textBufferNew Nothing
+makeBuildBuffer :: MonadIO m => m TextBuffer
+makeBuildBuffer = textBufferNew (Nothing :: Maybe TextTagTable)
 
-makeSearchBuffer :: IO EntryBuffer
-makeSearchBuffer = entryBufferNew (Nothing :: Maybe String)
+makeSearchBuffer :: MonadIO m => m EntryBuffer
+makeSearchBuffer = entryBufferNew (Nothing :: Maybe Text) 0
 
-makeErrorList :: IO (ListStore (Error ItemPath))
-makeErrorList = listStoreNew []
+makeErrorList :: MonadIO m => m (SeqStore (Error ItemPath))
+makeErrorList = seqStoreNew []
 
 initializeComponents :: (MonadIO m)
                      => m GuiComponents
-initializeComponents = liftIO $ do
+initializeComponents = do
     projectTree <- makeTreeStore
     editorBuffer <- makeDeclBuffer
     buildBuffer <- makeBuildBuffer
@@ -103,7 +114,7 @@ initializeComponents = liftIO $ do
     
 
 withSolutionTree :: GuiComponents
-                 -> (TreeStore SolutionTreeElem -> a)
+                 -> (ForestStore SolutionTreeElem -> a)
                  -> a
 withSolutionTree comp f = f (projectTree comp)
 
@@ -123,7 +134,7 @@ withSearchBuffer :: GuiComponents
 withSearchBuffer comp f = f (searchBuffer comp)
 
 withErrorList :: GuiComponents
-               -> (ListStore (Error ItemPath) -> a)
+               -> (SeqStore (Error ItemPath) -> a)
                -> a
 withErrorList comp f = f (errorList comp)
 
@@ -164,3 +175,4 @@ updateDeclBufferText comp = withEditorBuffer comp $ \buffer -> do
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
         Left _ -> return ()
 -}
+

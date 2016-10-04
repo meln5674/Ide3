@@ -1,5 +1,6 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 module Dialogs.SearchBar
     ( SearchBar
     , make
@@ -11,9 +12,13 @@ module Dialogs.SearchBar
     , setVisible
     ) where
 
+import Data.Text
+
 import Control.Monad.Trans
 
-import Graphics.UI.Gtk
+import GI.Gtk hiding (SearchBar)
+import GI.Gdk 
+
 import GuiHelpers
 import GuiEnv
 import GuiMonad
@@ -30,11 +35,13 @@ data SearchBar
 
 make
     :: ( MonadIO m
-       , ContainerClass self
+       , IsContainer self
        )
     => self
     -> GuiEnvT {-proxy-} m' p  m SearchBar
-make container = makeHBoxWith container $ \hbox -> do
+make container = makeVBoxWith container $ \vbox -> do
+    hbox <- hBoxNew False 0
+    boxPackEnd vbox hbox False False 0
     searchLabel <- makeSearchLabel hbox
     searchBox <- makeSearchBox hbox
     searchButton <- makeSearchButton hbox
@@ -46,48 +53,56 @@ make container = makeHBoxWith container $ \hbox -> do
          }
 
 makeSearchLabel :: ( MonadIO m 
-                   , ContainerClass self
+                   , IsBox self
                    )
                 => self
                 -> GuiEnvT {-proxy-} m' p m Label
-makeSearchLabel = makeLabel "Find"
+makeSearchLabel container = do
+    label <- labelNew (Just "Find")
+    boxPackStart container label False False 0
+    return label
 
 makeSearchBox :: ( MonadIO m
-                 , ContainerClass self
+                 , IsBox self
                  )
               => self
               -> GuiEnvT {-proxy-} m' p  m Entry
 makeSearchBox container = do
-    searchBox <- withGuiComponents $ flip withSearchBuffer $ liftIO . entryNewWithBuffer
-    liftIO $ container `containerAdd` searchBox
+    searchBox <- withGuiComponents $ flip withSearchBuffer $ entryNewWithBuffer
+    boxPackStart container searchBox True True 0
     return searchBox
 
-makeSearchButton :: (MonadIO m)
-                 => HBox -> GuiEnvT {-proxy-} m' p  m Button
-makeSearchButton = makeButton "Go"
+makeSearchButton :: (MonadIO m, IsBox self)
+                 => self
+                 -> GuiEnvT {-proxy-} m' p  m Button
+makeSearchButton container = do
+    button <- buttonNewWithLabel "Go"
+    boxPackStart container button False False 0
+    return button
 
-searchClickedEvent :: (Monad m) => GuiEnvSignal proxy m' p  m SearchBar Button IO ()
-searchClickedEvent = searchButton `mkGuiEnvSignal` buttonActivated
+type SearchBarSignal object info = SubSignalProxy SearchBar object info
 
-setSearchMode :: SearchBar -> SearchMode -> IO ()
+searchClickedEvent :: SearchBarSignal Button ButtonClickedSignalInfo
+searchClickedEvent searchBar = (searchButton searchBar, #clicked)
+
+setSearchMode :: MonadIO m => SearchBar -> SearchMode -> m ()
 setSearchMode bar Find = do
-    set (searchLabel bar) [labelText := "Find"]
+    set (searchLabel bar) [#label := "Find"]
 setSearchMode bar Navigate = do
-    set (searchLabel bar) [labelText := "Navigate"]
+    set (searchLabel bar) [#label := "Navigate"]
     
-setCompletion :: SearchBar -> EntryCompletion -> IO ()
-setCompletion bar comp = entrySetCompletion (searchBox bar) comp
+setCompletion :: MonadIO m => SearchBar -> EntryCompletion -> m ()
+setCompletion bar comp = set (searchBox bar) [ #completion := comp ]
 
+
+addSearchClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
+                                  => SearchBar 
+                                  -> group
+                                  -> key
+                                  -> [ModifierType] 
+                                  -> [AccelFlags]
+                                  -> m ()
 addSearchClickedEventAccelerator = searchButton `addAccel` "activate"
 
-setVisible :: SearchBar -> Bool -> IO ()
-setVisible bar v = do
-    set (searchBox bar) [widgetVisible := v]
-
-{-    mapM_ (\x -> set x [widgetVisible := v])
-        [ toWidget $ searchLabel bar
-        , toWidget $ searchBox bar 
-        , toWidget $ searchButton bar 
-        , toWidget $ searchContainer bar
-        ]
--}
+setVisible :: MonadIO m => SearchBar -> Bool -> m ()
+setVisible bar v = set (searchContainer bar) [widgetVisible := v]

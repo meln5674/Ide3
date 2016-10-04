@@ -7,7 +7,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GuiCommand.Internal where
+
+import Data.Monoid
+import Data.Maybe
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Ide3.OrderedMap (OrderedMap)
 import qualified Ide3.OrderedMap as OMap
@@ -110,6 +117,7 @@ type GuiCommand t m =
     ( MonadTrans t
     , MonadSplice t
     , MonadUnsplice t
+--    , MonadIO m
     , ViewerMonad m
     , SolutionClass m
     , PersistenceClass m
@@ -127,7 +135,7 @@ type GuiCommand t m =
     , SearchBarClass (t m)
     , ErrorListClass (t m)
     , Monad (t (SolutionResult UserError m))
-    , GuiViewerClass (t m)
+    --, GuiViewerClass (t m)
     , ViewerStateClass m
     , ModuleLocationClass m
 --    , ProjectInitializerClass' (t m) m
@@ -188,17 +196,18 @@ openItem
     :: ( GuiCommand t m
        )
     => SolutionPath
-    -> t (SolutionResult UserError m) String
+    -> t (SolutionResult UserError m) Text
 openItem (DeclarationPath pji mi di) = do
     decl <- lift $ getDeclaration pji mi di
-    splice $ setEditorBufferTextHighlighted $ body decl
+    splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
+    --lift $ liftIO $ print $ body decl
     lift $ lift $ setCurrentDecl pji mi di
-    return $ body decl
+    return $ T.pack $ body decl
 openItem (ModulePath pji mi) = do
     header <- lift $ getModuleHeader pji mi
-    splice $ setEditorBufferTextHighlighted header
+    splice $ setEditorBufferTextHighlighted $ T.pack header
     lift $ lift $ setCurrentModule pji mi
-    return $ header
+    return $ T.pack header
 openItem _ = do
     splice $ setEditorBufferText ""
     return ""
@@ -206,16 +215,16 @@ openItem _ = do
 doGetDecl :: ( GuiCommand t m )
           => TreePath
           -> t (SolutionResult UserError m)  ()
-doGetDecl path = do --withGuiComponents $ \comp -> lift $ do
-    --index <- wrapIOError $ withSolutionTree comp $ findAtPath path
+doGetDecl path = do
+    --lift $ liftIO $ putStrLn "Getting index"
     index <- splice $ findAtPath path
-    --openDecls <- lift $ lift $ getOpenDeclarations
-    --lift $ lift $ mapM_ closeDeclaration openDecls
     case index of
         DeclResult pi mi di -> do
+            --lift $ liftIO $ putStrLn "Retreiving declaration"
             text <- openItem $ DeclarationPath pi mi di
             lift $ lift $ openDeclarationInHistory (DeclarationPath pi mi di) text
         ModuleResult pi mi True -> do
+            --lift $ liftIO $ putStrLn "Retreiving module header"
             text <- openItem $ ModulePath pi mi
             lift $ lift $ openDeclarationInHistory (ModulePath pi mi) text
         _ -> return ()
@@ -227,11 +236,11 @@ doBuild :: ( GuiCommand t m
            )
         => t (SolutionResult UserError m) ()
 doBuild = do --withGuiComponents $ \comp -> lift $ do
-    lift $ liftIO $ putStrLn "Clearing error list"
+    --lift $ liftIO $ putStrLn "Clearing error list"
     splice $ setBuildBufferText ""
     splice $ clearErrorList
     
-    lift $ liftIO $ putStrLn "Building"
+    --lift $ liftIO $ putStrLn "Building"
     lift $ prepareBuild
     builder <- lift $ lift $ getBuilder
     r <- lift $ runBuilder builder
@@ -239,7 +248,7 @@ doBuild = do --withGuiComponents $ \comp -> lift $ do
             BuildSucceeded log warnings -> (log,warnings)
             BuildFailed log errors -> (log,errors)
 
-    lift $ liftIO $ putStrLn "Fetching error locations"
+    --lift $ liftIO $ putStrLn "Fetching error locations"
     
     --   Group the errors into lists that have the same module, then batch fetch
     -- each group's offsets. 
@@ -257,10 +266,10 @@ doBuild = do --withGuiComponents $ \comp -> lift $ do
             return $ map (uncurry fixLocation) (zip es locs') 
     errors' <- liftM (concat . OMap.elems) $ OMap.mapWithKeyM fetchErrorLocations sortedErrors
 
-    lift $ liftIO $ putStrLn "Setting log text"
-    splice $ setBuildBufferText text
+    --lift $ liftIO $ putStrLn "Setting log text"
+    splice $ setBuildBufferText $ T.pack text
 
-    lift $ liftIO $ putStrLn $ "Adding errors (" ++ show (length errors') ++ ")"
+    --lift $ liftIO $ putStrLn $ "Adding errors (" ++ show (length errors') ++ ")"
     splice $ mapM_ addErrorToList errors'
 
 doRun :: ( GuiCommand t m
@@ -276,7 +285,7 @@ doRun = do --withGuiComponents $ \comp -> lift $ do
             RunSucceeded out err -> out ++ err
             RunFailed out err -> out ++ err
     --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
-    splice $ setBuildBufferText text
+    splice $ setBuildBufferText $ T.pack text
 
 
 doSave :: forall ia pia t m
@@ -285,7 +294,7 @@ doSave :: forall ia pia t m
           )
        => t (SolutionResult UserError m) ()
 doSave = do --withGuiComponents $ \comp -> lift $ do
-    let doWithBuffer :: (String -> t (SolutionResult UserError m) a )
+    let doWithBuffer :: (Text -> t (SolutionResult UserError m) a )
                      -> t (SolutionResult UserError m) a
         doWithBuffer f = do
             text <- splice $ getEditorBufferText Nothing Nothing
@@ -298,13 +307,13 @@ doSave = do --withGuiComponents $ \comp -> lift $ do
     case (declResult,modResult) of
         (Just (pi, mi, di),_) -> do
             di' <- doWithBuffer $ \text -> do
-                lift $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine text Nothing
+                lift $ editDeclaration pi mi di $ const $ Declaration.parseAndCombine (T.unpack text) Nothing
             when (di /= di') $ do
                 splice $ updateSolutionTreeNode (DeclarationPath pi mi di) $ const $ DeclElem di'
                 lift $ lift $ setCurrentDecl pi mi di'
                 lift $ lift $ replaceHistoryPath $ DeclarationPath pi mi di'
         (_,Just (pi, mi)) -> doWithBuffer $
-                lift . editModuleHeader pi mi . const
+                lift . editModuleHeader pi mi . const . T.unpack
         _ -> return ()
         
 
@@ -399,9 +408,9 @@ doAddDeclaration pji mi di = do
     lift $ addDeclaration pji mi newdecl
     splice $ insertSolutionTreeNode (ModulePath pji mi) $ DeclElem di
     decl <- lift $ getDeclaration pji mi di
-    splice $ setEditorBufferTextHighlighted $ body decl
+    splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
     lift $ lift $ setCurrentDecl pji mi di
-    splice $ openDeclarationInHistory (DeclarationPath pji mi di) $ body decl
+    lift $ lift $ openDeclarationInHistory (DeclarationPath pji mi di) $ T.pack $ body decl
 
 doRemoveDeclaration :: ( GuiCommand t m )
                     => ProjectInfo
@@ -574,12 +583,9 @@ doSearch = do
             textBefore <- splice $ getEditorBufferText (Just start) Nothing
             --textAfter <- liftIO $ textBufferGetText buffer cursor end False
             textAfter <- splice $ getEditorBufferText Nothing (Just end) 
-            let search substr supstr = go supstr 0
-                  where
-                    go supstr@(_:xs) i
-                      | length substr > length supstr = Nothing
-                      | substr `isPrefixOf` supstr = Just i
-                      | otherwise = go xs (i+1)
+            let search substr supstr = case T.splitOn substr substr of
+                    [] -> Nothing
+                    (t:_) -> Just $ T.length t
             result <- return $ case (search s textAfter, search s textBefore) of
                 (Just offset,_) -> Just offset
                 (_,Just offset) -> Just offset
@@ -589,16 +595,16 @@ doSearch = do
                     --highlightStart <- liftIO $ textBufferGetIterAtOffset buffer offset
                     highlightStart <- splice $ getEditorBufferPositionAtIndex offset
                     --highlightEnd <- liftIO $ textBufferGetIterAtOffset buffer $ offset + length s
-                    highlightEnd <- splice $ getEditorBufferPositionAtIndex $ offset + length s
+                    highlightEnd <- splice $ getEditorBufferPositionAtIndex $ offset + T.length s
                     --liftIO $ textBufferSelectRange buffer highlightStart highlightEnd
                     splice $ selectEditorBufferText highlightStart highlightEnd
                 _ -> lift $ throwE $ UserError $ TempError "Not Found"
         Navigate -> do
-            case DeclarationPath.parse s of
+            case DeclarationPath.parse (T.unpack s) of
                 Nothing -> lift $ throwE $ UserError $ TempError "Not Found"
                 Just dpath -> do
                     text <- openItem dpath
-                    splice $ openDeclarationInHistory dpath text
+                    lift $ lift $ openDeclarationInHistory dpath text
                             
 
 doSetSearchMode 
@@ -608,14 +614,14 @@ doSetSearchMode
     -> t (SolutionResult UserError m) ()
 doSetSearchMode mode = lift $ lift $ setSearchMode mode
 
-getCurrentWord :: String -> Int -> Int -> (Char -> Bool) -> String
-getCurrentWord text startOffset endOffset isChar = nextPreStart ++ between ++ nextPostEnd
+getCurrentWord :: Text -> Int -> Int -> (Char -> Bool) -> Text
+getCurrentWord text startOffset endOffset isChar = nextPreStart <> between <> nextPostEnd
   where
-    preStart = take startOffset text
-    postEnd = drop endOffset text
-    between = take (endOffset - startOffset) $ drop startOffset text
-    nextPreStart = reverse $ takeWhile isChar $ reverse preStart
-    nextPostEnd = takeWhile isChar $ postEnd
+    preStart = T.take startOffset text
+    postEnd = T.drop endOffset text
+    between = T.take (endOffset - startOffset) $ T.drop startOffset text
+    nextPreStart = T.reverse $ T.takeWhile isChar $ T.reverse preStart
+    nextPostEnd = T.takeWhile isChar $ postEnd
 
 doGotoDeclaration
     :: ( GuiCommand t m
@@ -630,16 +636,17 @@ doGotoDeclaration = do
         $ lift $ throwE $ UserError $ TempError $ show (startOffset, endOffset, length text)-}
     let currentWord = getCurrentWord text startOffset endOffset isChar
         isIdentChar c = isLower c || isUpper c || c == '_' || c == '\''
-        isSymChar c = c `elem` "!@#$%^&*:.<-=>|"
-        firstIs f  = startOffset < length text && f (text !! startOffset) 
-        lastIs f = (endOffset < length text && f (text !! startOffset))
-                      || (not (null text) && f (last text))
+        isSymChar c = c `telem` "!@#$%^&*:.<-=>|"
+        firstIs f  = startOffset < T.length text && f (text `T.index` startOffset) 
+        lastIs f = (endOffset < T.length text && f (text `T.index` startOffset))
+                      || (not (T.null text) && f (T.last text))
         isChar 
             | firstIs isIdentChar && lastIs isIdentChar = isIdentChar
             | firstIs isSymChar && lastIs isSymChar = isSymChar
             | otherwise = const False
+        c `telem` t = isJust $ T.findIndex (==c) t
     --lift $ throwE $ UserError $ TempError $ currentWord
-    hits <- lift $ Solution.findSymbol $ Symbol $ currentWord
+    hits <- lift $ Solution.findSymbol $ Symbol $ T.unpack currentWord
     let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits
     case hits' of
         [] -> return ()
@@ -681,3 +688,22 @@ doForwardHistory = do
                 ModulePath pji mi -> setCurrentModule pji mi
                 ProjectPath pji -> setCurrentProject pji
         Nothing -> return ()
+
+doJumpToErrorLocation 
+    :: ( GuiCommand t m 
+       )
+    => TreePath
+    -> t (SolutionResult UserError m) Bool
+doJumpToErrorLocation [ix] = do
+    err <- splice $ getErrorAtIndex ix
+    let row = errorRow err
+    let col = errorColumn err
+    let ProjectChild pji (ModuleChild mi maybeItem) = errorLocation err
+    case maybeItem of
+        Just (DeclarationString di') -> do
+            let di = item di'
+            text <- openItem $ DeclarationPath pji mi di
+            lift $ lift $ openDeclarationInHistory (DeclarationPath pji mi di) text
+            splice $ selectEditorBufferText (row, col - 1) (row, col - 1)
+            return True
+        _ -> return False

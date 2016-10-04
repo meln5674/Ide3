@@ -3,6 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module GuiCommand where
 
+import Data.Text
+
 import System.Directory
 
 import Control.Monad.Catch
@@ -68,7 +70,7 @@ dialogOnError default_ f = do
                         (show e)
                     _ <- dialogRun dialog
                     widgetDestroy dialog-}
-                    displayError $ show e
+                    displayError $ pack $ show e
                     return default_
 
 dialogOnErrorConc 
@@ -92,8 +94,9 @@ dialogOnErrorConc f = do
                         (show e)
                     _ <- dialogRun dialog
                     widgetDestroy dialog-}
-                    displayError $ show e
-                
+                    displayError $ pack $ show $ e
+  
+               
 doError :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
            , GuiCommand2 proxy m p m'
            )
@@ -310,3 +313,11 @@ doForwardHistory
        )
     => GuiEnvT {-proxy-} m p m' ()
 doForwardHistory = dialogOnError () $ Internal.doForwardHistory
+
+doJumpToErrorLocation
+    :: ( GuiCommand (GuiEnvT m p) m
+       , GuiCommand2 proxy m p m'
+       )
+    => TreePath
+    -> GuiEnvT m p m' Bool
+doJumpToErrorLocation = dialogOnError False . Internal.doJumpToErrorLocation

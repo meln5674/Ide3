@@ -11,7 +11,7 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 
-import Graphics.UI.Gtk
+--import Graphics.UI.Gtk
 
 
 import Ide3.Utils
@@ -33,10 +33,7 @@ data GuiEnv {-proxy-} m p
     { {-proxy :: proxy m
     ,-} guiComponents :: GuiComponents
     , projectMVar :: MVar (MVarType p)
-    , newProjectDialog :: ()
-    , newSolutionDialog :: NewSolutionDialog
     }
-
 withSolutionMVar :: (Monad m)
                 => (MVar (MVarType p) -> GuiEnvT {-proxy-} m' p  m a)
                 -> GuiEnvT {-proxy-} m' p  m a
@@ -47,11 +44,12 @@ withGuiComponents :: (Monad m)
             -> GuiEnvT {-proxy-} m' p  m a
 withGuiComponents f = getEnv >>= f . guiComponents
 
+{-
 withNewSolutionDialog :: (Monad m)
                       => (NewSolutionDialog -> GuiEnvT {-proxy-} m' p m a)
                       -> GuiEnvT {-proxy-} m' p m a
 withNewSolutionDialog f = getEnv >>= f . newSolutionDialog
-
+-}
 newtype GuiEnvT {-proxy-} (m' :: * -> *) p m a 
     = GuiEnvT { runGuiEnvTInternal :: ReaderT (GuiEnv {-proxy-} m' p) m a }
   deriving
@@ -63,6 +61,7 @@ newtype GuiEnvT {-proxy-} (m' :: * -> *) p m a
     , MonadBounce
     , MonadSplice
     , MonadUnsplice
+    , SignalInterceptClass
     )
 
 instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT {-proxy-} m' p m) where
@@ -93,7 +92,7 @@ mapGuiEnv :: (Monad m1, Monad m2)
           -> GuiEnvT {-proxy-} m' p  m2 b
 mapGuiEnv f m = GuiEnvT $ mapReaderT f $ runGuiEnvTInternal m 
 
-
+{-
 type GuiEnvSignal proxy m' p  m gui object m'' a
     = GuiEnvT {-proxy-} m' p  m (GuiSignal2 gui object (GuiEnvT {-proxy-} m' p  m'' a) (m'' a))
 
@@ -145,5 +144,4 @@ mkGuiEnvSignal2For :: (Monad m, MonadIO m'', Functor f)
                  -> Signal subobject (f (m'' a))
                  -> GuiEnvSignal2 proxy m' p  m gui subobject f m'' a
 mkGuiEnvSignal2For obj subobj event = (subobj . obj) `mkGuiEnvSignal2` event
-
-
+-}

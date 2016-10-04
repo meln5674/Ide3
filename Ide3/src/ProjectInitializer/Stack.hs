@@ -24,7 +24,7 @@ data TestSuiteProjectArgs
     = StdioTestSuiteArgs FilePath
     | DetailedTestSuiteArgs FilePath
 
-data BenchmarkProjectARgs
+data BenchmarkProjectArgs
     = StdioBenchmarkArgsFilePath
 
 data StackProjectInitializerArgs'

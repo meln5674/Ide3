@@ -1,4 +1,5 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 module Dialogs.NewSolutionDialog
     ( NewSolutionDialog
     , NewSolutionDialogSignal
@@ -12,35 +13,36 @@ module Dialogs.NewSolutionDialog
     , getTemplateName
     ) where
 
+import GHC.OverloadedLabels
+
+import Data.Text
+
 import Control.Monad
 import Control.Monad.Trans
 
-import System.Glib.UTFString
-
-
-import Graphics.UI.Gtk
+import GI.Gtk
+import GI.Gdk
 
 import GuiEnv
 import GuiHelpers
 
 import Dialogs.NewSolutionDialog.Types
 
-type NewSolutionDialogSignal object handler = GuiSignal NewSolutionDialog object handler
+type NewSolutionDialogSignal subObject info = SubSignalProxy NewSolutionDialog subObject info
 
+confirmClicked :: NewSolutionDialogSignal Button WidgetButtonPressEventSignalInfo
+confirmClicked dialog = (confirmButton dialog, #buttonPressEvent) 
 
-confirmClicked :: GuiSignal NewSolutionDialog Button (EventM EButton Bool)
-confirmClicked = confirmButton `mkGuiSignal` buttonPressEvent
- 
-cancelClicked :: GuiSignal NewSolutionDialog Button (EventM EButton Bool)
-cancelClicked = cancelButton `mkGuiSignal` buttonPressEvent
+cancelClicked :: NewSolutionDialogSignal Button WidgetButtonPressEventSignalInfo
+cancelClicked dialog = (cancelButton dialog, #buttonPressEvent)
 
 getSelectedFolder :: (MonadIO m) => NewSolutionDialog -> m (Maybe FilePath)
 getSelectedFolder = liftIO . fileChooserGetFilename . fileChooser
 
-getSolutionName :: (MonadIO m, GlibString string) => NewSolutionDialog -> m string
+getSolutionName :: (MonadIO m) => NewSolutionDialog -> m Text
 getSolutionName = liftIO . flip get entryBufferText . projectNameBuffer
 
-getTemplateName :: MonadIO m => NewSolutionDialog -> m (Maybe String)
+getTemplateName :: MonadIO m => NewSolutionDialog -> m (Maybe Text)
 getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuffer
   where
     f "" = Nothing
@@ -49,8 +51,8 @@ getTemplateName = liftIO . liftM f . flip get entryBufferText . templateNameBuff
 close :: MonadIO m => NewSolutionDialog -> m ()
 close = liftIO . widgetDestroy . window
 
-setVisible :: MonadIO m => Bool -> NewSolutionDialog -> m ()
-setVisible v dialog = liftIO $ set (window dialog) [widgetVisible := v]
+setVisible :: MonadIO m => NewSolutionDialog -> Bool -> m ()
+setVisible dialog v = set (window dialog) [widgetVisible := v]
 
 {-
 makeVBoxWith :: (MonadIO m, ContainerClass self) => self -> (VBox -> m b) -> m b
@@ -60,65 +62,65 @@ makeVBoxWith window f = do
     f vbox
 -}
 
-makeFileChooser :: (MonadIO m, BoxClass self) => self -> m FileChooserWidget
+makeFileChooser :: (MonadIO m, IsBox self) => self -> m FileChooserWidget
 makeFileChooser vbox = liftIO $ do
     fileChooser <- fileChooserWidgetNew FileChooserActionSelectFolder
-    boxPackStart vbox fileChooser PackGrow 0 
+    boxPackStart vbox fileChooser True True 0 
     return fileChooser
 
 {-
-makeHBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b
+makeHBoxWith :: (MonadIO m, IsBox self) => self -> (HBox -> m b) -> m b
 makeHBoxWith vbox f = do
     hbox <- liftIO $ hBoxNew False 0
-    liftIO $ boxPackEnd vbox hbox PackNatural 0
+    liftIO $ boxPackEnd vbox hbox False False 0
     f hbox
 -}
 
-makeSolutionBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
+makeSolutionBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
 makeSolutionBoxWith = makeHBoxWith
 
-makeTemplateBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
+makeTemplateBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
 makeTemplateBoxWith = makeHBoxWith
 
-makeButtonBoxWith :: (MonadIO m, BoxClass self) => self -> (HBox -> m b) -> m b    
+makeButtonBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
 makeButtonBoxWith = makeHBoxWith
 
-makeSolutionNameLabel :: (MonadIO m, BoxClass self) => self -> m Label
+makeSolutionNameLabel :: (MonadIO m, IsBox self) => self -> m Label
 makeSolutionNameLabel hbox = liftIO $ do
     projectNameLabel <- liftIO $ labelNew (Just "Solution Name")
-    boxPackStart hbox projectNameLabel PackNatural 0
+    boxPackStart hbox projectNameLabel False False 0
     return projectNameLabel
 
-makeSolutionNameBox :: (MonadIO m, EntryBufferClass buffer, BoxClass self) 
+makeSolutionNameBox :: (MonadIO m, IsEntryBuffer buffer, IsBox self) 
                    => self -> buffer -> m Entry
 makeSolutionNameBox hbox buffer = liftIO $ do
     projectNameBox <- entryNewWithBuffer buffer
-    boxPackEnd hbox projectNameBox PackGrow 0
+    boxPackEnd hbox projectNameBox True True 0
     return projectNameBox
 
-makeTemplateNameLabel :: (MonadIO m, BoxClass self) => self -> m Label
+makeTemplateNameLabel :: (MonadIO m, IsBox self) => self -> m Label
 makeTemplateNameLabel hbox = liftIO $ do
     templateNameLabel <- labelNew (Just "Template Name (Optional)")
-    boxPackStart hbox templateNameLabel PackNatural 0
+    boxPackStart hbox templateNameLabel False False 0
     return templateNameLabel
 
-makeTemplateNameBox :: (MonadIO m, EntryBufferClass buffer, BoxClass self) 
+makeTemplateNameBox :: (MonadIO m, IsEntryBuffer buffer, IsBox self) 
                     => self -> buffer -> m Entry
 makeTemplateNameBox hbox buffer = liftIO $ do
     templateNameBox <- entryNewWithBuffer buffer
-    boxPackEnd hbox templateNameBox PackGrow 0
+    boxPackEnd hbox templateNameBox True True 0
     return templateNameBox
 
-makeConfirmButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeConfirmButton :: (MonadIO m, IsBox self) => self -> m Button
 makeConfirmButton hbox = liftIO $ do
     confirmButton <- buttonNewWithLabel "Confirm"
-    boxPackEnd hbox confirmButton PackGrow 0
+    boxPackEnd hbox confirmButton True True 0
     return confirmButton
 
-makeCancelButton :: (MonadIO m, BoxClass self) => self -> m Button
+makeCancelButton :: (MonadIO m, IsBox self) => self -> m Button
 makeCancelButton hbox = liftIO $ do
     cancelButton <- buttonNewWithLabel "Cancel"
-    boxPackEnd hbox cancelButton PackGrow 0
+    boxPackEnd hbox cancelButton True True 0
     return cancelButton
 
 make :: (MonadIO m) => (NewSolutionDialog -> m b) -> m b
@@ -126,8 +128,8 @@ make f = makeWindowWith
     $ \window -> makeVBoxWith window
     $ \vbox -> do
         fileChooser <- makeFileChooser vbox
-        projectNameBuffer <- liftIO $ entryBufferNew (Nothing :: Maybe String)
-        templateNameBuffer <- liftIO $ entryBufferNew (Nothing :: Maybe String)
+        projectNameBuffer <- entryBufferNew Nothing 0
+        templateNameBuffer <- entryBufferNew Nothing 0
         (projectNameBox, projectNameLabel) <- makeSolutionBoxWith vbox $ \hbox -> do
             projectNameLabel <- makeSolutionNameLabel hbox
             projectNameBox <- makeSolutionNameBox hbox projectNameBuffer

@@ -30,6 +30,7 @@ library
                      , SimpleFilesystemSolution
                      , CabalFilesystemSolution
                      , PseudoState
+                     , PseudoReader
                      , CabalMonad
                      , EnvironmentMonad
                      , EnvironmentMonad.Stack
@@ -51,26 +52,32 @@ library
                      , containers
     default-language:  Haskell2010
 
-executable OverlayTest
-  hs-source-dirs:      overlay
-  main-is:             Main.hs
-  default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5
-                     , gtk3
+--executable OverlayTest
+--  hs-source-dirs:      overlay
+--  main-is:             Main.hs
+--  default-language:    Haskell2010
+--  build-depends:       base >= 4.7 && < 5
+--                     , gtk3
 
 
 executable Ide3-GUI
   hs-source-dirs:      gui
   main-is:             Main.hs
   other-modules:       MainSignals
+                     , GenericGuiEnv
+                     , GuiT
                      , SolutionTree
                      , BetterTextView
                      , DeclarationPath
                      , GuiViewer
                      , GuiViewer.Class
+                     , GuiViewer.Class
                      , GuiCommand
+                     , GuiCommandGeneric
                      , GuiCommand.Internal
                      , ProcessReader
+                     , Dialogs
+                     , Dialogs.Class
                      , Dialogs.MainWindow
                      , Dialogs.NewSolutionDialog
                      , Dialogs.NewSolutionDialog.Types
@@ -82,7 +89,9 @@ executable Ide3-GUI
                      , GuiMonad
                      , GuiEnv
                      , GuiClass
+                     , GuiClass.Dialogs
                      , GuiClass.GuiEnv
+                     , GuiClass.GuiEnv.Stack
                      , GuiClass.Types
                      , ViewerMonad2
                      , GuiHelpers
@@ -96,8 +105,10 @@ executable Ide3-GUI
   build-depends:       base
                      , Ide3-base
                      , Ide3
-                     , gtk3
-                     , glib
+                     , gi-gdk
+                     , gi-gtk
+                     , gi-gtk-hs
+                     , haskell-gi-base
                      , transformers
                      , mtl
                      , containers
