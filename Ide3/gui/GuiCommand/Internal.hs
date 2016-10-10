@@ -280,12 +280,16 @@ doRun :: ( GuiCommand t m
       => t (SolutionResult UserError m) ()
 doRun = do --withGuiComponents $ \comp -> lift $ do
     runner <- lift $ lift $ getRunner
-    r <- lift $ runRunner runner
-    let text = case r of
-            RunSucceeded out err -> out ++ err
-            RunFailed out err -> out ++ err
-    --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
-    splice $ setBuildBufferText $ T.pack text
+    maybePji <- lift $ lift $ getCurrentProject
+    case maybePji of
+        Nothing -> lift $ throwE $ InvalidOperation "No project selected" ""
+        Just pji -> do
+            r <- lift $ runRunner runner pji
+            let text = case r of
+                    RunSucceeded out err -> out ++ err
+                    RunFailed out err -> out ++ err
+            --wrapIOError $ withBuildBuffer comp $ flip textBufferSetText text
+            splice $ setBuildBufferText $ T.pack text
 
 
 doSave :: forall ia pia t m

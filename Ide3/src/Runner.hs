@@ -31,15 +31,15 @@ data RunnerResult
     | RunSucceeded String String
 
 -- | The Runner abstract type. Use runRunner to execute the actions of a runner.
-newtype Runner m = MkRunner { runRunnerInternal :: forall u . SolutionResult u m RunnerResult }
+newtype Runner m = MkRunner { runRunnerInternal :: forall u . ProjectInfo -> SolutionResult u m RunnerResult }
 
 -- | Execute the actions of a runner
-runRunner :: Runner m -> SolutionResult u m RunnerResult
+runRunner :: Runner m -> ProjectInfo -> SolutionResult u m RunnerResult
 runRunner = runRunnerInternal
 
 -- | A Runner that represents no ability to run, and will always result in an error
 noRunner :: Monad m => Runner m
-noRunner = MkRunner $ throwE $ Unsupported "No runner specified"
+noRunner = MkRunner $ const $ throwE $ Unsupported "No runner specified"
 
 mapRunner :: (forall a . m a -> m' a) -> Runner m -> Runner m'
-mapRunner f (MkRunner b) = MkRunner $ mapExceptT f b
+mapRunner f (MkRunner b) = MkRunner $ \x -> mapExceptT f $ b x

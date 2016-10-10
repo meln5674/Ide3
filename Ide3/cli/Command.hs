@@ -444,10 +444,14 @@ doRun :: ( ViewerIOAction m
       => Runner m
       -> ViewerStateT m String
 doRun runner = printOnError $ do
-    r <- ExceptT $ lift $ runExceptT $ runRunner runner
-    case r of
-        RunSucceeded out err -> return $ out ++ err
-        RunFailed out err -> return $ out ++ err
+    maybePji <- lift $ getCurrentProject
+    case maybePji of
+        Nothing -> throwE $ InvalidOperation "No project selected" ""
+        Just pji -> do
+            r <- ExceptT $ lift $ runExceptT $ runRunner runner pji
+            case r of
+                RunSucceeded out err -> return $ out ++ err
+                RunFailed out err -> return $ out ++ err
     
 -- | Action for the tree command
 doTree :: ( ViewerAction m 

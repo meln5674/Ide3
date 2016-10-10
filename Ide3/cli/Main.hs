@@ -291,6 +291,7 @@ useStackBuilder s = s{appBuilder = stackBuilder}
 useStackRunner :: ( MonadIO (t m)
                   , MonadMask (t m)
                   , Monad (t m)
+                  , CabalMonad (t m)
                   ) 
                => AppSetup a pa t fsp m -> AppSetup a pa t fsp m
 useStackRunner s = s{appRunner = stackRunner}
