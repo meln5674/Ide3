@@ -17,8 +17,7 @@ import qualified Language.Haskell.Exts.Annotated.Parser as Parser
 import Language.Haskell.Exts.Annotated.Syntax hiding (Module)
 import Language.Haskell.Exts.SrcLoc
 
-import Ide3.Types.Exts
-
+import Ide3.Types.Exts()
 import Ide3.Types.Internal
 import Ide3.SrcLoc
 

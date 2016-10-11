@@ -50,6 +50,7 @@ data ExtractionResults l
                 [Ann l (WithBody Import)]
                 [Ann l (WithBody Declaration)]
 
+-- | Create an annotated item by applying an annotation extration and item extraction function
 annotate :: FileSpannable l => (a -> l) -> (a -> x) -> a -> Ann SrcFileSpan x
 annotate getAnn convert a = Ann (toSrcFileSpan $ getAnn a) (convert a)
 
@@ -193,7 +194,7 @@ parseMain s p = case parseModuleWithComments parseMode s of
                  , fixities = Just[]
                  }
 
-
+-- | Parse a string of haskell code, extracting the items at specific locations
 parseAtLocation :: [SrcLoc]
                 -> String
                 -> Maybe FilePath

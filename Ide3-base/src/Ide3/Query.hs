@@ -18,12 +18,11 @@ and haskell does not like mutually recursive modules.
 
 -}
 
+{-# LANGUAGE LambdaCase #-}
 module Ide3.Query where
 
 import Data.Monoid
 import Data.List
-import Data.Maybe
-import qualified Data.Map as Map
 
 import Control.Monad
 import Control.Monad.Trans.Except
@@ -31,9 +30,7 @@ import Control.Monad.Trans.Except
 import Ide3.Types.Internal
 import Ide3.NewMonad
 
-import Ide3.Module.Common (EitherModule)
 import qualified Ide3.Module.Extern as ExternModule
-import qualified Ide3.Module.Common as EitherModule
 import qualified Ide3.Module.Internal as Module
 
 import qualified Ide3.Import.Internal as Import
@@ -253,8 +250,7 @@ moduleExportedSymbols' :: ( ProjectModuleClass m
 moduleExportedSymbols' pji mi = do
     localSyms <- moduleDeclaredSymbols pji mi
     exportSyms <- do
-        eis <- getExports pji mi
-        case eis of
+        getExports pji mi >>= \case
             Nothing -> return Nothing
             Just eis -> do
                 es <- liftM items $ mapM (getExport pji mi) eis
@@ -445,8 +441,9 @@ moduleImportedByInModule :: (SolutionMonad m)
 moduleImportedByInModule pji mi@(ModuleInfo sym) pji' mi' = do
     iis <- getImports pji' mi'
     flip filterM iis $ \ii -> do
-        i <- getImport pji' mi' ii
+        i <- getImport pji mi ii
         return $ Import.moduleName (item i) == sym
+moduleImportedByInModule _ _ _ _ = return []
 
 -- | Find all of the modules in a project which import another module
 moduleImportedByInProject :: (SolutionMonad m)
@@ -454,7 +451,7 @@ moduleImportedByInProject :: (SolutionMonad m)
                           -> ModuleInfo
                           -> ProjectInfo
                           -> SolutionResult u m [ModuleChild [ImportId]]
-moduleImportedByInProject pji mi@(ModuleInfo sym) pji' = do
+moduleImportedByInProject pji mi pji' = do
     mis <- getModules pji'
     forM mis $ \mi' -> do
         iis <- moduleImportedByInModule pji mi pji' mi' 
@@ -470,18 +467,20 @@ moduleImportedBy pji mi = do
     forM pjis $ \pji' -> do
         mis <- moduleImportedByInProject pji mi pji'
         return $ ProjectChild pji' mis
-    
+
+-- | Search a module for declarations which provide a symbol    
 moduleFindSymbol :: (SolutionMonad m)
            => ProjectInfo
            -> ModuleInfo
            -> Symbol
            -> SolutionResult u m [DeclarationInfo]
-moduleFindSymbol pi mi sym = do
-    dis <- getDeclarations pi mi
+moduleFindSymbol pji mi sym = do
+    dis <- getDeclarations pji mi
     flip filterM dis $ \di -> do
-        d <- liftM item $ getDeclaration pi mi di
+        d <- liftM item $ getDeclaration pji mi di
         return $ d `Declaration.providesSymbol` sym
 
+-- | Search a project for declarations which provide a symbol
 projectFindSymbol :: (SolutionMonad m)
                   => ProjectInfo
                   -> Symbol
@@ -492,6 +491,7 @@ projectFindSymbol pji sym = do
         liftM (ModuleChild mi) $ moduleFindSymbol pji mi sym
     return $ filter (not . null . getChild) results
 
+-- | Search the entire solution for declarations which provide a symbol
 solutionFindSymbol :: (SolutionMonad m)
                    => Symbol
                    -> SolutionResult u m [ProjectChild [ModuleChild [DeclarationInfo]]]

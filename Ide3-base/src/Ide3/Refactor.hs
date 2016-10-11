@@ -32,13 +32,13 @@ renameSymbols :: (SolutionMonad m)
              -> [(Symbol,Symbol)]
              -> SolutionResult u m DeclarationInfo
 renameSymbols pji mi di pairs = do
-    let edit str = foldr (\(Symbol old,Symbol new) str -> replace old new str) str pairs
+    let edit str = foldr (\(Symbol oldSym,Symbol newSym) str' -> replace oldSym newSym str') str pairs
     editDeclaration pji mi di $ \d -> do
         let str = body d
             str' = edit str
             parseResult = Declaration.parseAndCombineLenient str' Nothing $ Declaration.info $ item d
         return $ case parseResult of
-            Left (d',err) -> d'
+            Left (d',_) -> d'
             Right d' -> d'
                     
 
@@ -49,7 +49,7 @@ renameModule :: (SolutionMonad m)
              -> ModuleInfo
              -> ModuleInfo
              -> SolutionResult u m ()
-renameModule pji src@(ModuleInfo msym) dest@(ModuleInfo msym') = do
+renameModule pji src (ModuleInfo msym') = do
     projectResult <- Module.importedBy pji src
     forM_ projectResult $ \(ProjectChild pji' moduleResult) -> do
         forM_ moduleResult $ \(ModuleChild mi' iis) -> do
@@ -61,3 +61,4 @@ renameModule pji src@(ModuleInfo msym) dest@(ModuleInfo msym') = do
                 let pairs = filter (uncurry (/=)) $ zip syms syms'
                 dis <- getDeclarations pji' mi'
                 forM dis $ \di -> renameSymbols pji' mi' di pairs
+renameModule _ _ _ = throwE $ InvalidOperation "Cannot rename a module to unnamed" ""

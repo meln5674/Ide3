@@ -126,7 +126,7 @@ fromList l = OrderedMap
     itemList = zipWith makeItemPair l orders
     orderList = zipWith makeOrderPair l orders
     makeItemPair (k,v) i = (k,(v,i))
-    makeOrderPair (k,v) i = (i,k)
+    makeOrderPair (k,_) i = (i,k)
 
 -- | Create a new map by selecting items from another which pass a predicate,
 -- maintaining the relative order of the keys

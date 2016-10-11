@@ -66,7 +66,7 @@ removeModule = do
     p <- get
     mi <- lift ask
     (m,p') <- lift $ lift $ removeChildT mi p
-    let m' = m :: Module
+    let _ = m :: Module
     put p'
 
 -- | Get a local module by id
@@ -129,7 +129,7 @@ removeExternModule = do
     p <- get
     mi <- lift ask
     (m,p') <- lift $ lift $ removeChildT mi p
-    let m' = m :: ExternModule
+    let _ = m :: ExternModule
     put p'
 
 

@@ -10,6 +10,7 @@ extra-deps:
 - gi-gdk-3.0.6
 - gi-gdkpixbuf-2.0.6
 - gi-glib-2.0.6
+- haskell-gi-base-0.18.4
 - gi-gobject-2.0.6
 - gi-gtk-3.0.6
 - gi-gtk-hs-0.3.1.0

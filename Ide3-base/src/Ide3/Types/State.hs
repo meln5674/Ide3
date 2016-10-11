@@ -18,9 +18,6 @@ import Ide3.OrderedMap (OrderedMap)
 
 import Ide3.Types.Internal
 
-import Ide3.SrcLoc.Types
-import Ide3.Utils.Parser
-
 -- | A solution, a collection of projects
 data Solution
     = Solution

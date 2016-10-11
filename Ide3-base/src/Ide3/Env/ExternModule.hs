@@ -12,8 +12,6 @@ Portability : POSIX
 
 module Ide3.Env.ExternModule where
 
-import Data.List
-
 import qualified Data.Map as Map
 
 import Control.Monad.Trans
@@ -43,7 +41,7 @@ removeExternExport = do
     ei <- lift ask
     m <- get
     (e,m') <- lift $ lift $ removeChildT ei m
-    let e' = e :: ExternExport
+    let _ = e :: ExternExport
     put m'
 
 -- | Get an export by id

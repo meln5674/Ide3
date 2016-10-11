@@ -48,7 +48,7 @@ removeDeclaration = do
     di <- lift ask
     m <- get
     (d, m') <- lift $ lift $ removeChildT di m 
-    let d' = d :: WithBody Declaration
+    let _ = d :: WithBody Declaration
     put m' 
 
 -- | Get the ids of all declarations
@@ -87,7 +87,7 @@ removeImport = do
     ii <- lift ask
     m <- get
     (i,m') <- lift $ lift $ removeChildT ii m
-    let i' = i :: WithBody Import
+    let _ = i :: WithBody Import
     put m'
 
 -- | Get an import by id
@@ -118,7 +118,7 @@ removeExport = do
     ei <- lift ask
     m <- get
     (e,m') <- lift $ lift $ removeChildT ei m
-    let e' = e :: WithBody Export
+    let _ = e :: WithBody Export
     put m'
 
 -- | Remove all exports

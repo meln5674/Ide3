@@ -1,3 +1,13 @@
+{-|
+Module      : Ide3.Constructor
+Description : Converting source locations from haskell-src-exts types
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
 module Ide3.SrcLoc.Exts where
 
 import Prelude hiding (span)

@@ -11,7 +11,6 @@ Portability : POSIX
 
 module Ide3.Import.Query where
 
-import Ide3.Module.Common
 import Ide3.Types.Internal
 import Ide3.Query
 import Ide3.NewMonad
