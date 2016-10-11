@@ -21,10 +21,6 @@ import Control.Monad.Trans.Except
 
 import Text.Printf
 
-import Data.Map.Strict ( Map )
-
-import Ide3.OrderedMap (OrderedMap)
-
 import Ide3.SrcLoc.Types
 
 -- |Attaches a string ("body") to another type
@@ -85,11 +81,13 @@ data ModuleInfo
     | UnamedModule (Maybe FilePath)     
     deriving (Show, Read, Eq, Ord)
 
+-- | Produce a string representing a module's info, with a default string if it is an unnamed, pathless module
 moduleInfoString :: ModuleInfo -> String -> String
 moduleInfoString (ModuleInfo s) _ = getSymbol s
 moduleInfoString (UnamedModule (Just path)) _ = path
 moduleInfoString _ x = x
 
+-- | A key-value pair of a module item
 data ModuleItemKeyValue
     = HeaderCommentKeyValue String
     | PragmaKeyValue Pragma
@@ -97,6 +95,7 @@ data ModuleItemKeyValue
     | ExportKeyValue ExportId (WithBody Export)
     | DeclarationKeyValue DeclarationInfo (WithBody Declaration)
 
+-- | A key of a module item
 data ModuleItemKey
     = HeaderCommentKey
     | PragmaKey Pragma
@@ -104,6 +103,7 @@ data ModuleItemKey
     | ExportKey ExportId
     | DeclarationKey DeclarationInfo
 
+-- | A value of a module item
 data ModuleItem
     = HeaderCommentItem String
     | PragmaItem Pragma
@@ -111,6 +111,7 @@ data ModuleItem
     | ExportItem (WithBody Export)
     | DeclarationItem (WithBody Declaration)
 
+-- | Information necessary to display a module item as a string
 data ModuleItemString
     = HeaderCommentString String
     | PragmaString Pragma
@@ -122,8 +123,6 @@ data ModuleItemString
 -- | A module pragma
 type Pragma = String
 
-
-
 -- | An external export from an external module
 data ExternExport
     = SingleExternExport Symbol
@@ -134,14 +133,19 @@ data ExternExport
 data ModuleChild a = ModuleChild ModuleInfo a
     deriving (Show, Eq, Ord)
 
+-- | A value which is tagged as belonging to a project
 data ProjectChild a = ProjectChild ProjectInfo a
 
+-- | 
 instance Show a => Show (ProjectChild a) where
     show (ProjectChild (ProjectInfo n) x) = show x ++ " ( " ++ n ++ " )"
 
+-- | Class of types which have a child
 class HasChild f where
+    -- | Retreive the child value
     getChild :: f a -> a
 
+-- | 
 instance HasChild ModuleChild where
     getChild (ModuleChild _ a) = a
 
@@ -152,19 +156,24 @@ instance HasChild ProjectChild where
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi $ f x
 
+-- | 
 instance Foldable ModuleChild where
-    foldMap f (ModuleChild mi x) = f x
+    foldMap f (ModuleChild _ x) = f x
 
+-- | 
 instance Traversable ModuleChild where
     sequenceA (ModuleChild mi x) = (ModuleChild mi) <$> x
 
+-- | 
 instance Functor ProjectChild where
     fmap f (ProjectChild pji x) = ProjectChild pji $ f x
 
+-- | 
 instance Foldable ProjectChild where
-    foldMap f (ProjectChild mi x) = f x
+    foldMap f (ProjectChild _ x) = f x
 
 
+-- | 
 instance Traversable ProjectChild where
     sequenceA (ProjectChild pji x) = ProjectChild pji <$> x
 

@@ -16,7 +16,6 @@ module Ide3.Module.Extern.Internal where
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types.State

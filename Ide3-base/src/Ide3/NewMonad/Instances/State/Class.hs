@@ -16,7 +16,6 @@ module Ide3.NewMonad.Instances.State.Class where
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
-import Ide3.Utils
 import Ide3.Types.Internal
 import Ide3.Types.State
 
@@ -53,7 +52,7 @@ newtype StatefulWrapper m a = StatefulWrapper { runStatefulWrapper :: m a }
            , StatefulPersistenceClass
            , MonadIO
            )
-
+-- |
 instance MonadTrans StatefulWrapper where
     lift = StatefulWrapper
   

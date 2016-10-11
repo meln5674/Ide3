@@ -75,7 +75,7 @@ executable Ide3-GUI
                      , GuiCommand
                      , GuiCommandGeneric
                      , GuiCommand.Internal
-                     , ProcessReader
+--                     , ProcessReader
                      , Dialogs
                      , Dialogs.Class
                      , Dialogs.MainWindow

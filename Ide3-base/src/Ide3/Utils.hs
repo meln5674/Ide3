@@ -1,3 +1,13 @@
+{-|
+Module      : Ide3.Utils
+Description : Utilities
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
 
 
 module Ide3.Utils where
@@ -10,14 +20,16 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Writer
 import Control.Monad.Trans.State
 
 import Ide3.Types.Internal
 
+
+-- | Execute an IO action, if it throws an async exception, lift it into an sync exception with no message
 wrapIOError :: (MonadIO m) => IO a -> SolutionResult u m a
 wrapIOError = wrapIOErrorWithMsg ""
 
+-- | Execute an IO action, if it throws an async exception, lift it into a sync exception with the given message.
 wrapIOErrorWithMsg :: (MonadIO m) => String -> IO a -> SolutionResult u m a
 wrapIOErrorWithMsg msg f = do
     r <- liftIO $ tryIOError f
@@ -25,11 +37,13 @@ wrapIOErrorWithMsg msg f = do
         Right result -> return result
         Left err -> throwE $ InvalidOperation (show err) msg
 
+-- | Try to read a file, if it throws an async exception, lift it into a sync exception
 wrapReadFile :: (MonadIO m) => FilePath -> SolutionResult u m String
 wrapReadFile path = wrapIOErrorWithMsg errMsg $ readFile path
   where
     errMsg = "When reading " ++ path
 
+-- | Replace all instances of one string with another in a third string
 replace :: String -> String -> String -> String
 replace toReplace replacement str = go str
   where
@@ -38,32 +52,46 @@ replace toReplace replacement str = go str
         | toReplace `isPrefixOf` y = replacement ++ go (drop (length toReplace) y)
         | otherwise = x : go xs
 
--- | A utility class. Types in this class can insert themselves underneath
+-- | Class of transformers whch can insert themselves underneath
 -- ExceptT in a monad transformer stack
 class MonadBounce t where
+    -- | Bubble up the exception one level
     bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a
 
+
+-- |
 instance MonadBounce (StateT s) where
+    -- | 
     bounce f = ExceptT $ StateT $ \s -> fmap (\a -> (a,s)) $ runExceptT f
 
-
+-- |
 instance MonadBounce (ReaderT r) where
-    bounce f = ExceptT $ ReaderT $ \r -> runExceptT f
+    -- | 
+    bounce f = ExceptT $ ReaderT $ const $ runExceptT f
 
-
+-- | Class of transformers  whch can insert a dummy ExceptT layer underneath themselves
 class MonadSplice t where
+    -- | 
     splice :: (Monad m) => t m a -> t (ExceptT e m) a
 
+-- |
 instance MonadSplice (StateT s) where
+    -- |
     splice f = StateT $ \s -> ExceptT $ liftM Right $  runStateT f s
 
+-- |
 instance MonadSplice (ReaderT r) where
+    -- }
     splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
 
+-- | Class of transformers which can change an Either value into an ExceptT layer underath themsevles
 class MonadUnsplice t where
+    -- |
     unsplice :: (Monad m) => t m (Either e a) -> t (ExceptT e m) a
 
+-- |
 instance MonadUnsplice (ReaderT r) where
+    -- |
     unsplice f = ReaderT $ \r -> ExceptT $ runReaderT f r
 
 -- | Synonym for `.`

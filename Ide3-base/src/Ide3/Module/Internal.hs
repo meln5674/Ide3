@@ -22,7 +22,6 @@ import Data.List (intercalate, find, intersperse)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Ide3.OrderedMap (OrderedMap)
 import qualified Ide3.OrderedMap as OMap
 
 import Control.Monad
@@ -41,19 +40,21 @@ import qualified Ide3.Declaration as Declaration
 import Ide3.SrcLoc.Types
 
 import Ide3.Utils.Parser
-
+-- |
 instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
     addChildT = addDeclaration
     removeChildT = removeDeclaration
     getChildT = getDeclaration
     setChildT = setDeclaration
 
+-- |
 instance ParamEnvClass Module ImportId (WithBody Import) (SolutionError u) where
     addChildT = addImport
     removeChildT = removeImport
     getChildT = getImport
     setChildT = setImport
 
+-- |
 instance ParamEnvClass Module ExportId (WithBody Export) (SolutionError u) where
     addChildT = addExport
     removeChildT = removeExport
@@ -325,7 +326,7 @@ getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
 -- i.e. splitOver (<) [5,4,1,2,10,8] == [[5,4,1],[2],[10,8]]
 splitOver :: (a -> a -> Bool) -> [a] -> [[a]]
 splitOver _ [] = []
-splitOver f xs = go xs [] []
+splitOver f xs' = go xs' [] []
   where
     go [] ys zs = reverse (reverse ys : zs)
     go (x:xs) [] zs = go xs [x] zs
@@ -341,19 +342,7 @@ spaceImports f g is = concatMap g $ partitionedImports
   where
     partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item $ f i1) (item $ f i2)
 
-{-
 -- | Reconstruct the source code from a Module
-toFile :: Module -> String
-toFile m = intercalate "\n" parts
-  where
-    headerComment = moduleHeader m
-    pragmas = PragmaItems m
-    header = getHeaderText m
-    imports = spaceImports $ Map.elems $ moduleImports m
-    declarations = intersperse "" $ bodies $ OMap.elems $ moduleDeclarations m
-    parts = headerComment : "" : pragmas ++ header : "" : imports ++ declarations
--}
-
 toFile :: Module -> String
 toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
 
@@ -362,15 +351,19 @@ toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
 -- characters in the final line
 data Annotated x y = Annotated { annotated :: x, annotation :: y}
 
+-- | Possibly a module item, annotated with the lines of text that item contains
 type AnnotatedModuleItem = Annotated (Maybe ModuleItemKeyValue) [String]
 
+-- | Generate the annotated item for a module's header comment
 annotateHeaderComment :: Module -> [AnnotatedModuleItem]
 annotateHeaderComment m = [Annotated (Just $ HeaderCommentKeyValue $ moduleHeader m) (lines $ moduleHeader m)] 
 
+-- | Generate the annotated items for a module's pragmas
 annotatePragmas :: Module -> [AnnotatedModuleItem]
 annotatePragmas m = flip map (modulePragmas m) 
     $ \p -> Annotated (Just $ PragmaKeyValue p) $ lines p
 
+-- | Generate the annotated items for a module's header (module name, exports)
 annotateHeader :: Module -> [AnnotatedModuleItem]
 annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
   where
@@ -384,25 +377,30 @@ annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
             [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e]
                          , Annotated Nothing ["    ) where"]
                          ]
-            ((eid,e):es) -> (Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e])
+            ((eid,e):es') -> (Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e])
                             :
-                            (flip map es $ \(eid,e) -> Annotated (Just $ ExportKeyValue eid e) ["    , " ++ body e])
+                            (flip map es' $ \(eid',e') -> Annotated (Just $ ExportKeyValue eid' e') ["    , " ++ body e'])
                             ++ [Annotated Nothing ["    ) where"]]
 
+-- | Generate the annotated items for a modules imports
 annotateImports :: Module -> [AnnotatedModuleItem]
 annotateImports m = flip map (Map.toList $ moduleImports m)
     $ \(iid, i) -> Annotated (Just $ ImportKeyValue iid i) $ lines $ body i
 
+-- | Generate the annotated items for a modules declarations
 annotateDeclarations :: Module -> [AnnotatedModuleItem]
 annotateDeclarations m = flip map (OMap.toList $ moduleDeclarations m) 
     $ \(did, d) -> Annotated (Just $ DeclarationKeyValue did d) $ lines $ body d
 
+-- | Generate an item with n blank lines
 blankLines :: Int -> AnnotatedModuleItem
 blankLines n = Annotated Nothing $ replicate n ""
 
+-- | Insert an item with n blank lines between each item in a list
 insertBlankLines :: Int -> [AnnotatedModuleItem] -> [AnnotatedModuleItem]
 insertBlankLines n = intersperse (blankLines n)
 
+-- | Generate all annotated items for a module
 toAnnotatedFile :: Module -> [AnnotatedModuleItem]
 toAnnotatedFile m 
     =  headerCommentLines 

@@ -1,3 +1,13 @@
+{-|
+Module      : Ide3.Constructor.Exts
+Description : Converting haskell-src-exts types to Constructors
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
 module Ide3.Constructor.Exts where
 
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)

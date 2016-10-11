@@ -86,10 +86,12 @@ sameEnd a b s = case (a2i,b1i) of
     a2i = a2 `indexIn` s
     b1i = b1 `indexIn` s
 
-contains :: Spannable l => l -> SrcLoc -> Bool
-a `contains` b = aStart <= b && b <= aEnd
+-- | Test if a src 
+contains :: (Spannable s, Loccable l) => s -> l -> Bool
+a `contains` b = aStart <= b' && b' <= aEnd
   where
     (SrcSpan aStart aEnd) = toSrcSpan a
+    b' = toSrcLoc b
     
 -- | Filter out from a list of spannables those which contact another spannable
 -- on the left side

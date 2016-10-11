@@ -38,7 +38,6 @@ import Ide3.SrcLoc
 import Ide3.SrcLoc.Exts ()
 
 import Ide3.Types.Internal
-import qualified Ide3.Constructor as Constructor
 import qualified Ide3.Constructor.Exts as Constructor
 
 -- | Convert a declaration if it is a type synonym

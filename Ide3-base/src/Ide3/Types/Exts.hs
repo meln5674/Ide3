@@ -1,3 +1,14 @@
+{-|
+Module      : Ide3.Types.Exts
+Description : Converting from haskell-src-ext types
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+-}
+
 module Ide3.Types.Exts where
 
 import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
@@ -7,7 +18,6 @@ import Language.Haskell.Exts.SrcLoc
 import Language.Haskell.Exts.Pretty
 
 import Ide3.Types.Internal
-import Ide3.SrcLoc.Types
 
 -- | 
 instance ToSym (Name a) where

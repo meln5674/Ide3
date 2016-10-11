@@ -101,6 +101,7 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
     ts' <- mapM (fillTree pji) ts
     return $ ModuleNode i ts' ps ds is es
 
+-- | Generate a tree for specific module
 makeModuleTree :: ( ProjectModuleClass m
             , ModuleExportClass m
             , ModuleImportClass m

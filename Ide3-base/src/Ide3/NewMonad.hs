@@ -16,8 +16,6 @@ on specific parts of a haskell project.
 {-# LANGUAGE ConstraintKinds #-}
 module Ide3.NewMonad where
 
-import Control.Monad.Trans.Except
-
 import Ide3.Types
 
 {-

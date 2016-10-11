@@ -16,7 +16,6 @@ module Ide3.Declaration
 
 import Data.List
 
-import Ide3.OrderedMap (OrderedMap)
 import qualified Ide3.OrderedMap as OMap
 
 import Ide3.Types.Internal
@@ -25,9 +24,6 @@ import qualified Ide3.Declaration.Parser as Parser
 import qualified Ide3.Declaration.TypeDeclaration as TypeDeclaration
 import qualified Ide3.Declaration.BindDeclaration as BindDeclaration
 import qualified Ide3.Declaration.ModifierDeclaration as ModifierDeclaration
-
-import qualified Data.Map as Map
-import Data.Map (Map)
 
 import Ide3.SrcLoc.Types
 
