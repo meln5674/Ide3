@@ -59,39 +59,32 @@ class MonadBounce t where
     bounce :: (Monad m) => ExceptT e m a -> ExceptT e (t m) a
 
 
--- |
+-- | Allow state to fail
 instance MonadBounce (StateT s) where
-    -- | 
     bounce f = ExceptT $ StateT $ \s -> fmap (\a -> (a,s)) $ runExceptT f
 
--- |
+-- | Allow reader to fail
 instance MonadBounce (ReaderT r) where
-    -- | 
     bounce f = ExceptT $ ReaderT $ const $ runExceptT f
 
 -- | Class of transformers  whch can insert a dummy ExceptT layer underneath themselves
 class MonadSplice t where
-    -- | 
     splice :: (Monad m) => t m a -> t (ExceptT e m) a
 
--- |
+-- | Allow underlying monad to fail
 instance MonadSplice (StateT s) where
-    -- |
     splice f = StateT $ \s -> ExceptT $ liftM Right $  runStateT f s
 
--- |
+-- | Allow underlying monad to fail
 instance MonadSplice (ReaderT r) where
-    -- }
     splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
 
 -- | Class of transformers which can change an Either value into an ExceptT layer underath themsevles
 class MonadUnsplice t where
-    -- |
     unsplice :: (Monad m) => t m (Either e a) -> t (ExceptT e m) a
 
--- |
+-- | Change a Left value into failure
 instance MonadUnsplice (ReaderT r) where
-    -- |
     unsplice f = ReaderT $ \r -> ExceptT $ runReaderT f r
 
 -- | Synonym for `.`

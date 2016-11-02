@@ -22,7 +22,7 @@ import qualified Ide3.Env.Solution as Solution
 import Ide3.Types.Internal
 import Ide3.Types.State
 
--- | 
+-- | Access solution info and projects statefull
 instance StatefulSolutionClass m => SolutionClass (StatefulWrapper m) where
     editSolutionInfo f = modifySolution $ \s -> s{ solutionInfo = f $ solutionInfo s }
     addProject = modifySolutionER .-. runDescent2 Solution.addProject

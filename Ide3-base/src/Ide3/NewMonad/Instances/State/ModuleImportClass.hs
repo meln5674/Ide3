@@ -19,7 +19,7 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
--- | 
+-- | Access imports statefully
 instance StatefulSolutionClass m => ModuleImportClass (StatefulWrapper m) where
     addImport = modifySolutionER .-... runDescent4 Solution.addImport
     getImport = modifySolutionER .-... runDescent4 Solution.getImport

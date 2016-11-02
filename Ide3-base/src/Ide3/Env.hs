@@ -82,15 +82,19 @@ class ParamEnvClass parentEnv childParam childEnv e where
     -- | Update a child
     setChildT :: Monad m => childParam -> childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
 
+-- | Retreive project info
 instance EnvParamClass Project ProjectInfo where
     getParam = projectInfo
 
+-- | Retreive module info
 instance EnvParamClass Module ModuleInfo where
     getParam = moduleInfo
 
+-- | Retereieve external module info
 instance EnvParamClass ExternModule ModuleInfo where
     getParam = externModuleInfo
 
+-- | Retereive declaration info
 instance EnvParamClass (WithBody Declaration) DeclarationInfo where
     getParam = Declaration.info . item
 

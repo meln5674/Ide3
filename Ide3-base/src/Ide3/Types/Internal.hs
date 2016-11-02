@@ -43,9 +43,8 @@ item (WithBody x _) = x
 items :: [WithBody a] -> [a]
 items = map item
 
--- |
+-- | Applies the function to the item while leaving the body unchanged
 instance Functor WithBody where
-    -- |Applies the function to the item while leaving the body unchanged
     fmap f (WithBody x s) = WithBody (f x) s
     
 -- | Catch-all type for any identifier which is significant to the program
@@ -136,7 +135,7 @@ data ModuleChild a = ModuleChild ModuleInfo a
 -- | A value which is tagged as belonging to a project
 data ProjectChild a = ProjectChild ProjectInfo a
 
--- | 
+-- | Convert the child to string, prepend the project name in parens
 instance Show a => Show (ProjectChild a) where
     show (ProjectChild (ProjectInfo n) x) = show x ++ " ( " ++ n ++ " )"
 
@@ -145,35 +144,35 @@ class HasChild f where
     -- | Retreive the child value
     getChild :: f a -> a
 
--- | 
+-- | Retreive child
 instance HasChild ModuleChild where
     getChild (ModuleChild _ a) = a
 
+-- | Retreive child
 instance HasChild ProjectChild where
     getChild (ProjectChild _ a) = a
 
--- |
+-- | Apply function to child
 instance Functor ModuleChild where
     fmap f (ModuleChild mi x) = ModuleChild mi $ f x
 
--- | 
+-- | Apply function to child
 instance Foldable ModuleChild where
     foldMap f (ModuleChild _ x) = f x
 
--- | 
+-- | Apply function to child
 instance Traversable ModuleChild where
     sequenceA (ModuleChild mi x) = (ModuleChild mi) <$> x
 
--- | 
+-- | Apply function to child
 instance Functor ProjectChild where
     fmap f (ProjectChild pji x) = ProjectChild pji $ f x
 
--- | 
+-- | Apply function to child
 instance Foldable ProjectChild where
     foldMap f (ProjectChild _ x) = f x
 
-
--- | 
+-- | Apply function to child
 instance Traversable ProjectChild where
     sequenceA (ProjectChild pji x) = ProjectChild pji <$> x
 
@@ -185,7 +184,7 @@ instance Traversable ProjectChild where
 data Import
     -- |Importing a module normally
     = ModuleImport Symbol Bool (Maybe Symbol)
-    -- |Importing only specific parts of a module
+    -- |Importing only speci=fic parts of a module
     | WhitelistImport Symbol Bool (Maybe Symbol) [ImportKind]
     -- |Importing everthing but specific parts of a module
     | BlacklistImport Symbol Bool (Maybe Symbol) [ImportKind]
@@ -328,7 +327,7 @@ data SolutionError u
     | UserError u
     deriving Eq
 
--- | 
+-- | Return error message for each error type
 instance Show u => Show (SolutionError u) where
     show (ModuleNotFound pji mi s)
         = printf "%s: module \"%s\" not found in project \"%s\"" s (show mi) (show pji)
@@ -372,12 +371,12 @@ class Qualify a where
     -- | Qualify a value with a module prefix
     qual :: ModuleChild a -> Symbol
  
--- | 
+-- | Prepend module name and dot to symbol name
 instance Qualify Symbol where
     qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s)) = Symbol $ m ++ '.' : s
     qual (ModuleChild (UnamedModule _) _) = error "Cannot qualify with an unnamed module"
 
--- | 
+-- | Prepend module name and dot to declaration info
 instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
@@ -385,84 +384,3 @@ instance Qualify DeclarationInfo where
 
 -- | Wrapper for a monad transformer which can throw solution exceptions
 type SolutionResult u = ExceptT (SolutionError u)
-
-{-
-data ProjectParam a = ProjectParam ProjectInfo a
-
-data ModuleParam a = ModuleParam ProjectInfo ModuleInfo a
-
-data DeclarationParam a = DeclarationParam ProjectInfo ModuleInfo DeclarationInfo a
-
-instance Functor ProjectParam where
-    fmap f (ProjectParam a x) = ProjectParam a $ f x
-
-instance Functor ModuleParam where
-    fmap f (ModuleParam a b x) = ModuleParam a b $ f x
-
-instance Functor DeclarationParam where
-    fmap f (DeclarationParam a b c x) = DeclarationParam a b c $ f x
-
-class ParamClass f a where
-    getParam :: f a -> a
-    setParam :: f b -> a -> f a
-
-class ProjectParamClass f where
-    getProjectInfo :: f a -> ProjectInfo
-    
-class ModuleParamClass f where
-    getModuleInfo :: f a -> ModuleInfo
-
-class DeclarationParamClass f where
-    getDeclarationInfo :: f a -> DeclarationInfo
-
-class UnwrapProject f where
-    unwrapProject :: f a -> ProjectParam ModuleInfo
-
-class UnwrapModule f where
-    unwrapModule :: f a -> ModuleParam DeclarationInfo
-
-instance UnwrapProject ModuleParam where
-    unwrapProject (ModuleParam a b _) = ProjectParam a b
-
-instance UnwrapProject DeclarationParam where
-    unwrapProject (DeclarationParam a b _ _) = ProjectParam a b
-
-instance UnwrapModule DeclarationParam where
-    unwrapModule (DeclarationParam a b c _) = ModuleParam a b c
-
-wrapProject :: ProjectParam ModuleInfo -> a -> ModuleParam a
-wrapProject (ProjectParam a b) c = ModuleParam a b c
-
-wrapModule :: ModuleParam DeclarationInfo -> a -> DeclarationParam a
-wrapModule (ModuleParam a b c) d = DeclarationParam a b c d
-
-instance ParamClass ProjectParam a where
-    getParam (ProjectParam _ x) = x
-    setParam (ProjectParam a _) x = ProjectParam a x
-
-instance ParamClass ModuleParam a where
-    getParam (ModuleParam _ _ x) = x
-    setParam (ModuleParam a b _) x = ModuleParam a b x
-
-instance ParamClass DeclarationParam a where
-    getParam (DeclarationParam _ _ _ x) = x
-    setParam (DeclarationParam a b c _) x = DeclarationParam a b c x
-    
-instance ProjectParamClass ProjectParam where
-    getProjectInfo (ProjectParam x _) = x
-
-instance ProjectParamClass ModuleParam where
-    getProjectInfo (ModuleParam x _ _) = x
-
-instance ProjectParamClass DeclarationParam where
-    getProjectInfo (DeclarationParam x _ _ _) = x
-
-instance ModuleParamClass ModuleParam where
-    getModuleInfo (ModuleParam _ x _) = x
-
-instance ModuleParamClass DeclarationParam where
-    getModuleInfo (DeclarationParam _ x _ _) = x
-
-instance DeclarationParamClass DeclarationParam where
-    getDeclarationInfo (DeclarationParam _ _ x _) = x
--}

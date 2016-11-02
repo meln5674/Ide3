@@ -19,21 +19,21 @@ import Language.Haskell.Exts.Pretty
 
 import Ide3.Types.Internal
 
--- | 
+-- | Convert identifiers and symbols
 instance ToSym (Name a) where
     toSym (Ident _ n)         = Symbol n
     toSym (Syntax.Symbol _ n) = Symbol n
 
--- | 
+-- | Extract name
 instance ToSym (CName a) where
     toSym (VarName _ n) = toSym n
     toSym (ConName _ n) = toSym n
 
--- | 
+-- | Extract module name
 instance ToSym (ModuleName a) where
     toSym (ModuleName _ n) = Symbol n
 
--- | 
+-- | Extract syntatic constructors
 instance ToSym (SpecialCon a) where
     toSym (UnitCon _)   = Symbol "()"
     toSym (ListCon _)   = Symbol "[]"
@@ -43,36 +43,36 @@ instance ToSym (SpecialCon a) where
     toSym (Cons _) = Symbol ":"
     toSym (UnboxedSingleCon _) = Symbol "(# #)"
 
--- | 
+-- | Extract qualified names and join them, extract unqualified names normally
 instance ToSym (QName a) where
     toSym (Qual _ m n) = toSym m `joinSym` toSym n
     toSym (UnQual _ n) = toSym n
     toSym (Special _ s) = toSym s
 
--- | 
+-- | Convert to symbol using the pretty printer
 instance SrcInfo a => ToSym (Syntax.Type a) where
     toSym = Symbol . prettyPrint
 
--- | 
+-- | Extract recursively until the head is reached
 instance ToSym (DeclHead a) where
     toSym (DHead _ n) = toSym n
     toSym (DHInfix _ _ n) = toSym n
     toSym (DHParen _ h) = toSym h
     toSym (DHApp _ h _) = toSym h
 
--- | 
+-- | Search heads for names
 instance SrcInfo a => HasNames (InstRule a) where
     findName (IRule _ _ _ h) = findName h
     findName (IParen _ h) = findName h
 
--- |
+-- | Take names from head
 instance SrcInfo a => HasNames (InstHead a) where
     findName (IHCon _ n) = [toSym n]
     findName (IHInfix _ t n) = [toSym t, toSym n]
     findName (IHParen _ h) = findName h
     findName (IHApp _ h t) = toSym t : findName h
 
--- | 
+-- | Recursively find names in nested patterns
 instance HasNames (Pat a) where
     findName (PVar _ n) = [toSym n]
     findName (PNPlusK _ n _) = [toSym n]
@@ -86,7 +86,7 @@ instance HasNames (Pat a) where
     findName (PatTypeSig _ p _) = findName p
     findName _ = [] -- TODO: rest
 
--- | 
+-- | Find names in pattern fields
 instance HasNames (PatField l) where
     findName (PFieldPat _ _ p) = findName p
     findName (PFieldPun _ n) = [toSym n]

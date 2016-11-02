@@ -72,19 +72,19 @@ class Spannable a => FileSpannable a where
 mkSrcSpan :: Row -> Column -> Row -> Column -> SrcSpan
 mkSrcSpan a b c d = SrcSpan (SrcLoc a b) (SrcLoc c d)
 
--- |
+-- | Convert row number to string
 instance Show Row where
     show = show . unRow
 
--- |
+-- | Convert column number to string
 instance Show Column where
     show = show . unColumn
 
--- | 
+-- | Create row by parsing an integer
 instance Read Row where
     readsPrec i s = map (swap . fmap Row . swap) (readsPrec i s)
 
--- |
+-- | Create column by parsing an integer
 instance Read Column where
     readsPrec i s = map (swap . fmap Column . swap) (readsPrec i s)
 

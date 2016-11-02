@@ -52,7 +52,7 @@ newtype StatefulWrapper m a = StatefulWrapper { runStatefulWrapper :: m a }
            , StatefulPersistenceClass
            , MonadIO
            )
--- |
+-- | Apply the wrapper to a monad
 instance MonadTrans StatefulWrapper where
     lift = StatefulWrapper
   

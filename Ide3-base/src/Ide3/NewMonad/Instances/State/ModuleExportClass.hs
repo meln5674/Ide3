@@ -19,6 +19,7 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
+-- | Access exports statefully
 instance StatefulSolutionClass m => ModuleExportClass (StatefulWrapper m) where
     addExport = modifySolutionER .-... runDescent4 Solution.addExport
     getExport = modifySolutionER .-... runDescent4 Solution.getExport

@@ -22,13 +22,14 @@ import Ide3.Types.Internal
 import Ide3.Types.State
 import Ide3.Env
 
-
+-- | Add, remove, retreive, and overwrite modules
 instance ParamEnvClass Project ModuleInfo Module (SolutionError u) where
     addChildT = addModule
     removeChildT = removeModule
     getChildT = getModule
     setChildT = setModule
 
+-- | Add, remove retreive, and overwrite external modules
 instance ParamEnvClass Project ModuleInfo ExternModule (SolutionError u) where
     addChildT = addExternModule
     removeChildT = removeExternModule

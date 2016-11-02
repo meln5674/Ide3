@@ -25,7 +25,8 @@ import Control.Monad
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
--- | 
+-- | A persistence instance can be created from a stateful solution equipped with
+-- the ability to save/load that state
 instance (StatefulSolutionClass m, StatefulPersistenceClass m) => PersistenceClass (StatefulWrapper m) where
     load = loadState >>= putSolution
     new = newState >=> putSolution

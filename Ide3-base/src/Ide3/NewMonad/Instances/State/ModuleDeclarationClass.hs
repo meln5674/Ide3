@@ -19,7 +19,7 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
--- |
+-- | Access declarations statefully
 instance StatefulSolutionClass m => ModuleDeclarationClass (StatefulWrapper m) where
     addDeclaration = modifySolutionER .-... runDescent4 Solution.addDeclaration
     getDeclaration = modifySolutionER .-... runDescent4 Solution.getDeclaration

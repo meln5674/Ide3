@@ -20,7 +20,7 @@ import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
 
--- |
+-- | Access external exports statefully
 instance StatefulSolutionClass m => ExternModuleExportClass (StatefulWrapper m) where
     addExternExport = modifySolutionER .-... runDescent4 Solution.addExternExport
     getExternExport = modifySolutionER .-... runDescent4 Solution.getExternExport 

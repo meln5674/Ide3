@@ -19,7 +19,7 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
--- | 
+-- | Access external modules statefully
 instance StatefulSolutionClass m => ProjectExternModuleClass (StatefulWrapper m) where
     createExternModule = modifySolutionER .-.. runDescent3 Solution.createExternModule
     getExternModules = modifySolutionER .-. runDescent2 Solution.getExternModules

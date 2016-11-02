@@ -19,7 +19,7 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
--- | 
+-- | Access pragmas statefully
 instance StatefulSolutionClass m => ModulePragmaClass (StatefulWrapper m) where
     addPragma = modifySolutionER .-... runDescent4 Solution.addPragma
     removePragma = modifySolutionER .-... runDescent4 Solution.removePragma
