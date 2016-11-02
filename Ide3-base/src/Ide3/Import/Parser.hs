@@ -26,8 +26,10 @@ import Ide3.SrcLoc.Exts()
 convert :: ImportDecl a -> Import
 convert x = case importSpecs x of
     Nothing -> ModuleImport sym isQualified rename
-    Just (ImportSpecList _ True ss) -> BlacklistImport sym isQualified rename (map getSpec ss)
-    Just (ImportSpecList _ False ss) -> WhitelistImport sym isQualified rename (map getSpec ss)
+    Just (ImportSpecList _ True ss)
+        -> BlacklistImport sym isQualified rename (map getSpec ss)
+    Just (ImportSpecList _ False ss) 
+        -> WhitelistImport sym isQualified rename (map getSpec ss)
   where
     ModuleName _ n = importModule x
     sym = Symbol n

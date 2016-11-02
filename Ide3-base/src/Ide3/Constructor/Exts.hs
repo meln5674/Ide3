@@ -24,8 +24,10 @@ class ToConstructor a where
 -- | Extract constructor from declaration
 instance SrcInfo a => ToConstructor (ConDecl a) where
     toConstructor (ConDecl _ n ts) = PrefixConstructor (toSym n) (map toSym ts)
-    toConstructor (InfixConDecl _ tl n tr) = InfixConstructor (toSym tl) (toSym n) (toSym tr)
-    toConstructor (RecDecl _ n rs) = RecordConstructor (toSym n) (concatMap f rs)
+    toConstructor (InfixConDecl _ tl n tr) =
+        InfixConstructor (toSym tl) (toSym n) (toSym tr)
+    toConstructor (RecDecl _ n rs) =
+        RecordConstructor (toSym n) (concatMap f rs)
       where
         f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
 
@@ -35,9 +37,11 @@ instance SrcInfo a => ToConstructor (QualConDecl a) where
 
 -- | Extract constructor from GADT declaration
 instance SrcInfo a => ToConstructor (GadtDecl a) where
-    toConstructor (GadtDecl _ n (Just rs) _) = RecordConstructor (toSym n) (concatMap f rs)
+    toConstructor (GadtDecl _ n (Just rs) _) =
+        RecordConstructor (toSym n) (concatMap f rs)
       where
         f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
-    toConstructor (GadtDecl _ n Nothing t) = PrefixConstructor (toSym n) [toSym t]
+    toConstructor (GadtDecl _ n Nothing t) =
+        PrefixConstructor (toSym n) [toSym t]
 
 

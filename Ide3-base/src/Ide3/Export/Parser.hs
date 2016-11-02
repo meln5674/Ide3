@@ -44,11 +44,14 @@ parse s = case result of
     ParseOk ok -> Right $ convert export
       where 
         headAndImports = unNonGreedy ok
-        ModuleHeadAndImports _ _ (Just (ModuleHead _ _ _ (Just (ExportSpecList _ exportList)))) _ = headAndImports
+        ModuleHeadAndImports _ _ (Just head) _ = headAndImports
+        ModuleHead _ _ _ (Just specList) = head
+        ExportSpecList _ exportList = specList
         [export] = exportList
     ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     -- Parsing an export is done by putting in a mock export list, parsing that
     -- "module", and then pulling out the singleton list of exports
     dummyHeader = "module DUMMY (" ++ s ++ ") where"
-    result = Parser.parse dummyHeader :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))
+    result :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))
+    result = Parser.parse dummyHeader

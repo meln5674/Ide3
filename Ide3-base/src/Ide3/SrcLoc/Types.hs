@@ -33,11 +33,19 @@ data SrcSpan = SrcSpan { spanStart :: SrcLoc, spanEnd :: SrcLoc }
   deriving (Show, Eq)
 
 -- | A source location with a filename
-data SrcFileLoc = SrcFileLoc { srcLocFilename :: FilePath, srcFileLoc :: SrcLoc }
+data SrcFileLoc
+    = SrcFileLoc 
+    { srcLocFilename :: FilePath
+    , srcFileLoc :: SrcLoc
+    }
   deriving (Show, Eq)
 
 -- | A source span with a filename
-data SrcFileSpan = SrcFileSpan { srcSpanFilename :: FilePath, srcFileSpan :: SrcSpan }
+data SrcFileSpan
+    = SrcFileSpan 
+    { srcSpanFilename :: FilePath
+    , srcFileSpan :: SrcSpan
+    }
   deriving (Show, Eq)
 
 -- | No location
@@ -88,21 +96,26 @@ instance Read Row where
 instance Read Column where
     readsPrec i s = map (swap . fmap Column . swap) (readsPrec i s)
 
--- | Merge two source spans by taking the start of the first and the end of the second
+-- | Merge two source spans by taking the start of the first and the end of the
+-- second
 mergeSrcSpan :: SrcSpan -> SrcSpan -> SrcSpan
 mergeSrcSpan a b = SrcSpan (spanStart a) (spanEnd b)
 
 -- | Same as mergeSrcSpan but with filenames
 mergeSrcFileSpan :: SrcFileSpan -> SrcFileSpan -> SrcFileSpan
-mergeSrcFileSpan a b = SrcFileSpan (srcSpanFilename a) $ mergeSrcSpan (srcFileSpan a) (srcFileSpan b)
+mergeSrcFileSpan a b = SrcFileSpan (srcSpanFilename a) 
+    $ mergeSrcSpan (srcFileSpan a) (srcFileSpan b)
 
 -- | Lift a function on source spans to source spans with filenames
 mapSrcFileSpan :: (SrcSpan -> SrcSpan) -> (SrcFileSpan -> SrcFileSpan)
 mapSrcFileSpan f (SrcFileSpan path span) = SrcFileSpan path $ f span
 
--- | Make a source span with a filename by taking the filename of the first and the span of the second
+-- | Make a source span with a filename by taking the filename of the first and
+-- the span of the second
 mkSrcFileSpanFrom :: (FileSpannable l, Spannable l') => l -> l' -> SrcFileSpan
-mkSrcFileSpanFrom l l' = SrcFileSpan (srcSpanFilename $ toSrcFileSpan l) (toSrcSpan l')
+mkSrcFileSpanFrom l l' = SrcFileSpan
+    (srcSpanFilename $ toSrcFileSpan l)
+    (toSrcSpan l')
 
 -- | Get the start of a source span
 getSpanStart :: Spannable l => l -> SrcLoc
@@ -112,7 +125,8 @@ getSpanStart = spanStart . toSrcSpan
 getSpanEnd :: Spannable l => l -> SrcLoc
 getSpanEnd = spanEnd . toSrcSpan
 
--- | Make a source span by taking the difference of the rows of two source spans, and the column of the first
+-- | Make a source span by taking the difference of the rows of two source
+-- spans, and the column of the first
 diffRows :: SrcLoc -> SrcLoc -> SrcLoc
 diffRows (SrcLoc r1 c1) (SrcLoc r2 _) = (SrcLoc (r1-r2) c1)
 

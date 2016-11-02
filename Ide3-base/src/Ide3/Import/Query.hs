@@ -24,8 +24,8 @@ whitelistTree' :: ( ProjectModuleClass m
                   , ModuleDeclarationClass m
                   )
                => ProjectInfo
-               -> ModuleInfo  -- ^ Info for module symbols are being imported from
-               -> ImportKind     -- ^ Specific import to search for
+               -> ModuleInfo -- ^ Module symbols are being imported from
+               -> ImportKind -- ^ Specific import to search for
                -> SolutionResult u m [Symbol]
 whitelistTree' = importWhitelistTree' 
 

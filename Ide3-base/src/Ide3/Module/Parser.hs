@@ -50,7 +50,8 @@ data ExtractionResults l
                 [Ann l (WithBody Import)]
                 [Ann l (WithBody Declaration)]
 
--- | Create an annotated item by applying an annotation extration and item extraction function
+-- | Create an annotated item by applying an annotation extration and item
+-- extraction function
 annotate :: FileSpannable l => (a -> l) -> (a -> x) -> a -> Ann SrcFileSpan x
 annotate getAnn convert a = Ann (toSrcFileSpan $ getAnn a) (convert a)
 
@@ -76,19 +77,21 @@ extractPragmas :: (SrcInfo l, FileSpannable l)
                => String 
                -> (Syntax.Module l, [Comment]) 
                -> [(Ann SrcFileSpan Pragma)]
-extractPragmas _ (Syntax.Module _ _ ps _ _,_) = map (annotate Syntax.ann prettyPrint) ps
-  where
+extractPragmas _ m
+    | (Syntax.Module _ _ ps _ _,_) <- m 
+    = map (annotate Syntax.ann prettyPrint) ps
 extractPragmas _ _ = []
 
 -- | Extract the header from a module
 extractHeader :: (SrcInfo l, FileSpannable l) 
               => String -> (Syntax.Module l, [Comment]) 
               -> Ann SrcFileSpan String
-extractHeader s (Syntax.Module mspan maybeHeader _ _ _,comments) = case headerComments of
-    [] -> Ann (mkSrcFileSpanFrom mspan noSpan) ""
-    _ -> Ann (mkSrcFileSpanFrom mspan $ SrcSpan headerStart headerEnd) $ headerSpan >< s
+extractHeader s (Syntax.Module mspan maybeHeader _ _ _,comments) =
+    case headerComments of
+        [] -> Ann (mkSrcFileSpanFrom mspan noSpan) ""
+        _ -> Ann (mkSrcFileSpanFrom mspan headerSpan) $ headerSpan >< s
   where
-    headerComments = flip filter comments $ \(Comment _ cspan _) -> getSpanEnd cspan < moduleStart
+    headerComments = filter ((< moduleStart) . getSpanEnd . toSrcSpan) comments
     moduleStart = spanStart $ toSrcSpan $ maybe mspan Syntax.ann maybeHeader 
     Comment _ firstSpan _ = head headerComments
     Comment _ lastSpan _ = last headerComments
@@ -126,7 +129,8 @@ extractImports _ _ = []
 extractDecls :: (SrcInfo l, FileSpannable l) 
              => String 
              -> (Syntax.Module l, [Comment]) 
-             -> Either (SolutionError u) [Ann SrcFileSpan (WithBody Declaration)]
+             -> Either (SolutionError u) 
+                       [Ann SrcFileSpan (WithBody Declaration)]
 extractDecls str (Syntax.Module mAnn _ _ _ decls, cs) = do
     converted <- forM decls $ \d -> do
         Declaration.convertWithBody str cs d
@@ -175,17 +179,18 @@ parseMain :: String
 parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> do
         Extracted i h ps es is ds <- extract s x
-        case i of
-            Ann l (UnamedModule _) -> return 
-                            $ Extracted (Ann l $ ModuleInfo (Symbol "Main")) h ps es is ds
-            info -> return $ Extracted info h ps es is ds
+        let i' = case i of
+                Ann l (UnamedModule _) -> Ann l $ ModuleInfo $ Symbol "Main"
+                _ -> i'
+        return $ Extracted i' h ps es is ds
     ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     exts = (maybe [] snd $ readExtensions s)
     parseMode = case p of
         Just fn -> defaultParseMode
                  { parseFilename=fn
-                    -- temporary workaround for https://github.com/haskell-suite/haskell-src-exts/issues/304
+                 -- temporary workaround for 
+                 -- https://github.com/haskell-suite/haskell-src-exts/issues/304
                  , extensions = EnableExtension MultiParamTypeClasses : exts
                  , fixities = Just[]
                  }
@@ -201,7 +206,10 @@ parseAtLocation :: [SrcLoc]
                 -> Either (SolutionError u) [Maybe (ModuleItem, SrcLoc)]
 parseAtLocation ls s p = do
     Extracted _ hc ps es is ds <- Ide3.Module.Parser.parse s p
-    let try :: (x -> ModuleItem) -> SrcLoc -> Ann SrcFileSpan x -> Maybe (ModuleItem, SrcLoc)
+    let try :: (x -> ModuleItem) 
+            -> SrcLoc 
+            -> Ann SrcFileSpan x 
+            -> Maybe (ModuleItem, SrcLoc)
         try mkItem l x = case () of
             ()
                 | xSpan `contains` l -> Just (mItem, l')

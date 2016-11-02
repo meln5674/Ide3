@@ -40,7 +40,10 @@ nextExternExportId :: ExternModule -> ExportId
 nextExternExportId = nextId 0 . externModuleExports
 
 -- | Add, remove, retreive, and overwrite external exports
-instance ParamEnvClass ExternModule ExportId ExternExport (SolutionError u) where
+instance ParamEnvClass ExternModule 
+                       ExportId 
+                       ExternExport 
+                       (SolutionError u) where
     addChildT = addExport
     removeChildT = removeExport
     getChildT = getExport
@@ -53,8 +56,10 @@ addExport :: Monad m
           -> ExternModule
           -> SolutionResult u m ExternModule
 addExport ei e m = case Map.lookup ei $ externModuleExports m of
-    Just _ -> throwE $ InternalError "Duplicate export id" "ExternModule.addExport"
-    Nothing -> return $ m{ externModuleExports = Map.insert ei e $ externModuleExports m }
+    Just _ -> throwE
+        $ InternalError "Duplicate export id" "ExternModule.addExport"
+    Nothing -> return m
+        { externModuleExports = Map.insert ei e $ externModuleExports m }
 
 -- | Remove an external export from an external module
 removeExport :: Monad m
@@ -62,8 +67,12 @@ removeExport :: Monad m
              -> ExternModule
              -> SolutionResult u m (ExternExport, ExternModule)
 removeExport ei m = case Map.lookup ei $ externModuleExports m of
-    Nothing -> throwE $ InvalidExportId (externModuleInfo m) ei "ExternModule.removeExport"
-    Just e -> return (e, m{ externModuleExports = Map.delete ei $ externModuleExports m })
+    Nothing -> throwE
+        $ InvalidExportId (externModuleInfo m) ei "ExternModule.removeExport"
+    Just e -> return
+        ( e
+        , m{ externModuleExports = Map.delete ei $ externModuleExports m }
+        )
 
 -- | Get an external export from an external module
 getExport :: Monad m
@@ -83,7 +92,7 @@ setExport :: Monad m
           -> SolutionResult u m ExternModule
 setExport ei ei' e' m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (info m) ei "ExternModule.setExport"
-    Just _ -> return $ m
+    Just _ -> return m
         { externModuleExports
             = Map.insert ei' e'
             $ Map.delete ei

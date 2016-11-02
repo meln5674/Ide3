@@ -1,5 +1,5 @@
 {-|
-Module      : Ide3.Constructor
+Module      : Ide3.Digest
 Description : Digesting projects
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -50,7 +50,8 @@ data FileTree
     | File FilePath
     deriving Show
 
--- | Take a file path and get the structure of the files and directories beneath it
+-- | Take a file path and get the structure of the files and directories beneath
+-- it
 enumerateDirectory :: FilePath -> IO FileTree
 enumerateDirectory path = do
     isDir <- isDirectory <$> getFileStatus path
@@ -112,7 +113,8 @@ digestInterfaceM pji iface = do
         Nothing -> []
         Just es -> flip map es $ \case
             Iface.SingleExport s -> SingleExternExport $ Symbol s
-            Iface.MultiExport s ss -> MultiExternExport (Symbol s) $ map Symbol ss
+            Iface.MultiExport s ss
+                -> MultiExternExport (Symbol s) $ map Symbol ss
 
 -- | Digest a project from a directory structure, optionally providing a path to
 -- an interface file for external modules
@@ -172,7 +174,9 @@ digestSolution :: forall m u
                -> [ProjectDigestParams]
                -> SolutionResult u m Solution
 digestSolution si ps = do
-    let y :: MonadIO m => SolutionResult u (StatefulWrapper (SolutionStateT m)) Solution
+    let y :: ( MonadIO m
+             )
+           => SolutionResult u (StatefulWrapper (SolutionStateT m)) Solution
         y = digestSolutionM si ps >> getSolution
     (z,_) <- lift $ flip runStateT Solution.empty 
                   $ runSolutionStateT 

@@ -1,5 +1,5 @@
 {-|
-Module      : Ide3.Query
+Module      : Ide3.Refactor
 Description : Refactoring solutions
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -32,11 +32,14 @@ renameSymbols :: (SolutionMonad m)
              -> [(Symbol,Symbol)]
              -> SolutionResult u m DeclarationInfo
 renameSymbols pji mi di pairs = do
-    let edit str = foldr (\(Symbol oldSym,Symbol newSym) str' -> replace oldSym newSym str') str pairs
+    let edit str = foldr replace' str pairs
+        replace' (Symbol old, Symbol new) str' = replace old new str'
     editDeclaration pji mi di $ \d -> do
         let str = body d
             str' = edit str
-            parseResult = Declaration.parseAndCombineLenient str' Nothing $ Declaration.info $ item d
+            declInfo = Declaration.info $ item d
+            parseResult =
+                Declaration.parseAndCombineLenient str' Nothing declInfo
         return $ case parseResult of
             Left (d',_) -> d'
             Right d' -> d'
@@ -61,4 +64,5 @@ renameModule pji src (ModuleInfo msym') = do
                 let pairs = filter (uncurry (/=)) $ zip syms syms'
                 dis <- getDeclarations pji' mi'
                 forM dis $ \di -> renameSymbols pji' mi' di pairs
-renameModule _ _ _ = throwE $ InvalidOperation "Cannot rename a module to unnamed" ""
+renameModule _ _ _ =
+    throwE $ InvalidOperation "Cannot rename a module to unnamed" ""

@@ -41,7 +41,8 @@ splitAndCount = go 0
     go i (x:xs) y | x == y      = Just (i+1, xs)
                   | otherwise   = go (i+1) xs y
 
--- | Given a 1-based (row,column) pair, find the 0-based character index in a string
+-- | Given a 1-based (row,column) pair, find the 0-based character index in a
+-- string
 indexIn :: SrcLoc -> String -> Maybe Int
 (SrcLoc (Row 1) (Column c)) `indexIn` _ = Just $ c - 1
 (SrcLoc (Row r) (Column c)) `indexIn` str = do
@@ -108,7 +109,8 @@ boundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 boundaries s y = filter $ \x -> contacts (toSrcSpan x) (toSrcSpan y) s
                              || contacts (toSrcSpan y) (toSrcSpan x) s
 
--- | Filter out from a list of spannables those which intersect another spannable
+-- | Filter out from a list of spannables those which intersect another
+-- spannable
 intersectors :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
 intersectors s y = filter $ \x -> sameEnd (toSrcSpan x) (toSrcSpan y) s
                                || sameStart (toSrcSpan x) (toSrcSpan y) s

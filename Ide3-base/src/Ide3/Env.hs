@@ -19,21 +19,23 @@ ReaderT's, the environment types being keys for accessing the child values.
 Finally, the bottom of this stack is an ExceptT with the solution error as the
 exception type. 
 
-Ex: StateT Solution (ReaderT ProjectInfo (ReaderT ModuleInfo (ReaderT String ...)
+Ex: StateT Solution (ReaderT ProjectInfo 
+                             (ReaderT ModuleInfo 
+                                      (ReaderT String ...)
 
 Would be an operation acting on a Solution, with keys for a project and a module
 in that project, and finally a string as an argument to the final operation.
 
-The descend* functions take one of these stacks, as well as a related stack which
-has the top removed, and the top ReaderT replaced with a StateT with the
+The descend* functions take one of these stacks, as well as a related stack
+which has the top removed, and the top ReaderT replaced with a StateT with the
 environment type instead of the key type.
 
 Ex. The stack above would be paired with a:
 StateT Project (ReaderT ModuleInfo (ReaderT String ...)
 
 The descend* function looks up the Project pointed at by the ProjectInfo
-contained in the ReaderT in the first stack, throws an exception if its not found,
-then applies the state transformation described by the second stack, then
+contained in the ReaderT in the first stack, throws an exception if its not
+found, then applies the state transformation described by the second stack, then
 updates the Solution in the first stack's StateT to contain the new Project.
 
 The descend* functions can then be chained to an (eventually) arbitrary depth.
@@ -74,13 +76,28 @@ class EnvParamClass env param | env -> param where
 -- key type childParam. Operations may instead throw an exception of type e
 class ParamEnvClass parentEnv childParam childEnv e where
     -- | Add a child
-    addChildT :: Monad m => childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
+    addChildT :: Monad m 
+              => childParam 
+              -> childEnv 
+              -> parentEnv 
+              -> ExceptT e m parentEnv
     -- | Remove a child
-    removeChildT :: Monad m => childParam -> parentEnv -> ExceptT e m (childEnv,parentEnv)
+    removeChildT :: Monad m 
+                 => childParam 
+                 -> parentEnv 
+                 -> ExceptT e m (childEnv,parentEnv)
     -- | Lookup a child
-    getChildT :: Monad m => childParam -> parentEnv -> ExceptT e m childEnv
+    getChildT :: Monad m 
+              => childParam 
+              -> parentEnv 
+              -> ExceptT e m childEnv
     -- | Update a child
-    setChildT :: Monad m => childParam -> childParam -> childEnv -> parentEnv -> ExceptT e m parentEnv
+    setChildT :: Monad m 
+              => childParam 
+              -> childParam 
+              -> childEnv 
+              -> parentEnv 
+              -> ExceptT e m parentEnv
 
 -- | Retreive project info
 instance EnvParamClass Project ProjectInfo where
@@ -164,7 +181,9 @@ descend0 f = do
     childEnv <- lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift 
+                $ lift 
+                $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -184,7 +203,10 @@ descend1 f = do
     childEnv <- lift $ lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift 
+                $ lift 
+                $ lift 
+                $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -206,7 +228,11 @@ descend2 f = do
     childEnv <- lift $ lift $ lift $ lift $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift 
+                $ lift 
+                $ lift 
+                $ lift 
+                $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -226,10 +252,20 @@ descend3 :: ( EnvParamClass childEnv childParam
 descend3 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ lift $ lift $ lift $ getChildT childParam parentEnv
+    childEnv <- lift 
+              $ lift 
+              $ lift 
+              $ lift 
+              $ lift 
+              $ getChildT childParam parentEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
-    parentEnv' <- lift $ lift $ lift $ lift $ lift $ setChildT childParam childParam' childEnv' parentEnv
+    parentEnv' <- lift 
+                $ lift 
+                $ lift 
+                $ lift 
+                $ lift 
+                $ setChildT childParam childParam' childEnv' parentEnv
     put parentEnv'
     return result
 
@@ -240,33 +276,61 @@ type DescentChain1 a m u = StateT a (SolutionResult u m)
 type DescentChain2 a b m u = StateT a (ReaderT b (SolutionResult u m))
 
 -- | A stateful operation over a value with an environment with two keys
-type DescentChain3 a b c m u = StateT a (ReaderT b (ReaderT c (SolutionResult u m)))
+type DescentChain3 a b c m u =
+    StateT a (ReaderT b (ReaderT c (SolutionResult u m)))
 
 -- | A stateful operation over a value with an environment with three keys
-type DescentChain4 a b c d m u = StateT a (ReaderT b (ReaderT c (ReaderT d (SolutionResult u m))))
+type DescentChain4 a b c d m u =
+    StateT a (ReaderT b (ReaderT c (ReaderT d (SolutionResult u m))))
 
 -- | A stateful operation over a value with an environment with four keys
-type DescentChain5 a b c d e m u = StateT a (ReaderT b (ReaderT c (ReaderT d (ReaderT e (SolutionResult u m)))))
+type DescentChain5 a b c d e m u =
+    StateT a
+        (ReaderT b (ReaderT c (ReaderT d (ReaderT e (SolutionResult u m)))))
 
 -- | Run a stateful operation over a value
 runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult u m (r,a)
 runDescent1 = runStateT
 
 -- | Run a stateful operation over a value with an environment with a key
-runDescent2 :: Monad m => DescentChain2 a b m u r -> b -> a -> SolutionResult u m (r,a)
+runDescent2 :: Monad m 
+            => DescentChain2 a b m u r 
+            -> b 
+            -> a 
+            -> SolutionResult u m (r,a)
 runDescent2 f b a = runReaderT (runStateT f a) b
 
 -- | Run a stateful operation over a value with an environment with two keys
-runDescent3 :: Monad m => DescentChain3 a b c m u r -> b -> c -> a -> SolutionResult u m (r,a)
+runDescent3 :: Monad m 
+            => DescentChain3 a b c m u r 
+            -> b 
+            -> c 
+            -> a 
+            -> SolutionResult u m (r,a)
 runDescent3 f b c a = runReaderT (runReaderT (runStateT f a) b) c
 
 -- | Run a stateful operation over a value with an environment with three keys
-runDescent4 :: Monad m => DescentChain4 a b c d m u r -> b -> c -> d -> a -> SolutionResult u m (r,a)
-runDescent4 f b c d a= runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
+runDescent4 :: Monad m 
+            => DescentChain4 a b c d m u r 
+            -> b 
+            -> c 
+            -> d 
+            -> a 
+            -> SolutionResult u m (r,a)
+runDescent4 f b c d a =
+    runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
 
 -- | Run a stateful operation over a value with an environment with four keys
-runDescent5 :: Monad m => DescentChain5 a b c d e m u r -> b -> c -> d -> e -> a -> SolutionResult u m (r,a)
-runDescent5 f b c d e a = runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d) e
+runDescent5 :: Monad m 
+            => DescentChain5 a b c d e m u r 
+            -> b 
+            -> c 
+            -> d 
+            -> e 
+            -> a 
+            -> SolutionResult u m (r,a)
+runDescent5 f b c d e a =
+    runReaderT (runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d) e
 
 -- | Wrapper for throwing an exception
 throw1 :: Monad m => SolutionError u -> DescentChain1 a m u r
@@ -285,7 +349,11 @@ throw4 :: Monad m => SolutionError u -> DescentChain4 a b c d m u r
 throw4 = lift . lift . lift . lift . throwE
 
 -- | Run a descent over a state and a environment with a list of keys
-mapDescent2 :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult u m ([r],a)
+mapDescent2 :: Monad m 
+            => DescentChain2 a b m u r 
+            -> a 
+            -> [b] 
+            -> SolutionResult u m ([r],a)
 mapDescent2 f a bs = runStateT rs a
   where
     g = runStateT f
@@ -293,7 +361,11 @@ mapDescent2 f a bs = runStateT rs a
     rs = mapM r bs
 
 -- | Same as mapDescent2, but discards the result of each operation
-mapDescent2_ :: Monad m => DescentChain2 a b m u r -> a -> [b] -> SolutionResult u m a
+mapDescent2_ :: Monad m 
+             => DescentChain2 a b m u r 
+             -> a 
+             -> [b] 
+             -> SolutionResult u m a
 mapDescent2_ f a bs = do
     (_,a') <- mapDescent2 f a bs
     return a'

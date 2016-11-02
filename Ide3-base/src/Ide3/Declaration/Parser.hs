@@ -70,25 +70,29 @@ parseNewtypeDecl _ = Nothing
 -- | Convert a declaration if it is a GADT data
 parseGADTDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
-    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
-                             (DataDeclaration (toSym h)
-                                              (map Constructor.toConstructor cons)
-                             )
+    = Just $ TypeDeclaration 
+                (DeclarationInfo (toSym h))
+                (DataDeclaration (toSym h)
+                                 (map Constructor.toConstructor cons)
+                )
 parseGADTDecl _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
 parseDataDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseDataDecl (DataDecl _ (DataType _) _ h cons _)
-    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
-                             (DataDeclaration (toSym h)
-                                              (map Constructor.toConstructor cons)
-                             )
+    = Just $ TypeDeclaration
+        (DeclarationInfo (toSym h))
+        (DataDeclaration (toSym h)
+                         (map Constructor.toConstructor cons)
+        )
 parseDataDecl _ = Nothing
 
 -- | Convert a declaration if it is a function bind
 parseFuncBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
-parseFuncBind (FunBind _ (m:_)) = Just $ BindDeclaration (DeclarationInfo $ toSym n) 
-                                     $ LocalBindDeclaration [toSym n] Nothing
+parseFuncBind (FunBind _ (m:_))
+    = Just $ BindDeclaration
+        (DeclarationInfo $ toSym n) 
+        (LocalBindDeclaration [toSym n] Nothing)
   where
     n = case m of
         Match _ n' _ _ _ -> n'
@@ -112,7 +116,7 @@ parseTypeSignature _ = Nothing
 -- | Convert a declaration if it is a class declaration
 parseClassDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
-    = liftM (TypeDeclaration (DeclarationInfo $ toSym h) . ClassDeclaration (toSym h)) 
+    = liftM mkTopDecl
     $ ds >>= mapM parseSubDecl
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
@@ -122,6 +126,9 @@ parseClassDecl (ClassDecl _ _ h _ ds)
           (DeclarationInfo $ toSym dHead) 
         $ TypeSynonym (toSym dHead) (Symbol "")
     parseSubDecl _ = Nothing
+    mkTopDecl ds' = TypeDeclaration 
+        (DeclarationInfo $ toSym h) 
+        (ClassDeclaration (toSym h) ds')
 parseClassDecl _ = Nothing
 
 -- | Convert a declaration if it is an instance declaration
@@ -137,7 +144,10 @@ parseInstanceDecl _ = Nothing
 parsePatBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
-    ns@(n:_) -> Just $ BindDeclaration (DeclarationInfo n) $ LocalBindDeclaration ns Nothing
+    ns@(n:_) -> Just $
+        BindDeclaration 
+            (DeclarationInfo n)
+            (LocalBindDeclaration ns Nothing)
 parsePatBind _ = Nothing
 
 -- | Convert a declaration if it is a standalone deriving declaration
@@ -202,12 +212,21 @@ convertWithBody str cs x = case tryConvert x of
         noIntersectors sp = case intersectors str sp cs of
             [] -> sp
             (c:_) -> sp `subtractSrcSpan` c $ str
-        finalSpan = leftBoundaryComments $ noIntersectors $ toSrcSpan $ Syntax.ann x
-    Nothing -> Left $ Unsupported $ (Syntax.ann x >< str) ++ " " ++ show (toSrcFileSpan $ Syntax.ann x)
+        finalSpan = leftBoundaryComments 
+                  $ noIntersectors 
+                  $ toSrcSpan 
+                  $ Syntax.ann x
+    Nothing -> Left $ Unsupported 
+                    $ (Syntax.ann x >< str) 
+                        ++ " " 
+                        ++ show (toSrcFileSpan $ Syntax.ann x)
 
--- | Take a list of declarations and combine the first type signature with the first bind
--- This function assumes that all declarations in the input list have the same symbol
-combineFuncAndTypeSig :: [Ann SrcSpan (WithBody Declaration)] -> [Ann SrcSpan (WithBody Declaration)]
+-- | Take a list of declarations and combine the first type signature with the
+--  first bind
+-- This function assumes that all declarations in the input list have the same
+--  symbol
+combineFuncAndTypeSig :: [Ann SrcSpan (WithBody Declaration)] 
+                      -> [Ann SrcSpan (WithBody Declaration)]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     (Ann l (WithBody sig sb) : _, Ann l' (WithBody func fb) : _) 
         -> (Ann (l `mergeSrcSpan` l') $ WithBody newDecl newBody) : notFuncBinds
@@ -235,17 +254,30 @@ parse s = case parseDecl s of
 
 
 -- |Take a string and produce the needed information for building a Module
-parseWithBody :: String -> Maybe FilePath -> Either (SolutionError u) [Ann SrcSpan (WithBody Declaration)]
+parseWithBody :: String 
+              -> Maybe FilePath 
+              -> Either (SolutionError u) [Ann SrcSpan (WithBody Declaration)]
 parseWithBody s p = case parseModuleWithComments parseMode s of
-    ParseOk (Syntax.Module _ Nothing [] [] ds, cs) -> mapM (convertWithBody s cs) ds
-    ParseOk (XmlPage{}, _) -> Left $ Unsupported "Xml pages are not yet supported"
-    ParseOk (XmlHybrid{}, _) -> Left $ Unsupported "Xml pages are not yet supported"
-    ParseOk (Syntax.Module{}, _) -> Left $ InvalidOperation 
-        "Found module head when trying to parse a declaration, use \"Module.parse\" instead" 
-        "Declaration.parseWithBody"
+    ParseOk (Syntax.Module _ Nothing [] [] ds, cs)
+        -> mapM (convertWithBody s cs) ds
+    ParseOk (XmlPage{}, _) 
+        -> Left $ Unsupported "Xml pages are not yet supported"
+    ParseOk (XmlHybrid{}, _) 
+        -> Left $ Unsupported "Xml pages are not yet supported"
+    ParseOk (Syntax.Module{}, _) 
+        -> Left $ InvalidOperation 
+            ("Found module head when trying to parse a declaration, "
+                ++ "use \"Module.parse\" instead")
+            "Declaration.parseWithBody"
     ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     parseMode = case p of
-        Just fn -> defaultParseMode{parseFilename=fn,extensions=exts,fixities=Just[]}
-        Nothing -> defaultParseMode{extensions=exts,fixities=Just[]}
+        Just fn -> defaultParseMode
+                   { parseFilename=fn
+                   , extensions=exts
+                   , fixities=Just[]
+                   }
+        Nothing -> defaultParseMode{ extensions=exts
+                                   , fixities=Just[]
+                                   }
     exts = EnableExtension LambdaCase : glasgowExts

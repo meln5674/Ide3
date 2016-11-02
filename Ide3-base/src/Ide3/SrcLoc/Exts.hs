@@ -1,5 +1,5 @@
 {-|
-Module      : Ide3.Constructor
+Module      : Ide3.SrcLoc.Exts
 Description : Converting source locations from haskell-src-exts types
 Copyright   : (c) Andrew Melnick, 2016
 
@@ -28,11 +28,13 @@ instance FileLoccable Exts.SrcLoc where
 
 -- | Create a span from the start and end row/columns
 instance Spannable Exts.SrcSpan where
-    toSrcSpan (Exts.SrcSpan _ a b c d) = mkSrcSpan (Row a) (Column b) (Row c) (Column d)
+    toSrcSpan (Exts.SrcSpan _ a b c d)
+        = mkSrcSpan (Row a) (Column b) (Row c) (Column d)
 
 -- | Extract filename, then extract from span
 instance FileSpannable Exts.SrcSpan where
-    toSrcFileSpan span = SrcFileSpan (Exts.srcSpanFilename span) $ toSrcSpan span
+    toSrcFileSpan span =
+        SrcFileSpan (Exts.srcSpanFilename span) $ toSrcSpan span
 
 -- | Extract from overall span
 instance Spannable Exts.SrcSpanInfo where

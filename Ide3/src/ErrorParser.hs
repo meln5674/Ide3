@@ -83,14 +83,16 @@ moduleCounter = do
     case (readMaybe current, readMaybe total) of
         (Just current, Just total) -> 
             return $ ModuleCounter current total (ModuleName name)
-        _ -> error $ "Failed to parse module counter: " ++ show (current, total, name)
+        _ -> error $ "Failed to parse module counter: " 
+                   ++ show (current, total, name)
 
 sourceLocationTail = do
     row <- P.many1 P.digit
     void $ P.char ':'
     col <- P.many1 P.digit
     void $ P.char ':'
-    flag <- (P.try $ P.string " warning:" *> return True) <|> (P.string " error:" *> return False)
+    flag <-     (P.try $ P.string " warning:" *> return True) 
+            <|> (P.string " error:" *> return False)
     P.manyTill P.anyChar (P.try P.eof)
     return (row,col,flag)
 
@@ -111,19 +113,26 @@ sourceLocation = do
     case (readMaybe row, readMaybe col) of
         (Just row, Just col) -> 
             return $ SourceLocation path row col (if flag then IsWarning else IsError)
-        _ -> error $ "Failed to parse source location: " ++ show (parts, row, col, flag)
+        _ -> error $ "Failed to parse source location: " 
+                   ++ show (parts, row, col, flag)
 
 textLine = TextLine <$> P.many P.anyChar
 
-line = P.try projectLine <|> P.try moduleCounter <|> P.try sourceLocation <|> textLine
+line =  P.try projectLine 
+    <|> P.try moduleCounter 
+    <|> P.try sourceLocation 
+    <|> textLine
     
     
-mkError IsWarning projName modName row col parts = Warning (ErrorLocation projName modName) row col $ unlines $ reverse parts
-mkError IsError projName modName row col parts = Error (ErrorLocation projName modName) row col $ unlines $ reverse parts
+mkError IsWarning projName modName row col parts 
+    = Warning (ErrorLocation projName modName) row col $ unlines $ reverse parts
+mkError IsError projName modName row col parts 
+    = Error (ErrorLocation projName modName) row col $ unlines $ reverse parts
 
 addError etype projName modName row col
     = modify 
-    $ \s -> s { errors = mkError etype projName modName row col (messageBuffer s) : errors s
+    $ \s -> s { errors = mkError etype projName modName row col (messageBuffer s) 
+                       : errors s
               , messageBuffer = []
               }
 
@@ -154,7 +163,8 @@ parseLine = ifNotFinished $ \pmode -> do
     case result of
         Nothing -> do
             case pmode of
-                ReadingMessage projName modName row col etype -> lift $ addError etype projName modName row col
+                ReadingMessage projName modName row col etype 
+                    -> lift $ addError etype projName modName row col
                 _ -> return ()
             lift $ setMode Finished
         Just nextLine -> do

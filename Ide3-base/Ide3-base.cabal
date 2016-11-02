@@ -18,7 +18,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Ide3.Types
                      , Ide3.Types.State
-                     -- , Ide3.Types.State.Annotated
                      , Ide3.SrcLoc
                      , Ide3.SrcLoc.Exts
                      , Ide3.Solution

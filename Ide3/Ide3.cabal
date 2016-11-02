@@ -75,7 +75,6 @@ executable Ide3-GUI
                      , GuiCommand
                      , GuiCommandGeneric
                      , GuiCommand.Internal
---                     , ProcessReader
                      , Dialogs
                      , Dialogs.Class
                      , Dialogs.MainWindow
@@ -96,7 +95,6 @@ executable Ide3-GUI
                      , ViewerMonad2
                      , GuiHelpers
                      , SolutionContextMenu
-                     --, SyntaxHighlighter
                      , SyntaxHighlighter2
                      , History
                      , SearchMode

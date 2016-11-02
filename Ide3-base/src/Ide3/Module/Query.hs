@@ -23,7 +23,8 @@ importsModule' :: ( ModuleImportClass m
                      -> SolutionResult u m Bool
 importsModule' = moduleImportsModule'
 
--- | Within the context of a project, find all of the symbols this module exports
+-- | Within the context of a project, find all of the symbols this module
+-- exports
 exportedSymbols' :: ( ProjectModuleClass m
                     , ProjectExternModuleClass m 
                     , ModuleExportClass m 
@@ -67,7 +68,8 @@ internalSymbols' = moduleInternalSymbols'
 -- | Given a sub-symbol, (such as a data constructor or a class method), find
 --  the parent symbol and its siblings
 --  If successful, the list will contain the parent symbol as its head, and the
---      siblings as the tail. The symbol provided will not be an item in the list
+--      siblings as the tail. The symbol provided will not be an item in the
+--      list
 --  If the symbol is imported, it will be tagged as such
 symbolTree' :: ( ProjectModuleClass m
                      , ProjectExternModuleClass m

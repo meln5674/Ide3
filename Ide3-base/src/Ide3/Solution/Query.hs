@@ -17,5 +17,8 @@ import Ide3.Query
 -- | Find declrations in the solution which provide a symbol
 findSymbol :: (SolutionMonad m)
                    => Symbol
-                   -> SolutionResult u m [ProjectChild [ModuleChild [DeclarationInfo]]]
+                   -> SolutionResult u m
+                      [ProjectChild 
+                        [ModuleChild 
+                          [DeclarationInfo]]]
 findSymbol = solutionFindSymbol

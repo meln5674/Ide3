@@ -42,7 +42,10 @@ import Ide3.SrcLoc.Types
 import Ide3.Utils.Parser
 
 -- | Add, remove, retreive, and overwrite declarations
-instance ParamEnvClass Module DeclarationInfo (WithBody Declaration) (SolutionError u) where
+instance ParamEnvClass Module 
+                       DeclarationInfo 
+                       (WithBody Declaration) 
+                       (SolutionError u) where
     addChildT = addDeclaration
     removeChildT = removeDeclaration
     getChildT = getDeclaration
@@ -108,12 +111,11 @@ removeDeclaration :: Monad m
                   -> Module
                   -> SolutionResult u m (WithBody Declaration, Module)
 removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
-    Nothing -> throwE $ DeclarationNotFound (info m) di "Module.removeDeclaration"
+    Nothing -> throwE 
+        $ DeclarationNotFound (info m) di "Module.removeDeclaration"
     Just d -> return 
         ( d
-        , m
-        { moduleDeclarations = OMap.delete di $ moduleDeclarations m 
-        }
+        , m { moduleDeclarations = OMap.delete di $ moduleDeclarations m }
         )
 
 -- | Get a declaration from a module
@@ -193,7 +195,8 @@ addExport :: Monad m
           -> SolutionResult u m Module
 addExport ei e m = case moduleExports m of
     Just es -> case Map.lookup ei es of
-        Just _ -> throwE $ InternalError "Duplicate export id" "Module.addExport"
+        Just _ -> throwE
+            $ InternalError "Duplicate export id" "Module.addExport"
         Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e es }
     Nothing -> return $ m{ moduleExports = Just $ Map.insert ei e Map.empty }
 
@@ -203,9 +206,12 @@ removeExport :: Monad m
              -> Module
              -> SolutionResult u m (WithBody Export, Module)
 removeExport ei m = case moduleExports m of
-    Nothing -> throwE $ InvalidOperation "Can't remove export from an export all" "Module.removeExport"
+    Nothing -> throwE
+        $ InvalidOperation "Can't remove export from an export all" 
+                           "Module.removeExport"
     Just es -> case Map.lookup ei es of
-        Nothing -> throwE $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
+        Nothing -> throwE
+            $ InvalidExportId (moduleInfo m) ei "Module.removeExport"
         Just e -> return (e, m{ moduleExports = Just $ Map.delete ei es })
 
 -- | Get an export from a module
@@ -214,7 +220,9 @@ getExport :: Monad m
           -> Module
           -> SolutionResult u m (WithBody Export)
 getExport ei m = case moduleExports m of
-    Nothing -> throwE $ InvalidOperation "Can't get export from an export all" "Module.getExport"
+    Nothing -> throwE
+        $ InvalidOperation "Can't get export from an export all" 
+                           "Module.getExport"
     Just es -> case Map.lookup ei es of
         Nothing -> throwE $ InvalidExportId (info m) ei "Module.getExport"
         Just e -> return e
@@ -228,7 +236,9 @@ setExport :: Monad m
           -> SolutionResult u m Module
 setExport ei ei' e' m = case moduleExports m of
     Just es -> case Map.lookup ei es of
-        Nothing -> throwE $ InternalError "Tried to set an export in an export all" "Module.setExport"
+        Nothing -> throwE
+            $ InternalError "Tried to set an export in an export all" 
+                            "Module.setExport"
         Just _ -> return $ m
             { moduleExports
                 = Just
@@ -241,36 +251,42 @@ setExport ei ei' e' m = case moduleExports m of
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
-parse :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+parse :: String 
+      -> Maybe FilePath 
+      -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parse = parseUsing Parser.parse
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
-parseMain :: String -> Maybe FilePath -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+parseMain :: String 
+          -> Maybe FilePath 
+          -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseMain = parseUsing Parser.parseMain
 
 -- | Generalization of parse and parseMain
 parseUsing :: (String -> Maybe FilePath 
-                      -> Either (SolutionError u) (ExtractionResults SrcFileSpan))
+                      -> Either (SolutionError u) 
+                                (ExtractionResults SrcFileSpan)
+              )
            -> String 
            -> Maybe FilePath 
            -> Either (SolutionError u) (Module,[ExportId],[ImportId])
 parseUsing parser s p = case parser s p of
-    Right (Extracted minfo header pragmas exports imports decls) 
-            -> Right (Module newInfo (unAnn header) (map unAnn pragmas) imports' exports' decls', eids, iids)
+    Right extractResult -> Right (module_, eids, iids)
       where
+        Extracted minfo header pragmas exports imports decls = extractResult
         newInfo = case unAnn minfo of
             UnamedModule Nothing -> UnamedModule p
             x -> x
-        eids = case exports of
-            Just exportList -> [0..length exportList]
-            Nothing -> []
-        exports' = case exports of
-            Just exportList -> Just $ Map.fromList $ zip eids $ map unAnn exportList
-            Nothing -> Nothing
+        header' = unAnn header
+        pragmas' = map unAnn pragmas
+        eids = maybe [] (enumFromTo 0 . length) exports
+        exports' = fmap (Map.fromList . zip eids . map unAnn) exports 
         iids = [0..length imports]
         imports' = Map.fromList $ zip iids $ map unAnn imports
-        decls' = OMap.fromList $ zip (map (Declaration.info . item . unAnn) decls) (map unAnn decls)
+        declInfoAndItem d = (Declaration.info $ item $ unAnn d, unAnn d)
+        decls' = OMap.fromList $ map declInfoAndItem decls
+        module_ = Module newInfo header' pragmas' imports' exports' decls'
     Left msg -> Left msg
 
 
@@ -318,7 +334,9 @@ getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
     withNoExportList = "module " ++ name ++ " where"
-    withExportList es = "module " ++ name ++ (makeExportList $ bodies $ Map.elems es)
+    withExportList es = "module " 
+                      ++ name 
+                      ++ (makeExportList $ bodies $ Map.elems es)
         
 
 -- | Take a list and a predicate over two elements at a time.
@@ -341,7 +359,8 @@ splitOver f xs' = go xs' [] []
 spaceImports :: (a -> WithBody Import) -> ([a] -> [a]) -> [a] -> [a]
 spaceImports f g is = concatMap g $ partitionedImports
   where
-    partitionedImports = flip splitOver is $ \i1 i2 -> not $ Import.commonPath (item $ f i1) (item $ f i2)
+    partitionedImports = flip splitOver is $ \i1 i2 -> 
+        not $ Import.commonPath (item $ f i1) (item $ f i2)
 
 -- | Reconstruct the source code from a Module
 toFile :: Module -> String
@@ -357,8 +376,11 @@ type AnnotatedModuleItem = Annotated (Maybe ModuleItemKeyValue) [String]
 
 -- | Generate the annotated item for a module's header comment
 annotateHeaderComment :: Module -> [AnnotatedModuleItem]
-annotateHeaderComment m = [Annotated (Just $ HeaderCommentKeyValue $ moduleHeader m) (lines $ moduleHeader m)] 
-
+annotateHeaderComment m = [ Annotated (Just $ HeaderCommentKeyValue header) 
+                                      (lines header)
+                          ] 
+  where
+    header = moduleHeader m
 -- | Generate the annotated items for a module's pragmas
 annotatePragmas :: Module -> [AnnotatedModuleItem]
 annotatePragmas m = flip map (modulePragmas m) 
@@ -375,13 +397,19 @@ annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
         :
         case Map.toList es of
             [] -> [Annotated Nothing ["    () where"]]
-            [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e]
+            [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) 
+                                     ["    ( " ++ body e]
                          , Annotated Nothing ["    ) where"]
                          ]
-            ((eid,e):es') -> (Annotated (Just $ ExportKeyValue eid e) ["    ( " ++ body e])
-                            :
-                            (flip map es' $ \(eid',e') -> Annotated (Just $ ExportKeyValue eid' e') ["    , " ++ body e'])
-                            ++ [Annotated Nothing ["    ) where"]]
+            ((eid,e):es') -> (Annotated (Just $ ExportKeyValue eid e) 
+                                        ["    ( " ++ body e]
+                             ) 
+                             : flip map es'
+                                ( \(eid',e') -> 
+                                    Annotated (Just $ ExportKeyValue eid' e')
+                                              ["    , " ++ body e']
+                                )
+                             ++ [Annotated Nothing ["    ) where"]]
 
 -- | Generate the annotated items for a modules imports
 annotateImports :: Module -> [AnnotatedModuleItem]
@@ -409,7 +437,10 @@ toAnnotatedFile m
     :  pragmaLines 
     ++ headerLines 
     ++ blankLines 1
-    :  spaceImports (\(Annotated (Just (ImportKeyValue _ x)) _)-> x) (++[blankLines 1]) importLines 
+    :  spaceImports 
+        (\(Annotated (Just (ImportKeyValue _ x)) _)-> x)
+        (++[blankLines 1])
+        importLines 
     ++ insertBlankLines 1 declarationLines
   where
     headerCommentLines = annotateHeaderComment m
@@ -417,25 +448,6 @@ toAnnotatedFile m
     pragmaLines = annotatePragmas m
     importLines = annotateImports m
     declarationLines = annotateDeclarations m
-
-{-
-getItemAtPosition :: Int -> Int -> Module -> Maybe (ModuleItemString, Int, Int)
-getItemAtPosition r c = fmap (onFirst finalize) . go r c . toAnnotatedFile
-  where
-    onFirst f (a,b,c) = (f a,b,c)
-    finalize (HeaderCommentKeyValue s) = HeaderCommentString s
-    finalize (PragmaKeyValue p) = PragmaString p
-    finalize (ImportKeyValue iid i) = ImportString $ WithBody iid $ body i
-    finalize (ExportKeyValue eid e) = ExportString $ WithBody eid $ body e
-    finalize (DeclarationKeyValue did d) = DeclarationString $ WithBody did $ body d
-    go _ _ [] = Nothing
-    go r c (x:xs)
-        | r < length (annotation x) = case () of
-            ()
-                | c < length (annotation x !! r) -> flip fmap (annotated x) $ \y -> (y, r, c)
-                | otherwise -> Nothing
-        | otherwise = go (r - length (annotation x)) c xs
--}
 
 -- | Find all modifiers of a given symbol in the module
 modifiersOf :: Symbol -> Module -> [ModuleChild DeclarationInfo]
@@ -451,8 +463,9 @@ qualify = ModuleChild . moduleInfo
 
 -- | Find all of the symbols that are created within this module
 allSymbols :: Module -> [ModuleChild Symbol]
-allSymbols m
-  = concatMap (map (qualify m) . Declaration.symbolsProvided . item) $ moduleDeclarations m
+allSymbols m = concatMap declSyms $ moduleDeclarations m
+  where
+    declSyms = map (qualify m) . Declaration.symbolsProvided . item
 
 -- | Apply a transformation to each item in a list, then find the first item
 --  which did not fail the transformation, and the result

@@ -40,7 +40,8 @@ import qualified Data.Map as Map
 
 import Control.Monad
 
--- | A wrapper around Int which is used to keep track of the order keys are inserted in
+-- | A wrapper around Int which is used to keep track of the order keys are
+-- inserted in
 newtype Order = Order Int deriving (Read, Show, Eq, Ord, Enum, Num)
 
 -- | A map which preserves the insertion order of its keys
@@ -110,7 +111,8 @@ keys = Map.elems . orderMap
 elems :: Ord k => OrderedMap k v -> [v]
 elems m = Prelude.map (fst . (itemMap m Map.!)) $ keys m
 
--- | Convert the map to a list of key-value pairs, in order the keys were inserted
+-- | Convert the map to a list of key-value pairs, in order the keys were
+-- inserted
 toList :: Ord k => OrderedMap k v -> [(k,v)]
 toList m = Prelude.map (\k -> (k, fst $ itemMap m Map.! k)) $ keys m
 
@@ -147,10 +149,15 @@ map f m = m { itemMap = flip Map.map (itemMap m) $ \(x,ord) -> (f x,ord) }
 
 -- | Apply a transformation to each value in the map using the key as well
 mapWithKey :: Ord k => (k -> v -> v') -> OrderedMap k v -> OrderedMap k v'
-mapWithKey f m = m { itemMap = Map.mapWithKey (\k (v,o) -> (f k v,o)) (itemMap m) }
+mapWithKey f m = m
+    { itemMap = Map.mapWithKey (\k (v,o) -> (f k v,o)) $ itemMap m }
 
--- | Apply a monadic transformation to each value in the map using the key as well
-mapWithKeyM :: (Monad m, Ord k) => (k -> v -> m v') -> OrderedMap k v -> m (OrderedMap k v')
+-- | Apply a monadic transformation to each value in the map using the key as
+-- well
+mapWithKeyM :: ( Monad m
+               , Ord k
+               ) 
+            => (k -> v -> m v') -> OrderedMap k v -> m (OrderedMap k v')
 mapWithKeyM f m = liftM fromList $ forM (toList m) $ \(k,v) -> do
     v' <- f k v
     return (k,v')
@@ -178,7 +185,10 @@ instance Ord k => Foldable (OrderedMap k) where
 
 instance Ord k => Traversable (OrderedMap k) where
     mapM f m = do
-        itemMap' <- mapM (\(v,o) -> do { v' <- f v; return (v',o) } ) $ itemMap m
+        let pairUp (v,o) = do 
+                v' <- f v;
+                return (v',o)
+        itemMap' <- mapM pairUp $ itemMap m
         return m{ itemMap = itemMap' }
     traverse f m 
         =   pure (\itemMap' -> m{itemMap=itemMap'}) 

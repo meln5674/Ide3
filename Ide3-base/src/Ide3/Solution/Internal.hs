@@ -30,7 +30,8 @@ addProject :: Monad m
            -> SolutionResult u m Solution
 addProject pji p s = case Map.lookup pji $ solutionProjects s of
     Just _ -> throwE $ DuplicateProject pji "Solution.addProject"
-    Nothing -> return $ s{ solutionProjects = Map.insert pji p $ solutionProjects s }
+    Nothing -> return s
+        { solutionProjects = Map.insert pji p $ solutionProjects s }
 
 -- | Remove a project from a solution
 removeProject :: Monad m
@@ -39,7 +40,10 @@ removeProject :: Monad m
               -> SolutionResult u m (Project,Solution)
 removeProject pji s = case Map.lookup pji $ solutionProjects s of
     Nothing -> throwE $ ProjectNotFound pji "Solution.removeProject"
-    Just p -> return (p, s{ solutionProjects = Map.delete pji $ solutionProjects s })
+    Just p -> return
+        ( p
+        , s{ solutionProjects = Map.delete pji $ solutionProjects s }
+        )
 
 -- | Get a project from a solution
 getProject :: Monad m
