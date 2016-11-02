@@ -90,8 +90,8 @@ sourceLocationTail = do
     void $ P.char ':'
     col <- P.many1 P.digit
     void $ P.char ':'
-    flag <- P.option False (P.string " Warning:" *> return True)
-    P.eof
+    flag <- (P.try $ P.string " warning:" *> return True) <|> (P.string " error:" *> return False)
+    P.manyTill P.anyChar (P.try P.eof)
     return (row,col,flag)
 
 sourceLocation' = do
