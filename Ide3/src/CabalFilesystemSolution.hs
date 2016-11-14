@@ -527,6 +527,9 @@ addModuleToConfig pi mi = do
         _ -> return $ editBuildInfo p $ \bi -> bi{ otherModules = otherModules bi ++ [moduleName] }
     pi' <- getCabalProjectInfo pi
     updateCabalProject pi' p'
+    (root:_) <- getProjectSourceRoots p
+    (Opened (Just info)) <- lift getFsp
+    lift $ putFsp $ Opened $ Just $ addModulePath pi mi (root </> ModuleName.toFilePath moduleName <.> "hs") info
 
 -- | Remove a module from a solution's list of modules
 removeModuleFromConfig :: (Monad m) 
