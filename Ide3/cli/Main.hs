@@ -31,7 +31,6 @@ import System.Console.Haskeline
 
 import Ide3.NewMonad 
 import Ide3.NewMonad.Instances.State.Class
-import Ide3.NewMonad.Instances.Undecidable
 import Ide3.NewMonad.Instances.State.Class.Instances.Strict
 
 import qualified Ide3.Solution as Solution
@@ -66,11 +65,6 @@ deriving instance (MonadMask m) => MonadMask (StatefulWrapper m)
 deriving instance (MonadCatch m) => MonadCatch (StatefulWrapper m)
 deriving instance (MonadThrow m) => MonadThrow (StatefulWrapper m)
 deriving instance (MonadException m) => MonadException (StatefulWrapper m)
-
-deriving instance (MonadMask (t m)) => MonadMask (UndecidableWrapper t m)
-deriving instance (MonadCatch (t m)) => MonadCatch (UndecidableWrapper t m)
-deriving instance (MonadThrow (t m)) => MonadThrow (UndecidableWrapper t m)
-deriving instance (MonadException (t m)) => MonadException (UndecidableWrapper t m)
 
 deriving instance (MonadMask m) => MonadMask (SolutionStateT m)
 deriving instance (MonadCatch m) => MonadCatch (SolutionStateT m)
@@ -315,8 +309,9 @@ useStackProjectInitializer :: ( Monad m
                               , Monad (t m)
                               , PersistenceClass (t m)
                               , CabalMonad (t m)
+                              , SolutionClass (t m)
                               ) 
-                           => AppSetup a pa t fsp m -> AppSetup a StackProjectInitializerArgs t fsp m
+                           => AppSetup a pa t fsp m -> AppSetup a StackProjectInitializerArgs' t fsp m
 useStackProjectInitializer s = s{appProjectInitializer = stackProjectInitializer}
 
 

@@ -214,7 +214,7 @@ doAddProject projectInitializer arg = printOnError $ do
         Right initializerAction -> do
             r <- ExceptT $ lift $ runExceptT $ initializerAction
             case r of
-                ProjectInitializerSucceeded out err -> return $ out ++ err
+                ProjectInitializerSucceeded out err pji -> return $ out ++ err
                 ProjectInitializerFailed out err -> return $ out ++ err
 
 -- | Action for the remove project command

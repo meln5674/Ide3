@@ -42,7 +42,6 @@ import System.IO.Error
 import System.FilePath
 
 import Ide3.NewMonad hiding (load)
-import Ide3.NewMonad.Instances.Undecidable
 import Ide3.NewMonad.Instances.State.Class
 import Ide3.Types
 import qualified Ide3.Solution as Solution

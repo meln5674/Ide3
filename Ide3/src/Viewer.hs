@@ -35,8 +35,6 @@ import Control.Monad.Trans.State.Strict
 
 import PseudoState
 
-import Ide3.NewMonad.Instances.Undecidable()
-
 import Ide3.Utils
 import Ide3.Types
 --import Ide3.NewMonad hiding (load, new, finalize)

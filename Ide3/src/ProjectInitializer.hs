@@ -41,7 +41,7 @@ import Viewer
 
 -- | The result of initialization
 data ProjectInitializerResult
-    = ProjectInitializerSucceeded String String
+    = ProjectInitializerSucceeded String String ProjectInfo
     | ProjectInitializerFailed String String
 
 -- | The initializer abstract type. Use runInitializer or runInitializerWithInput

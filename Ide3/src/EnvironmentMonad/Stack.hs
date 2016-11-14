@@ -65,5 +65,5 @@ instance (MonadIO m, MonadMask m) => InitializerMonad (CabalSolution m) where
 
 instance (MonadIO m, MonadMask m, SolutionMonad m, ModuleFileClass m) 
         => ProjectInitializerMonad (CabalSolution m) where
-    type ProjectArgType (CabalSolution m) = StackProjectInitializerArgs
+    type ProjectArgType (CabalSolution m) = StackProjectInitializerArgs'
     getProjectInitializer = return stackProjectInitializer
