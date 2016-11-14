@@ -27,7 +27,8 @@ import Ide3.Types.State
 import Ide3.Module.Extern.Internal
 
 -- | Add an export and return the id assigned to it
-addExternExport :: Monad m => DescentChain2 ExternModule ExternExport m u ExportId
+addExternExport :: Monad m 
+                => DescentChain2 ExternModule ExternExport m u ExportId
 addExternExport = do
     e <- lift ask
     ei <- gets nextExternExportId
@@ -45,7 +46,8 @@ removeExternExport = do
     put m'
 
 -- | Get an export by id
-getExternExport :: Monad m => DescentChain2 ExternModule ExportId m u ExternExport
+getExternExport :: Monad m 
+                => DescentChain2 ExternModule ExportId m u ExternExport
 getExternExport = descendRO ask
 
 -- | Get the ids of all exports, or signify that all symbols are exported

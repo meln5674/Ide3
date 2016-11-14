@@ -1,6 +1,7 @@
 {-|
 Module      : Ide3.NewMonad.Instances.State.Compose
-Description : Composition instance for the stateful implementation of the NewMonad typeclasses
+Description : Composition instance for the stateful implementation of the
+                NewMonad typeclasses
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3
@@ -25,9 +26,12 @@ import Control.Monad
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
--- | A persistence instance can be created from a stateful solution equipped with
--- the ability to save/load that state
-instance (StatefulSolutionClass m, StatefulPersistenceClass m) => PersistenceClass (StatefulWrapper m) where
+-- | A persistence instance can be created from a stateful solution equipped
+-- with the ability to save/load that state
+instance ( StatefulSolutionClass m
+         , StatefulPersistenceClass m
+         )
+      => PersistenceClass (StatefulWrapper m) where
     load = loadState >>= putSolution
     new = newState >=> putSolution
     finalize = getSolution >>= finalizeState

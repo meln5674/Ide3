@@ -24,7 +24,8 @@ import Ide3.Types.State
 
 -- | Access solution info and projects statefull
 instance StatefulSolutionClass m => SolutionClass (StatefulWrapper m) where
-    editSolutionInfo f = modifySolution $ \s -> s{ solutionInfo = f $ solutionInfo s }
+    editSolutionInfo f = modifySolution 
+                       $ \s -> s{ solutionInfo = f $ solutionInfo s }
     addProject = modifySolutionER .-. runDescent2 Solution.addProject
     removeProject = modifySolutionER .-. runDescent2 Solution.removeProject
     getProjects = modifySolutionER $ runDescent1 Solution.getProjects

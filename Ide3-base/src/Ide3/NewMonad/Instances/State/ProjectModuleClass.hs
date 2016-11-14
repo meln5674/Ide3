@@ -25,4 +25,5 @@ instance StatefulSolutionClass m => ProjectModuleClass (StatefulWrapper m) where
     getModules = modifySolutionER .-. runDescent2 Solution.allModules
     removeModule = modifySolutionER .-.. runDescent3 Solution.removeModule
     getModuleHeader = modifySolutionER .-.. runDescent3 Solution.getModuleHeader
-    editModuleHeader = modifySolutionER .-... runDescent4 Solution.editModuleHeader
+    editModuleHeader =
+        modifySolutionER .-... runDescent4 Solution.editModuleHeader

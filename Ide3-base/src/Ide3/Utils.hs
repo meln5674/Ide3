@@ -25,11 +25,13 @@ import Control.Monad.Trans.State
 import Ide3.Types.Internal
 
 
--- | Execute an IO action, if it throws an async exception, lift it into an sync exception with no message
+-- | Execute an IO action, if it throws an async exception, lift it into an sync
+-- exception with no message
 wrapIOError :: (MonadIO m) => IO a -> SolutionResult u m a
 wrapIOError = wrapIOErrorWithMsg ""
 
--- | Execute an IO action, if it throws an async exception, lift it into a sync exception with the given message.
+-- | Execute an IO action, if it throws an async exception, lift it into a sync
+-- exception with the given message.
 wrapIOErrorWithMsg :: (MonadIO m) => String -> IO a -> SolutionResult u m a
 wrapIOErrorWithMsg msg f = do
     r <- liftIO $ tryIOError f
@@ -37,7 +39,8 @@ wrapIOErrorWithMsg msg f = do
         Right result -> return result
         Left err -> throwE $ InvalidOperation (show err) msg
 
--- | Try to read a file, if it throws an async exception, lift it into a sync exception
+-- | Try to read a file, if it throws an async exception, lift it into a sync
+-- exception
 wrapReadFile :: (MonadIO m) => FilePath -> SolutionResult u m String
 wrapReadFile path = wrapIOErrorWithMsg errMsg $ readFile path
   where
@@ -49,7 +52,8 @@ replace toReplace replacement str = go str
   where
     go [] = []
     go y@(x:xs)
-        | toReplace `isPrefixOf` y = replacement ++ go (drop (length toReplace) y)
+        | toReplace `isPrefixOf` y = replacement 
+                                  ++ go (drop (length toReplace) y)
         | otherwise = x : go xs
 
 -- | Class of transformers whch can insert themselves underneath
@@ -67,7 +71,8 @@ instance MonadBounce (StateT s) where
 instance MonadBounce (ReaderT r) where
     bounce f = ExceptT $ ReaderT $ const $ runExceptT f
 
--- | Class of transformers  whch can insert a dummy ExceptT layer underneath themselves
+-- | Class of transformers which can insert a dummy ExceptT layer underneath
+-- themselves
 class MonadSplice t where
     splice :: (Monad m) => t m a -> t (ExceptT e m) a
 
@@ -79,7 +84,8 @@ instance MonadSplice (StateT s) where
 instance MonadSplice (ReaderT r) where
     splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
 
--- | Class of transformers which can change an Either value into an ExceptT layer underath themsevles
+-- | Class of transformers which can change an Either value into an ExceptT
+-- layer underneath themsevles
 class MonadUnsplice t where
     unsplice :: (Monad m) => t m (Either e a) -> t (ExceptT e m) a
 
@@ -91,14 +97,17 @@ instance MonadUnsplice (ReaderT r) where
 (.-.) :: (b -> c) -> (a -> b) -> (a -> c)
 (.-.) = (.)
 
--- | Like `.` but the second function and the composed function take two arguments
+-- | Like `.` but the second function and the composed function take two
+-- arguments
 (.-..) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (.-..) f g a b = f $ g a b
 
--- | Like `.` but the second function and the composed function take three arguments
+-- | Like `.` but the second function and the composed function take three
+-- arguments
 (.-...) :: (d -> e) -> (a -> b -> c -> d) -> a -> b -> c -> e
 (.-...) f g a b c = f $ g a b c
 
--- | Like `.` but the second function and the composed function take four arguments
+-- | Like `.` but the second function and the composed function take four
+-- arguments
 (.-....) :: (e -> f) -> (a -> b -> c -> d -> e) -> a -> b -> c -> d -> f
 (.-....) f g a b c e = f $ g a b c e

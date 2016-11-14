@@ -37,7 +37,8 @@ catchE' :: Monad m => ExceptT e m a -> (e -> ExceptT e m a) -> ExceptT e m a
 catchE' = catchE
 
 -- | Edit the info of a project
-editProjectInfo :: Monad m => DescentChain2 Project (ProjectInfo -> ProjectInfo) m u ()
+editProjectInfo :: Monad m 
+                => DescentChain2 Project (ProjectInfo -> ProjectInfo) m u ()
 editProjectInfo = do
     f <- lift ask
     modify $ \p -> p{ projectInfo = f $ projectInfo p }
@@ -134,45 +135,58 @@ removeExternModule = do
 
 
 -- | Add a declaration to a module
-addDeclaration :: Monad m => DescentChain3 Project ModuleInfo (WithBody Declaration) m u ()
+addDeclaration :: Monad m 
+               => DescentChain3 Project ModuleInfo (WithBody Declaration) m u ()
 addDeclaration = descend1 Module.addDeclaration
 
 -- | Get a declaration by id from a module
-getDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo m u (WithBody Declaration)
+getDeclaration :: Monad m 
+               => DescentChain3 Project 
+                                ModuleInfo 
+                                DeclarationInfo 
+                                m u (WithBody Declaration)
 getDeclaration = descend1 Module.getDeclaration
 
 -- | Get the ids of all declarations in a module
-getDeclarations :: Monad m => DescentChain2 Project ModuleInfo m u [DeclarationInfo]
+getDeclarations :: Monad m 
+                => DescentChain2 Project ModuleInfo m u [DeclarationInfo]
 getDeclarations = descend0 Module.getDeclarations
 
 -- | Remove a delcaration by id from a module
-removeDeclaration :: Monad m => DescentChain3 Project ModuleInfo DeclarationInfo m u ()
+removeDeclaration :: Monad m 
+                  => DescentChain3 Project ModuleInfo DeclarationInfo m u ()
 removeDeclaration = descend1 Module.removeDeclaration
 
 -- | Apply a transformation to a declaration in a module
 editDeclaration :: Monad m 
-                => DescentChain4 
-                    Project 
-                    ModuleInfo 
-                    DeclarationInfo 
-                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
-                    m u DeclarationInfo
+                => DescentChain4 Project 
+                                 ModuleInfo 
+                                 DeclarationInfo 
+                                 ( WithBody Declaration 
+                                 -> Either (SolutionError u) 
+                                           (WithBody Declaration)
+                                 )
+                                 m u DeclarationInfo
 editDeclaration = descend2 Module.editDeclaration
 
 -- | Add an import to a module and return the id assigned to it
-addImport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Import) m u ImportId
+addImport :: Monad m 
+          => DescentChain3 Project ModuleInfo (WithBody Import) m u ImportId
 addImport = descend1 Module.addImport
 
 -- | Remove an import by id from a module
-removeImport :: Monad m => DescentChain3 Project ModuleInfo ImportId m u ()
+removeImport :: Monad m 
+             => DescentChain3 Project ModuleInfo ImportId m u ()
 removeImport = descend1 Module.removeImport
 
 -- | Get an import by id from a module
-getImport :: Monad m => DescentChain3 Project ModuleInfo ImportId m u (WithBody Import)
+getImport :: Monad m 
+          => DescentChain3 Project ModuleInfo ImportId m u (WithBody Import)
 getImport = descend1 Module.getImport
 
 -- | Get the ids of all imports in a module
-getImports :: Monad m => DescentChain2 Project ModuleInfo m u [ImportId]
+getImports :: Monad m 
+           => DescentChain2 Project ModuleInfo m u [ImportId]
 getImports = descend0 Module.getImports
 
 -- | Set a module to export all symbols
@@ -180,7 +194,8 @@ exportAll :: Monad m => DescentChain2 Project ModuleInfo m u ()
 exportAll = descend0 Module.exportAll
 
 -- | Add an export to a module and return the id assigned to it
-addExport :: Monad m => DescentChain3 Project ModuleInfo (WithBody Export) m u ExportId
+addExport :: Monad m 
+          => DescentChain3 Project ModuleInfo (WithBody Export) m u ExportId
 addExport = descend1 Module.addExport
 
 -- | Remove an export by id from a module
@@ -192,7 +207,8 @@ exportNothing :: Monad m => DescentChain2 Project ModuleInfo m u ()
 exportNothing = descend0 Module.exportNothing
 
 -- | Get an export by id from a module
-getExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u (WithBody Export)
+getExport :: Monad m 
+          => DescentChain3 Project ModuleInfo ExportId m u (WithBody Export)
 getExport = descend1 Module.getExport
 
 -- | Get ids of all exports in a module
@@ -212,22 +228,21 @@ getPragmas :: Monad m => DescentChain2 Project ModuleInfo m u [Pragma]
 getPragmas = descend0 Module.getPragmas
 
 -- | Add an external export and return the id assigned to it
-addExternExport :: Monad m => DescentChain3 Project ModuleInfo ExternExport m u ExportId
+addExternExport :: Monad m 
+                => DescentChain3 Project ModuleInfo ExternExport m u ExportId
 addExternExport = descend1 $ ExternModule.addExternExport
 
 -- | Remove an external export by id
-removeExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ()
+removeExternExport :: Monad m 
+                   => DescentChain3 Project ModuleInfo ExportId m u ()
 removeExternExport = descend1 $ ExternModule.removeExternExport
 
 -- | Get an external export by id
-getExternExport :: Monad m => DescentChain3 Project ModuleInfo ExportId m u ExternExport
+getExternExport :: Monad m 
+                => DescentChain3 Project ModuleInfo ExportId m u ExternExport
 getExternExport = descend1 $ ExternModule.getExternExport
 
--- | Get the ids of all external exports, or signify that all symbols are exported
+-- | Get the ids of all external exports, or signify that all symbols are 
+-- exported
 getExternExports :: Monad m => DescentChain2 Project ModuleInfo m u [ExportId]
 getExternExports = descend0 $ ExternModule.getExternExports
-
-{-
-getItemAtLocation :: Monad m => DescentChain3 Project ModuleInfo (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
-getItemAtLocation = descend1 Module.getItemAtLocation
--}

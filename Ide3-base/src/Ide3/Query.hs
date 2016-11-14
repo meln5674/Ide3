@@ -46,17 +46,19 @@ importWhitelistTree' :: ( ProjectModuleClass m
                         , ModuleDeclarationClass m
                         )
               => ProjectInfo
-              -> ModuleInfo  -- ^ Info for module symbols are being imported from
-              -> ImportKind     -- ^ Specific import to search for
+              -> ModuleInfo -- ^ Info for module symbols are being imported from
+              -> ImportKind -- ^ Specific import to search for
               -> SolutionResult u m [Symbol]
 importWhitelistTree' pji mi i = do
     exSyms <- liftM (map getChild) $ eitherModuleExportedSymbols' pji mi
     case i of
         NameImport s
             | s `elem` exSyms -> return [s]
-            | otherwise -> throwE $ SymbolNotExported mi s "importWhitelistTree'"
+            | otherwise -> throwE 
+                         $ SymbolNotExported mi s "importWhitelistTree'"
         AbsImport _ _ -> error "FOUND AN ABS IMPORT"
-        AggregateImport s Nothing -> map getChild <$> eitherModuleSymbolTree' pji mi s
+        AggregateImport s Nothing -> liftM (map getChild) 
+                                         $ eitherModuleSymbolTree' pji mi s
         AggregateImport s (Just ss) -> do
             ls <- eitherModuleSymbolTree' pji mi s
             let ls' = map getChild ls
@@ -80,7 +82,8 @@ importBlacklistTree' :: ( ProjectModuleClass m
               -> SolutionResult u m [Symbol]
 importBlacklistTree' pji mi i = do
     whitelistSyms <- importWhitelistTree' pji mi i
-    allSyms <- map getChild <$> eitherModuleExportedSymbols' pji mi
+    allSyms <- liftM (map getChild) 
+                   $ eitherModuleExportedSymbols' pji mi
     return $ filter (not . (`elem` whitelistSyms)) allSyms
 
 -- | Get the symbols provided by an import, ignoring qualification
@@ -95,12 +98,15 @@ importUnqualSymbolsProvided' :: ( ProjectModuleClass m
                             -> Import 
                             -> SolutionResult u m [Symbol]
 importUnqualSymbolsProvided' pji i = case i of
-    (ModuleImport sym _ _) -> liftM (map getChild) $ eitherModuleExportedSymbols' pji (ModuleInfo sym)
+    (ModuleImport sym _ _) -> liftM (map getChild) 
+                            $ eitherModuleExportedSymbols' pji (ModuleInfo sym)
     (WhitelistImport sym _ _ specs) -> do
-        symbolsFromEach <- mapM (importWhitelistTree' pji (ModuleInfo sym)) specs
+        symbolsFromEach <- forM specs
+                              $ (importWhitelistTree' pji (ModuleInfo sym)) 
         return $ concat symbolsFromEach
     (BlacklistImport sym _ _ specs) -> do
-        symbolsFromEach <- mapM (importBlacklistTree' pji (ModuleInfo sym)) specs
+        symbolsFromEach <- forM specs
+                         $ (importBlacklistTree' pji (ModuleInfo sym))
         return $ concat symbolsFromEach
 
 -- | Get the symbols provided by an import
@@ -175,7 +181,8 @@ importSymbolTree' :: ( ProjectModuleClass m
                  -> Symbol 
                  -> SolutionResult u m [Symbol]
 importSymbolTree' pji i s = do
-    map getChild <$> eitherModuleSymbolTree' pji (ModuleInfo $ Import.moduleName i) s
+    liftM (map getChild)
+        $ eitherModuleSymbolTree' pji (ModuleInfo $ Import.moduleName i) s
 
 -- | Get the symbols an export provides
 exportSymbolsProvided' :: ( ProjectModuleClass m
@@ -203,8 +210,9 @@ exportSymbolsProvided' pji mi e = case e of
                 then do
                     syms <- moduleExportedSymbols' pji $ ModuleInfo n
                     return $ map getChild syms
-                else throwE 
-                     $ ModuleNotImported pji mi (ModuleInfo n) "exportSymbolsProvided"
+                else throwE $ ModuleNotImported pji mi 
+                                                (ModuleInfo n) 
+                                                "exportSymbolsProvided"
     
     AggregateExport s (Just ss) -> do
         allSyms <- moduleDeclaredSymbols pji mi
@@ -212,7 +220,8 @@ exportSymbolsProvided' pji mi e = case e of
             then do
                 tree <- map getChild <$> moduleSymbolTree' pji mi s 
                 case find (not . (`elem` tree)) ss of
-                        Just s' -> throwE $ NotSubSymbol s s' "exportSymbolsProvided"
+                        Just s' -> throwE 
+                                   $ NotSubSymbol s s' "exportSymbolsProvided"
                         Nothing -> return exportedSyms
             else throwE $ SymbolNotFound mi s "exportSymbolsProvided"
       where
@@ -304,8 +313,10 @@ moduleDeclaredSymbols pji mi = do
 -- | Given a sub-symbol, (such as a data constructor or a class method), find
 --  the parent symbol and its siblings
 --  If successful, the list will contain the parent symbol as its head, and the
---      siblings as the tail. The symbol provided will not be an item in the list
---  If the symbol is imported, it will be tagged with the module it imported from
+--      siblings as the tail. The symbol provided will not be an item in the
+--      list
+--  If the symbol is imported, it will be tagged with the module it imported
+--      from
 moduleSymbolTree' :: ( ProjectModuleClass m
                      , ProjectExternModuleClass m
                      , ModuleImportClass m
@@ -318,12 +329,15 @@ moduleSymbolTree' :: ( ProjectModuleClass m
            -> Symbol 
            -> SolutionResult u m [ModuleChild Symbol]
 moduleSymbolTree' pji mi sym = do
-    declarations <- liftM items $ getDeclarations pji mi >>= mapM (getDeclaration pji mi)
-    let declSearchResult = Module.search (`Declaration.otherSymbols` sym) declarations
+    declarations <- liftM items $ getDeclarations pji mi 
+                                  >>= mapM (getDeclaration pji mi)
+    let declSearchResult = Module.search (`Declaration.otherSymbols` sym) 
+                                         declarations
     case declSearchResult of
         Just (_,syms) -> return $ map (ModuleChild mi) syms
         Nothing -> do
-            imports <- liftM items $ getImports pji mi >>= mapM (getImport pji mi) 
+            imports <- liftM items $ getImports pji mi 
+                                     >>= mapM (getImport pji mi) 
             let othersFromImport x = importOtherSymbols' pji x sym
             importSearchResult <- Module.searchM othersFromImport imports
             case importSearchResult of
@@ -343,7 +357,8 @@ getExternalSymbols :: ( ProjectModuleClass m
                    => ProjectInfo 
                    -> ModuleInfo 
                    -> SolutionResult u m  [Symbol]
-getExternalSymbols pji mi = liftM (map getChild) $ eitherModuleExportedSymbols' pji mi
+getExternalSymbols pji mi = liftM (map getChild) 
+                            $ eitherModuleExportedSymbols' pji mi
 
 -- | Test if a project has a module
 hasModule :: (ProjectModuleClass m) 
@@ -494,7 +509,11 @@ projectFindSymbol pji sym = do
 -- | Search the entire solution for declarations which provide a symbol
 solutionFindSymbol :: (SolutionMonad m)
                    => Symbol
-                   -> SolutionResult u m [ProjectChild [ModuleChild [DeclarationInfo]]]
+                   -> SolutionResult u m [ProjectChild 
+                                            [ModuleChild 
+                                                [DeclarationInfo]
+                                            ]
+                                         ]
 solutionFindSymbol sym = do
     pjis <- getProjects
     results <- forM pjis $ \pji -> do

@@ -1,6 +1,7 @@
 {-|
 Module      : Ide3.NewMonad.Instances.State.Class
-Description : Classes for the stateful implementation of the NewMonad typeclasses
+Description : Classes for the stateful implementation of the NewMonad
+                   typeclasses
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3

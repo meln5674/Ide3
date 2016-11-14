@@ -80,7 +80,8 @@ data ModuleInfo
     | UnamedModule (Maybe FilePath)     
     deriving (Show, Read, Eq, Ord)
 
--- | Produce a string representing a module's info, with a default string if it is an unnamed, pathless module
+-- | Produce a string representing a module's info, with a default string if it
+-- is an unnamed, pathless module
 moduleInfoString :: ModuleInfo -> String -> String
 moduleInfoString (ModuleInfo s) _ = getSymbol s
 moduleInfoString (UnamedModule (Just path)) _ = path
@@ -330,29 +331,64 @@ data SolutionError u
 -- | Return error message for each error type
 instance Show u => Show (SolutionError u) where
     show (ModuleNotFound pji mi s)
-        = printf "%s: module \"%s\" not found in project \"%s\"" s (show mi) (show pji)
+        = printf "%s: module \"%s\" not found in project \"%s\"" 
+          s 
+          (show mi)
+          (show pji)
     show (DeclarationNotFound mi di s)
-        = printf "%s: in module \"%s\" declaration \"%s\" not found" s (show mi) (show di)
+        = printf "%s: in module \"%s\" declaration \"%s\" not found" 
+          s 
+          (show mi) 
+          (show di)
     show (SymbolNotFound mi sym s)
-        = printf "%s: in module \"%s\" symbol \"%s\" not found" s (show mi) (show sym)
+        = printf "%s: in module \"%s\" symbol \"%s\" not found" 
+          s 
+          (show mi) 
+          (show sym)
     show (SymbolNotImported mi sym s)
-        = printf "%s: module \"%s\" does not import symbol \"%s\"" s (show mi) (show sym)
+        = printf "%s: module \"%s\" does not import symbol \"%s\"" 
+          s 
+          (show mi) 
+          (show sym)
     show (SymbolNotExported mi sym s)
-        = printf "%s: module \"%s\" does not export symbol \"%s\"" s (show mi) (show sym)
+        = printf "%s: module \"%s\" does not export symbol \"%s\"" 
+          s 
+          (show mi) 
+          (show sym)
     show (NotSubSymbol super sub s)
-        = printf "%s: \"%s\" is not a class method or constructor of \"%s\" %s" s (show sub) (show super)
+        = printf "%s: \"%s\" is not a class method or constructor of \"%s\" %s" 
+          s 
+          (show sub) 
+          (show super)
     show (ModuleNotImported pji importer importee s)
-        = printf "%s: module \"%s\" does not import module \"%s\" in project \"%s\"" s (show importer) (show importee) (show pji)
+        = printf
+          "%s: module \"%s\" does not import module \"%s\" in project \"%s\""
+          s 
+          (show importer) 
+          (show importee) 
+          (show pji)
     show (InvalidImportId mi ii s)
-        = printf "%s: module \"%s\" does not have an import with ID \"%s\"" s (show mi) (show ii)
+        = printf "%s: module \"%s\" does not have an import with ID \"%s\"" 
+          s 
+          (show mi) 
+          (show ii)
     show (InvalidExportId mi ei s)
-        = printf "%s: module \"%s\" does not have an export with ID \"%s\"" s (show mi) (show ei)
+        = printf "%s: module \"%s\" does not have an export with ID \"%s\""
+          s
+          (show mi)
+          (show ei)
     show (InvalidOperation s1 s2)
         = printf "%s: %s" s2 s1
     show (DuplicateDeclaration mi di s)
-        = printf "%s: A declaration \"%s\" already exists in module \"%s\"" s (show di) (show mi)
+        = printf "%s: A declaration \"%s\" already exists in module \"%s\""
+          s 
+          (show di) 
+          (show mi)
     show (DuplicateModule pji mi s)
-        = printf "%s: a module named \"%s\" already exists in project \"%s\"" s (show mi) (show pji)
+        = printf "%s: a module named \"%s\" already exists in project \"%s\""
+          s 
+          (show mi)
+          (show pji)
     show (DuplicateProject pji s)
         = printf "%s: a project name \"%s\" already exists" s (show pji)
     show (ProjectNotFound pji s)
@@ -366,21 +402,25 @@ instance Show u => Show (SolutionError u) where
     show (UserError u)
         = show u
 
--- | Class of symbols which can be combined with a module info to produce a symbol
+-- | Class of symbols which can be combined with a module info to produce a
+-- symbol
 class Qualify a where
     -- | Qualify a value with a module prefix
     qual :: ModuleChild a -> Symbol
  
 -- | Prepend module name and dot to symbol name
 instance Qualify Symbol where
-    qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s)) = Symbol $ m ++ '.' : s
-    qual (ModuleChild (UnamedModule _) _) = error "Cannot qualify with an unnamed module"
+    qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s))
+        = Symbol $ m ++ '.' : s
+    qual (ModuleChild (UnamedModule _) _)
+        = error "Cannot qualify with an unnamed module"
 
 -- | Prepend module name and dot to declaration info
 instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
-    qual (ModuleChild (UnamedModule _) _) = error "Cannot qualifiy with an unnamed module"
+    qual (ModuleChild (UnamedModule _) _)
+        = error "Cannot qualifiy with an unnamed module"
 
 -- | Wrapper for a monad transformer which can throw solution exceptions
 type SolutionResult u = ExceptT (SolutionError u)

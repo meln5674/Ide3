@@ -32,25 +32,31 @@ import Ide3.Utils.Parser
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
-parseAndCombine :: String -> Maybe FilePath -> Either (SolutionError u) (WithBody Declaration)
+parseAndCombine :: String 
+                -> Maybe FilePath 
+                -> Either (SolutionError u) (WithBody Declaration)
 parseAndCombine s fp = do 
     ds <- Parser.parseWithBody s fp
     let combined = combineMany ds
     case combined of
         [d] -> return $ unAnn d
-        [] -> Left $ InvalidOperation "Found no declarations" "Declaration.parseAndCombine"
-        _ -> Left $ InvalidOperation "Found more than 1 declaration" "Declaration.parseAndCombine"
+        [] -> Left $ InvalidOperation "Found no declarations" 
+                                      "Declaration.parseAndCombine"
+        _ -> Left $ InvalidOperation "Found more than 1 declaration"
+                                     "Declaration.parseAndCombine"
     
 -- | Parse a declaration, but if it fails, return an unparseable declaration
 -- along with the error
 parseAndCombineLenient :: String -> Maybe FilePath -> DeclarationInfo 
-             -> Either (WithBody Declaration, SolutionError u) (WithBody Declaration)
+             -> Either (WithBody Declaration, SolutionError u) 
+                       (WithBody Declaration)
 parseAndCombineLenient s p di = case parseAndCombine s p of
     Right decl -> Right decl
     Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
 
 -- | Find declarations that can be merged and merge them
-combineMany :: [Ann SrcSpan (WithBody Declaration)] -> [Ann SrcSpan (WithBody Declaration)]
+combineMany :: [Ann SrcSpan (WithBody Declaration)] 
+            -> [Ann SrcSpan (WithBody Declaration)]
 combineMany ds = ds'
   where
     m = OMap.partitionBy (info . item . unAnn) ds
@@ -74,7 +80,8 @@ symbolsProvided t = typesProvided t
 providesSymbol :: Declaration -> Symbol -> Bool
 d `providesSymbol` s = s `elem` symbolsProvided d
 
--- | If a declaration provides a symbol, get all of the other symbols it provides
+-- | If a declaration provides a symbol, get all of the other symbols it
+-- provides
 otherSymbols :: Declaration -> Symbol -> Maybe [Symbol]
 otherSymbols d s | d `providesSymbol` s = Just $ delete s $ symbolsProvided d
                  | otherwise = Nothing
@@ -98,7 +105,8 @@ bindsProvided _ = []
 
 -- | Get a list of symbols a declaration affects
 symbolsAffected :: Declaration -> [Symbol]
-symbolsAffected (ModifierDeclaration _ t) = ModifierDeclaration.symbolsAffected t
+symbolsAffected (ModifierDeclaration _ t)
+    = ModifierDeclaration.symbolsAffected t
 symbolsAffected _ = []
 
 -- | Test if a declaration affects a symbol

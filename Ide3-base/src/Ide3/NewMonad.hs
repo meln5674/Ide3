@@ -133,7 +133,9 @@ class Monad m => ModuleDeclarationClass m where
     editDeclaration :: ProjectInfo 
                     -> ModuleInfo 
                     -> DeclarationInfo
-                    -> (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    -> (  WithBody Declaration 
+                       -> Either (SolutionError u) (WithBody Declaration)
+                       )
                     -> SolutionResult u m DeclarationInfo
     -- | Remove a declaration from a module
     removeDeclaration :: ProjectInfo 
@@ -179,7 +181,8 @@ class Monad m => ModuleExportClass m where
               -> ExportId 
               -> SolutionResult u m (WithBody Export)
     -- | Remove an export from a module
-    --  Instances are expected to return a Left value if a matching export is not found
+    -- Instances are expected to return a Left value if a matching export is not
+    -- found
     removeExport :: ProjectInfo 
                  -> ModuleInfo
                  -> ExportId
@@ -238,27 +241,40 @@ class Monad m => ExternModuleExportClass m where
 class Monad m => ModuleFileClass m where
     toFile :: ProjectInfo -> ModuleInfo -> SolutionResult u m String
 
--- | Class of monads which can 
+-- | Class of monads which can retreive items at locations within a module 
 class ( Monad m )
      => ModuleLocationClass m where
     getModuleItemAtLocation :: ProjectInfo 
-                            -> ModuleInfo -> [SrcLoc]
-                            -> SolutionResult u m [Maybe (ModuleItemString, SrcLoc)]
+                            -> ModuleInfo
+                            -> [SrcLoc]
+                            -> SolutionResult u m [Maybe ( ModuleItemString
+                                                         , SrcLoc
+                                                         )
+                                                  ]
 
 -- | Wrapper for monads which have all project features
 type ProjectClass m = (ProjectModuleClass m, ProjectExternModuleClass m)
 
 -- | Wrapper for monads which have all module features 
-type ModuleClass m = (ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m, ModulePragmaClass m)
+type ModuleClass m = ( ModuleDeclarationClass m
+                     , ModuleImportClass m
+                     , ModuleExportClass m
+                     , ModulePragmaClass m
+                     )
 
 -- | Wrapper for monads that have all external module features
 type ExternModuleClass m = (ExternModuleExportClass m)
 
 -- | Wrapper for monads which have all features for solutions, projects,
 -- modules, and external modules
-type SolutionMonad m = (SolutionClass m, ProjectClass m, ModuleClass m, ExternModuleClass m)
+type SolutionMonad m = ( SolutionClass m
+                       , ProjectClass m
+                       , ModuleClass m
+                       , ExternModuleClass m
+                       )
 
--- | Wrapper for monads which have the features of SolutionMonad, but are also persistent
+-- | Wrapper for monads which have the features of SolutionMonad, but are also
+-- persistent
 type PersistentSolutionMonad m = (PersistenceClass m, SolutionMonad m)
 
 -- | Wrapper for monads which have the features of SolutionMonad, but also can
@@ -267,4 +283,6 @@ type SolutionFileMonad m = (SolutionMonad m, ModuleFileClass m)
 
 -- | Wrapper for monads which have the features of SolutionMonad, but also can
 -- produce files for modules and is persistent
-type PersistentSolutionFileMonad m = (PersistentSolutionMonad m, ModuleFileClass m)
+type PersistentSolutionFileMonad m = ( PersistentSolutionMonad m
+                                     , ModuleFileClass m
+                                     )

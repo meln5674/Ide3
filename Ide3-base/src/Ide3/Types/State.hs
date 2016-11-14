@@ -1,6 +1,7 @@
 {-|
 Module      : Ide3.Types.State
-Description : Types used for the stateful implementation of the NewMonad typeclasses
+Description : Types used for the stateful implementation of the NewMonad
+                typeclasses
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3

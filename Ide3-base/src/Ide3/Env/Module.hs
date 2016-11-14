@@ -39,7 +39,10 @@ addDeclaration = do
     put =<< lift (lift $ addChildT (Declaration.info $ item d) d m)
 
 -- | Get a declaration by id
-getDeclaration :: Monad m => DescentChain2 Module DeclarationInfo m u (WithBody Declaration)
+getDeclaration :: Monad m 
+               => DescentChain2 Module 
+                                DeclarationInfo 
+                                m u (WithBody Declaration)
 getDeclaration = descend0 get
 
 -- | Remove a declaration by id
@@ -60,7 +63,9 @@ editDeclaration :: Monad m
                 => DescentChain3 
                     Module
                     DeclarationInfo 
-                    (WithBody Declaration -> Either (SolutionError u) (WithBody Declaration))
+                    (  WithBody Declaration 
+                    -> Either (SolutionError u) (WithBody Declaration)
+                    )
                     m u DeclarationInfo
 editDeclaration = descend1 $ do
     f <- lift ask
@@ -148,11 +153,3 @@ removePragma = do
 -- | Get all pragmas
 getPragmas :: Monad m => DescentChain1 Module m u [Pragma]
 getPragmas = gets modulePragmas
-
-{-
-getItemAtLocation :: Monad m => DescentChain2 Module (Int,Int) m u (Maybe (ModuleItemString, Int, Int))
-getItemAtLocation = do
-    (r,c) <- lift ask
-    m <- get
-    return $ getItemAtPosition r c m
--}

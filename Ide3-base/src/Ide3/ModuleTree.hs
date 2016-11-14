@@ -29,10 +29,15 @@ for :: [a] -> (a -> b) -> [b]
 for xs f = map f xs
 
 -- | Given a list and a function which produces a key from a list item,
--- Create a map which maps a key to the list of inputs which all produced that same key
+-- Create a map which maps a key to the list of inputs which all produced that
+-- same key
 partitionBy :: Ord k => (a -> k) -> [a] -> Map k [a]
-partitionBy f = foldl (\m x -> Map.alter (\case { Nothing -> Just [x]; Just ys -> Just (x:ys) }) (f x) m) Map.empty
-
+partitionBy f = foldl addOrCreate Map.empty
+  where
+    addOrCreate m x = Map.alter newIfEmpty (f x) m
+      where
+        newIfEmpty Nothing = Just [x]
+        newIfEmpty (Just ys) = Just (x:ys)
 -- | A tree representing a heirarchy of modules, along with the keys for
 -- reterieving their contents
 data ModuleTree
@@ -54,13 +59,15 @@ makeTreeSkeleton = go ""
   where
     go knownRoot modInfos = for partitions processPartition
       where
-        processPartition (rootInfo,subModuleNames) = makeNode rootInfo newRoot toProcess
+        processPartition (rootInfo,subModuleNames) = 
+            makeNode rootInfo newRoot toProcess
           where
             rootPresent = rootInfo `elem` subModuleNames
             rootString = case rootInfo of
                 ModuleInfo (Symbol s) -> s
                 UnamedModule (Just p) -> p
-                UnamedModule _ -> error "Cannot make a tree with a pathless unamed module"
+                UnamedModule _ -> 
+                    error "Cannot make a tree with a pathless unamed module"
             newRoot = rootString ++ "."
             toProcess = if rootPresent
                 then delete rootInfo subModuleNames
@@ -69,7 +76,9 @@ makeTreeSkeleton = go ""
                 then ModuleNode x (go y z) [] [] [] Nothing
                 else OrgNode x $ go y z
         partitions = Map.toList $ partitionBy getRootName modInfos
-        getRootName (ModuleInfo (Symbol s)) = ModuleInfo $ Symbol $ preRoot ++ postRoot
+        getRootName (ModuleInfo (Symbol s)) = ModuleInfo 
+                                            $ Symbol 
+                                            $ preRoot ++ postRoot
           where
             preRoot = take (length knownRoot) s
             postRoot = takeWhile ('.' /= ) $ drop (length knownRoot) s
@@ -152,7 +161,8 @@ formatTree = intercalate "\n" . go []
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
             UnamedModule (Just p) -> p
-            UnamedModule _ -> error "Cannot make a tree with a pathless unamed module"
+            UnamedModule _ ->
+                error "Cannot make a tree with a pathless unamed module"
         firstLine = case prefixFlags of
             [] -> moduleName
             [_] -> "+-- " ++ moduleName
@@ -168,11 +178,17 @@ formatTree = intercalate "\n" . go []
               where
                 firstModules = init ms
                 lastModule = last ms
-                firstModuleLines = concatMap (go (True:prefixFlags)) firstModules
+                firstModuleLines = concatMap (go (True:prefixFlags)) 
+                                             firstModules
                 lastModuleLines = go (False:prefixFlags) lastModule
         allLines = case (declLines,subModuleLines) of
             ([],[]) -> [firstLine,prefix]
             (ds,[]) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix]
             ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]
-            (ds,ms) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix ++ "|"] ++ ms ++ [prefix]
+            (ds,ms) -> firstLine 
+                     : [prefix ++ "|"] 
+                     ++ ds 
+                     ++ [prefix ++ "|"] 
+                     ++ ms 
+                     ++ [prefix]
 
