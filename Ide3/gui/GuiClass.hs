@@ -78,7 +78,7 @@ type SolutionInitializerClass' m m'
 
 class (Monad m) => ProjectInitializerClass m where
     type ClassProjectInitializerMonad m :: * -> *
-    setupProjectCreator :: m () -> m ()
+    setupProjectCreator :: m ()
     getProjectCreatorArg 
         :: m (Either (SolutionError u) (ProjectArgType (ClassProjectInitializerMonad m)))
     finalizeProjectCreator :: m ()

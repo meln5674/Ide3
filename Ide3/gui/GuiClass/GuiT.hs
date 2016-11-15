@@ -1,9 +1,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GuiClass.GuiT where
 
-import Data.Text
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import System.Directory
 import System.FilePath
@@ -25,6 +28,8 @@ import Ide3.Utils
 import EnvironmentMonad
 
 import Initializer.Stack
+import ProjectInitializer.Stack
+import CabalMonad
 
 import GuiMonad
 import GuiClass
@@ -36,33 +41,83 @@ import SolutionTree
 import Dialogs.Class
 
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
+import qualified Dialogs.NewProjectDialog as NewProjectDialog
+import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..))
 
 import GuiT
 
 
 instance ( Monad m'
          , MonadIO m
+         , ProjectArgType m' ~ StackProjectInitializerArgs'
          ) => ProjectInitializerClass (GuiT m' p m) where
     type ClassProjectInitializerMonad (GuiT m' p m) = m'
-    setupProjectCreator onConfirm
-        = id {- access the project creator dialog #-}
-        $ lift $ liftIO $ do
-            {- attach `onConfirm` to the confirm clicked event of the project creator dialog -}
-            return ()
-            
+    setupProjectCreator
+        = liftDialogs
+        $ withNewProjectDialogM
+        $ \dialog -> NewProjectDialog.setVisible dialog True
+
     getProjectCreatorArg
-        = liftEnv $ withGuiComponents
-        $ const {- access some kind of buffer #-}
-        $ lift $ liftIO $ do
-            {- get the contents of the buffer, create a stack args -}
-            return $ Left $ Unsupported "Project creation"
+        = liftDialogs 
+        $ withNewProjectDialogM
+        $ \dialog -> do
+            let fromCommaList = map (T.unpack . T.strip) . T.splitOn ","
+            primarySrcDir <- liftM T.unpack $ NewProjectDialog.getPrimarySrcDir dialog
+            secondarySrcDirs <- liftM fromCommaList $ NewProjectDialog.getSecondarySrcDirs dialog
+            dependencies <- liftM fromCommaList $ NewProjectDialog.getDependencies dialog
+            projectType <- NewProjectDialog.getProjectType dialog
+            case projectType of
+                Executable -> do
+                    projectName <- liftM T.unpack $ NewProjectDialog.getExecutableProjectName dialog
+                    exeMainPath <- liftM T.unpack $ NewProjectDialog.getExecutableMainModule dialog
+                    return $ Right $ ExecutableProjectArgs 
+                        { primarySrcDir
+                        , secondarySrcDirs
+                        , projectName
+                        , exeMainPath
+                        , dependencies
+                        }
+                Library -> do
+                    return $ Right $ LibraryProjectArgs
+                        { primarySrcDir
+                        , secondarySrcDirs
+                        , dependencies
+                        }
+                TestSuite -> do
+                    projectName <- liftM T.unpack $ NewProjectDialog.getTestProjectName dialog
+                    testType <- NewProjectDialog.getTestProjectType dialog
+                    testSuiteArgs <- case testType of
+                        ExitCode -> liftM (StdioTestSuiteArgs . T.unpack) 
+                            $ NewProjectDialog.getTestMainModule dialog
+                        Detailed -> liftM (DetailedTestSuiteArgs . T.unpack)
+                            $ NewProjectDialog.getTestTestModule dialog
+                    return $ Right $ TestSuiteProjectArgs
+                        { projectName
+                        , primarySrcDir
+                        , secondarySrcDirs
+                        , testSuiteArgs
+                        , dependencies
+                        }
+                Benchmark -> do
+                    projectName <- liftM T.unpack $ NewProjectDialog.getExecutableProjectName dialog
+                    exeMainPath <- liftM T.unpack $ NewProjectDialog.getExecutableMainModule dialog
+                    benchmarkArgs <- liftM (StdioBenchmarkArgs . T.unpack)
+                        $ NewProjectDialog.getBenchmarkMainModule dialog
+                    return $ Right $ ExecutableProjectArgs 
+                        { primarySrcDir
+                        , secondarySrcDirs
+                        , projectName
+                        , exeMainPath
+                        , dependencies
+                        }
+            
         
         
     finalizeProjectCreator 
-        = id {- access the project creator dialog -}
-        $ lift $ liftIO $ do
-            {- close the dialog -}
-            return ()
+        = liftDialogs
+        $ withNewProjectDialogM
+        $ \dialog -> NewProjectDialog.setVisible dialog False
+
 
 
 getSolutionCreatorArg' :: forall m' p m u
@@ -76,8 +131,8 @@ getSolutionCreatorArg'
         $ withNewSolutionDialogM
         $ \dialog -> do
             projectRoot <- NewSolutionDialog.getSelectedFolder dialog
-            projectName <- liftM unpack $ NewSolutionDialog.getSolutionName dialog
-            templateName <- liftM (fmap unpack) $ NewSolutionDialog.getTemplateName dialog
+            projectName <- liftM T.unpack $ NewSolutionDialog.getSolutionName dialog
+            templateName <- liftM (fmap T.unpack) $ NewSolutionDialog.getTemplateName dialog
             runExceptT $ case projectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do

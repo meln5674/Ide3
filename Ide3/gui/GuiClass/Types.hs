@@ -26,4 +26,5 @@ data SolutionTreeElem
     | ImportElem ImportId (WithBody Import)
     | ExportElem ExportId (WithBody Export)
     | PragmaElem Pragma
+    | SolutionElem
   deriving (Eq, Show)

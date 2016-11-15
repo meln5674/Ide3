@@ -110,7 +110,6 @@ doNewStart :: ( GuiCommand (GuiEnvT m p) m
            => GuiEnvT m p m' ()
 doNewStart = dialogOnError () $ Internal.doNewStart
 
-
 doNew :: ( GuiCommand (GuiEnvT {-proxy-} m p) m
          , GuiCommand2 proxy m p m'
          , MonadIO m

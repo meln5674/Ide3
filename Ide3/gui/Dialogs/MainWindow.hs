@@ -643,13 +643,13 @@ getSolutionPathClicked (x',y') window = do
             path' <- treePathGetIndices path''
             let path = map fromIntegral path'
             --liftIO $ print path
-            treePathFree path''
+            --treePathFree path''
             return $ Just (path, column, (xoffset, yoffset))
           where
             xoffset = fromIntegral xoffset'
             yoffset = fromIntegral yoffset'
         (_, Just path'', _, _, _) -> do
-            treePathFree path''
+            --treePathFree path''
             return Nothing
         _ -> return Nothing
   where

@@ -17,7 +17,7 @@ import Control.Monad
 
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
---import Dialogs.NewProjectDialog (NewProjectDialog)
+import Dialogs.NewProjectDialog (NewProjectDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
 --import Dialogs.NewPragmaDialog (NewPragmaDialog)
 import Dialogs.NewExportDialog (NewExportDialog)
@@ -26,7 +26,7 @@ import Dialogs.NewImportDialog (NewImportDialog)
 class Monad m => DialogsClass m where
     withMainWindow :: (MainWindow -> a) -> m a
     withNewSolutionDialog :: (NewSolutionDialog -> a) -> m a
-    --withNewProjectDialog :: (NewProjectDialog -> m a) -> m a
+    withNewProjectDialog :: (NewProjectDialog -> a) -> m a
     withNewModuleDialog :: (NewModuleDialog -> a) -> m a
     --withNewPragmaDialog :: (NewPragmaDialog -> a) -> m a
     withNewExportDialog :: (NewExportDialog -> a) -> m a
@@ -38,8 +38,8 @@ withMainWindowM = join . withMainWindow
 withNewSolutionDialogM :: DialogsClass m => (NewSolutionDialog -> m a) -> m a
 withNewSolutionDialogM = join . withNewSolutionDialog
 
---withNewProjectDialogM :: DialogsClass m => (NewProjectDialog -> m a) -> m a
---withNewProjectDialogM f = join . withNewProjectDialog
+withNewProjectDialogM :: DialogsClass m => (NewProjectDialog -> m a) -> m a
+withNewProjectDialogM = join . withNewProjectDialog
 
 withNewModuleDialogM :: DialogsClass m => (NewModuleDialog -> m a) -> m a
 withNewModuleDialogM = join . withNewModuleDialog

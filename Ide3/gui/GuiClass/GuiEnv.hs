@@ -31,6 +31,7 @@ import GuiHelpers
 import SyntaxHighlighter2
 
 instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m') where
+    getElemAtSolutionTreePath [] = return SolutionElem
     getElemAtSolutionTreePath path 
         = withGuiComponents 
         $ \comp -> withSolutionTree comp 

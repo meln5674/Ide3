@@ -80,6 +80,7 @@ executable Ide3-GUI
                      , Dialogs.MainWindow
                      , Dialogs.NewSolutionDialog
                      , Dialogs.NewSolutionDialog.Types
+                     , Dialogs.NewProjectDialog
                      , Dialogs.NewModuleDialog
                      , Dialogs.NewImportDialog
                      , Dialogs.NewExportDialog
@@ -88,9 +89,9 @@ executable Ide3-GUI
                      , GuiMonad
                      , GuiEnv
                      , GuiClass
-                     , GuiClass.Dialogs
+                     --, GuiClass.Dialogs
                      , GuiClass.GuiEnv
-                     , GuiClass.GuiEnv.Stack
+                     --, GuiClass.GuiEnv.Stack
                      , GuiClass.Types
                      , ViewerMonad2
                      , GuiHelpers
@@ -148,9 +149,13 @@ executable Ide3-CLI
 
 test-suite Ide3-test
   type:                exitcode-stdio-1.0
-  hs-source-dirs:      test, src
+  hs-source-dirs:      test, src, gui
   main-is:             Main.hs
   other-modules:       ErrorParser
+                     , SolutionTree
+                     , DeclarationPath
+                     , Tests.ErrorParser
+                     , Tests.SolutionTree
   build-depends:       base
                      , Ide3
                      , Ide3-base
@@ -158,6 +163,13 @@ test-suite Ide3-test
                      , mtl
                      , transformers
                      , parsec
+                     , haskell-src-exts
+                     , directory
+                     , exceptions
+                     , process
+                     , filepath
+                     , text
+                     , containers
 
 source-repository head
   type:     git

@@ -61,7 +61,7 @@ type instance SignalList BetterTextView = SignalList TextView
 addTabEvent :: MonadIO m => TextView -> m SignalHandlerId
 addTabEvent textView = textView `on` #keyPressEvent $ \event -> do
     keyval <- liftM fromIntegral $ get event #keyval
-    liftIO $ print keyval
+    --liftIO $ print keyval
     buf <- textViewGetBuffer textView
     let spaces = "    "
         spacesLen = fromIntegral $ toInteger $ T.length spaces

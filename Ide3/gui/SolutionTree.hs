@@ -77,6 +77,7 @@ searchTree
        ) 
     => SolutionPath
     -> m {-t (SolutionResult u m)-} [TreePath]
+searchTree SolutionPath = return [[]]
 searchTree path = do
     --tree <- treeStoreGetTree store [0]
     trees <- getForestAtSolutionPath SolutionPath
@@ -363,32 +364,26 @@ populateTree = do
 findAtPath :: ( SolutionViewClass m
               ) => TreePath -> m TreeSearchResult
 findAtPath path = do
-    let parentPath = case path of
-            [] -> []
-            _ -> init path
-        grandparentPath = case path of
-            [] -> []
-            [x] -> [x]
-            _ -> init $ init path
-        ancestorPath = case path of
-            [] -> []
-            (x:_) -> [x]
-    --node <- treeStoreGetValue treeStore path
-    node <- getElemAtSolutionTreePath path
-    --parentNode <- treeStoreGetValue treeStore parentPath
-    parentNode <- getElemAtSolutionTreePath parentPath
-    --grandparentNode <- treeStoreGetValue treeStore grandparentPath
-    grandparentNode <- getElemAtSolutionTreePath grandparentPath
-    --ancestorNode <- treeStoreGetValue treeStore ancestorPath
-    ancestorNode <- getElemAtSolutionTreePath ancestorPath
+    node <- case path of
+        (_:_) -> liftM Just $ getElemAtSolutionTreePath path
+        [] -> return Nothing
+    parentNode <- case path of
+        (_:_:_) -> liftM Just $ getElemAtSolutionTreePath $ init path
+        _ -> return Nothing
+    grandparentNode <- case path of
+        (_:_:_:_) -> liftM Just $ getElemAtSolutionTreePath $ init $ init path
+        _ -> return Nothing
+    ancestorNode <- case path of
+        (ancestor:_) -> liftM Just $ getElemAtSolutionTreePath [ancestor]
+        _ -> return Nothing
     case (node,parentNode,grandparentNode,ancestorNode) of
-        (ProjectElem pi,_,_,_) -> return $ ProjectResult pi
-        (ModuleElem mi b,_,_,ProjectElem pi) -> return $ ModuleResult pi mi b
-        (DeclElem di,ModuleElem mi b,_,ProjectElem pi) -> return $ DeclResult pi mi di
-        (ImportsElem,ModuleElem mi b,_,ProjectElem pi) -> return $ ImportsResult pi mi
-        (ExportsElem,ModuleElem mi b,_,ProjectElem pi) -> return $ ExportsResult pi mi
-        (ImportElem ii _,_,ModuleElem mi b,ProjectElem pi) -> return $ ImportResult pi mi ii
-        (ExportElem ei _,_,ModuleElem mi b,ProjectElem pi) -> return $ ExportResult pi mi ei
+        (Just (ProjectElem pi),_,_,_) -> return $ ProjectResult pi
+        (Just (ModuleElem mi b),_,_,Just (ProjectElem pi)) -> return $ ModuleResult pi mi b
+        (Just (DeclElem di),Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ DeclResult pi mi di
+        (Just ImportsElem,Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ ImportsResult pi mi
+        (Just ExportsElem, Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ ExportsResult pi mi
+        (Just (ImportElem ii _),_, Just (ModuleElem mi b) ,Just (ProjectElem pi)) -> return $ ImportResult pi mi ii
+        (Just (ExportElem ei _),_, Just (ModuleElem mi b), Just (ProjectElem pi)) -> return $ ExportResult pi mi ei
         _ -> return NoSearchResult
 
 {-

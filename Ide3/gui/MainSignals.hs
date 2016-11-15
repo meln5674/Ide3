@@ -104,6 +104,7 @@ type MainGuiClass t m' p m =
     , EnvironmentMonad m'
     , Args (ProjectArgType m')
     , m' ~ ClassSolutionInitializerMonad (t m')
+    , m' ~ ClassProjectInitializerMonad (t m')
     , Args (ArgType m')
     , SolutionInitializerClass (t m')
     , GuiCommand2 t m' m
@@ -128,6 +129,14 @@ onNewSolutionConfirmed = {-withNewSolutionDialog $ \dialog -> id $ do
     doNew projectRoot projectName templateName
     liftIO $ NewSolutionDialog.close dialog-}
     doAddSolution
+    
+
+onNewProjectConfirmed :: forall t proxy m' p m
+                       . ( MainGuiClassIO t m' p m
+                         )
+                      => t m ()
+onNewProjectConfirmed = do
+    doAddProject
     
 
 onNewClicked :: forall t proxy m' p m
@@ -213,8 +222,8 @@ onSaveSolutionClicked = id $ doSaveSolution Nothing
 
 onNewProjectClicked :: forall t proxy m' p m
                . ( MainGuiClass t m' p m )
-              => t m  Bool
-onNewProjectClicked = undefined
+              => t m ()
+onNewProjectClicked = doNewProjectStart
 
 onDeleteProjectClicked :: forall t proxy m' p m 
                . ( MainGuiClass t m' p m )
@@ -416,6 +425,7 @@ setupSolutionContextMenu = do
     menu <- SolutionContextMenu.makeSolutionMenu
     menu `on1` SolutionContextMenu.newProjectClickedEvent $ \event -> do
         onNewProjectClicked
+        return False
     return menu
 
 setupDeclContextMenu :: forall t proxy m' p m

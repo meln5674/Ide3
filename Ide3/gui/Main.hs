@@ -27,9 +27,11 @@ import Control.Monad.Trans.State.Strict hiding (withState)
 
 import Control.Concurrent.MVar
 
-import GI.Gtk hiding (main)
+
+import GI.Gtk hiding (main, on)
 import qualified GI.Gtk as Gtk
-import GI.Gdk hiding (window)
+import GI.Gdk hiding (window, on)
+
 
 import Ide3.Types
 import Ide3.Utils
@@ -64,6 +66,7 @@ import SolutionContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
+import qualified Dialogs.NewProjectDialog as NewProjectDialog
 import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
@@ -207,13 +210,27 @@ doMain _ init = do
                 NewSolutionDialog.setVisible dialog False
                 return False
             return dialog
+        newProjectDialog <- NewProjectDialog.make $ \dialog -> do
+            runIdentityT $ do
+                dialog `on1` NewProjectDialog.cancelClicked $ \event -> lift $ do
+                    NewProjectDialog.setVisible dialog False
+                    return False
+                dialog `on` NewProjectDialog.projectTypeChanged $ do
+                    newProjectType <- NewProjectDialog.getProjectType dialog
+                    NewProjectDialog.setProjectType dialog newProjectType
+                dialog `on` NewProjectDialog.testTypeChanged $ do
+                    newTestType <- NewProjectDialog.getTestProjectType dialog
+                    NewProjectDialog.setTestProjectType dialog newTestType
+            return dialog
         mainWindow <- MainWindow.make $ \gui -> do
             setupKeyboardShortcuts gui group
             return gui
         newSolutionDialog `NewSolutionDialog.setVisible` False
+        newProjectDialog `NewProjectDialog.setVisible` False
         return Dialogs
             { mainWindow
             , newSolutionDialog
+            , newProjectDialog
             , newModuleDialog = undefined
             , newExportDialog = undefined
             , newImportDialog = undefined
@@ -222,10 +239,14 @@ doMain _ init = do
         go = do
             gui <- liftDialogs $ withMainWindow id
             newSolutionDialog <- liftDialogs $ withNewSolutionDialog id
+            newProjectDialog <- liftDialogs $ withNewProjectDialog id
             setupSignals gui
             newSolutionDialog `on1` NewSolutionDialog.confirmClicked $ \event -> do
                 onNewSolutionConfirmed
                 --GuiT (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) (FileSystemSolution, Solution) IO ()
+                return False
+            newProjectDialog `on1` NewProjectDialog.confirmClicked $ \event -> do
+                onNewProjectConfirmed
                 return False
             Gtk.main
     

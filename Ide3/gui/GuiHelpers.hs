@@ -13,7 +13,12 @@ module GuiHelpers
     , makeHBoxWith
     , makeNotebookWith
     , makeNotebookPageWith
+    , makeStackWith
+    , makeStackChildWith
     , makeScrolledWindowWith
+    , makeLabelEntryPairWith
+    , makeLabelComboBoxPairWith
+    , listStoreAppend
     , withTreePath
     , withGtkTreePath
     , SignalInterceptClass (..)
@@ -45,28 +50,57 @@ import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Identity
 
+import Data.GI.Base.GValue
 import Data.GI.Base.Signals hiding (on, after)
 import Data.GI.Base.Attributes
-import GI.Gtk hiding (on, after, TreePath)
+import GI.Gtk hiding (on, after, TreePath, listStoreAppend)
+import Data.GI.Gtk.ModelView.SeqStore
 
 import qualified GI.Gtk as Gtk
 import GI.Gdk hiding (Window, on, after)
 
 import GuiClass.Types
-{-
-class ContainerShell self where
-    addToContainer :: (WidgetClass widget) => self -> widget -> IO ()
 
-instance ContainerShell 
--}
 
-{-
-makeMenuWith :: ( MenuShellClass self
-                , System.Glib.UTFString.GlibString string
+
+makeLabelEntryPairWith :: ( MonadIO m
+                          , IsContainer self
+                          ) 
+                       => Text 
+                       -> self
+                       -> ( Label -> Entry -> EntryBuffer -> m b )
+                       -> m b
+makeLabelEntryPairWith txt self f = do
+    lbl <- makeLabel txt self
+    (entry, buf) <- makeEntry self
+    f lbl entry buf
+
+makeLabelComboBoxPairWith :: ( MonadIO m
+                             , IsContainer self
+                             ) 
+                          => Text 
+                          -> self
+                          -> ( Label -> ComboBox -> SeqStore a -> m b )
+                          -> m b
+makeLabelComboBoxPairWith txt self f = do
+    lbl <- makeLabel txt self
+    (box, model) <- makeComboBox self
+    f lbl box model
+
+-- | Make a GTK window and apply an action to it
+makeWindowWith :: (MonadIO m) => (Window -> m b) -> m b
+makeWindowWith f = do
+    window <- new Window [ #modal := True]
+    r <- f window
+    widgetShowAll window
+    return r
+
+
+-- | Create a GTK menu, add it to a container, then apply an action to it
+makeMenuWith :: ( IsMenuShell self
                 , MonadIO m
                 )
-             => string -> (Menu -> m b) -> self -> m b
--}
+             => Text -> (Menu -> m b) -> self -> m b
 makeMenuWith label f menuBar = do
     menuItem <- liftIO $ menuItemNewWithLabel label
     subMenu <- liftIO $ menuNew
@@ -75,68 +109,91 @@ makeMenuWith label f menuBar = do
         menuItemSetSubmenu menuItem $ Just subMenu
     f subMenu    
 
---makeWindowWith :: (MonadIO m) => (Window -> m b) -> m b
-makeWindowWith f = do
-    window <- new Window [ #modal := True]
-    --set window [windowModal := True]
-    r <- f window
-    widgetShowAll window
-    return r
 
---makeOverlayWith :: (MonadIO m, ContainerClass self) => self -> (Overlay -> m b) -> m b
+-- | Add a GTK overlay to a container, then apply an action to it
+makeOverlayWith :: ( MonadIO m
+                   , IsContainer self
+                   ) 
+                => self -> (Overlay -> m b) -> m b
 makeOverlayWith container f = do
     overlay <- liftIO $ overlayNew
     liftIO $ container `containerAdd` overlay
     f overlay
 
-{-
-makeVBoxWith :: (MonadIO m, ContainerClass self) 
+-- | Add a GTK VBox to a container, then apply an action to it
+makeVBoxWith :: ( MonadIO m
+                , IsContainer self
+                )
              => self 
              -> (VBox -> m b) 
              -> m b
--}
 makeVBoxWith container f = do
     vbox <- liftIO $ vBoxNew False 0
     liftIO $ container `containerAdd` vbox
     f vbox
 
-{-
-makeHBoxWith :: (MonadIO m, ContainerClass self) 
+-- | Add a GTK HBox to a container, then apply an action to it
+makeHBoxWith :: ( MonadIO m
+                , IsContainer self
+                )
              => self 
              -> (HBox -> m b) 
              -> m b
--}
 makeHBoxWith window f = do
     hbox <- liftIO $ hBoxNew False 0
     liftIO $ window `containerAdd` hbox
     f hbox
 
-{-
-makeNotebookWith :: (MonadIO m, ContainerClass self)
+-- | Add a GTK notebook to a container, then apply an action to it
+makeNotebookWith :: ( MonadIO m
+                    , IsContainer self
+                    )
                 => self
                 -> (Notebook -> m b)
                 -> m b
--}
 makeNotebookWith self f = do
     notebook <- liftIO $ notebookNew
     liftIO $ self `containerAdd` notebook
     f notebook
 
-{-
-makeNotebookPageWith :: (MonadIO m)
+-- | Add a page to a GTK nodebook, then apply an action to it
+makeNotebookPageWith :: ( MonadIO m )
                      => Notebook
-                     -> String
-                     -> (forall self . ContainerClass self => self -> m b)
+                     -> Text
+                     -> (forall self . IsContainer self => self -> m b)
                      -> m b
--}
 makeNotebookPageWith notebook name f = do
     vbox <- liftIO $ vBoxNew False 0
     notebookAppendPage notebook vbox noLabel
     notebookSetTabLabelText notebook vbox name
     f vbox
 
+makeStackWith :: ( MonadIO m
+                 , IsContainer self
+                 )
+              => self
+              -> ( Stack -> m b)
+              -> m b
+makeStackWith self f = do
+    stack <- stackNew
+    self `containerAdd` stack
+    f stack
 
-makeScrolledWindowWith :: (MonadIO m, IsContainer self)
+makeStackChildWith :: ( MonadIO m
+                      )
+                   => Stack
+                   -> Text
+                   -> ( forall self . IsContainer self => self -> m b)
+                   -> m b
+makeStackChildWith self name f = do
+    vbox <- liftIO $ vBoxNew False 0
+    stackAddNamed self vbox name
+    f vbox
+
+-- | Add a GTK scrolled window to a container, then apply an action to it
+makeScrolledWindowWith :: ( MonadIO m
+                          , IsContainer self
+                          )
                        => self
                        -> (ScrolledWindow -> m b)
                        -> m b
@@ -145,168 +202,77 @@ makeScrolledWindowWith container f = do
     containerAdd container scrollWindow
     f scrollWindow
 
-
-{-
-makeMenu label menuBar = makeProjectMenuWith menuBar $ \projectMenu -> do
-    buildButton <- makeBuildButton projectMenu
-    runButton <- makeRunButton projectMenu
-    return $ ProjectMenu
-             buildButton
-             runButton
--}
-
-{-makeMenuButton :: ( MenuShellClass self
-                  , System.Glib.UTFString.GlibString string
+-- | Add a GTK menu to a container, then apply an action to it
+makeMenuButton :: ( IsMenuShell self
                   , MonadIO m
                   ) 
-               => string -> self -> m MenuItem-}
+               => Text
+               -> self 
+               -> m MenuItem
 makeMenuButton label menu = liftIO $ do
     button <- menuItemNewWithLabel label
     menuShellAppend menu button
     return button
 
-
-{-makeButton :: ( ContainerClass self
-              , System.Glib.UTFString.GlibString string
+-- | Add a GTK button to a container with the given text
+makeButton :: ( IsContainer self
               , MonadIO m
               )
-           => string -> self -> m Button-}
+           => Text -> self -> m Button
 makeButton label container = liftIO $ do
     button <- buttonNewWithLabel label
     container `containerAdd` button
     return button
 
-{-makeLabel :: ( ContainerClass self
-              , System.Glib.UTFString.GlibString string
-              , MonadIO m
-              )
-           => string -> self -> m Label-}
+-- | Add a GTK label to a container with the given text
+makeLabel :: ( IsContainer self
+             , MonadIO m
+             )
+           => Text 
+           -> self
+           -> m Label
 makeLabel text container = liftIO $ do
     label <- labelNew $ Just text
     container `containerAdd` label
     return label
 
+makeEntry :: ( IsContainer self
+             , MonadIO m
+             )
+          => self
+          -> m (Entry, EntryBuffer)
+makeEntry self = liftIO $ do
+    buf <- entryBufferNew Nothing 0
+    entry <- entryNewWithBuffer buf
+    self `containerAdd` entry
+    return (entry, buf)
 
-{-
-data GuiSignal2 gui object handler handlerInner where
-    GuiSignal2 :: SignalProxy object handlerInner
-              -> (gui -> object) 
-              -> (HaskellCallbackType handler -> HaskellCallbackType handlerInner)
-              -> GuiSignal2 gui object handler handlerInner
+makeComboBox :: ( IsContainer self
+                , MonadIO m
+                )
+             => self
+             -> m (ComboBox, SeqStore a)
+makeComboBox self = liftIO $ do
+    model <- seqStoreNew []
+    box <- comboBoxNewWithModel model
+    self `containerAdd` box
+    return (box, model)
 
-type GuiSignal gui object handler = GuiSignal2 gui object handler handler
+listStoreAppend :: ( MonadIO m, IsGValue a )
+                => ListStore
+                -> a
+                -> m ()
+listStoreAppend model value = do
+    iter <- Gtk.listStoreAppend model
+    gvalue <- liftIO $ toGValue value
+    listStoreSetValue model iter 0 gvalue
 
-onGui :: ( SignalInfo handler
-         , MonadIO m
-         , GObject object
-         )
-      => gui 
-      -> GuiSignal gui object handler 
-      -> HaskellCallbackType handler 
-      -> m SignalHandlerId
---onGui gui (GuiSignal2 (Signal f) getter modifier)
---    = getter gui `on` (Signal $ \b object handler -> f b object (modifier handler))
-onGui gui (GuiSignal2 sig getter modifier) handler
-    = getter gui `on` sig $ modifier handler
-
-afterGui :: ( SignalInfo handler
-            , MonadIO m 
-            , GObject object
+-- | Add an accelerator (keyboard shortcut) to a widget
+addAccel :: ( IsWidget subObject
+            , MonadIO m
+            , Integral key
+            , IsAccelGroup group
             )
-         => gui 
-         -> GuiSignal gui object handler 
-         -> HaskellCallbackType handler 
-         -> m SignalHandlerId
---afterGui gui (GuiSignal2 (Signal f) getter modifier)
---    = getter gui `after` (Signal $ \b object handler -> f b object (modifier handler))
-afterGui gui (GuiSignal2 sig getter modifier) handler
-    = getter gui `after` sig $ modifier handler
-
-{-
-onGuiM :: ( SignalInfo info
-          , SignalInfoTrans t
-          )
-       => gui 
-       -> t m (GuiSignal2 gui object (t m'' a) (m'' a)) 
-       -> HaskellCallbackType (t m'' a)
-       -> t m SignalHandlerId
-{-onGuiM gui sigM callback = do
-    (GuiSignal2 sig getter modifier) <- sigM
-    let obj = getter gui
-    --let sig' = modifier sig :: _
-    let sig' = (undefined :: _) sig :: SignalProxy object (t m'' a)
-    liftIO $ on obj sig $ callback
--}
-onGuiM = undefined
--}
-
-{-
-onGuiF :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'', Functor f)
-       => gui
-       -> t m (GuiSignal2 gui object (f (t m'' a)) (f (m'' a)))
-       -> f (t m'' a)
-       -> t m (SignalHandlerId object)
-onGuiF gui sigM callback = do
-    (GuiSignal2 (Signal f) getter modifier) <- sigM
-    let obj = getter gui
-    let sig' = Signal $ \b object handler -> f b object (modifier handler)
-    liftIO $ obj `on` sig' $ callback
-
-
-afterGuiM :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'') 
-       => gui 
-       -> t m (GuiSignal2 gui object (t m'' a) (m'' a)) 
-       -> t m'' a
-       -> t m (SignalHandlerId object)
-afterGuiM gui sigM callback = do
-    (GuiSignal2 (Signal f) getter modifier) <- sigM
-    let obj = getter gui
-    let sig' = Signal $ \b object handler -> f b object (modifier handler)
-    liftIO $ obj `after` sig' $ callback
-
-
-afterGuiF :: (MonadIO (t m), MonadTrans t, MonadIO m, Monad m'', Functor f)
-       => gui
-       -> t m (GuiSignal2 gui object (f (t m'' a)) (f (m'' a)))
-       -> f (t m'' a)
-       -> t m (SignalHandlerId object)
-afterGuiF gui sigM callback = do
-    (GuiSignal2 (Signal f) getter modifier) <- sigM
-    let obj = getter gui
-    let sig' = Signal $ \b object handler -> f b object (modifier handler)
-    liftIO $ obj `after` sig' $ callback
-
-
-{-
-mkGuiSignal :: (gui -> object) -> Signal object handler -> GuiSignal gui object handler
-x `mkGuiSignal` y = GuiSignal (y,x)
--}
--}
-
-mkGuiSignal :: (gui -> object) -> SignalProxy object handler -> GuiSignal gui object handler
-x `mkGuiSignal` y = GuiSignal2 y x id
-
-
-
-mkGuiSignalWith :: (gui -> object) 
-                -> SignalProxy object handlerInner 
-                -> (HaskellCallbackType handler -> HaskellCallbackType handlerInner)
-                -> GuiSignal2 gui object handler handlerInner
-mkGuiSignalWith x y z = GuiSignal2 y x z
-
-{-
-editSignal :: Signal object handler -> (handler2 -> handler) -> Signal object handler2
-editSignal (Signal f) t = Signal $ \b object handler -> f b object (t handler)
--}
-
-wrapGuiSignal :: (gui -> object) 
-              -> GuiSignal2 object subobject handler innerHandler 
-              -> GuiSignal2 gui subobject handler innerHandler
-wrapGuiSignal f (GuiSignal2 sig getter handler) = GuiSignal2 sig (getter . f) handler
--}
-
-
-addAccel :: (IsWidget subObject, MonadIO m, Integral key, IsAccelGroup group) 
          => (object -> subObject)
          -> Text
          -> object
@@ -316,25 +282,26 @@ addAccel :: (IsWidget subObject, MonadIO m, Integral key, IsAccelGroup group)
          -> [AccelFlags] 
          -> m ()
 addAccel getter signalName object group key modifiers flags = do
-    widgetAddAccelerator (getter object) signalName group (fromIntegral key) modifiers flags
+    widgetAddAccelerator (getter object) 
+                         signalName 
+                         group 
+                         (fromIntegral key) 
+                         modifiers 
+                         flags
 
 
+-- | Signals which affect widgets inside of a data structure
+type SubSignalProxy object subObject info 
+    =  object 
+    -> (subObject, SignalProxy subObject info) -- ^ 
+    -- Such signals are represented by functions mapping the data structure to a
+    -- pair of widget and signals on that widget
 
-
-{-
-
-x :: object -> SignalInfo GuiEnvT m' T
-
-y :: object -> GuiEnvT m' T -> GuiEnvT m' () ->     m Id
-
--}
-
-
-type SubSignalProxy object subObject info = object -> (subObject, SignalProxy subObject info)
-
+-- | Create a SubSignalProxy in which the data structure is the widget itself
 ownSignal :: SignalProxy object info -> SubSignalProxy object object info
 ownSignal info object = (object, info)
 
+-- | Attach a handler to a widget inside of a data structure
 onSub :: (GObject subObject, MonadIO m, SignalInfo info)
       => object
       -> SubSignalProxy object subObject info
@@ -343,6 +310,8 @@ onSub :: (GObject subObject, MonadIO m, SignalInfo info)
 onSub object signal callback = let (subObject, signal') = signal object
     in Gtk.on subObject signal' callback
 
+-- | Attach a handler to a widget inside of a data structure, the handler fires
+-- after the default handler
 afterSub :: (GObject subObject, MonadIO m, SignalInfo info)
       => object
       -> SubSignalProxy object subObject info
@@ -351,97 +320,110 @@ afterSub :: (GObject subObject, MonadIO m, SignalInfo info)
 afterSub object signal callback = let (subObject, signal') = signal object
     in Gtk.after subObject signal' callback
 
-
-
+-- | Class of transformers which can 'intercept' the attaching of signals to
+-- objects
 class (MonadTrans t) => SignalInterceptClass t where
-    intercept :: (Monad m', MonadIO m)
-        => ((a -> m' b) -> m c)
-        -> (a -> t m' b)
-        -> t m c
+    intercept :: ( Monad m'
+                 , MonadIO m
+                 )
+              => ((a -> m' b) -> m c) -- ^ Function which would add a signal
+              -> (a -> t m' b)        -- ^ The handler inside of the transformer
+              -> t m c
 
+-- | Intercept signals by providing the environment to the handler
 instance SignalInterceptClass (ReaderT r) where
     intercept add handler = do
         r <- ask
         lift $ add $ \x -> runReaderT (handler x) r
 
+-- | Intercept signals by unwrapping them
 instance SignalInterceptClass IdentityT where
     intercept add handler = lift $ add $ \x -> runIdentityT $ handler x
         
-
+-- | 3-arity version of curry
 curry3 :: ((a,b,c) -> d) -> a -> b -> c -> d
 curry3 f a b c = f (a,b,c)
 
+-- | 3-arity version of uncurry
 uncurry3 :: (a -> b -> c -> d) -> (a,b,c) -> d
 uncurry3 f (a,b,c) = f a b c
 
+-- | Intercepted signal attaching function for handlers which are 0-arity
 on :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ m' b
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> t m' b
-       -> t m SignalHandlerId
+      , Monad m'
+      , MonadIO m
+      , SignalInterceptClass t
+      , SignalInfo info
+      , HaskellCallbackType info ~ m' b
+      )
+   => object
+   -> SubSignalProxy object subObject info
+   -> t m' b
+   -> t m SignalHandlerId
 on obj event handler =
     (onSub obj event . ($())) `intercept` const handler
 
+-- | Intercepted signal attaching function for handlers which are 1-arity
 on1 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> m' b)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> t m' b)
-       -> t m SignalHandlerId
+       , Monad m'
+       , MonadIO m
+       , SignalInterceptClass t
+       , SignalInfo info
+       , HaskellCallbackType info ~ (a -> m' b)
+       )
+    => object
+    -> SubSignalProxy object subObject info
+    -> (a -> t m' b)
+    -> t m SignalHandlerId
 on1 obj event handler = do
     onSub obj event `intercept` handler
 
+-- | Intercepted signal attaching function for handlers which are 2-arity
 on2 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> b -> m' c)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> b -> t m' c)
-       -> t m SignalHandlerId
+       , Monad m'
+       , MonadIO m
+       , SignalInterceptClass t
+       , SignalInfo info
+       , HaskellCallbackType info ~ (a -> b -> m' c)
+       )
+    => object
+    -> SubSignalProxy object subObject info
+    -> (a -> b -> t m' c)
+    -> t m SignalHandlerId
 on2 obj event handler = (onSub obj event . curry) `intercept` uncurry handler
 
+-- | Intercepted signal attaching function for handlers which are 3-arity
 on3 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> b -> c -> m' d)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> b -> c -> t m' d)
-       -> t m SignalHandlerId
+       , Monad m'
+       , MonadIO m
+       , SignalInterceptClass t
+       , SignalInfo info
+       , HaskellCallbackType info ~ (a -> b -> c -> m' d)
+       )
+    => object
+    -> SubSignalProxy object subObject info
+    -> (a -> b -> c -> t m' d)
+    -> t m SignalHandlerId
 on3 obj event handler = (onSub obj event . curry3) `intercept` uncurry3 handler
 
+-- | Intercepted signal attaching function for handlers which are 0-arity,
+-- handler runs after the default handler
 after :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ m' b
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> t m' b
-       -> t m SignalHandlerId
+         , Monad m'
+         , MonadIO m
+         , SignalInterceptClass t
+         , SignalInfo info
+         , HaskellCallbackType info ~ m' b
+         )
+      => object
+      -> SubSignalProxy object subObject info
+      -> t m' b
+      -> t m SignalHandlerId
 after obj event handler =
     (afterSub obj event . ($())) `intercept` const handler
 
+-- | Intercepted signal attaching function for handlers which are 1-arity,
+-- handler runs after the default handler
 after1 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -456,6 +438,8 @@ after1 :: ( GObject subObject
 after1 obj event handler = do
     afterSub obj event `intercept` handler
 
+-- | Intercepted signal attaching function for handlers which are 2-arity,
+-- handler runs after the default handler
 after2 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -467,8 +451,11 @@ after2 :: ( GObject subObject
        -> SubSignalProxy object subObject info
        -> (a -> b -> t m' c)
        -> t m SignalHandlerId
-after2 obj event handler = (afterSub obj event . curry) `intercept` uncurry handler
+after2 obj event handler =
+    (afterSub obj event . curry) `intercept` uncurry handler
 
+-- | Intercepted signal attaching function for handlers which are 3-arity,
+-- handler runs after the default handler
 after3 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -482,38 +469,44 @@ after3 :: ( GObject subObject
        -> t m SignalHandlerId
 after3 obj event handler = (afterSub obj event . curry3) `intercept` uncurry3 handler
 
-type SubAttrLabelProxy object subObject (attr :: Symbol) = object -> (subObject, AttrLabelProxy attr)
+-- | Attributes for widgets inside of data structures
+type SubAttrLabelProxy object subObject (attr :: Symbol)
+    = object -> (subObject, AttrLabelProxy attr)
 
+-- | Attribute operatios for widgets inside of data structures
 type SubAttrOp object subObject tag = object -> (subObject,AttrOp subObject tag)
 
-getSub :: (AttrGetC info subObj attr result, MonadIO m) => obj -> SubAttrLabelProxy obj subObj attr -> m result
+-- | Retreive the value of an attribute of a widget in a data structure
+getSub :: ( AttrGetC info subObj attr result
+          , MonadIO m
+          )
+       => obj 
+       -> SubAttrLabelProxy obj subObj attr 
+       -> m result
 getSub obj subAttr = uncurry get $ subAttr obj
 
+-- | Assign the value of an attribute of a widget in a data structure
 setSub :: MonadIO m => object -> [SubAttrOp object subObject AttrSet] -> m ()
 setSub obj subAttrs = mapM_ (uncurry set) x
   where
     x = map (fmap (:[]) . ($obj)) subAttrs 
 
-withTreePath :: MonadIO m => TreePath -> (Gtk.TreePath -> m a) -> m a
+-- | Perform an action after allocating a tree path
+withTreePath :: ( MonadIO m ) => TreePath -> (Gtk.TreePath -> m a) -> m a
 withTreePath path f = do
-    --liftIO $ putStrLn "Allocating path"
-    idiotPath <- mkIdiotPath path
-    result <- f idiotPath
-    --freeIdiotPath path idiotPath
-    --liftIO $ print path
-    --liftIO $ putStrLn "Freeing path"
+    path' <- allocPath path
+    result <- f path'
+    {-result `seq` treePathFree path'-}
+    {-result `seq` return result-}
     return result
   where
-    mkIdiotPath [] = treePathNew
-    mkIdiotPath path = treePathNewFromIndices $ map fromIntegral path
-    --freeIdiotPath [] _ = return ()
-    --freeIdiotPath _ path = treePathFree path
-    
+    allocPath [] = treePathNew
+    allocPath path = treePathNewFromIndices $ map fromIntegral path
+
+-- | Perform an action with the underlying tree path from an alocated tree
+-- path    
 withGtkTreePath :: MonadIO m => Gtk.TreePath -> (TreePath -> m a) -> m a
 withGtkTreePath idiotPath f = do
-    --liftIO $ putStrLn "AAAAAAAAA"
     path <- liftM (map fromIntegral) $ treePathGetIndices idiotPath
-    --liftIO $ putStrLn "BBBBBBBBB"
-    --liftIO $ print path
     f path
     

@@ -23,7 +23,7 @@ import Dialogs.Class
 
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
---import Dialogs.NewProjectDialog (NewProjectDialog)
+import Dialogs.NewProjectDialog (NewProjectDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
 --import Dialogs.NewPragmaDialog (NewPragmaDialog)
 import Dialogs.NewExportDialog (NewExportDialog)
@@ -32,7 +32,7 @@ import Dialogs.NewImportDialog (NewImportDialog)
 data Dialogs = Dialogs
     { mainWindow :: MainWindow
     , newSolutionDialog :: NewSolutionDialog
-    -- , newProjectDialog :: NewProjectDialog
+    , newProjectDialog :: NewProjectDialog
     , newModuleDialog :: NewModuleDialog
     -- , newPragmaDialog :: NewPragmaDialog
     , newExportDialog :: NewExportDialog
@@ -61,3 +61,4 @@ getDialogs = DialogsT ask
 instance (Monad m) => DialogsClass (DialogsT m) where
     withMainWindow f = DialogsT $ asks (f . mainWindow)
     withNewSolutionDialog f = DialogsT $ asks (f . newSolutionDialog)
+    withNewProjectDialog f = DialogsT $ asks (f . newProjectDialog)
