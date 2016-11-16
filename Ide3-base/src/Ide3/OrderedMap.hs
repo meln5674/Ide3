@@ -107,7 +107,7 @@ lookup k = liftM fst . Map.lookup k . itemMap
 keys :: Ord k => OrderedMap k v -> [k]
 keys = Map.elems . orderMap 
 
--- | Retreive the elements of a map, in the order their keys were inserted
+-- | Retrieve the elements of a map, in the order their keys were inserted
 elems :: Ord k => OrderedMap k v -> [v]
 elems m = Prelude.map (fst . (itemMap m Map.!)) $ keys m
 

@@ -142,14 +142,14 @@ instance Show a => Show (ProjectChild a) where
 
 -- | Class of types which have a child
 class HasChild f where
-    -- | Retreive the child value
+    -- | Retrieve the child value
     getChild :: f a -> a
 
--- | Retreive child
+-- | Retrieve child
 instance HasChild ModuleChild where
     getChild (ModuleChild _ a) = a
 
--- | Retreive child
+-- | Retrieve child
 instance HasChild ProjectChild where
     getChild (ProjectChild _ a) = a
 

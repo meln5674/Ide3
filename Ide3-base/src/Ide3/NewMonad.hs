@@ -18,21 +18,11 @@ module Ide3.NewMonad where
 
 import Ide3.Types
 
-{-
-class Monad m => SolutionFail m where
-    throwSolutionError :: SolutionError u -> m a
-    catchSolutionError :: m a -> m (Either (SolutionError u) a)
-
-
-instance Monad m => SolutionFail (ExceptT (SolutionError u) m) where
-    throwSolutionError = throwE
-    catchSolutionError = catchE
--}
-
--- | Class of monads which can create, save, and load haskell projects
--- The methods in this class take no arguments such as file paths, and this is
--- intentional. Monads in this class are expected to be able to store the 
--- information for its specific type of loading.
+-- | Class of monads which can create, save, and load haskell solutions
+-- The load and finalize methods in this class take no arguments such as file
+-- paths, and this is intentional. Monads in this class are expected to be able
+-- to store the information for its specific type of loading and saving as a
+-- context.
 class Monad m => PersistenceClass m where
     -- | Load a project.
     load :: SolutionResult u m ()
@@ -45,12 +35,11 @@ class Monad m => PersistenceClass m where
     --  Instances are expected to perform a noop if this would do nothing
     finalize :: SolutionResult u m ()
 
--- | Class of monads which can add, remove, edit, and retreive projects.
+-- | Class of monads which can add, remove, edit, and retrieve projects.
 class Monad m => SolutionClass m where
     -- | Edit the solution's info
     editSolutionInfo :: (SolutionInfo -> SolutionInfo) 
                      -> SolutionResult u m ()
-
     -- | Add a new project to the solution
     addProject :: ProjectInfo 
                -> SolutionResult u m ()
@@ -64,7 +53,7 @@ class Monad m => SolutionClass m where
                     -> (ProjectInfo -> ProjectInfo) 
                     -> SolutionResult u m ()
 
--- | Class of monads which can add, remove, edit, and retreive modules
+-- | Class of monads which can add, remove, edit, and retrieve modules
 class Monad m => ProjectModuleClass m where
     -- | Create a new module
     createModule :: ProjectInfo 
@@ -101,19 +90,7 @@ class Monad m => ProjectExternModuleClass m where
                        -> ModuleInfo
                        -> SolutionResult u m ()
 
-{-
-class Monad m => ProjectDependencyClass m where
-    addDependency :: ProjectInfo
-                  -> Dependency
-                  -> SolutionResult u m ()
-    removeDependency :: ProjectInfo
-                     -> Dependency
-                     -> SolutionResult u m ()
-    getDependencies :: ProjectInfo
-                    -> SolutionResult u m [Dependency]
--}
-
--- | Class of monads which can add, edit, remove, and retreive declarations
+-- | Class of monads which can add, edit, remove, and retrieve declarations
 class Monad m => ModuleDeclarationClass m where
     -- | Add a declaration to a module
     addDeclaration :: ProjectInfo 
@@ -241,7 +218,7 @@ class Monad m => ExternModuleExportClass m where
 class Monad m => ModuleFileClass m where
     toFile :: ProjectInfo -> ModuleInfo -> SolutionResult u m String
 
--- | Class of monads which can retreive items at locations within a module 
+-- | Class of monads which can retrieve items at locations within a module 
 class ( Monad m )
      => ModuleLocationClass m where
     getModuleItemAtLocation :: ProjectInfo 

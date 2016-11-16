@@ -11,12 +11,12 @@ import Tests.Utils
 
 tests_basicExport = TestList
     [ test_addExport
-    , test_addAndRetreiveExport
+    , test_addAndRetrieveExport
     , test_exportAll
     , test_exportNothing
     , test_exportAllThenRemove
     , test_addAndRemoveExport
-    , test_addRemoveAndRetreiveExport
+    , test_addRemoveAndRetrieveExport
     , test_addRemoveAndReaddExport
     ]
 
@@ -26,8 +26,8 @@ test_addExport = expectSuccess $ do
     createModule newProjectInfo newModuleInfo
     addExport newProjectInfo newModuleInfo newExport
 
-test_addAndRetreiveExport :: (?loc :: CallStack) => Test
-test_addAndRetreiveExport = expectResult newExport $ do
+test_addAndRetrieveExport :: (?loc :: CallStack) => Test
+test_addAndRetrieveExport = expectResult newExport $ do
     addProject newProjectInfo
     createModule newProjectInfo  newModuleInfo
     exportId <- addExport newProjectInfo newModuleInfo newExport
@@ -59,8 +59,8 @@ test_addAndRemoveExport = expectSuccess $ do
     exportId <- addExport newProjectInfo newModuleInfo newExport
     removeExport newProjectInfo newModuleInfo exportId
 
-test_addRemoveAndRetreiveExport :: (?loc :: CallStack) => Test
-test_addRemoveAndRetreiveExport = expectFailure $ do
+test_addRemoveAndRetrieveExport :: (?loc :: CallStack) => Test
+test_addRemoveAndRetrieveExport = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     exportId <- addExport newProjectInfo newModuleInfo newExport

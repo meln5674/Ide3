@@ -39,7 +39,7 @@ nextId default_ m = succ $ maximum (pred default_ : Map.keys m)
 nextExternExportId :: ExternModule -> ExportId
 nextExternExportId = nextId 0 . externModuleExports
 
--- | Add, remove, retreive, and overwrite external exports
+-- | Add, remove, retrieve, and overwrite external exports
 instance ParamEnvClass ExternModule 
                        ExportId 
                        ExternExport 

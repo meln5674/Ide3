@@ -12,12 +12,12 @@ import Tests.Utils
 
 tests_basicDeclaration = TestList
     [ test_addDeclaration
-    , test_addAndRetreiveDeclaration
+    , test_addAndRetrieveDeclaration
     , test_addAndRemoveDeclaration
-    , test_addRemoveAndRetreiveDeclaration
+    , test_addRemoveAndRetrieveDeclaration
     , test_addRemoveAndReAddDeclaration
     , test_renameDeclaration
-    , test_renameAndRetreiveDeclaration
+    , test_renameAndRetrieveDeclaration
     ]
 
 test_addDeclaration :: (?loc :: CallStack) => Test    
@@ -26,8 +26,8 @@ test_addDeclaration = expectSuccess $ do
     createModule newProjectInfo newModuleInfo
     addDeclaration newProjectInfo newModuleInfo newDeclaration
 
-test_addAndRetreiveDeclaration :: (?loc :: CallStack) => Test    
-test_addAndRetreiveDeclaration = expectResult newDeclaration $ do
+test_addAndRetrieveDeclaration :: (?loc :: CallStack) => Test    
+test_addAndRetrieveDeclaration = expectResult newDeclaration $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     addDeclaration newProjectInfo newModuleInfo newDeclaration
@@ -40,8 +40,8 @@ test_addAndRemoveDeclaration = expectSuccess $ do
     addDeclaration newProjectInfo newModuleInfo newDeclaration
     removeDeclaration newProjectInfo newModuleInfo newDeclarationInfo
 
-test_addRemoveAndRetreiveDeclaration :: (?loc :: CallStack) => Test    
-test_addRemoveAndRetreiveDeclaration = expectFailure $ do
+test_addRemoveAndRetrieveDeclaration :: (?loc :: CallStack) => Test    
+test_addRemoveAndRetrieveDeclaration = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     addDeclaration newProjectInfo newModuleInfo newDeclaration
@@ -63,8 +63,8 @@ test_renameDeclaration = expectSuccess $ do
     addDeclaration newProjectInfo newModuleInfo newDeclaration
     editDeclaration newProjectInfo newModuleInfo newDeclarationInfo $ const $ return newDeclaration2
 
-test_renameAndRetreiveDeclaration :: (?loc :: CallStack) => Test
-test_renameAndRetreiveDeclaration = expectResult newDeclaration2 $ do
+test_renameAndRetrieveDeclaration :: (?loc :: CallStack) => Test
+test_renameAndRetrieveDeclaration = expectResult newDeclaration2 $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     addDeclaration newProjectInfo newModuleInfo newDeclaration

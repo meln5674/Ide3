@@ -11,22 +11,22 @@ import Ide3.NewMonad
 import Tests.Utils
 
 tests_conflictingModule = TestList
-    [ test_add2RemoveRetreiveModule
-    , test_add2RemoveRetreiveBadModule
+    [ test_add2RemoveRetrieveModule
+    , test_add2RemoveRetrieveBadModule
     , test_addDuplicateModule
     ]
 
 
-test_add2RemoveRetreiveModule :: (?loc :: CallStack) => Test    
-test_add2RemoveRetreiveModule = expectResult (Module.toFile $ Module.new newModuleInfo) $ do
+test_add2RemoveRetrieveModule :: (?loc :: CallStack) => Test    
+test_add2RemoveRetrieveModule = expectResult (Module.toFile $ Module.new newModuleInfo) $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     createModule newProjectInfo newModuleInfo2
     removeModule newProjectInfo newModuleInfo2
     toFile newProjectInfo newModuleInfo
 
-test_add2RemoveRetreiveBadModule :: (?loc :: CallStack) => Test    
-test_add2RemoveRetreiveBadModule = expectFailure $ do
+test_add2RemoveRetrieveBadModule :: (?loc :: CallStack) => Test    
+test_add2RemoveRetrieveBadModule = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     createModule newProjectInfo newModuleInfo2

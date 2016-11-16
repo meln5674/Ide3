@@ -70,7 +70,7 @@ setProject pji pji' p' s = case Map.lookup pji $ solutionProjects s of
             $ solutionProjects s 
         }
 
--- | Add, remove, retreive, and overwrite projects
+-- | Add, remove, retrieve, and overwrite projects
 instance ParamEnvClass Solution ProjectInfo Project (SolutionError u) where
     addChildT = addProject
     removeChildT = removeProject

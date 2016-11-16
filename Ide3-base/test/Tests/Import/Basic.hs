@@ -11,9 +11,9 @@ import Tests.Utils
 
 tests_basicImport = TestList
     [ test_addImport
-    , test_addAndRetreiveImport
+    , test_addAndRetrieveImport
     , test_addAndRemoveImport
-    , test_addRemoveAndRetreiveImport
+    , test_addRemoveAndRetrieveImport
     , test_addRemoveAndReAddImport
     ]
 
@@ -23,8 +23,8 @@ test_addImport = expectSuccess $ do
     createModule newProjectInfo newModuleInfo
     addImport newProjectInfo newModuleInfo newImport
 
-test_addAndRetreiveImport :: (?loc :: CallStack) => Test
-test_addAndRetreiveImport = expectResult newImport $ do
+test_addAndRetrieveImport :: (?loc :: CallStack) => Test
+test_addAndRetrieveImport = expectResult newImport $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     importId <- addImport newProjectInfo newModuleInfo newImport
@@ -37,8 +37,8 @@ test_addAndRemoveImport = expectSuccess $ do
     importId <- addImport newProjectInfo newModuleInfo newImport
     removeImport newProjectInfo newModuleInfo importId
 
-test_addRemoveAndRetreiveImport :: (?loc :: CallStack) => Test
-test_addRemoveAndRetreiveImport = expectFailure $ do
+test_addRemoveAndRetrieveImport :: (?loc :: CallStack) => Test
+test_addRemoveAndRetrieveImport = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     importId <- addImport newProjectInfo newModuleInfo newImport

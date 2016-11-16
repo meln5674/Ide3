@@ -41,7 +41,7 @@ import Ide3.SrcLoc.Types
 
 import Ide3.Utils.Parser
 
--- | Add, remove, retreive, and overwrite declarations
+-- | Add, remove, retrieve, and overwrite declarations
 instance ParamEnvClass Module 
                        DeclarationInfo 
                        (WithBody Declaration) 
@@ -51,14 +51,14 @@ instance ParamEnvClass Module
     getChildT = getDeclaration
     setChildT = setDeclaration
 
--- | Add, remove, retreive, and overwrite imports
+-- | Add, remove, retrieve, and overwrite imports
 instance ParamEnvClass Module ImportId (WithBody Import) (SolutionError u) where
     addChildT = addImport
     removeChildT = removeImport
     getChildT = getImport
     setChildT = setImport
 
--- | Add, remove, retreive, and overwrite exports
+-- | Add, remove, retrieve, and overwrite exports
 instance ParamEnvClass Module ExportId (WithBody Export) (SolutionError u) where
     addChildT = addExport
     removeChildT = removeExport

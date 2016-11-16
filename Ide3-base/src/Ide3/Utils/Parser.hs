@@ -18,7 +18,7 @@ data Ann l x = Ann l x
 unAnn :: Ann l x -> x
 unAnn (Ann _ x) = x
 
--- | Retreive annotation
+-- | Retrieve annotation
 ann :: Ann l x -> l
 ann (Ann l _) = l
 

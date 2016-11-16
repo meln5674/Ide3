@@ -12,9 +12,9 @@ import Tests.Utils
 
 tests_basicModule = TestList
     [ test_addModule
-    , test_addAndRetreiveModule
+    , test_addAndRetrieveModule
     , test_addAndRemoveModule
-    , test_addRemoveAndRetreiveModule
+    , test_addRemoveAndRetrieveModule
     , test_addRemoveAndReAddModule
     ]
 
@@ -23,8 +23,8 @@ test_addModule = expectSuccess $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
 
-test_addAndRetreiveModule :: (?loc :: CallStack) => Test    
-test_addAndRetreiveModule = expectResult (Module.toFile $ Module.new newModuleInfo) $ do
+test_addAndRetrieveModule :: (?loc :: CallStack) => Test    
+test_addAndRetrieveModule = expectResult (Module.toFile $ Module.new newModuleInfo) $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     toFile newProjectInfo newModuleInfo
@@ -35,8 +35,8 @@ test_addAndRemoveModule = expectSuccess $ do
     createModule newProjectInfo newModuleInfo
     removeModule newProjectInfo newModuleInfo
 
-test_addRemoveAndRetreiveModule :: (?loc :: CallStack) => Test    
-test_addRemoveAndRetreiveModule = expectFailure $ do
+test_addRemoveAndRetrieveModule :: (?loc :: CallStack) => Test    
+test_addRemoveAndRetrieveModule = expectFailure $ do
     addProject newProjectInfo
     createModule newProjectInfo newModuleInfo
     removeModule newProjectInfo newModuleInfo

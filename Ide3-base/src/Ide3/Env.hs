@@ -99,11 +99,11 @@ class ParamEnvClass parentEnv childParam childEnv e where
               -> parentEnv 
               -> ExceptT e m parentEnv
 
--- | Retreive project info
+-- | Retrieve project info
 instance EnvParamClass Project ProjectInfo where
     getParam = projectInfo
 
--- | Retreive module info
+-- | Retrieve module info
 instance EnvParamClass Module ModuleInfo where
     getParam = moduleInfo
 
