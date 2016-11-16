@@ -10,6 +10,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Main where
 
+import qualified Data.Text as T
+
 import Data.Tree
 import Data.Proxy
 import Data.Functor.Compose
@@ -180,10 +182,14 @@ instance InitializerMonad m => InitializerMonad (GuiViewerT m) where
 
 instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) where
     getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
+    getProjectEditor = liftM (mapProjectEditor lift) $ lift getProjectEditor
+    getProjectRetriever = liftM (mapProjectRetriever lift) $ lift getProjectRetriever
     type ProjectArgType (ViewerStateT m) = ProjectArgType m
 
 instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) where
     getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
+    getProjectEditor = liftM (mapProjectEditor lift) $ lift getProjectEditor
+    getProjectRetriever = liftM (mapProjectRetriever lift) $ lift getProjectRetriever
     type ProjectArgType (GuiViewerT m) = ProjectArgType m
 
 {-
@@ -215,12 +221,6 @@ doMain _ init = do
                 dialog `on1` NewProjectDialog.cancelClicked $ \event -> lift $ do
                     NewProjectDialog.setVisible dialog False
                     return False
-                dialog `on` NewProjectDialog.projectTypeChanged $ do
-                    newProjectType <- NewProjectDialog.getProjectType dialog
-                    NewProjectDialog.setProjectType dialog newProjectType
-                dialog `on` NewProjectDialog.testTypeChanged $ do
-                    newTestType <- NewProjectDialog.getTestProjectType dialog
-                    NewProjectDialog.setTestProjectType dialog newTestType
             return dialog
         mainWindow <- MainWindow.make $ \gui -> do
             setupKeyboardShortcuts gui group
@@ -246,7 +246,14 @@ doMain _ init = do
                 --GuiT (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) (FileSystemSolution, Solution) IO ()
                 return False
             newProjectDialog `on1` NewProjectDialog.confirmClicked $ \event -> do
-                onNewProjectConfirmed
+                liftIO $ putStrLn "project event firing"
+                mode <- NewProjectDialog.getDialogMode newProjectDialog
+                case mode of
+                    NewProjectDialog.CreateProject -> onNewProjectConfirmed
+                    NewProjectDialog.EditProject name 
+                        -> onEditProjectConfirmed 
+                            $ ProjectInfo 
+                            $ T.unpack name
                 return False
             Gtk.main
     

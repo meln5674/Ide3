@@ -1,3 +1,14 @@
+{-|
+Module      : GuiCommand.Internal
+Description : High-level operations peformed in response to user actions
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -118,10 +129,23 @@ doNewStart :: ( GuiCommand t m
            => t (SolutionResult UserError m) ()
 doNewStart = splice setupSolutionCreator
 
+-- | Start the process of creating a new project
 doNewProjectStart :: ( GuiCommand t m
                      )
                   => t (SolutionResult UserError m) ()
-doNewProjectStart = splice setupProjectCreator
+doNewProjectStart = splice $ setupProjectCreator Nothing
+
+-- | Start the process of editing a project
+doEditProjectStart :: ( GuiCommand t m
+                      , m ~ ClassProjectInitializerMonad (t m)
+                      , Args (ProjectArgType m)
+                      )
+                   => ProjectInfo
+                   -> t (SolutionResult UserError m) ()
+doEditProjectStart pji = do
+    retriever <- lift $ lift getProjectRetriever
+    p <- lift $ runProjectRetriever retriever pji
+    splice $ setupProjectCreator (Just p)
 
 -- | Complete the process of creating a new project
 doNew :: ( GuiCommand t m
@@ -164,7 +188,7 @@ doOpen path = do
     lift $ openSolution path
     populateTree
 
--- | Retreive a declaration or module header's text
+-- | Retrieve a declaration or module header's text
 openItem 
     :: ( GuiCommand t m
        )
@@ -327,7 +351,7 @@ doAddSolution = do
             doError $ InvalidOperation (out ++ err) ""
     splice finalizeSolutionCreator
 
--- | ???
+-- | Create a new project
 doAddProject :: ( GuiCommand t m
                 , m ~ ClassProjectInitializerMonad (t m)
                 , Args (ProjectArgType m)
@@ -335,7 +359,7 @@ doAddProject :: ( GuiCommand t m
              => t (SolutionResult UserError m) ()
 doAddProject = do
     arg <- unsplice $ getProjectCreatorArg
-    initializer <- lift $ lift $ getProjectInitializer
+    initializer <- lift $ lift getProjectInitializer
     result <- lift $ runProjectInitializer initializer arg
     case result of
         ProjectInitializerSucceeded out err pji -> do
@@ -344,6 +368,24 @@ doAddProject = do
             splice $ insertSolutionTreeNode SolutionPath (ProjectElem pji)
             lift finalize
         ProjectInitializerFailed out err -> doError $ InvalidOperation (out ++ err) ""
+
+doEditProject :: ( GuiCommand t m
+                , m ~ ClassProjectInitializerMonad (t m)
+                , Args (ProjectArgType m)
+                )
+             => ProjectInfo
+             -> t (SolutionResult UserError m) ()
+doEditProject pji = do
+    arg <- unsplice $ getProjectCreatorArg
+    editor <- lift $ lift getProjectEditor
+    result <- lift $ runProjectEditor editor pji arg
+    case result of
+        ProjectEditorSucceeded out err pji' -> do
+            splice finalizeProjectCreator
+            lift $ editProjectInfo pji (const pji')
+            splice $ updateSolutionTreeNode (ProjectPath pji) (const $ ProjectElem pji')
+            lift finalize
+        ProjectEditorFailed out err -> doError $ InvalidOperation (out ++ err) ""
 
 -- | Add a module to a project
 doAddModule :: ( GuiCommand t m )
@@ -360,9 +402,9 @@ doAddModule pi mi = do
     mTree <- lift $ M.makeModuleTree pi mi
     let sTree = S.makeModuleTree mTree
     
-    --   We now have a tree rooted at the ancestor of the ancestor of the new
-    -- module new one, and each of the trees have a single branch, pointing to
-    -- the next ancestor, until it reaches the node for the new module.
+    --   We now have a tree rooted at the ancestor of the new module, and each
+    -- of the trees have a single branch, pointing to the next ancestor, until
+    -- it reaches the node for the new module.
     
     --   Because there may be orgnaizational nodes that need to be added, we
     -- traverse down the tree, checking the stored tree if there is already a
@@ -418,6 +460,9 @@ doRemoveDeclaration pji mi di = do
     lift $ removeDeclaration pji mi di
     splice $ removeSolutionTreeNode $ DeclarationPath pji mi di
 
+-- | Change the export list of a module as to not export a declaration.
+-- This may fail if the export is not explicitly exported, or if the
+-- declaration is provided by more than one export
 doUnExportDeclaration :: ( GuiCommand t m )
                       => ProjectInfo
                       -> ModuleInfo
@@ -451,6 +496,7 @@ doUnExportDeclaration pi mi (DeclarationInfo sym) = do
         _ -> doError $ Unsupported 
                        "Multiple exports found, please remove exports manually"
 
+-- | An an import to a module
 doAddImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
@@ -469,6 +515,7 @@ doAddImport pi mi importStr = do
             err@ParseError{} -> return $ Just err
             err -> doError err
 
+-- | Remove an import from a module
 doRemoveImport :: ( GuiCommand t m )
                => ProjectInfo
                -> ModuleInfo
@@ -478,6 +525,7 @@ doRemoveImport pi mi ii = do
     lift $ removeImport pi mi ii
     splice $ removeSolutionTreeNode $ ImportPath pi mi ii
 
+-- | Retrieve the body of an import
 doGetImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
@@ -487,6 +535,7 @@ doGetImport pi mi ii = do
     (WithBody _ b) <- lift $ getImport pi mi ii
     return $ Just b
 
+-- | Modify an existing import
 doEditImport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
@@ -508,6 +557,7 @@ doEditImport pi mi ii importStr = do
             err@ParseError{} -> return $ Just err
             err -> doError err
 
+-- | Add an export to a module
 doAddExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
@@ -526,6 +576,7 @@ doAddExport pi mi exportStr = do
             err@ParseError{} -> return $ Just err
             err -> doError err
 
+-- | Remove an export from a module
 doRemoveExport :: ( GuiCommand t m )
                => ProjectInfo
                -> ModuleInfo
@@ -535,6 +586,7 @@ doRemoveExport pi mi ei = do
     lift $ removeExport pi mi ei
     splice $ removeSolutionTreeNode $ ExportPath pi mi ei
 
+-- | Retrieve the body of an export
 doGetExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
@@ -544,6 +596,7 @@ doGetExport pi mi ei = do
     (WithBody _ b) <- lift $ getExport pi mi ei
     return $ Just b
 
+-- | Modfiy an existing export
 doEditExport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
@@ -565,6 +618,7 @@ doEditExport pi mi ei exportStr = do
             err@ParseError{} -> return $ Just err
             err -> doError err
 
+-- | Set a module to export everything
 doExportAll :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
@@ -574,7 +628,8 @@ doExportAll pi mi = do
     splice $ forM (maybe [] id eis) $ removeSolutionTreeNode . ExportPath pi mi
     lift $ exportAll pi mi
     
-
+-- | Perform a text search or a declaration navigation depending on the state
+-- of the search component.
 doSearch :: ( GuiCommand t m 
             )
          => t (SolutionResult UserError m) ()
@@ -585,7 +640,7 @@ doSearch = do
         Find -> do 
             (start,end) <- splice getEditorBufferCursor
             textBefore <- splice $ getEditorBufferText (Just start) Nothing
-            textAfter <- splice $ getEditorBufferText Nothing (Just end) 
+            textAfter <- splice $ getEditorBufferText Nothing (Just end)
             let search substr supstr = case T.splitOn substr substr of
                     [] -> Nothing
                     (t:_) -> Just $ T.length t
@@ -609,7 +664,7 @@ doSearch = do
                     text <- openItem dpath
                     lift $ lift $ openDeclarationInHistory dpath text
                             
-
+-- | Set the mode of the search component
 doSetSearchMode 
     :: ( GuiCommand t m
        )
@@ -617,6 +672,7 @@ doSetSearchMode
     -> t (SolutionResult UserError m) ()
 doSetSearchMode mode = lift $ lift $ setSearchMode mode
 
+-- | Get the word that contains a start and end offset
 getCurrentWord :: Text -> Int -> Int -> (Char -> Bool) -> Text
 getCurrentWord text startOffset endOffset isChar = 
     nextPreStart 
@@ -629,6 +685,8 @@ getCurrentWord text startOffset endOffset isChar =
     nextPreStart = T.reverse $ T.takeWhile isChar $ T.reverse preStart
     nextPostEnd = T.takeWhile isChar $ postEnd
 
+-- | Find the symbol the cursor is over, then open the declaration that created
+-- that symbol
 doGotoDeclaration
     :: ( GuiCommand t m
        )
@@ -661,6 +719,7 @@ doGotoDeclaration = do
                 $ openDeclarationInHistory (DeclarationPath pji mi di) text
         (x:xs) -> return ()
 
+-- | Go to the previous declaration in history
 doBackHistory
     :: ( GuiCommand t m
        )
@@ -678,6 +737,7 @@ doBackHistory = do
                 ProjectPath pji -> setCurrentProject pji
         Nothing -> return ()
 
+-- | Go to the next declaration in history
 doForwardHistory
     :: ( GuiCommand t m
        )
@@ -695,6 +755,7 @@ doForwardHistory = do
                 ProjectPath pji -> setCurrentProject pji
         Nothing -> return ()
 
+-- | Jump to the location of an error
 doJumpToErrorLocation 
     :: ( GuiCommand t m 
        )

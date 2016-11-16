@@ -1,6 +1,6 @@
 {-|
-Module      : Initializer
-Description : Initializing solutions
+Module      : ProjectInitializer
+Description : Initializing projects
 Copyright   : (c) Andrew Melnick, 2016
 
 License     : BSD3

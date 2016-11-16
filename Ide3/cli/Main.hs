@@ -53,6 +53,7 @@ import Initializer
 import Initializer.Stack
 import ProjectInitializer
 import ProjectInitializer.Stack
+import ProjectInitializer.Stack.Types
 
 import CabalMonad
 

@@ -142,6 +142,7 @@ make f = makeWindowWith
             confirmButton <- makeConfirmButton hbox
             cancelButton <- makeCancelButton hbox
             return (confirmButton,cancelButton)
+        window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
         f NewSolutionDialog
           { window
           , fileChooser

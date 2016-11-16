@@ -24,6 +24,9 @@ import Builder.Stack
 import Runner.Stack
 import Initializer.Stack
 import ProjectInitializer.Stack
+import ProjectEditor.Stack
+import ProjectRetriever.Stack
+import ProjectInitializer.Stack.Types
 
 import CabalFilesystemSolution
 
@@ -67,3 +70,5 @@ instance (MonadIO m, MonadMask m, SolutionMonad m, ModuleFileClass m)
         => ProjectInitializerMonad (CabalSolution m) where
     type ProjectArgType (CabalSolution m) = StackProjectInitializerArgs'
     getProjectInitializer = return stackProjectInitializer
+    getProjectEditor = return stackProjectEditor
+    getProjectRetriever = return stackProjectRetriever

@@ -29,6 +29,7 @@ import EnvironmentMonad
 
 import Initializer.Stack
 import ProjectInitializer.Stack
+import ProjectInitializer.Stack.Types
 import CabalMonad
 
 import GuiMonad
@@ -42,7 +43,7 @@ import Dialogs.Class
 
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
-import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..))
+import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..), DialogMode(..))
 
 import GuiT
 
@@ -52,11 +53,57 @@ instance ( Monad m'
          , ProjectArgType m' ~ StackProjectInitializerArgs'
          ) => ProjectInitializerClass (GuiT m' p m) where
     type ClassProjectInitializerMonad (GuiT m' p m) = m'
-    setupProjectCreator
+    setupProjectCreator Nothing
         = liftDialogs
         $ withNewProjectDialogM
-        $ \dialog -> NewProjectDialog.setVisible dialog True
-
+        $ \dialog -> do
+            NewProjectDialog.setVisible dialog True
+            NewProjectDialog.setDialogMode dialog CreateProject
+            NewProjectDialog.resetFields dialog
+    setupProjectCreator (Just arg)
+        = liftDialogs
+        $ withNewProjectDialogM
+        $ \dialog -> do
+            NewProjectDialog.setVisible dialog True
+            NewProjectDialog.resetFields dialog
+            let ProjectInfo projectName = getProjectInfo arg
+            NewProjectDialog.setDialogMode dialog 
+                $ EditProject 
+                $ T.pack projectName
+            NewProjectDialog.setPrimarySrcDir dialog 
+                $ T.pack 
+                $ primarySrcDir arg
+            NewProjectDialog.setSecondarySrcDirs dialog 
+                $ T.intercalate ", " 
+                $ map T.pack 
+                $ secondarySrcDirs arg
+            NewProjectDialog.setDependencies dialog 
+                $ T.intercalate ", " 
+                $ map T.pack 
+                $ dependencies arg
+            case arg of
+                ExecutableProjectArgs{ projectName, exeMainPath } -> do
+                    NewProjectDialog.setProjectType dialog Executable
+                    NewProjectDialog.setExecutableProjectName dialog $ T.pack projectName
+                    NewProjectDialog.setExecutableMainModule dialog $ T.pack exeMainPath
+                LibraryProjectArgs{} -> NewProjectDialog.setProjectType dialog Library
+                TestSuiteProjectArgs{ projectName, testSuiteArgs } -> do
+                    NewProjectDialog.setProjectType dialog TestSuite
+                    NewProjectDialog.setTestProjectName dialog $ T.pack projectName
+                    case testSuiteArgs of
+                        StdioTestSuiteArgs path -> do
+                            NewProjectDialog.setTestProjectType dialog ExitCode
+                            NewProjectDialog.setTestMainModule dialog $ T.pack path
+                        DetailedTestSuiteArgs name -> do
+                            NewProjectDialog.setTestProjectType dialog Detailed
+                            NewProjectDialog.setTestTestModule dialog $ T.pack name
+                BenchmarkProjectArgs{ projectName, benchmarkArgs } -> do
+                    NewProjectDialog.setProjectType dialog Benchmark
+                    NewProjectDialog.setBenchmarkProjectName dialog $ T.pack projectName
+                    case benchmarkArgs of
+                        StdioBenchmarkArgs path -> do
+                            NewProjectDialog.setBenchmarkMainModule dialog $ T.pack path
+            
     getProjectCreatorArg
         = liftDialogs 
         $ withNewProjectDialogM
@@ -99,15 +146,14 @@ instance ( Monad m'
                         , dependencies
                         }
                 Benchmark -> do
-                    projectName <- liftM T.unpack $ NewProjectDialog.getExecutableProjectName dialog
-                    exeMainPath <- liftM T.unpack $ NewProjectDialog.getExecutableMainModule dialog
+                    projectName <- liftM T.unpack $ NewProjectDialog.getBenchmarkProjectName dialog
                     benchmarkArgs <- liftM (StdioBenchmarkArgs . T.unpack)
                         $ NewProjectDialog.getBenchmarkMainModule dialog
-                    return $ Right $ ExecutableProjectArgs 
+                    return $ Right $ BenchmarkProjectArgs 
                         { primarySrcDir
                         , secondarySrcDirs
                         , projectName
-                        , exeMainPath
+                        , benchmarkArgs
                         , dependencies
                         }
             

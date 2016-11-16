@@ -65,7 +65,13 @@ doNewProjectStart :: ( GuiCommand2 t m' m )
            => t m ()
 doNewProjectStart = dialogOnError () $ Internal.doNewProjectStart
 
-
+doEditProjectStart :: ( GuiCommand2 t m' m 
+                      , m' ~ ClassProjectInitializerMonad (t m')
+                      , Args (ProjectArgType m')
+                      )
+                   => ProjectInfo
+                   -> t m ()
+doEditProjectStart = dialogOnError () . Internal.doEditProjectStart
 
 doNew :: ( GuiCommand2 t m' m
          , GenericGuiEnv t
@@ -136,6 +142,15 @@ doAddProject :: ( GuiCommand2 t m' m
                  )
               => t m ()
 doAddProject = dialogOnError () $ Internal.doAddProject
+
+doEditProject :: ( GuiCommand2 t m' m
+                 , m' ~ ClassProjectInitializerMonad (t m')
+                 , Args (ProjectArgType m')
+                 )
+              => ProjectInfo
+              -> t m ()
+doEditProject = dialogOnError () . Internal.doEditProject
+
 
 doAddModule :: ( GuiCommand2 t m' m)
             => ProjectInfo

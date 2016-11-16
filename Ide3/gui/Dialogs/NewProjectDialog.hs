@@ -7,26 +7,40 @@
 {-# LANGUAGE StandaloneDeriving #-}
 module Dialogs.NewProjectDialog
     ( NewProjectDialog
+    , DialogMode(..)
     , make
     , setVisible
     , confirmClicked
     , cancelClicked
     , projectTypeChanged
     , testTypeChanged
+    , resetFields
     , getPrimarySrcDir
+    , setPrimarySrcDir
+    , getDialogMode
+    , setDialogMode
     , getSecondarySrcDirs
+    , setSecondarySrcDirs
     , getDependencies
+    , setDependencies
     , getProjectType
-    , getExecutableProjectName
-    , getExecutableMainModule
-    , getTestProjectName
-    , getTestProjectType
-    , getTestMainModule
-    , getTestTestModule
-    , getBenchmarkProjectName
-    , getBenchmarkMainModule
     , setProjectType
+    , getExecutableProjectName
+    , setExecutableProjectName
+    , getExecutableMainModule
+    , setExecutableMainModule
+    , getTestProjectName
+    , setTestProjectName
+    , getTestProjectType
     , setTestProjectType
+    , getTestMainModule
+    , setTestMainModule
+    , getTestTestModule
+    , setTestTestModule
+    , getBenchmarkProjectName
+    , setBenchmarkProjectName
+    , getBenchmarkMainModule
+    , setBenchmarkMainModule
     , ProjectType(..)
     , TestSuiteType(..)
     ) where
@@ -36,6 +50,10 @@ import Data.Functor.Identity
 import Data.Text (Text)
 import qualified Data.Text as T
 
+
+import Control.Concurrent.MVar
+
+import Control.Monad
 import Control.Monad.Trans
 
 import GI.Gtk hiding (main)
@@ -61,27 +79,59 @@ projectTypeChanged dialog = (projectTypeDropdown dialog, #changed)
 testTypeChanged :: NewProjectDialogSignal ComboBox ComboBoxChangedSignalInfo
 testTypeChanged dialog = (testTypeBox $ testSuiteView $ projectTypeView dialog, #changed)
 
+getDialogMode :: MonadIO m => NewProjectDialog -> m DialogMode
+getDialogMode = liftIO . readMVar . dialogMode
+
+setDialogMode :: MonadIO m => NewProjectDialog -> DialogMode -> m ()
+setDialogMode dialog mode = do
+    void $ liftIO $ swapMVar (dialogMode dialog) mode
+    liftIO $ print mode
+
+resetFields :: MonadIO m => NewProjectDialog -> m ()
+resetFields dialog = do
+    let buffers = map ($ dialog)
+            [ primarySrcDirBuffer
+            , secondarySrcDirsBuffer
+            , dependenciesBuffer
+            , exeProjectNameBuffer . executableView . projectTypeView
+            , exeMainModuleBuffer . executableView . projectTypeView
+            , testProjectNameBuffer . testSuiteView . projectTypeView
+            , testMainModuleBuffer . testExitCodeView . testTypeView . testSuiteView . projectTypeView
+            , testTestModuleBuffer . testDetailedView . testTypeView . testSuiteView . projectTypeView
+            , benchProjectNameBuffer . benchmarkView . projectTypeView
+            , benchMainModuleBuffer . benchmarkView . projectTypeView
+            ]
+    forM_ buffers $ flip setEntryBufferText ""
+
 getPrimarySrcDir :: MonadIO m => NewProjectDialog -> m Text
 getPrimarySrcDir = getEntryBufferText . primarySrcDirBuffer
+
+setPrimarySrcDir :: MonadIO m => NewProjectDialog -> Text -> m ()
+setPrimarySrcDir = setEntryBufferText . primarySrcDirBuffer
 
 getSecondarySrcDirs :: MonadIO m => NewProjectDialog -> m Text
 getSecondarySrcDirs = getEntryBufferText . secondarySrcDirsBuffer
 
+setSecondarySrcDirs :: MonadIO m => NewProjectDialog -> Text -> m ()
+setSecondarySrcDirs = setEntryBufferText . secondarySrcDirsBuffer
+
 getDependencies :: MonadIO m => NewProjectDialog -> m Text
 getDependencies = getEntryBufferText . dependenciesBuffer
 
+setDependencies :: MonadIO m => NewProjectDialog -> Text -> m ()
+setDependencies = setEntryBufferText . dependenciesBuffer
+
 getProjectType :: MonadIO m => NewProjectDialog -> m ProjectType
-getProjectType dialog = do
-    ix <- comboBoxGetActive
-        $ projectTypeDropdown dialog
-    seqStoreGetValue 
-        (projectTypeModel dialog)
-        ix
+getProjectType dialog 
+    = liftM (toEnum . fromIntegral)
+    $ comboBoxGetActive 
+    $ projectTypeDropdown dialog
 
 setProjectType :: MonadIO m => NewProjectDialog -> ProjectType -> m ()
 setProjectType dialog 
-    = stackSetVisibleChildName (projectTypeStack $ projectTypeView dialog) 
-    . projectTypeName
+    = comboBoxSetActive (projectTypeDropdown dialog) 
+    . fromIntegral . fromEnum 
+        
     
 getExecutableProjectName :: MonadIO m => NewProjectDialog -> m Text 
 getExecutableProjectName
@@ -90,6 +140,14 @@ getExecutableProjectName
     . executableView 
     . projectTypeView
 
+setExecutableProjectName :: MonadIO m => NewProjectDialog -> Text -> m ()
+setExecutableProjectName
+    = setEntryBufferText
+    . exeProjectNameBuffer
+    . executableView
+    . projectTypeView
+      
+
 getExecutableMainModule :: MonadIO m => NewProjectDialog -> m Text
 getExecutableMainModule 
     = getEntryBufferText 
@@ -97,9 +155,23 @@ getExecutableMainModule
     . executableView 
     . projectTypeView
 
+setExecutableMainModule :: MonadIO m => NewProjectDialog -> Text -> m ()
+setExecutableMainModule 
+    = setEntryBufferText 
+    .  exeMainModuleBuffer
+    . executableView 
+    . projectTypeView
+
 getTestProjectName :: MonadIO m => NewProjectDialog -> m Text
 getTestProjectName
     = getEntryBufferText
+    . testProjectNameBuffer
+    . testSuiteView
+    . projectTypeView
+
+setTestProjectName :: MonadIO m => NewProjectDialog -> Text -> m ()
+setTestProjectName
+    = setEntryBufferText
     . testProjectNameBuffer
     . testSuiteView
     . projectTypeView
@@ -131,9 +203,27 @@ getTestMainModule
     . testSuiteView
     . projectTypeView
 
+setTestMainModule :: MonadIO m => NewProjectDialog -> Text -> m ()
+setTestMainModule
+    = setEntryBufferText
+    . testMainModuleBuffer
+    . testExitCodeView
+    . testTypeView
+    . testSuiteView
+    . projectTypeView
+
 getTestTestModule :: MonadIO m => NewProjectDialog -> m Text
 getTestTestModule
     = getEntryBufferText
+    . testTestModuleBuffer
+    . testDetailedView
+    . testTypeView
+    . testSuiteView
+    . projectTypeView
+
+setTestTestModule :: MonadIO m => NewProjectDialog -> Text -> m ()
+setTestTestModule
+    = setEntryBufferText
     . testTestModuleBuffer
     . testDetailedView
     . testTypeView
@@ -147,16 +237,33 @@ getBenchmarkProjectName
     . benchmarkView
     . projectTypeView
 
+setBenchmarkProjectName :: MonadIO m => NewProjectDialog -> Text -> m ()
+setBenchmarkProjectName
+    = setEntryBufferText
+    . benchProjectNameBuffer
+    . benchmarkView
+    . projectTypeView
+
 getBenchmarkMainModule :: MonadIO m => NewProjectDialog -> m Text
 getBenchmarkMainModule
     = getEntryBufferText
     . benchMainModuleBuffer
     . benchmarkView
     . projectTypeView
-   
+
+setBenchmarkMainModule :: MonadIO m => NewProjectDialog -> Text -> m ()
+setBenchmarkMainModule
+    = setEntryBufferText
+    . benchMainModuleBuffer
+    . benchmarkView
+    . projectTypeView
+
+data DialogMode = CreateProject | EditProject Text deriving Show
+
 data NewProjectDialog
     = NewProjectDialog
     { window :: Window
+    , dialogMode :: MVar DialogMode
     , primarySrcDirLabel :: Label
     , primarySrcDirBuffer :: EntryBuffer
     , primarySrcDirBox :: Entry
@@ -302,8 +409,23 @@ make f = makeWindowWith
             confirmButton <- makeButton "Confirm" hbox
             cancelButton <- makeButton "Cancel" hbox
             return (confirmButton, cancelButton)
+        dialogMode <- liftIO $ newMVar CreateProject
+        projectTypeDropdown `GI.Gtk.on` #changed $ do
+            comboBoxGetActive projectTypeDropdown
+            >>= seqStoreGetValue projectTypeModel
+            >>= stackSetVisibleChildName 
+                (projectTypeStack projectTypeView)
+                . projectTypeName
+        (testTypeBox $ testSuiteView projectTypeView) `GI.Gtk.on` #changed $ do
+            comboBoxGetActive (testTypeBox $ testSuiteView projectTypeView) 
+            >>= seqStoreGetValue (testTypeModel $ testSuiteView projectTypeView)
+            >>= stackSetVisibleChildName
+                (testTypeStack $ testTypeView $ testSuiteView projectTypeView)
+                . testTypeName
+        window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
         f NewProjectDialog
             { window
+            , dialogMode
             , primarySrcDirLabel
             , primarySrcDirBox
             , primarySrcDirBuffer

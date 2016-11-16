@@ -23,6 +23,11 @@ library
                      , Initializer.Stack
                      , ProjectInitializer
                      , ProjectInitializer.Stack
+                     , ProjectInitializer.Stack.Types
+                     , ProjectEditor
+                     , ProjectEditor.Stack
+                     , ProjectRetriever
+                     , ProjectRetriever.Stack
                      , Editor
                      , Viewer
                      , ViewerMonad
@@ -38,6 +43,7 @@ library
                      , ErrorParser
                      , ErrorParser.Types
                      , DirtyModuleClass
+    other-modules:     CabalFilesystemSolution.Internal
     build-depends:     base
                      , temporary
                      , directory

@@ -42,7 +42,7 @@ import GuiHelpers
 
 -- | Class of dialogs which are based on the generic one
 class NewDialog dialog where
-    -- | Retreive the underlying generic dialog value
+    -- | Retrieve the underlying generic dialog value
     getGenericDialog :: dialog -> GenericNewDialog
     
 -- | ADT for the generic dialog

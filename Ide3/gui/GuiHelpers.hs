@@ -1,3 +1,33 @@
+{-|
+Module      : GuiHelpers
+Description : Convienience wrappers for GTK, dealing with signals and attributes
+                for widgets contained in data structures, and signals which
+                require context
+Copyright   : (c) Andrew Melnick, 2016
+
+License     : BSD3
+Maintainer  : meln5674@kettering.edu
+Stability   : experimental
+Portability : POSIX
+
+In addition to providng functions for building GUIs using GTK, this module also
+provides the functionality for dealing with widgets contained in data
+structures. This is accomplished by creating functions which accept a data
+structure and return a pair of the appropriate widget and the signal or
+attribute on that widget. This, along with the data structure in question, are
+provided to a helper function which uses the underlying GTK functions for
+attaching signals and using attributes.
+
+Finally, this module provides a way to deal with signal handlers which require
+context, such as a static reference to a widget or buffer. GTK signals may only
+accept handlers in the IO monad, no context is permitted. This is solved by
+a typeclass which provides a function that accepts the signal attaching
+function, as well as a handler inside of a transformer. The tranformer is then
+used to provide the context, yielding a handler in the underlying monad, which
+is usually IO, which can then be attached using the normal signal attach
+function.
+-}
+
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
@@ -18,7 +48,6 @@ module GuiHelpers
     , makeScrolledWindowWith
     , makeLabelEntryPairWith
     , makeLabelComboBoxPairWith
-    , listStoreAppend
     , withTreePath
     , withGtkTreePath
     , SignalInterceptClass (..)
@@ -53,7 +82,7 @@ import Control.Monad.Trans.Identity
 import Data.GI.Base.GValue
 import Data.GI.Base.Signals hiding (on, after)
 import Data.GI.Base.Attributes
-import GI.Gtk hiding (on, after, TreePath, listStoreAppend)
+import GI.Gtk hiding (on, after, TreePath)
 import Data.GI.Gtk.ModelView.SeqStore
 
 import qualified GI.Gtk as Gtk
@@ -62,7 +91,8 @@ import GI.Gdk hiding (Window, on, after)
 import GuiClass.Types
 
 
-
+-- | Add a GTK label and entry, along with buffer, to a container, then apply an
+-- action to them
 makeLabelEntryPairWith :: ( MonadIO m
                           , IsContainer self
                           ) 
@@ -75,6 +105,8 @@ makeLabelEntryPairWith txt self f = do
     (entry, buf) <- makeEntry self
     f lbl entry buf
 
+-- | Add a GTK label and combobox, along with a sequence model, to a container,
+-- then apply an action to them
 makeLabelComboBoxPairWith :: ( MonadIO m
                              , IsContainer self
                              ) 
@@ -96,7 +128,7 @@ makeWindowWith f = do
     return r
 
 
--- | Create a GTK menu, add it to a container, then apply an action to it
+-- | Add a GTK menu to a container, then apply an action to it
 makeMenuWith :: ( IsMenuShell self
                 , MonadIO m
                 )
@@ -168,6 +200,7 @@ makeNotebookPageWith notebook name f = do
     notebookSetTabLabelText notebook vbox name
     f vbox
 
+-- | Add a GTK stack to a container, then apply an action to it
 makeStackWith :: ( MonadIO m
                  , IsContainer self
                  )
@@ -179,6 +212,7 @@ makeStackWith self f = do
     self `containerAdd` stack
     f stack
 
+-- | Add a page to a GTK stack, then apply an action to it
 makeStackChildWith :: ( MonadIO m
                       )
                    => Stack
@@ -236,6 +270,7 @@ makeLabel text container = liftIO $ do
     container `containerAdd` label
     return label
 
+-- | Add a GTK entry to a container along with a buffer
 makeEntry :: ( IsContainer self
              , MonadIO m
              )
@@ -247,6 +282,7 @@ makeEntry self = liftIO $ do
     self `containerAdd` entry
     return (entry, buf)
 
+-- | Add a GTK combobox to a container along with a sequence model
 makeComboBox :: ( IsContainer self
                 , MonadIO m
                 )
@@ -257,15 +293,6 @@ makeComboBox self = liftIO $ do
     box <- comboBoxNewWithModel model
     self `containerAdd` box
     return (box, model)
-
-listStoreAppend :: ( MonadIO m, IsGValue a )
-                => ListStore
-                -> a
-                -> m ()
-listStoreAppend model value = do
-    iter <- Gtk.listStoreAppend model
-    gvalue <- liftIO $ toGValue value
-    listStoreSetValue model iter 0 gvalue
 
 -- | Add an accelerator (keyboard shortcut) to a widget
 addAccel :: ( IsWidget subObject
@@ -290,12 +317,11 @@ addAccel getter signalName object group key modifiers flags = do
                          flags
 
 
--- | Signals which affect widgets inside of a data structure
+-- | Signals which affect widgets inside of a data structure.
+-- Such signals are represented by functions mapping the data structure to a
+-- pair of widget and signal on that widget
 type SubSignalProxy object subObject info 
-    =  object 
-    -> (subObject, SignalProxy subObject info) -- ^ 
-    -- Such signals are represented by functions mapping the data structure to a
-    -- pair of widget and signals on that widget
+    =  object -> (subObject, SignalProxy subObject info)
 
 -- | Create a SubSignalProxy in which the data structure is the widget itself
 ownSignal :: SignalProxy object info -> SubSignalProxy object object info
@@ -321,8 +347,11 @@ afterSub object signal callback = let (subObject, signal') = signal object
     in Gtk.after subObject signal' callback
 
 -- | Class of transformers which can 'intercept' the attaching of signals to
--- objects
+-- objects to provide additional context
 class (MonadTrans t) => SignalInterceptClass t where
+    -- | Take a handler attaching function which gives no context, a handler
+    -- which requires context, then attach the handler after supplying it the
+    -- context
     intercept :: ( Monad m'
                  , MonadIO m
                  )
@@ -336,7 +365,7 @@ instance SignalInterceptClass (ReaderT r) where
         r <- ask
         lift $ add $ \x -> runReaderT (handler x) r
 
--- | Intercept signals by unwrapping them
+-- | Intercept signals and provide no context
 instance SignalInterceptClass IdentityT where
     intercept add handler = lift $ add $ \x -> runIdentityT $ handler x
         
@@ -348,7 +377,7 @@ curry3 f a b c = f (a,b,c)
 uncurry3 :: (a -> b -> c -> d) -> (a,b,c) -> d
 uncurry3 f (a,b,c) = f a b c
 
--- | Intercepted signal attaching function for handlers which are 0-arity
+-- | Attach a handler requring context and no arguments
 on :: ( GObject subObject
       , Monad m'
       , MonadIO m
@@ -363,7 +392,7 @@ on :: ( GObject subObject
 on obj event handler =
     (onSub obj event . ($())) `intercept` const handler
 
--- | Intercepted signal attaching function for handlers which are 1-arity
+-- | Attach a handler requring context and 1 argument
 on1 :: ( GObject subObject
        , Monad m'
        , MonadIO m
@@ -378,7 +407,7 @@ on1 :: ( GObject subObject
 on1 obj event handler = do
     onSub obj event `intercept` handler
 
--- | Intercepted signal attaching function for handlers which are 2-arity
+-- | Attach a handler requring context and 2 arguments
 on2 :: ( GObject subObject
        , Monad m'
        , MonadIO m
@@ -392,7 +421,7 @@ on2 :: ( GObject subObject
     -> t m SignalHandlerId
 on2 obj event handler = (onSub obj event . curry) `intercept` uncurry handler
 
--- | Intercepted signal attaching function for handlers which are 3-arity
+-- | Attach a handler requring context and 3 arguments
 on3 :: ( GObject subObject
        , Monad m'
        , MonadIO m
@@ -406,8 +435,7 @@ on3 :: ( GObject subObject
     -> t m SignalHandlerId
 on3 obj event handler = (onSub obj event . curry3) `intercept` uncurry3 handler
 
--- | Intercepted signal attaching function for handlers which are 0-arity,
--- handler runs after the default handler
+-- | Same as 'on', except the handler fires after the default one
 after :: ( GObject subObject
          , Monad m'
          , MonadIO m
@@ -422,8 +450,7 @@ after :: ( GObject subObject
 after obj event handler =
     (afterSub obj event . ($())) `intercept` const handler
 
--- | Intercepted signal attaching function for handlers which are 1-arity,
--- handler runs after the default handler
+-- | Same as 'on1', except the handler fires after the default one
 after1 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -438,8 +465,7 @@ after1 :: ( GObject subObject
 after1 obj event handler = do
     afterSub obj event `intercept` handler
 
--- | Intercepted signal attaching function for handlers which are 2-arity,
--- handler runs after the default handler
+-- | Same as 'on2', except the handler fires after the default one
 after2 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -454,8 +480,7 @@ after2 :: ( GObject subObject
 after2 obj event handler =
     (afterSub obj event . curry) `intercept` uncurry handler
 
--- | Intercepted signal attaching function for handlers which are 3-arity,
--- handler runs after the default handler
+-- | Same as 'on3', except the handler fires after the default one
 after3 :: ( GObject subObject
           , Monad m'
           , MonadIO m
@@ -469,14 +494,19 @@ after3 :: ( GObject subObject
        -> t m SignalHandlerId
 after3 obj event handler = (afterSub obj event . curry3) `intercept` uncurry3 handler
 
--- | Attributes for widgets inside of data structures
+-- | Attributes for widgets inside of data structures.
+-- These attributes are represented as functions mapping the data structure to
+-- a pair of widget and attribute on that widget
 type SubAttrLabelProxy object subObject (attr :: Symbol)
     = object -> (subObject, AttrLabelProxy attr)
 
--- | Attribute operatios for widgets inside of data structures
-type SubAttrOp object subObject tag = object -> (subObject,AttrOp subObject tag)
+-- | Attribute operations for widgets inside of data structures.
+-- These attributes are represented as functions mapping the data structure to
+-- a pair of widget and attribute operation on that widget
+type SubAttrOp object subObject tag 
+    = object -> (subObject, AttrOp subObject tag)
 
--- | Retreive the value of an attribute of a widget in a data structure
+-- | Retrieve the value of an attribute of a widget in a data structure
 getSub :: ( AttrGetC info subObj attr result
           , MonadIO m
           )
@@ -491,22 +521,23 @@ setSub obj subAttrs = mapM_ (uncurry set) x
   where
     x = map (fmap (:[]) . ($obj)) subAttrs 
 
--- | Perform an action after allocating a tree path
+-- | Perform an action after allocating a tree path.
+-- NOTE: The path is not manually freed due to gi-gtk doing this automatically
+-- when the path is garbage collected. Freeing manually results in a
+-- double-free, and there doesn't appear to be a way to stop this.
 withTreePath :: ( MonadIO m ) => TreePath -> (Gtk.TreePath -> m a) -> m a
-withTreePath path f = do
-    path' <- allocPath path
-    result <- f path'
-    {-result `seq` treePathFree path'-}
-    {-result `seq` return result-}
+withTreePath purePath f = do
+    gtkPath <- allocPath purePath
+    result <- f gtkPath
     return result
   where
     allocPath [] = treePathNew
-    allocPath path = treePathNewFromIndices $ map fromIntegral path
+    allocPath path = treePathNewFromIndices $ map fromIntegral purePath
 
 -- | Perform an action with the underlying tree path from an alocated tree
 -- path    
 withGtkTreePath :: MonadIO m => Gtk.TreePath -> (TreePath -> m a) -> m a
-withGtkTreePath idiotPath f = do
-    path <- liftM (map fromIntegral) $ treePathGetIndices idiotPath
-    f path
+withGtkTreePath gtkPath f = do
+    purePath <- liftM (map fromIntegral) $ treePathGetIndices gtkPath
+    f purePath
     

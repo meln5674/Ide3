@@ -58,6 +58,7 @@ data ElementMenu
     | ProjectMenu
     { projectInfo :: ProjectInfo
     , newModuleButton :: MenuItem
+    , editProjectButton :: MenuItem
     , deleteProjectButton :: MenuItem
     }
     | SolutionMenu
@@ -187,15 +188,20 @@ makeExportAllButton = makeMenuButton "Export All"
 makeProjectMenu :: (MonadIO m) => ProjectInfo -> m ContextMenu
 makeProjectMenu pi = makeMenuWith $ \menu -> do
     newModuleButton <- makeNewModuleButton menu
+    editProjectButton <- makeEditProjectButton menu
     deleteProjectButton <- makeDeleteProjectButton menu
     return ProjectMenu
         { projectInfo = pi
         , newModuleButton
+        , editProjectButton
         , deleteProjectButton
         }
 
 makeNewModuleButton :: (MonadIO m) => Menu -> m MenuItem
 makeNewModuleButton = makeMenuButton "New Module"
+
+makeEditProjectButton :: (MonadIO m) => Menu -> m MenuItem
+makeEditProjectButton = makeMenuButton "Edit"
 
 makeDeleteProjectButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteProjectButton = makeMenuButton "Delete"
@@ -281,6 +287,9 @@ newModuleClickedEvent = newModuleButton `mkMenuSignal` #buttonPressEvent
 
 newProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 newProjectClickedEvent = newProjectButton `mkMenuSignal` #buttonPressEvent
+
+editProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+editProjectClickedEvent = editProjectButton `mkMenuSignal` #buttonPressEvent
 
 deleteProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 deleteProjectClickedEvent = deleteProjectButton `mkMenuSignal` #buttonPressEvent

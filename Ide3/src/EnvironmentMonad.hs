@@ -8,6 +8,8 @@ module EnvironmentMonad
     , module Runner
     , module Initializer
     , module ProjectInitializer
+    , module ProjectEditor
+    , module ProjectRetriever
     , module Args
     ) where
 
@@ -17,6 +19,8 @@ import Builder
 import Runner
 import Initializer
 import ProjectInitializer
+import ProjectRetriever
+import ProjectEditor
 
 class Monad m => BuilderMonad m where
     getBuilder :: m (Builder m)
@@ -31,7 +35,8 @@ class Monad m => InitializerMonad m where
 class Monad m => ProjectInitializerMonad m where
     type ProjectArgType m
     getProjectInitializer :: Args (ProjectArgType m) => m (ProjectInitializer (ProjectArgType m) m)
-
+    getProjectEditor :: Args (ProjectArgType m) => m (ProjectEditor (ProjectArgType m) m)
+    getProjectRetriever :: Args (ProjectArgType m) => m (ProjectRetriever (ProjectArgType m) m)
 
 type EnvironmentMonad m = 
     ( BuilderMonad m

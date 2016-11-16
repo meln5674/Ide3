@@ -135,9 +135,14 @@ onNewProjectConfirmed :: forall t proxy m' p m
                        . ( MainGuiClassIO t m' p m
                          )
                       => t m ()
-onNewProjectConfirmed = do
-    doAddProject
-    
+onNewProjectConfirmed = doAddProject
+
+onEditProjectConfirmed :: forall t proxy m' p m
+                       . ( MainGuiClassIO t m' p m
+                         )
+                      => ProjectInfo
+                      -> t m ()
+onEditProjectConfirmed = doEditProject
 
 onNewClicked :: forall t proxy m' p m
                . ( MainGuiClassIO t m' p m
@@ -224,6 +229,12 @@ onNewProjectClicked :: forall t proxy m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onNewProjectClicked = doNewProjectStart
+
+onEditProjectClicked :: forall t proxy m' p m
+               . ( MainGuiClass t m' p m )
+              => ProjectInfo
+              -> t m ()
+onEditProjectClicked = doEditProjectStart
 
 onDeleteProjectClicked :: forall t proxy m' p m 
                . ( MainGuiClass t m' p m )
@@ -414,6 +425,9 @@ setupProjectContextMenu pi = do
     menu <- SolutionContextMenu.makeProjectMenu pi
     menu `on1` SolutionContextMenu.newModuleClickedEvent $ \event -> do
         onNewModuleClicked pi Nothing
+    menu `on1` SolutionContextMenu.editProjectClickedEvent $ \event -> do
+        onEditProjectClicked pi
+        return False
     menu `on1` SolutionContextMenu.deleteProjectClickedEvent $ \event -> do
         onDeleteProjectClicked pi
     return menu

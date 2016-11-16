@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
-module ProjectInitializer.Stack where
+{-# LANGUAGE NamedFieldPuns #-}
+module ProjectEditor.Stack where
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -15,26 +16,32 @@ import Ide3.NewMonad
 
 import Args
 
-import ProjectInitializer
+import ProjectEditor
 
 import CabalMonad
 
 
 import ProjectInitializer.Stack.Types
-    
 
--- | An Initializer that uses the stack new command to create a new solution
-stackProjectInitializer :: ( MonadIO m
+-- | An Editor that uses the stack new command to create a new solution
+stackProjectEditor :: ( MonadIO m
                            , PersistenceClass m
                            , CabalMonad m
                            , SolutionClass m
                            )
-                        => ProjectInitializer StackProjectInitializerArgs' m
-stackProjectInitializer = ProjectInitializer $ \arg -> do
+                        => ProjectEditor StackProjectInitializerArgs' m
+stackProjectEditor = ProjectEditor $ \pji arg -> do
+    oldCabalProjectInfo <- getCabalProjectInfo pji
+    p <- getCabalProject oldCabalProjectInfo
     deps <- case traverse simpleParse $ dependencies arg of
         Just deps -> return deps
         Nothing -> throwE $ InvalidOperation "Cannot parse dependencies" ""
-    let newBuildInfo = emptyBuildInfo 
+    let oldBuildInfo = case p of
+            ExecutableProject _ Executable{ buildInfo } -> buildInfo
+            LibraryProject Library{ libBuildInfo } -> libBuildInfo
+            TestSuiteProject _ TestSuite{ testBuildInfo } -> testBuildInfo
+            BenchmarkProject _ Benchmark{ benchmarkBuildInfo } -> benchmarkBuildInfo
+        newBuildInfo = oldBuildInfo
                      { hsSourceDirs = primarySrcDir arg : secondarySrcDirs arg
                      , targetBuildDepends = deps
                      }
@@ -48,31 +55,31 @@ stackProjectInitializer = ProjectInitializer $ \arg -> do
             BenchmarkProjectArgs{} -> BenchmarkInfo $ projectName arg
         newProject = case arg of
             ExecutableProjectArgs{} -> ExecutableProject (ProjectInfo $ projectName arg)
-                $ emptyExecutable 
+                $ (case p of { ExecutableProject _ exe -> exe; _ -> emptyExecutable })
                 { buildInfo = newBuildInfo
                 , exeName = projectName arg
                 , modulePath = exeMainPath arg
                 }
             LibraryProjectArgs{} -> LibraryProject
-                $ emptyLibrary
+                $ (case p of { LibraryProject lib -> lib; _ -> emptyLibrary })
                 { libBuildInfo = newBuildInfo
                 }
             TestSuiteProjectArgs{} -> TestSuiteProject (ProjectInfo $ projectName arg)
-                $ emptyTestSuite
+                $ (case p of { TestSuiteProject _ test -> test; _ -> emptyTestSuite{ testEnabled = True}})
                 { testName = projectName arg
                 , testInterface = case testSuiteArgs arg of
                     StdioTestSuiteArgs path -> TestSuiteExeV10 (Version [1,0] []) path
                     DetailedTestSuiteArgs name -> TestSuiteLibV09 (Version [0,9] []) $ fromString name
                 , testBuildInfo = newBuildInfo
-                , testEnabled = True
                 }
             BenchmarkProjectArgs{} -> BenchmarkProject (ProjectInfo $ projectName arg)
-                $ emptyBenchmark
+                $ (case p of { BenchmarkProject _ bench -> bench; _ -> emptyBenchmark{ benchmarkEnabled = True}})
                 { benchmarkName = projectName arg
                 , benchmarkInterface = case benchmarkArgs arg of
                     StdioBenchmarkArgs path -> BenchmarkExeV10 (Version [1,0] []) path
                 , benchmarkBuildInfo = newBuildInfo
                 , benchmarkEnabled = True
                 }
+    removeCabalProject oldCabalProjectInfo
     addCabalProject newCabalProjectInfo newProject
-    return $ ProjectInitializerSucceeded "" "" newProjectInfo
+    return $ ProjectEditorSucceeded "" "" newProjectInfo

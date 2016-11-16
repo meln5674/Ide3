@@ -25,7 +25,10 @@ stackRunner = MkRunner $ \pji -> do
     maybeArgs <- case cpji of
         LibraryInfo -> return Nothing
         ExecutableInfo execName -> return $ Just ["exec",execName]
-        BenchmarkInfo benchName -> return $ Just ["bench",benchName]
+        BenchmarkInfo benchName -> do
+            pkgDesc <- getPackageDescription
+            let benchArg = (unPackageName $ pkgName $ package pkgDesc) ++ ":" ++ benchName
+            return $ Just ["bench",benchArg]
         TestSuiteInfo testName -> do
             pkgDesc <- getPackageDescription
             let testArg = (unPackageName $ pkgName $ package pkgDesc) ++ ":" ++ testName
