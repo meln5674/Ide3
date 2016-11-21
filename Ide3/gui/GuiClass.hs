@@ -55,6 +55,7 @@ class Monad m => SolutionViewClass m where
     lookupAtSolutionTreePath :: TreePath -> m (Maybe (Tree SolutionTreeElem))
     setSolutionTree :: Forest SolutionTreeElem -> m ()
     updateSolutionTreePathNode :: TreePath -> (SolutionTreeElem -> SolutionTreeElem) -> m ()
+    updateSolutionTreePathTree :: TreePath -> (Tree SolutionTreeElem -> Tree SolutionTreeElem) -> m ()
     insertSolutionTreePathNode :: TreePath -> (Maybe Int) -> SolutionTreeElem -> m ()
     insertSolutionTreePathTree :: TreePath -> (Maybe Int) -> Tree SolutionTreeElem -> m ()
     removeSolutionTreePathNode :: TreePath -> m ()

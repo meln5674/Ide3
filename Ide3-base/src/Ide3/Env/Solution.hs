@@ -104,6 +104,28 @@ editModuleHeader :: Monad m
                                   m u ()
 editModuleHeader = descend2 $ Project.editModuleHeader
 
+setModuleUnparsable :: Monad m
+                     => DescentChain4 Solution
+                                      ProjectInfo
+                                      ModuleInfo
+                                      String
+                        m u ()
+setModuleUnparsable = descend2 $ Project.setModuleUnparsable
+
+setModuleParsable :: Monad m
+                   => DescentChain3 Solution
+                                    ProjectInfo
+                                    ModuleInfo
+                      m u ()
+setModuleParsable = descend1 $ Project.setModuleParsable
+
+getUnparsableModule :: Monad m
+                     => DescentChain3 Solution
+                                      ProjectInfo
+                                      ModuleInfo
+                        m u (Maybe String)
+getUnparsableModule = descend1 $ Project.getUnparsableModule
+
 -- | Add an external module to a project
 addExternModule :: Monad m 
                 => DescentChain3 Solution ProjectInfo ExternModule m u ()

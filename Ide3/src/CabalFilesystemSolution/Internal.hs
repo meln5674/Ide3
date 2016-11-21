@@ -21,7 +21,7 @@ import Control.Monad.Catch
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.State.Strict
+import Control.Monad.State.Strict
 
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.Verbosity
@@ -235,42 +235,86 @@ locateModule paths mn = do
     return $ getFirst $ mconcat $ map First hits
 
 loadInternalModule :: ( MonadIO m
-                               , ProjectModuleClass m
-                                , ProjectExternModuleClass m
-                                , ModuleDeclarationClass m
-                                , ModuleImportClass m
-                                , ModuleExportClass m
-                                , ModulePragmaClass m
-                                )  
+                      , ProjectModuleClass m
+                      , ProjectExternModuleClass m
+                      , ModuleDeclarationClass m
+                      , ModuleImportClass m
+                      , ModuleExportClass m
+                      , ModulePragmaClass m
+                      )  
                    => ProjectInfo 
                    -> FilePath
                    -> Bool
-                   -> SolutionResult u (CabalSolution m) ModuleInfo
+                   -> SolutionResult u (CabalSolution m) (ModuleInfo, Maybe (SrcLoc,String))
 loadInternalModule pji path isMain = do
     let parser = if isMain then Module.parseMain else Module.parse
     contents <- wrapReadFile path
     bounce $ addRawModule pji contents (Just path)
 
+updateInternalModule :: ( MonadIO m
+                        , ProjectModuleClass m
+                        , ProjectExternModuleClass m
+                        , ModuleDeclarationClass m
+                        , ModuleImportClass m
+                        , ModuleExportClass m
+                        , ModulePragmaClass m
+                        )  
+                     => ProjectInfo 
+                     -> FilePath
+                     -> Bool
+                     -> SolutionResult u (CabalSolution m) (ModuleInfo, Maybe (SrcLoc,String))
+updateInternalModule pji path isMain = do
+    let parser = if isMain then Module.parseMain else Module.parse
+    contents <- wrapReadFile path
+    bounce $ updateRawModule pji contents (Just path)
+
 locateAndLoadInternalModule :: ( MonadIO m
                                , ProjectModuleClass m
-                                , ProjectExternModuleClass m
-                                , ModuleDeclarationClass m
-                                , ModuleImportClass m
-                                , ModuleExportClass m
-                                , ModulePragmaClass m
-                                )  
+                               , ProjectExternModuleClass m
+                               , ModuleDeclarationClass m
+                               , ModuleImportClass m
+                               , ModuleExportClass m
+                               , ModulePragmaClass m
+                               )  
                             => ProjectInfo
                             -> [FilePath]
                             -> Bool
                             -> ModuleName.ModuleName
-                            -> SolutionResult u (CabalSolution m) (ModuleInfo,FilePath)
+                            -> SolutionResult u (CabalSolution m) ( ModuleInfo
+                                                                  , FilePath
+                                                                  , Maybe (SrcLoc, String)
+                                                                  )
 locateAndLoadInternalModule pji roots isMain mn = do
     locateResult <- locateModule roots mn
     case locateResult of
         Nothing -> throwE $ InvalidOperation ("Can't find module " ++ show mn) ""
         Just path -> do
-            mi <- loadInternalModule pji path isMain
-            return (mi,path)
+            (mi, err) <- loadInternalModule pji path isMain
+            return (mi,path,err)
+
+getMainModuleName :: Monad m 
+                  => ProjectInfo 
+                  -> SolutionResult u (CabalSolution m) (Maybe ModuleName.ModuleName)
+getMainModuleName pji = do
+    p <- lookupCabalProject pji
+    roots <- getProjectSourceRoots p    
+    let mainModuleName = case p of
+            LibraryProject lib -> Nothing
+            ExecutableProject _ exe -> Just $ moduleNameFromPath $ modulePath exe
+            TestSuiteProject _ test -> case testInterface test of
+                TestSuiteExeV10 _ path -> Just $ moduleNameFromPath $ takeBaseName path
+                TestSuiteLibV09 _ name -> Just $ name
+                _ -> Nothing
+            BenchmarkProject _ bench -> case benchmarkInterface bench of
+                BenchmarkExeV10 _ path -> Just $ moduleNameFromPath $ takeBaseName path
+                _ -> Nothing
+    return mainModuleName
+
+moduleNameFromPath :: FilePath -> ModuleName.ModuleName
+moduleNameFromPath = ModuleName.fromString 
+                   . intercalate "." 
+                   . splitDirectories 
+                   . dropExtension
 
 -- | Get a list of modules from a cabal solution
 loadInternalModules :: (MonadIO m
@@ -282,23 +326,14 @@ loadInternalModules :: (MonadIO m
                         , ProjectModuleClass m
                         )  
                    => ProjectInfo 
-                   -> SolutionResult u (CabalSolution m) [(ModuleInfo,FilePath)]
+                   -> SolutionResult u (CabalSolution m) [(ModuleInfo,FilePath,Maybe (SrcLoc,String))]
 loadInternalModules pji = do
     p <- lookupCabalProject pji
     roots <- getProjectSourceRoots p
     let modules = case p of
             LibraryProject lib -> exposedModules lib ++ (otherModules $ libBuildInfo lib)
             _ -> withBuildInfo p otherModules
-    let mainModuleName = case p of
-            LibraryProject lib -> Nothing
-            ExecutableProject _ exe -> Just $ ModuleName.fromString $ takeBaseName $ modulePath exe
-            TestSuiteProject _ test -> case testInterface test of
-                TestSuiteExeV10 _ path -> Just $ ModuleName.fromString $ takeBaseName path
-                TestSuiteLibV09 _ name -> Just $ name
-                _ -> Nothing
-            BenchmarkProject _ bench -> case benchmarkInterface bench of
-                BenchmarkExeV10 _ path -> Just $ ModuleName.fromString $ takeBaseName path
-                _ -> Nothing
+    mainModuleName <- getMainModuleName pji
     pairs <- forM modules $ locateAndLoadInternalModule pji roots False
     case mainModuleName of
         Just mn -> do
@@ -430,18 +465,31 @@ loadProject :: ( MonadIO m
                 , ModulePragmaClass m
                 ) 
             => ProjectInfo 
-            -> SolutionResult u (CabalSolution m) ()
+            -> SolutionResult u (CabalSolution m) [(SrcFileLoc,String)]
 loadProject pi = do
     addProject pi
     modules <- loadInternalModules pi
     --externModules <- getExternalModules pi
     liftIO $ putStrLn $ "adding project: " ++ show pi
+    let addPaths :: StateT CabalSolutionInfo (State [(SrcFileLoc,String)]) ()
+        addPaths = forM_ modules $ \(mi,path,err) -> do
+            modify $ addModulePath pi mi path
+            case err of
+                Just (l,msg) -> lift $ modify ((SrcFileLoc path l, msg) :)
+                _ -> return ()
+    
+    {-
     let addPaths = foldr (.) id 
                  $ flip map modules 
-                 $ \(mi,path) -> addModulePath pi mi path
+                 $ \(mi,path,err) -> do
+                    addModulePath pi mi path
+                    case err of
+    -}
+                      
     (Opened (Just info)) <- lift getFsp
-    let info' = addPaths info
+    let (info', errs) = runState (execStateT addPaths info) []
     lift $ putFsp $ Opened $ Just info'
+    return errs
     --forM_ modules $ bounce . addModule pi . fst -- This bounce is important, 
                                                 -- as it targets the
                                                 -- underlying monad, instead 
@@ -453,7 +501,6 @@ loadProject pi = do
     --let p = Project.new pi
     --p' <- mapDescent2_ Project.addModule p modules
     --mapDescent2_ Project.addExternModule p' externModules
-    
 
 {-
 -- | Get the type of a solution
@@ -541,8 +588,7 @@ removeModuleFromConfig pi mi = do
 
 writeModulesAndConfig :: ( MonadIO m
                          , ModuleFileClass m
-                         , ProjectModuleClass m
-                         , ProjectExternModuleClass m
+                         , SolutionMonad m
                          ) 
                       => SolutionResult u (CabalSolution m) ()
 writeModulesAndConfig = do
@@ -567,13 +613,7 @@ writeModulesAndConfig = do
 
 
 instance ( MonadIO m
-         , SolutionClass m
-         , ProjectModuleClass m
-         , ProjectExternModuleClass m
-         , ModuleDeclarationClass m
-         , ModuleImportClass m
-         , ModuleExportClass m
-         , ModulePragmaClass m
+         , SolutionMonad m
          , ModuleFileClass m
          ) => PersistenceClass (CabalSolution m) where
     -- | Set up an empty solution
@@ -615,7 +655,9 @@ instance (MonadIO m, SolutionClass m) => SolutionClass (CabalSolution m) where
     getProjects = bounce getProjects
     editProjectInfo pji f = bounce $ editProjectInfo pji f
 
-instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution m) where
+instance ( MonadIO m
+         , SolutionMonad m
+         ) => ProjectModuleClass (CabalSolution m) where
     {-addModule pji m = do
         bounce $ addModule pji m
         addModuleToConfig pji $ Module.info m-}
@@ -635,6 +677,23 @@ instance (MonadIO m, ProjectModuleClass m) => ProjectModuleClass (CabalSolution 
     editModuleHeader pji mi f = do
         setModuleDirty pji mi
         bounce $ editModuleHeader pji mi f
+    setModuleUnparsable pji mi contents = do
+        setModuleDirty pji mi
+        bounce $ setModuleUnparsable pji mi contents
+    setModuleParsable pji mi = do
+        setModuleDirty pji mi
+        bounce $ setModuleParsable pji mi
+    getUnparsableModule pji mi = bounce $ getUnparsableModule pji mi
+    refreshModule pji mi = withOpenedSolution $ \info -> do
+        mi' <- bounce $ refreshModule pji mi
+        let modulePathLookup = Map.lookup (pji, mi') $ modulePathMap info
+        modulePath <- case modulePathLookup of
+            Just path -> return path
+            Nothing -> throwE $ InternalError ("Can't find source directory for module " ++ show mi) ""
+        mainModuleName <- getMainModuleName pji
+        let moduleName = moduleNameFromPath modulePath
+        (mi'', err) <- updateInternalModule pji modulePath (mainModuleName == Just moduleName)
+        return mi''
 
 instance (MonadIO m, ProjectExternModuleClass m) => ProjectExternModuleClass (CabalSolution m) where
     --addExternModule pji m = bounce $ addExternModule pji m
@@ -756,9 +815,7 @@ instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExport
                 return $ Just (result', l')
 
 instance ( MonadIO m
-         , SolutionClass m
-         , ProjectModuleClass m
-         , ProjectExternModuleClass m
+         , SolutionMonad m
          , ModuleFileClass m
          ) => ViewerMonad (CabalSolution m) where
     -- | Set the Read file to be opened

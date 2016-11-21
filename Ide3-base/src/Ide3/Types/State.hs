@@ -54,12 +54,16 @@ type DeclarationCollection = OrderedMap DeclarationInfo (WithBody Declaration)
 -- | A module. 
 data Module
     = Module 
-    { moduleInfo :: ModuleInfo  -- ^ Identifying information
-    , moduleHeader :: String -- ^ Header text
-    , modulePragmas :: [Pragma] -- ^ Pragmas
+    { moduleInfo :: ModuleInfo
+    , moduleHeader :: String
+    , modulePragmas :: [Pragma]
     , moduleImports :: ImportCollection
     , moduleExports :: ExportCollection
     , moduleDeclarations :: DeclarationCollection
+    }
+    | UnparsableModule
+    { moduleInfo :: ModuleInfo
+    , moduleContents :: String
     }
     deriving (Show, Read, Eq)
 

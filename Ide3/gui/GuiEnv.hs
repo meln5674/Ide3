@@ -6,6 +6,9 @@ module GuiEnv where
 import Data.Functor.Identity
 
 import Control.Concurrent
+import Control.Monad.STM
+
+import Control.Concurrent.STM.TChan
 
 import Control.Monad
 import Control.Monad.Trans
@@ -26,6 +29,8 @@ import GuiViewer.Class
 
 import Dialogs.NewSolutionDialog.Types
 
+newtype IdleThreadTask = IdleThreadTask { getIdleThreadTask :: IO () }
+
 type MVarType p = (GuiViewerState, (ViewerState, p))
 
 data GuiEnv {-proxy-} m p
@@ -33,7 +38,22 @@ data GuiEnv {-proxy-} m p
     { {-proxy :: proxy m
     ,-} guiComponents :: GuiComponents
     , projectMVar :: MVar (MVarType p)
+    , idleQueue :: TChan IdleThreadTask
     }
+
+addIdleTask :: MonadIO m => IdleThreadTask -> GuiEnvT m' p m ()
+addIdleTask task = do
+    env <- getEnv
+    liftIO $ atomically $ writeTChan (idleQueue env) task
+
+runIdleThread :: MonadIO m => GuiEnvT m' p m ()
+runIdleThread = do
+    env <- getEnv
+    result <- liftIO $ atomically $ tryReadTChan $ idleQueue env
+    case result of
+        Just task -> liftIO $ getIdleThreadTask task
+        Nothing -> return ()
+
 withSolutionMVar :: (Monad m)
                 => (MVar (MVarType p) -> GuiEnvT {-proxy-} m' p  m a)
                 -> GuiEnvT {-proxy-} m' p  m a

@@ -16,6 +16,8 @@ import Data.Tree
 import Data.Proxy
 import Data.Functor.Compose
 
+import GHC.Word
+
 import System.Exit
 import System.Directory
 import System.FilePath
@@ -28,8 +30,9 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict hiding (withState)
 
 import Control.Concurrent.MVar
+import Control.Concurrent.STM.TChan
 
-
+import GI.GLib.Callbacks
 import GI.Gtk hiding (main, on)
 import qualified GI.Gtk as Gtk
 import GI.Gdk hiding (window, on)
@@ -207,8 +210,8 @@ doMain _ init = do
     --manager <- uiManagerNew
     --group <- uiManagerGetAccelGroup manager
     group <- Gtk.new AccelGroup []
-    
-    let env = GuiEnv {-proxy-} components projectMVar
+    idleQueue <- newTChanIO
+    let env = GuiEnv {-proxy-} components projectMVar idleQueue
     dialogs <- flip runGuiEnvT env $ do
         withGuiComponents $ applyDeclBufferAttrs defaultTextAttrs
         newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
@@ -255,6 +258,7 @@ doMain _ init = do
                             $ ProjectInfo 
                             $ T.unpack name
                 return False
+            GuiT $ intercept (GI.Gdk.threadsAddIdle 200 . ($ ())) (const $ runIdleThread >> return True)
             Gtk.main
     
     runGuiT go env dialogs

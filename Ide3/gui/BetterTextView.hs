@@ -72,29 +72,33 @@ addTabEvent textView = textView `on` #keyPressEvent $ \event -> do
     endColumn <- textIterGetLineOffset endIter
     case keyval of
         KEY_Tab -> do
-            when selectionFlag $ do
-                if startLine == endLine && startColumn == endColumn
-                    then do
-                        textBufferInsertAtCursor buf spaces $ spacesLen
-                    else do
-                        forM_ [startLine..endLine] $ \line -> do
-                            insertIter <- textBufferGetIterAtLine buf line
-                            textBufferInsert buf insertIter spaces spacesLen
+            if selectionFlag
+                then do
+                    if startLine == endLine && startColumn == endColumn
+                        then do
+                            textBufferInsertAtCursor buf spaces $ spacesLen
+                        else do
+                            forM_ [startLine..endLine] $ \line -> do
+                                insertIter <- textBufferGetIterAtLine buf line
+                                textBufferInsert buf insertIter spaces spacesLen
+                else textBufferInsertAtCursor buf spaces spacesLen
             return True
         KEY_ISO_Left_Tab -> do
-            when selectionFlag $ do
-                forM_ [startLine..endLine] $ \line -> do
-                    removeStartIter <- textBufferGetIterAtLine buf line
-                    removeEndIter <- textIterCopy removeStartIter
-                    moveSuccessful <- textIterForwardChars removeStartIter 4
-                    removeEndLine <- textIterGetLine removeEndIter
-                    toBeRemoved <- textBufferGetText 
-                                        buf removeStartIter removeEndIter True
-                    let shouldRemove = moveSuccessful 
-                            && removeEndLine == line 
-                            && toBeRemoved == spaces
-                    when shouldRemove $ do
-                        textBufferDelete buf removeStartIter removeEndIter
+            if selectionFlag
+                then do
+                    forM_ [startLine..endLine] $ \line -> do
+                        removeStartIter <- textBufferGetIterAtLine buf line
+                        removeEndIter <- textIterCopy removeStartIter
+                        moveSuccessful <- textIterForwardChars removeStartIter 4
+                        removeEndLine <- textIterGetLine removeEndIter
+                        toBeRemoved <- textBufferGetText 
+                                            buf removeStartIter removeEndIter True
+                        let shouldRemove = moveSuccessful 
+                                && removeEndLine == line 
+                                && toBeRemoved == spaces
+                        when shouldRemove $ do
+                            textBufferDelete buf removeStartIter removeEndIter
+                else return ()
             return True
         _ -> return False
 

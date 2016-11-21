@@ -77,6 +77,23 @@ class Monad m => ProjectModuleClass m where
                      -> ModuleInfo
                      -> (String -> String)
                      -> SolutionResult u m ()
+    -- | Set a module as unparsable, and provide the contents
+    setModuleUnparsable :: ProjectInfo
+                        -> ModuleInfo
+                        -> String
+                        -> SolutionResult u m ()
+    -- | Retreive the contents of a module if it was unparsable, otherwise
+    -- return nothing
+    getUnparsableModule :: ProjectInfo
+                        -> ModuleInfo
+                        -> SolutionResult u m (Maybe String)
+    -- | Set a module as parsable and empty, the module must already exist.
+    setModuleParsable :: ProjectInfo
+                      -> ModuleInfo
+                      -> SolutionResult u m ()
+    refreshModule :: ProjectInfo
+                  -> ModuleInfo
+                  -> SolutionResult u m ModuleInfo
 
 -- | Class of monads which can create, remove, and retrieve external modules
 class Monad m => ProjectExternModuleClass m where

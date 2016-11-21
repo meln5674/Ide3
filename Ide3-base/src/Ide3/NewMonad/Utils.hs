@@ -12,6 +12,7 @@ The functions in this module perform operations using the typeclasses found in
 Ide3.NewMonad, allowing them to work with any instance of them.
 -}
 
+{-# LANGUAGE NamedFieldPuns #-}
 module Ide3.NewMonad.Utils 
     ( module Ide3.NewMonad.Utils
     ) where
@@ -21,6 +22,8 @@ import qualified Ide3.OrderedMap as OMap
 
 import Control.Monad
 import Control.Monad.Trans.Except
+
+import Ide3.SrcLoc
 
 import Ide3.Types.Internal 
 import Ide3.Types.State
@@ -70,16 +73,58 @@ addRawModule :: ( ProjectModuleClass m
              => ProjectInfo 
              -> String 
              -> Maybe FilePath 
-             -> SolutionResult u m ModuleInfo
+             -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
 addRawModule pji str p = case Module.parse str p of
-    Right (m,_,_) -> do
+    Right (m,_,_,err) -> do
         let mi = Module.info m
         createModule pji mi
-        mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations m
-        mapM (addImport pji mi) $ Map.elems $ moduleImports m
-        maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports m
-        mapM (addPragma pji mi) $ modulePragmas m
-        editModuleHeader pji mi $ const $ moduleHeader m
-        return mi
+        case m of
+            Module { moduleDeclarations
+                   , moduleImports
+                   , moduleExports
+                   , modulePragmas
+                   , moduleHeader
+                   } -> do
+                mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
+                mapM (addImport pji mi) $ Map.elems $ moduleImports
+                maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
+                mapM (addPragma pji mi) $ modulePragmas
+                editModuleHeader pji mi $ const $ moduleHeader
+            UnparsableModule { moduleContents } -> do
+                setModuleUnparsable pji mi moduleContents
+        return (mi, err)
+    Left err -> throwE err
+
+-- | Parse an entire module and add it to the project
+updateRawModule :: ( ProjectModuleClass m
+                , ProjectExternModuleClass m
+                , ModuleDeclarationClass m
+                , ModuleImportClass m
+                , ModuleExportClass m
+                , ModulePragmaClass m
+                ) 
+             => ProjectInfo 
+             -> String 
+             -> Maybe FilePath 
+             -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
+updateRawModule pji str p = case Module.parse str p of
+    Right (m,_,_,err) -> do
+        let mi = Module.info m
+        setModuleParsable pji mi
+        case m of
+            Module { moduleDeclarations
+                   , moduleImports
+                   , moduleExports
+                   , modulePragmas
+                   , moduleHeader
+                   } -> do
+                mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
+                mapM (addImport pji mi) $ Map.elems $ moduleImports
+                maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
+                mapM (addPragma pji mi) $ modulePragmas
+                editModuleHeader pji mi $ const $ moduleHeader
+            UnparsableModule { moduleContents } -> do
+                setModuleUnparsable pji mi moduleContents
+        return (mi, err)
     Left err -> throwE err
 

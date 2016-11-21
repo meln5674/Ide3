@@ -68,6 +68,8 @@ module Dialogs.MainWindow
     , addForwardEventAccelerator
     ) where
 
+import Data.Monoid
+
 import Data.Text hiding (map)
 
 import Data.Functor.Compose
@@ -130,6 +132,13 @@ renderSolutionTreeElem PragmasElem = [#text := ("Pragmas" :: Text)]
 renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [#text := pack importBody] 
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := pack exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [#text := pack p]
+renderSolutionTreeElem (UnparsableModuleElem (ModuleInfo (Symbol s)))
+    = [#text := (pack s <> " (UNPARSEABLE)" :: Text)]
+renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)))
+    = [#text := (pack path <> " (UNPARSEABLE)" :: Text)]
+renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing))
+    = [#text := ("??? (UNPARSEABLE)" :: Text)]
+
 
 -- | Renderer for the error list image column
 renderImageCell :: (AttrSetC info o "stockId" Text, IsCellRendererPixbuf o) 

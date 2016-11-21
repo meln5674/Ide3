@@ -99,7 +99,34 @@ editModuleHeader :: Monad m
 editModuleHeader = descend1 $ do
     f <- lift ask
     modify $ \m -> m { moduleHeader = f $ moduleHeader m }
-    
+
+setModuleUnparsable :: Monad m
+                     => DescentChain3 Project
+                                      ModuleInfo
+                                      String
+                        m u ()
+setModuleUnparsable = descend1 $ do
+    m <- get
+    contents <- lift ask
+    put $ UnparsableModule (moduleInfo m) contents
+
+setModuleParsable :: Monad m
+                   => DescentChain2 Project
+                                    ModuleInfo
+                      m u ()
+setModuleParsable = descend0 $ do
+    m <- get
+    put $ Module.new $ moduleInfo m
+
+getUnparsableModule :: Monad m
+                     => DescentChain2 Project
+                                      ModuleInfo
+                        m u (Maybe String)
+getUnparsableModule = descend0 $ do
+    m <- get
+    case m of
+        UnparsableModule _ contents -> return $ Just contents
+        _ -> return Nothing
         
 
 -- | Add an external module

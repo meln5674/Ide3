@@ -27,3 +27,7 @@ instance StatefulSolutionClass m => ProjectModuleClass (StatefulWrapper m) where
     getModuleHeader = modifySolutionER .-.. runDescent3 Solution.getModuleHeader
     editModuleHeader =
         modifySolutionER .-... runDescent4 Solution.editModuleHeader
+    setModuleUnparsable = modifySolutionER .-... runDescent4 Solution.setModuleUnparsable
+    setModuleParsable = modifySolutionER .-.. runDescent3 Solution.setModuleParsable
+    getUnparsableModule = modifySolutionER .-.. runDescent3 Solution.getUnparsableModule
+    refreshModule _ mi = return mi

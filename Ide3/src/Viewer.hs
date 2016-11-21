@@ -221,6 +221,10 @@ instance  (ProjectModuleClass m) => ProjectModuleClass (ViewerStateT  m) where
     --editModule x y = bounce . editModule x y
     getModuleHeader x = bounce . getModuleHeader x
     editModuleHeader x y = bounce . editModuleHeader x y
+    setModuleUnparsable x y = bounce . setModuleUnparsable x y
+    setModuleParsable x = bounce . setModuleParsable x
+    getUnparsableModule x = bounce . getUnparsableModule x
+    refreshModule x = bounce . refreshModule x
 
 instance   (ProjectExternModuleClass m) => ProjectExternModuleClass (ViewerStateT  m) where
     --addExternModule x = bounce . addExternModule x

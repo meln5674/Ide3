@@ -47,6 +47,8 @@ data SolutionPath
     | PragmasPath ProjectInfo ModuleInfo
     -- | Lookup information for a module
     | ModulePath ProjectInfo ModuleInfo
+    -- | Lookup information for an unparsable module
+    | UnparsableModulePath ProjectInfo ModuleInfo
     -- | Lookup information for a project
     | ProjectPath ProjectInfo
     -- | Lookup information for a solution

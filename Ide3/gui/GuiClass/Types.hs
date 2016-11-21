@@ -19,6 +19,7 @@ type TreePath = [Int]
 data SolutionTreeElem
     = ProjectElem ProjectInfo
     | ModuleElem ModuleInfo Bool
+    | UnparsableModuleElem ModuleInfo
     | DeclElem DeclarationInfo
     | ImportsElem
     | ExportsElem

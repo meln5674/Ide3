@@ -27,7 +27,7 @@ import Language.Haskell.Exts.Parser
     )
 import Language.Haskell.Exts (readExtensions)
 import Language.Haskell.Exts.Extension
-import Language.Haskell.Exts.SrcLoc (SrcInfo)
+import Language.Haskell.Exts.SrcLoc (SrcInfo, SrcSpanInfo)
 import Language.Haskell.Exts.Comments
 import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
 
@@ -49,6 +49,10 @@ data ExtractionResults l
                 (Maybe [Ann l (WithBody Export)])
                 [Ann l (WithBody Import)]
                 [Ann l (WithBody Declaration)]
+    | Unparsable SrcLoc -- ^ Location
+                 String -- ^ Message
+                 ModuleInfo -- ^ 
+                 String -- ^ Contentes
 
 -- | Create an annotated item by applying an annotation extration and item
 -- extraction function
@@ -152,13 +156,21 @@ extract str x = do
     decls       <- extractDecls     str x
     return $ Extracted info header pragmas exports imports decls
 
+
 -- | Take a string and produce the needed information for building a Module
 parse :: String 
       -> Maybe FilePath 
       -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
 parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
-    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
+    ParseFailed l msg -> case parseWithMode parseMode s of
+        ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
+            let mi = maybe (UnamedModule p) (ModuleInfo . Symbol . getModuleName) maybeName
+                errMsg = (show (toSrcFileLoc l) ++ ": " ++ msg) 
+                getModuleName (Syntax.ModuleName _ x) = x
+                _ = l' :: SrcSpanInfo
+            return $ Unparsable (toSrcLoc l) msg mi s
+        ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
     exts = maybe [] snd $ readExtensions s
     parseMode = case p of
@@ -183,7 +195,14 @@ parseMain s p = case parseModuleWithComments parseMode s of
                 Ann l (UnamedModule _) -> Ann l $ ModuleInfo $ Symbol "Main"
                 _ -> i'
         return $ Extracted i' h ps es is ds
-    ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
+    ParseFailed l msg -> case parseWithMode parseMode s of
+        ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
+            let mi = ModuleInfo $ Symbol $ maybe "Main" getModuleName maybeName
+                errMsg = (show (toSrcFileLoc l) ++ ": " ++ msg) 
+                getModuleName (Syntax.ModuleName _ x) = x
+                _ = l' :: SrcSpanInfo
+            return $ Unparsable (toSrcLoc l) msg mi s
+        ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
     exts = (maybe [] snd $ readExtensions s)
     parseMode = case p of
@@ -205,31 +224,33 @@ parseAtLocation :: [SrcLoc]
                 -> Maybe FilePath
                 -> Either (SolutionError u) [Maybe (ModuleItem, SrcLoc)]
 parseAtLocation ls s p = do
-    Extracted _ hc ps es is ds <- Ide3.Module.Parser.parse s p
-    let try :: (x -> ModuleItem) 
-            -> SrcLoc 
-            -> Ann SrcFileSpan x 
-            -> Maybe (ModuleItem, SrcLoc)
-        try mkItem l x = case () of
-            ()
-                | xSpan `contains` l -> Just (mItem, l')
-                | otherwise -> Nothing
-                  where
-                    xSpan = ann x
-                    mItem = mkItem $ unAnn x
-                    l' = l `diffRows` getSpanStart xSpan
-        tryHeader l = try HeaderCommentItem l hc
-        tryPragmas l = map (try PragmaItem l) ps
-        tryExports l = maybe [] (map $ try ExportItem l) es
-        tryImports l = map (try ImportItem l) is
-        tryDeclarations l = map (try DeclarationItem l) ds
-        tryAll l = getFirst 
-            $ mconcat 
-            $ map First 
-            $  tryHeader l
-            :  tryPragmas l
-            ++ tryExports l
-            ++ tryImports l
-            ++ tryDeclarations l
-    return $ map tryAll ls
-
+    result <- Ide3.Module.Parser.parse s p 
+    case result of
+        Extracted _ hc ps es is ds  -> do
+            let try :: (x -> ModuleItem) 
+                    -> SrcLoc 
+                    -> Ann SrcFileSpan x 
+                    -> Maybe (ModuleItem, SrcLoc)
+                try mkItem l x = case () of
+                    ()
+                        | xSpan `contains` l -> Just (mItem, l')
+                        | otherwise -> Nothing
+                          where
+                            xSpan = ann x
+                            mItem = mkItem $ unAnn x
+                            l' = l `diffRows` getSpanStart xSpan
+                tryHeader l = try HeaderCommentItem l hc
+                tryPragmas l = map (try PragmaItem l) ps
+                tryExports l = maybe [] (map $ try ExportItem l) es
+                tryImports l = map (try ImportItem l) is
+                tryDeclarations l = map (try DeclarationItem l) ds
+                tryAll l = getFirst 
+                    $ mconcat 
+                    $ map First 
+                    $  tryHeader l
+                    :  tryPragmas l
+                    ++ tryExports l
+                    ++ tryImports l
+                    ++ tryDeclarations l
+            return $ map tryAll ls
+        _ -> return []

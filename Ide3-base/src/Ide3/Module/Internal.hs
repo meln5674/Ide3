@@ -253,14 +253,14 @@ setExport ei ei' e' m = case moduleExports m of
 --  created, along with each of the export and import ids created
 parse :: String 
       -> Maybe FilePath 
-      -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+      -> Either (SolutionError u) (Module,[ExportId],[ImportId], Maybe (SrcLoc,String))
 parse = parseUsing Parser.parse
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
 parseMain :: String 
           -> Maybe FilePath 
-          -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+          -> Either (SolutionError u) (Module,[ExportId],[ImportId], Maybe (SrcLoc,String))
 parseMain = parseUsing Parser.parseMain
 
 -- | Generalization of parse and parseMain
@@ -270,9 +270,9 @@ parseUsing :: (String -> Maybe FilePath
               )
            -> String 
            -> Maybe FilePath 
-           -> Either (SolutionError u) (Module,[ExportId],[ImportId])
+           -> Either (SolutionError u) (Module,[ExportId],[ImportId], Maybe (SrcLoc,String))
 parseUsing parser s p = case parser s p of
-    Right extractResult -> Right (module_, eids, iids)
+    Right extractResult@Extracted{} -> Right (module_, eids, iids, Nothing)
       where
         Extracted minfo header pragmas exports imports decls = extractResult
         newInfo = case unAnn minfo of
@@ -287,6 +287,7 @@ parseUsing parser s p = case parser s p of
         declInfoAndItem d = (Declaration.info $ item $ unAnn d, unAnn d)
         decls' = OMap.fromList $ map declInfoAndItem decls
         module_ = Module newInfo header' pragmas' imports' exports' decls'
+    Right (Unparsable l msg mi contents) -> Right (UnparsableModule mi contents, [], [], Just (l,msg))
     Left msg -> Left msg
 
 
@@ -364,6 +365,7 @@ spaceImports f g is = concatMap g $ partitionedImports
 
 -- | Reconstruct the source code from a Module
 toFile :: Module -> String
+toFile UnparsableModule { moduleContents = x } = x
 toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
 
 

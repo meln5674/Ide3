@@ -63,32 +63,32 @@ instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m')
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> withTreePath []
-        $ \path -> do
+        $ \path -> addIdleTask $ IdleThreadTask $ do
             forestStoreClear tree
             forestStoreInsertForest tree path (-1) forest'
     updateSolutionTreePathNode path f
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> withTreePath path
-        $ \path -> do
+        $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreChange tree path f
     insertSolutionTreePathNode path ix node
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> withTreePath path
-        $ \path -> do
+        $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreInsert tree path (maybe (-1) id ix) node
     insertSolutionTreePathTree path ix tree'
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> withTreePath path
-        $ \path -> do
+        $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreInsertTree tree path (maybe (-1) id ix) tree'
     removeSolutionTreePathNode path
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> withTreePath path
-        $ \path -> do
+        $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreRemove tree path 
             
 
@@ -100,7 +100,7 @@ instance ( Monad m, MonadIO m' ) => SearchBarClass (GuiEnvT {-proxy-} m p m') wh
 instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
     setEditorBufferText text 
         = withGuiComponents
-        $ flip withEditorBuffer $ \buffer -> do 
+        $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do 
             set buffer [ #text := text ]
     getEditorBufferText maybeStart maybeEnd
         = withGuiComponents 
@@ -134,7 +134,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
                    )
     selectEditorBufferText (Row startRow', Column startCol') (Row endRow', Column endCol')
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             start <- textBufferGetIterAtLineOffset buffer startRow startCol
             end <- textBufferGetIterAtLineOffset buffer endRow endCol
             textBufferSelectRange buffer start end
@@ -145,7 +145,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
         endCol = fromIntegral endCol'
     getEditorBufferPositionAtIndex offset'
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> do
             iter <- textBufferGetIterAtOffset buffer offset
             row <- textIterGetLine iter
             col <- textIterGetLineOffset iter
@@ -154,7 +154,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
         offset = fromIntegral offset
     getEditorBufferIndexAtPosition (Row row', Column col')
         = withGuiComponents
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> do
             iter <- textBufferGetIterAtLineOffset buffer row col
             liftM fromIntegral $ textIterGetOffset iter
       where
@@ -162,7 +162,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
         col = fromIntegral col'
     insertTextAtEditorBufferPosition (Row row', Column col') text
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             iter <- textBufferGetIterAtLineOffset buffer row col
             textBufferInsert buffer iter text (fromIntegral $ length text)
       where
@@ -171,7 +171,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
     
     applySyntaxHighlighting hs
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             (start, end) <- textBufferGetBounds buffer
             textBufferRemoveAllTags buffer start end
             start <- textBufferGetStartIter buffer
@@ -189,11 +189,11 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
 instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') where
     setBuildBufferText text
         = withGuiComponents 
-        $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withBuildBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             set buffer [ #text := text ]
     getBuildBufferText maybeStart maybeEnd
         = withGuiComponents 
-        $ flip withBuildBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withBuildBuffer $ \buffer -> do
             start <- case maybeStart of
                 Nothing -> textBufferGetStartIter buffer
                 Just (Row row', Column col') -> textBufferGetIterAtLineOffset buffer row col
@@ -209,7 +209,7 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') 
             textBufferGetText buffer start end False
     getBuildBufferCursor 
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> do
             startMark <- textBufferGetInsert buffer
             start <- textBufferGetIterAtMark buffer startMark
             startRow <- textIterGetLine start
@@ -223,7 +223,7 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') 
                    )
     selectBuildBufferText (Row startRow', Column startCol') (Row endRow', Column endCol')
         = withGuiComponents 
-        $ flip withEditorBuffer $ \buffer -> lift $ liftIO $ do
+        $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             let [startRow,startCol,endRow,endCol] = map fromIntegral [startRow',startCol',endRow',endCol']
             start <- textBufferGetIterAtLineOffset buffer startRow startCol
             end <- textBufferGetIterAtLineOffset buffer endRow endCol
@@ -233,11 +233,11 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') 
 instance ( Monad m, MonadIO m') => ErrorListClass (GuiEnvT {-proxy-} m p m') where
     clearErrorList
         = withGuiComponents
-        $ flip withErrorList $ \list -> do
+        $ flip withErrorList $ \list -> addIdleTask $ IdleThreadTask $ do
             seqStoreClear list
     addErrorToList err
         = withGuiComponents
-        $ flip withErrorList $ \list -> do
+        $ flip withErrorList $ \list -> addIdleTask $ IdleThreadTask $ do
             void $ seqStoreAppend list err
     getErrorAtIndex ix
         = withGuiComponents

@@ -205,6 +205,11 @@ openItem (ModulePath pji mi) = do
     splice $ setEditorBufferTextHighlighted $ T.pack header
     lift $ lift $ setCurrentModule pji mi
     return $ T.pack header
+openItem (UnparsableModulePath pji mi) = do
+    Just contents <- lift $ getUnparsableModule pji mi
+    splice $ setEditorBufferTextHighlighted $ T.pack contents
+    lift $ lift $ setCurrentModule pji mi
+    return $ T.pack contents
 openItem _ = do
     splice $ setEditorBufferText ""
     return ""
@@ -223,6 +228,9 @@ doGetDecl path = do
         ModuleResult pi mi True -> do
             text <- openItem $ ModulePath pi mi
             lift $ lift $ openDeclarationInHistory (ModulePath pi mi) text
+        UnparsableModuleResult pi mi -> do
+            text <- openItem $ UnparsableModulePath pi mi
+            lift $ lift $ openDeclarationInHistory (UnparsableModulePath pi mi) text
         _ -> return ()
 
 -- | Build the current project
@@ -320,8 +328,22 @@ doSave = do
                     $ DeclElem di'
                 lift $ lift $ setCurrentDecl pi mi di'
                 lift $ lift $ replaceHistoryPath $ DeclarationPath pi mi di'
-        (_,Just (pi, mi)) -> doWithBuffer $
-                lift . editModuleHeader pi mi . const . T.unpack
+        (_,Just (pi, mi)) -> do
+            result <- lift $ getUnparsableModule pi mi
+            case result of
+                Just _ -> do
+                    doWithBuffer $ lift . setModuleUnparsable pi mi . T.unpack
+                    mi' <- lift $ refreshModule pi mi
+                    result' <- lift $ getUnparsableModule pi mi'
+                    case result' of
+                        Nothing -> do
+                            mTree <- lift $ M.makeModuleTree pi mi'
+                            let sTree = S.makeModuleTree mTree
+                            splice $ updateSolutionTreeTree (UnparsableModulePath pi mi) $ const sTree
+                            
+                            openItem (ModulePath pi mi) >>= splice . setEditorBufferTextHighlighted
+                        _ -> return ()
+                Nothing -> doWithBuffer $ lift . editModuleHeader pi mi . const . T.unpack
         _ -> return ()
         
 -- | Save the entire solution

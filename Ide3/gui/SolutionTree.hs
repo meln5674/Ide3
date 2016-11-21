@@ -23,6 +23,7 @@ import DeclarationPath
 data TreeSearchResult
     = ProjectResult ProjectInfo
     | ModuleResult ProjectInfo ModuleInfo Bool
+    | UnparsableModuleResult ProjectInfo ModuleInfo
     | DeclResult ProjectInfo ModuleInfo DeclarationInfo
     | ImportsResult ProjectInfo ModuleInfo
     | ExportsResult ProjectInfo ModuleInfo
@@ -65,6 +66,8 @@ makeModuleTree (ModuleNode mi ts ps ds is es)
     : makeExportsNode es 
     : map makeModuleTree ts 
     ++ map (flip Node [] . DeclElem) ds 
+makeModuleTree (UnparsableModuleNode mi ts _)
+    = Node (UnparsableModuleElem mi) $ map makeModuleTree ts
     
 makeProjectTree :: ProjectInfo -> [ModuleTree] -> Tree SolutionTreeElem
 makeProjectTree pi branches = Node (ProjectElem pi) $ map makeModuleTree branches
@@ -153,6 +156,9 @@ searchTree' (PragmasPath pji mi)
 searchTree' (ModulePath pji mi)
     =   searchTreeForProject pji
     >-> searchTreeForModule mi
+searchTree' (UnparsableModulePath pji mi)
+    =   searchTreeForProject pji
+    >-> searchTreeForModule mi
 searchTree' (ProjectPath pji)
     =   searchTreeForProject pji
 
@@ -205,6 +211,13 @@ searchTreeForModulePart (ModuleInfo (Symbol s)) = searchTree''' moduleNameIsPref
             [] -> True
             ('.':_) -> True
             _ -> False
+        | (UnparsableModuleElem mi) <- mElem
+        , (ModuleInfo sym) <- mi
+        , (Symbol s') <- sym
+        = s' `isPrefixOf` s && case drop (length s') s of
+            [] -> True
+            ('.':_) -> True
+            _ -> False
     moduleNameIsPrefixOf _ = False
 searchTreeForModulePart _ = MultiState $ \s -> []
 
@@ -228,6 +241,7 @@ searchTreeForModule mi = MultiState $ \s ->
         xs -> xs
   where
     matchesModule (ModuleElem mi' _) = mi == mi'
+    matchesModule (UnparsableModuleElem mi') = mi == mi'
     matchesModule _ = False
 
 {-
@@ -379,6 +393,7 @@ findAtPath path = do
     case (node,parentNode,grandparentNode,ancestorNode) of
         (Just (ProjectElem pi),_,_,_) -> return $ ProjectResult pi
         (Just (ModuleElem mi b),_,_,Just (ProjectElem pi)) -> return $ ModuleResult pi mi b
+        (Just (UnparsableModuleElem mi),_,_,Just (ProjectElem pi)) -> return $ UnparsableModuleResult pi mi
         (Just (DeclElem di),Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ DeclResult pi mi di
         (Just ImportsElem,Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ ImportsResult pi mi
         (Just ExportsElem, Just (ModuleElem mi b),_,Just (ProjectElem pi)) -> return $ ExportsResult pi mi
@@ -459,3 +474,10 @@ removeSolutionTreeNode :: SolutionViewClass m => SolutionPath -> m ()
 removeSolutionTreeNode spath = do
     [tpath] <- searchTree spath
     removeSolutionTreePathNode tpath
+updateSolutionTreeTree :: SolutionViewClass m => SolutionPath -> (Tree SolutionTreeElem -> Tree SolutionTreeElem) -> m ()
+updateSolutionTreeTree spath f = do
+    [tpath] <- searchTree spath
+    tree <- getTreeAtSolutionTreePath tpath
+    let tree' = f tree
+    removeSolutionTreePathNode tpath
+    insertSolutionTreePathTree (init tpath) (Just $ last tpath) tree'

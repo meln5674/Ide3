@@ -51,6 +51,10 @@ data ModuleTree
         [DeclarationInfo] 
         [(ImportId, WithBody Import)] 
         (Maybe [(ExportId,WithBody Export)])
+    | UnparsableModuleNode
+        ModuleInfo
+        [ModuleTree]
+        String
     deriving Show
 
 -- | Take a list of module infos and produce a module tree with no declarations
@@ -89,6 +93,7 @@ fillTree :: ( ModuleExportClass m
             , ModuleImportClass m
             , ModuleDeclarationClass m
             , ModulePragmaClass m
+            , ProjectModuleClass m
             )
          => ProjectInfo 
          -> ModuleTree 
@@ -97,18 +102,24 @@ fillTree pji (OrgNode i ts) = do
     ts' <- mapM (fillTree pji) ts
     return $ OrgNode i ts'
 fillTree pji (ModuleNode i ts _ _ _ _) = do
-    ps <- getPragmas pji i
-    ds <- getDeclarations pji i
-    iids <- getImports pji i
-    eids <- getExports pji i
-    is <- forM iids $ \iid -> liftM ((,) iid) $ getImport pji i iid
-    es <- case eids of
-        Nothing -> return Nothing
-        Just eids' -> do
-            x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport pji i eid
-            return $ Just x
-    ts' <- mapM (fillTree pji) ts
-    return $ ModuleNode i ts' ps ds is es
+    contents <- getUnparsableModule pji i
+    case contents of
+        Just contents -> do
+            ts' <- mapM (fillTree pji) ts
+            return $ UnparsableModuleNode i ts' contents
+        Nothing -> do
+            ps <- getPragmas pji i
+            ds <- getDeclarations pji i
+            iids <- getImports pji i
+            eids <- getExports pji i
+            is <- forM iids $ \iid -> liftM ((,) iid) $ getImport pji i iid
+            es <- case eids of
+                Nothing -> return Nothing
+                Just eids' -> do
+                    x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport pji i eid
+                    return $ Just x
+            ts' <- mapM (fillTree pji) ts
+            return $ ModuleNode i ts' ps ds is es
 
 -- | Generate a tree for specific module
 makeModuleTree :: ( ProjectModuleClass m
