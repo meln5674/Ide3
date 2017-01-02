@@ -82,7 +82,7 @@ library
   build-depends:       base
                      , containers
                      , mtl
-                     , haskell-src-exts
+                     , haskell-src-exts < 1.18
                      , transformers
                      , unix
                      , filepath

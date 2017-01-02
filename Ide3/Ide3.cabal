@@ -125,10 +125,16 @@ executable Ide3-GUI
                      , text
                      , conduit
                      , conduit-extra
-                     , haskell-src-exts
+                     , haskell-src-exts < 1.18
                      , parsec
                      , stm
   default-language:    Haskell2010
+
+custom-setup
+    setup-depends:     base
+                     , Cabal > 1.24
+                     , haskell-gi == 0.18
+
                      
 executable Ide3-CLI
   hs-source-dirs:      cli
@@ -171,7 +177,7 @@ test-suite Ide3-test
                      , mtl
                      , transformers
                      , parsec
-                     , haskell-src-exts
+                     , haskell-src-exts < 1.18
                      , directory
                      , exceptions
                      , process
