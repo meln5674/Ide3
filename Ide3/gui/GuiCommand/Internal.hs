@@ -19,6 +19,7 @@ Portability : POSIX
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module GuiCommand.Internal where
 
 import Data.Monoid
@@ -188,7 +189,7 @@ doOpen path = do
     lift $ openSolution path
     populateTree
 
--- | Retrieve a declaration or module header's text
+-- | Retrieve a declaration, module header, or unparsable module contents
 openItem 
     :: ( GuiCommand t m
        )
@@ -297,7 +298,7 @@ doRun = do
                     RunFailed out err -> out ++ err
             splice $ setBuildBufferText $ T.pack text
 
--- | Save the current declaration/module header
+-- | Save the current declaration/module header/unparsable module
 doSave :: forall ia pia t m
         . ( GuiCommand t m
           , MonadMask m
@@ -315,12 +316,17 @@ doSave = do
     declResult <- lift $ lift $ getCurrentDeclaration
     modResult <- lift $ lift $ getCurrentModule
     case (declResult,modResult) of
+        -- If we're editing a declaration
         (Just (pi, mi, di),_) -> do
+            -- Take the editor buffer contents, parse it into a declaration, and
+            -- update it in the backing
             di' <- doWithBuffer $ \text -> do
                 lift 
                     $ editDeclaration pi mi di 
                     $ const 
                     $ Declaration.parseAndCombine (T.unpack text) Nothing
+            -- If the declaration's name has changed, update the tree with the
+            -- new name, and replace the path in the history
             when (di /= di') $ do
                 splice 
                     $ updateSolutionTreeNode (DeclarationPath pi mi di) 
@@ -328,24 +334,43 @@ doSave = do
                     $ DeclElem di'
                 lift $ lift $ setCurrentDecl pi mi di'
                 lift $ lift $ replaceHistoryPath $ DeclarationPath pi mi di'
+        -- If we're editing a module header or an unparsable module
         (_,Just (pi, mi)) -> do
             result <- lift $ getUnparsableModule pi mi
             case result of
+                -- If we're editing an unparsable module
                 Just _ -> do
+                    -- Update the text from the buffer, still marked as
+                    -- unparsable
                     doWithBuffer $ lift . setModuleUnparsable pi mi . T.unpack
                     mi' <- lift $ refreshModule pi mi
                     result' <- lift $ getUnparsableModule pi mi'
                     case result' of
+                        -- If the module is now parsable
                         Nothing -> do
+                            -- Create the tree for the module
                             mTree <- lift $ M.makeModuleTree pi mi'
                             let sTree = S.makeModuleTree mTree
-                            splice $ updateSolutionTreeTree (UnparsableModulePath pi mi) $ const sTree
                             
-                            openItem (ModulePath pi mi) >>= splice . setEditorBufferTextHighlighted
+                            splice $ moveModuleInTree pi mi mi' sTree
+                            
+                            -- Update the history based on the change
+                            lift $ lift $ replaceHistoryPath (ModulePath pi mi)
+                            text <- openItem (ModulePath pi mi')
+                            lift $ lift $ replaceHistoryText text
+                            
+                            -- Replace the buffer contents with the module's header
+                            splice $ setEditorBufferTextHighlighted text
+                        -- If the module is still unparsable, do nothing
                         _ -> return ()
+                -- If we're editing a module header, simply update the header
+                -- field in the backing
                 Nothing -> doWithBuffer $ lift . editModuleHeader pi mi . const . T.unpack
         _ -> return ()
-        
+
+
+
+
 -- | Save the entire solution
 doSaveSolution :: ( GuiCommand t m
                   , MonadMask m
@@ -415,34 +440,13 @@ doAddModule :: ( GuiCommand t m )
             -> ModuleInfo
             -> t (SolutionResult UserError m)  ()
 doAddModule pi mi = do
-    
-    -- Add the module to the project
     lift $ createModule pi mi
     
-    -- Create a tree structure for the module and its parent modules as if we
-    -- were populating the tree
     mTree <- lift $ M.makeModuleTree pi mi
     let sTree = S.makeModuleTree mTree
     
-    --   We now have a tree rooted at the ancestor of the new module, and each
-    -- of the trees have a single branch, pointing to the next ancestor, until
-    -- it reaches the node for the new module.
+    splice $ addModuleToTree pi mi sTree
     
-    --   Because there may be orgnaizational nodes that need to be added, we
-    -- traverse down the tree, checking the stored tree if there is already a
-    -- node with that path. If there is, we go to the next descendent.
-    --   Once we reach a node that is not present, that is the top of the tree
-    -- that contains the new module, so we insert that tree wholesale.
-    let loop parent tree@(Node (ModuleElem mi' _) trees') = do
-            result <- lookupAtSolutionPath $ ModulePath pi mi'
-            case (result, trees') of
-                (Just _, [tree']) -> loop (Just mi') tree'
-                (Nothing,_) -> insertSolutionTreeTree parentPath tree
-          where
-            parentPath = case parent of
-                Just parent -> ModulePath pi parent
-                Nothing -> ProjectPath pi
-    splice $ loop Nothing sTree
 
 -- | Remove a module from a project
 doRemoveModule :: ( GuiCommand t m )
@@ -451,7 +455,8 @@ doRemoveModule :: ( GuiCommand t m )
                -> t (SolutionResult UserError m)  ()
 doRemoveModule pji mi = do
     lift $ removeModule pji mi
-    splice $ removeSolutionTreeNode $ ModulePath pji mi
+    splice $ removeModuleFromTree pji mi
+    
 
 -- | Add a declaration to a module
 doAddDeclaration :: ( GuiCommand t m )

@@ -61,11 +61,13 @@ data ModuleTree
 makeTreeSkeleton :: [ModuleInfo] -> [ModuleTree]
 makeTreeSkeleton = go ""
   where
-    go knownRoot modInfos = for partitions processPartition
+    go knownRoot modInfos = map (uncurry processPartition) partitions
       where
-        processPartition (rootInfo,subModuleNames) = 
-            makeNode rootInfo newRoot toProcess
+        processPartition rootInfo subModuleNames = if rootPresent
+            then ModuleNode rootInfo subTrees [] [] [] Nothing
+            else OrgNode rootInfo subTrees
           where
+            subTrees = go newRoot toProcess
             rootPresent = rootInfo `elem` subModuleNames
             rootString = case rootInfo of
                 ModuleInfo (Symbol s) -> s
@@ -76,9 +78,9 @@ makeTreeSkeleton = go ""
             toProcess = if rootPresent
                 then delete rootInfo subModuleNames
                 else subModuleNames
-            makeNode x y z = if rootPresent
-                then ModuleNode x (go y z) [] [] [] Nothing
-                else OrgNode x $ go y z
+        -- A partition is a set of modules which all have the same root module,
+        -- e.g. Data.Map, Data.Vector, and Data.Map.Lazy are in the same parition
+        -- e.g. Data.Map and OtherData.Map are not
         partitions = Map.toList $ partitionBy getRootName modInfos
         getRootName (ModuleInfo (Symbol s)) = ModuleInfo 
                                             $ Symbol 

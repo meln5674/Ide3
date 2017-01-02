@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 module SolutionTree where
 
 import Data.Monoid
@@ -74,6 +75,25 @@ makeProjectTree pi branches = Node (ProjectElem pi) $ map makeModuleTree branche
 
 makeSolutionTree :: [(ProjectInfo,[ModuleTree])] -> Forest SolutionTreeElem
 makeSolutionTree = map (uncurry makeProjectTree)
+
+getModuleParent :: SolutionViewClass m => ProjectInfo -> ModuleInfo -> m (Maybe ModuleInfo)
+getModuleParent pji mi = do
+    paths <- getModuleParentPath pji mi
+    case paths of
+        [path] -> do
+            item <- getElemAtSolutionTreePath path
+            case item of
+                ModuleElem mi' _ -> return $ Just mi'
+                UnparsableModuleElem mi' -> return $ Just mi'
+                _ -> return Nothing            
+        _ -> return Nothing
+
+getModuleParentPath :: SolutionViewClass m => ProjectInfo -> ModuleInfo -> m [TreePath]
+getModuleParentPath pji mi = do
+    trees <- getForestAtSolutionPath SolutionPath
+    return $ flip evalMultiState (Node undefined trees) $ do
+        searchTree' $ ProjectPath pji
+        searchTreeForModuleWithChild mi
 
 searchTree
     :: ( SolutionViewClass m --t (SolutionResult u m)
@@ -243,6 +263,17 @@ searchTreeForModule mi = MultiState $ \s ->
     matchesModule (ModuleElem mi' _) = mi == mi'
     matchesModule (UnparsableModuleElem mi') = mi == mi'
     matchesModule _ = False
+
+searchTreeForModuleWithChild :: ModuleInfo -> MultiState (Tree SolutionTreeElem) TreePath
+searchTreeForModuleWithChild mi = MultiState $ \s ->
+    case runMultiState (searchTree''' matchesModule) s of
+        [] -> runMultiState (searchTreeForModulePart mi >-> searchTreeForModuleWithChild mi) s
+        xs -> []
+  where
+    matchesModule (ModuleElem mi' _) = mi == mi'
+    matchesModule (UnparsableModuleElem mi') = mi == mi'
+    matchesModule _ = False
+
 
 {-
 searchTreeForDeclaration :: DeclarationInfo -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
@@ -481,3 +512,107 @@ updateSolutionTreeTree spath f = do
     let tree' = f tree
     removeSolutionTreePathNode tpath
     insertSolutionTreePathTree (init tpath) (Just $ last tpath) tree'
+
+hasSubModules' :: SolutionViewClass m => SolutionPath -> m Bool
+hasSubModules' path = flip any <$> getTreeAtSolutionPath path <*> ( pure $ \case
+        (ModuleElem _ _) -> True
+        (UnparsableModuleElem _) -> True
+        _ -> False)
+
+hasSubModules :: SolutionViewClass m => SolutionPath -> m Bool
+hasSubModules path@(ModulePath pji mi) = hasSubModules' path
+hasSubModules path@(UnparsableModulePath pji mi) = hasSubModules' path
+hasSubModules _ = return False
+
+
+-- | Remove the module from the tree, but keeping it
+-- and any parents that have other sub-modules, then
+-- re-add it based on its new module name
+moveModuleInTree :: SolutionViewClass m 
+                 => ProjectInfo 
+                 -> ModuleInfo 
+                 -> ModuleInfo 
+                 -> Tree SolutionTreeElem
+                 -> m ()
+moveModuleInTree pji mi mi' sTree = do
+    removeModuleFromTree pji mi
+    addModuleToTree pji mi' sTree
+
+
+-- | Remove a module from the tree, preserving its sub-modules, and leaving an
+-- empty module node if any exist, but removing it and any empty parent module
+-- nodes
+removeModuleFromTree :: SolutionViewClass m => ProjectInfo -> ModuleInfo -> m ()
+removeModuleFromTree = go True
+  where
+    -- Walk from the module to delete towards the root
+    go isFirst pji mi = do
+        pred <- hasSubModules (ModulePath pji mi)
+        if pred
+            -- If the current node has sub-modules
+            then updateSolutionTreeTree (ModulePath pji mi) $ if isFirst
+                    -- If the current node is the module to delete, replace it
+                    -- with a structural node with only the sub-trees that
+                    -- contain modules, then halt the walk
+                    then \case
+                        Node (ModuleElem _ _) ts -> Node (ModuleElem mi True) $ flip filter ts $ \case
+                            Node ModuleElem{} _ -> True
+                            Node UnparsableModuleElem{} _ -> True
+                            _ -> False
+                        Node (UnparsableModuleElem _) ts -> Node (ModuleElem mi True) ts
+                    -- If the current node is a parent of the deleted node, leave
+                    -- it as is, then halt the walk
+                    else id
+            -- If the current node has no sub-modules
+            else do
+                item <- getElemAtSolutionPath $ ModulePath pji mi
+                case item of
+                    -- If the current node is a sturctural node, remove it, then
+                    -- walk up one level
+                    ModuleElem _ True -> do
+                        removeSolutionTreeNode $ ModulePath pji mi
+                        mi' <- getModuleParent pji mi
+                        case mi' of
+                            Just mi' -> go False pji mi'
+                            Nothing -> return ()
+                    -- If the current node is not structural, halt the walk
+                    _ -> return ()
+
+-- | Add a module to the tree, along with any needed structural nodes, merging
+-- with any existing node for that module
+addModuleToTree :: SolutionViewClass m => ProjectInfo -> ModuleInfo -> Tree SolutionTreeElem -> m ()
+addModuleToTree pji mi = loop Nothing
+  where
+    --   We now have a tree rooted at the ancestor of the new module, and each
+    -- of the trees have a single branch, pointing to the next ancestor, until
+    -- it reaches the node for the new module.
+    
+    --   Because there may be orgnaizational nodes that need to be added, we
+    -- traverse down the tree, checking the stored tree if there is already a
+    -- node with that path. If there is, we go to the next descendent.
+    --   Once we reach a node that is not present, that is the top of the tree
+    -- that contains the new module, so we insert that tree wholesale.
+    loop parent tree@(Node item trees') = do
+        result <- case item of
+            ModuleElem mi' _ -> lookupAtSolutionPath $ ModulePath pji mi'
+            UnparsableModuleElem mi' -> lookupAtSolutionPath $ UnparsableModulePath pji mi'
+        let mi' = case item of
+                ModuleElem mi' _ -> mi'
+                UnparsableModuleElem mi' -> mi'
+            oldPath = case item of
+                ModuleElem _ _ -> ModulePath pji mi
+                UnparsableModuleElem _ -> UnparsableModulePath pji mi
+        case (result, trees') of
+            -- If the path isn't there, this is the root of the new part
+            (Nothing,_) -> insertSolutionTreeTree parentPath tree
+            -- If the path is not known, the infos do not match, and there
+            -- is one possible sub-module to traverse, this module is known,
+            -- traverse to the next level
+            (_, [tree']) | mi /= mi' -> loop (Just mi') tree'
+            -- If the path is known, but the infos match, then the module is
+            -- being updated, change it to a non-structural node with both
+            -- the old and new sub-trees
+            (_, _) -> updateSolutionTreeTree oldPath $ 
+                \(Node _ trees) -> Node (ModuleElem mi False) $ trees' ++ trees
+      where
+        parentPath = maybe (ProjectPath pji) (ModulePath pji) parent

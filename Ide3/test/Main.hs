@@ -11,6 +11,8 @@ import Tests.SolutionTree
 
 allTests = TestList
 	[ test_insertProject
+	, test_updateModule
+	, test_moveModule
 	]
 
 main :: IO ()

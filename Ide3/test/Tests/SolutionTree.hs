@@ -123,7 +123,7 @@ instance Monad m => SolutionViewClass (MockSolutionViewT m) where
         = MockSolutionViewT $ do
             zipper <- gets mockForest >>= lift . MaybeT . return . unzipForest path
             ts' <- lift $ MaybeT $ return $ flip rezipForest zipper $ \lbl ts -> case ix of
-                Just ix | 0 <= ix && ix < length ts 
+                Just ix | 0 <= ix && ix <= length ts 
                     -> Just $ Node lbl 
                                  $  (take ix ts) 
                                  ++ (Node item [])
@@ -135,7 +135,7 @@ instance Monad m => SolutionViewClass (MockSolutionViewT m) where
         = MockSolutionViewT $ do
             zipper <- gets mockForest >>= lift . MaybeT . return . unzipForest path
             ts' <- lift $ MaybeT $ return $ flip rezipForest zipper $ \lbl ts -> case ix of
-                Just ix | 0 <= ix && ix < length ts 
+                Just ix | 0 <= ix && ix <= length ts 
                     -> Just $ Node lbl 
                                  $  (take ix ts) 
                                  ++ t
@@ -177,9 +177,13 @@ runSolutionTreeTest' :: Maybe String
 runSolutionTreeTest' lbl expected = runSolutionTreeTest lbl $ \case
     Just (_,actual)
         | actual == expected -> ""
-        | otherwise -> "\tExpected: " ++ show expected ++ "\n\tActual: " ++ show actual
+        | otherwise -> "\tExpected: \n" 
+                      ++ showTree expected 
+                      ++ "\n\tActual: \n" 
+                      ++ showTree actual
     Nothing -> "Operation Failed"
-
+  where
+    showTree = drawForest . map (fmap show)
 test_insertProject :: Test
 test_insertProject = runSolutionTreeTest' (Just "Insert Project") expected $ do
     insertSolutionTreeNode SolutionPath testProjectElem
@@ -187,3 +191,82 @@ test_insertProject = runSolutionTreeTest' (Just "Insert Project") expected $ do
     testProjectInfo = ProjectInfo "test"
     testProjectElem = ProjectElem testProjectInfo
     expected = [Node testProjectElem []]
+
+test_updateModule :: Test
+test_updateModule = runSolutionTreeTest' (Just "Update Module") expected $ do
+    insertSolutionTreeNode testProjectPath testProjectElem
+    insertSolutionTreeNode testModulePath testModuleElem
+    updateSolutionTreeTree updatePath $ const $ Node testModuleElem' []
+  where
+    testProjectPath = SolutionPath
+    testProjectInfo = ProjectInfo "test"
+    testProjectElem = ProjectElem testProjectInfo
+    
+    testModulePath = ProjectPath testProjectInfo
+    testModuleInfo = ModuleInfo $ Symbol "Test"
+    testModuleElem = ModuleElem testModuleInfo False
+
+    testModuleInfo' = ModuleInfo $ Symbol "Test2"
+    testModuleElem' = ModuleElem testModuleInfo' False
+    
+    updatePath = ModulePath testProjectInfo testModuleInfo
+    
+    expected = [ Node testProjectElem
+                 [ Node testModuleElem' []
+                 ]
+               ]
+    
+
+test_moveModule :: Test
+test_moveModule = runSolutionTreeTest' (Just "Move Module") expected $ do
+    insertSolutionTreeNode testProjectPath testProjectElem
+    
+    insertSolutionTreeNode srcBaseModulePath srcBaseModuleElem
+    insertSolutionTreeNode testModulePath testModuleElem
+    insertSolutionTreeNode srcChildModulePath srcChildModuleElem
+
+    insertSolutionTreeNode destBaseModulePath destBaseModuleElem
+    
+    moveModuleInTree testProjectInfo testModuleInfo testModuleInfo' testModuleTree'
+    
+  where
+    testProjectPath = SolutionPath
+    testProjectInfo = ProjectInfo "test"
+    testProjectElem = ProjectElem testProjectInfo
+
+    srcBaseModulePath = ProjectPath testProjectInfo
+    srcBaseModuleInfo = ModuleInfo $ Symbol "Base1"
+    srcBaseModuleElem = ModuleElem srcBaseModuleInfo False
+
+    testModulePath = ModulePath testProjectInfo srcBaseModuleInfo
+    testModuleInfo = ModuleInfo $ Symbol "Base1.Test"
+    testModuleElem = ModuleElem testModuleInfo False
+    testModuleElem2 = ModuleElem testModuleInfo True
+    
+    testModulePath' = ModulePath testProjectInfo destBaseModuleInfo
+    testModuleInfo' = ModuleInfo $ Symbol "Base2.Test"
+    testModuleElem' = ModuleElem testModuleInfo' False
+    testModuleTree' = Node destBaseModuleElem 
+                      [ Node testModuleElem' []
+                      ]  
+                          
+
+    srcChildModulePath = ModulePath testProjectInfo testModuleInfo
+    srcChildModuleInfo = ModuleInfo $ Symbol "Base1.Test.Child"
+    srcChildModuleElem = ModuleElem srcChildModuleInfo False
+
+    destBaseModulePath = ProjectPath testProjectInfo
+    destBaseModuleInfo = ModuleInfo $ Symbol "Base2"
+    destBaseModuleElem = ModuleElem destBaseModuleInfo False
+
+    expected = [ Node testProjectElem 
+                 [ Node srcBaseModuleElem
+                   [ Node testModuleElem2
+                     [ Node srcChildModuleElem []
+                     ]
+                   ]
+                 , Node destBaseModuleElem
+                   [ Node testModuleElem' []
+                   ]
+                 ]
+               ]
