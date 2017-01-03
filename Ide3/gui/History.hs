@@ -17,10 +17,24 @@ module History
     ) where
 
 import Prelude hiding (null)
+import Data.Monoid
 
 -- | ADT representing a "history" of values, with a past, present, and future
 data History a = History [a] [a]
 
+instance Functor History where
+    fmap f (History past future) = History (fmap f past) (fmap f future)
+
+instance Foldable History where
+    foldMap f (History past future) = foldMap f past <> foldMap f future
+
+instance Traversable History where
+    sequence (History pastM futureM) = do
+        past <- sequence pastM
+        future <- sequence futureM
+        return $ History past future
+        
+        
 -- | Create an empty history
 empty :: History a
 empty = History [] []

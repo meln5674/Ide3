@@ -189,6 +189,16 @@ doUnExportDeclaration :: ( GuiCommand2 t m' m
                       -> t m ()
 doUnExportDeclaration pi mi di = dialogOnError () $ Internal.doUnExportDeclaration pi mi di
 
+doMoveDeclaration :: ( GuiCommand2 t m' m 
+                     )
+                  => ProjectInfo
+                  -> ModuleInfo
+                  -> DeclarationInfo
+                  -> ProjectInfo
+                  -> ModuleInfo
+                  -> t m ()
+doMoveDeclaration pji mi di pji' mi' = dialogOnError () $ Internal.doMoveDeclaration pji mi di pji' mi'
+
 doAddImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo

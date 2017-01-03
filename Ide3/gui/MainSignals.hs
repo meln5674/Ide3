@@ -68,6 +68,7 @@ import Dialogs.NewSolutionDialog (NewSolutionDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
 import Dialogs.NewImportDialog (NewImportDialog)
 import Dialogs.NewExportDialog (NewExportDialog)
+import Dialogs.MoveDeclarationDialog (MoveDeclarationDialog)
 import SolutionContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
@@ -75,6 +76,7 @@ import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
+import qualified Dialogs.MoveDeclarationDialog as MoveDeclarationDialog
 import qualified SolutionContextMenu
 
 import SearchMode
@@ -396,6 +398,37 @@ onExportDeclarationClicked pi mi (DeclarationInfo (Symbol declStr)) = do
             return False
     return False
 
+onMoveDeclarationClicked :: forall t m' p m
+                          . ( MainGuiClass t m' p m )
+                         => ProjectInfo
+                         -> ModuleInfo
+                         -> DeclarationInfo
+                         -> t m Bool
+onMoveDeclarationClicked pi mi di@(DeclarationInfo (Symbol declStr)) = do
+    MoveDeclarationDialog.make $ \dialog -> do
+        dialog `on1` MoveDeclarationDialog.confirmClickedEvent $ \event -> do
+            pathClicked <- MoveDeclarationDialog.getSelectedModulePath dialog
+            case pathClicked of
+                Nothing -> doError $ InvalidOperation "Please select a module" 
+                                                      ""
+                Just (path, col) -> do
+                    item <- findAtPath path
+                    case item of
+                        ModuleResult pi' mi' _ -> do
+                            doMoveDeclaration pi mi di pi' mi'
+                            MoveDeclarationDialog.close dialog
+                        ProjectResult _ -> do
+                            doError $ InvalidOperation "Please select a module"
+                                                       ""
+                        NoSearchResult -> do
+                            doError $ InvalidOperation "An internal error has occured"
+                                                       ""
+            return False
+        dialog `on1` MoveDeclarationDialog.cancelClickedEvent $ \event -> do
+            MoveDeclarationDialog.close dialog
+            return False
+    return False
+        
 
 setupModuleContextMenu :: forall t proxy m' p m
                . ( MainGuiClassIO t m' p m )
@@ -455,6 +488,8 @@ setupDeclContextMenu pi mi di = do
         return False
     menu `on1` SolutionContextMenu.exportDeclarationClickedEvent $ \event -> do
         onExportDeclarationClicked pi mi di
+    menu `on1` SolutionContextMenu.moveDeclarationClickedEvent $ \event -> do
+        onMoveDeclarationClicked pi mi di
     menu `on1` SolutionContextMenu.unExportDeclarationClickedEvent $ \event -> do
         doUnExportDeclaration pi mi di
         return False

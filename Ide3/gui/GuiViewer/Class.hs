@@ -17,5 +17,6 @@ class Monad m => GuiViewerClass m where
     openDeclarationInHistory :: SolutionPath -> Text -> m ()
     replaceHistoryPath :: SolutionPath -> m ()
     replaceHistoryText :: Text -> m ()
+    updateHistoryPath :: SolutionPath -> SolutionPath -> m ()
     navigateHistoryBack :: m (Maybe (SolutionPath, Text))
     navigateHistoryForward :: m (Maybe (SolutionPath, Text))

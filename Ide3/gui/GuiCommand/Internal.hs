@@ -523,6 +523,29 @@ doUnExportDeclaration pi mi (DeclarationInfo sym) = do
         _ -> doError $ Unsupported 
                        "Multiple exports found, please remove exports manually"
 
+doMoveDeclaration :: ( GuiCommand t m )
+                  => ProjectInfo
+                  -> ModuleInfo
+                  -> DeclarationInfo
+                  -> ProjectInfo
+                  -> ModuleInfo
+                  -> t (SolutionResult UserError m) ()
+doMoveDeclaration pji mi di pji' mi' = do
+    lift $ do
+        decl <- getDeclaration pji mi di
+        removeDeclaration pji mi di
+        addDeclaration pji' mi' decl
+    splice $ do
+        removeSolutionTreeNode (DeclarationPath pji mi di)
+        insertSolutionTreeNode (ModulePath pji' mi') (DeclElem di)
+    lift $ lift $ do
+        updateHistoryPath (DeclarationPath pji mi di) 
+                          (DeclarationPath pji' mi' di)
+        cdi <- getCurrentDeclaration
+        when (cdi == Just (pji, mi, di)) $ do
+            setCurrentDecl pji' mi' di
+            
+
 -- | An an import to a module
 doAddImport :: ( GuiCommand t m )
             => ProjectInfo

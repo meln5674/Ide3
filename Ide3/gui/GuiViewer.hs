@@ -78,7 +78,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
         history <- gets declarationHistory
         case History.present history of
             Nothing -> return ()
-            Just (di,text) -> 
+            Just (_,text) -> 
                 case History.replace (di',text) history of
                     Just history' -> do
                         modify $ \s -> s{ declarationHistory = history' }
@@ -87,11 +87,23 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
         history <- gets declarationHistory
         case History.present history of
             Nothing -> return ()
-            Just (di,text) -> 
+            Just (di,_) -> 
                 case History.replace (di,text') history of
                     Just history' -> do
                         modify $ \s -> s{ declarationHistory = history' }
                     Nothing -> return ()    
+    updateHistoryPath p p' = GuiViewer $ do
+        history <- gets declarationHistory
+        open <- gets openDeclarations
+        let updatePath x
+                | x == p = p'
+                | otherwise = x
+            updatePair (x,t) = (updatePath x, t)
+            history' = fmap updatePair history
+            open' = fmap updatePath open
+        modify $ \st -> st { declarationHistory = history' 
+                           , openDeclarations = open'
+                           }
     navigateHistoryBack = GuiViewer $ do
         history <- gets declarationHistory
         case History.back history of
