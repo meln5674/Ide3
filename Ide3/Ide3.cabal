@@ -92,6 +92,7 @@ executable Ide3-GUI
                      , Dialogs.NewExportDialog
                      , Dialogs.GenericNewDialog
                      , Dialogs.SearchBar
+                     , Dialogs.MoveDeclarationDialog
                      , GuiMonad
                      , GuiEnv
                      , GuiClass
