@@ -399,6 +399,7 @@ data SolutionViewer
     = SolutionViewer
     { projectView :: TreeView
     , declView :: BetterTextView
+    , declBuffer :: TextBuffer
     }
 
 makeSolutionViewer :: (MonadIO m
@@ -417,9 +418,11 @@ makeSolutionViewer renderer renderFunc container = do
         hbox `panedAdd2` declViewBox
         projectView <- makeProjView renderer projectViewBox renderFunc
         declView <- makeDeclView declViewBox
+        declBuffer <- withGuiComponents $ flip withEditorBuffer return
         return SolutionViewer
                { projectView
                , declView
+               , declBuffer
                }
 
 makeProjView :: ( MonadIO m
@@ -630,8 +633,8 @@ backClickedEvent = backButton `mkNavigationMenuSignal` #activate
 forwardClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
 forwardClickedEvent = forwardButton `mkNavigationMenuSignal` #activate
 
-declarationEditedEvent :: MainWindowSignal TextView TextViewInsertAtCursorSignalInfo
-declarationEditedEvent window = mkBTVSignal #insertAtCursor (declView $ solutionViewer window)
+declarationEditedEvent :: MainWindowSignal TextBuffer TextBufferChangedSignalInfo
+declarationEditedEvent = declBuffer `mkSolutionViewerSignal` #changed
 
 {-
 searchClickedEvent :: (Monad m)

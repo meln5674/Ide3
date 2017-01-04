@@ -664,7 +664,7 @@ setupSignals gui = do
     gui `on` MainWindow.gotoDeclarationClickedEvent $ onGotoDeclarationClicked
     gui `on` MainWindow.backClickedEvent $ onBackClicked
     gui `on` MainWindow.forwardClickedEvent $ onForwardClicked
-    gui `on1` MainWindow.declarationEditedEvent $ \_ -> onDeclEdited
+    gui `on` MainWindow.declarationEditedEvent $ onDeclEdited
     gui `on2` MainWindow.errorClickedEvent $ onErrorClicked gui
     gui `on` MainWindow.windowClosedEvent $ liftIO exitSuccess
     return ()
