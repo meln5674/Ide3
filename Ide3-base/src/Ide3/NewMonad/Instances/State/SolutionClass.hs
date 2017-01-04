@@ -19,7 +19,6 @@ import Ide3.NewMonad.Instances.State.Class
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
 
-import Ide3.Types.Internal
 import Ide3.Types.State
 
 -- | Access solution info and projects statefull

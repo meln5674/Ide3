@@ -22,7 +22,7 @@ import qualified Data.Map as Map
 import Control.Monad
 
 import Ide3.NewMonad
-import Ide3.Types.Internal hiding (moduleInfo)
+import Ide3.Types.Internal
 
 -- | Utility function, just map with arguments reversed
 for :: [a] -> (a -> b) -> [b]
@@ -104,8 +104,8 @@ fillTree pji (OrgNode i ts) = do
     ts' <- mapM (fillTree pji) ts
     return $ OrgNode i ts'
 fillTree pji (ModuleNode i ts _ _ _ _) = do
-    contents <- getUnparsableModule pji i
-    case contents of
+    maybeContents <- getUnparsableModule pji i
+    case maybeContents of
         Just contents -> do
             ts' <- mapM (fillTree pji) ts
             return $ UnparsableModuleNode i ts' contents
@@ -122,6 +122,9 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
                     return $ Just x
             ts' <- mapM (fillTree pji) ts
             return $ ModuleNode i ts' ps ds is es
+fillTree pji (UnparsableModuleNode i ts s) = do
+    ts' <- mapM (fillTree pji) ts
+    return $ UnparsableModuleNode i ts' s
 
 -- | Generate a tree for specific module
 makeModuleTree :: ( ProjectModuleClass m
@@ -163,14 +166,16 @@ formatTree = intercalate "\n" . go []
         prefix = buildPrefix prefixFlags
         headPrefix = buildPrefix (drop 1 prefixFlags)
         decls = case tree of 
-            OrgNode{} -> []
             ModuleNode _ _ _ ds _ _ -> ds
+            _ -> []
         subModules = case tree of
             OrgNode _ ms -> ms
             ModuleNode _ ms _ _ _ _ -> ms
+            UnparsableModuleNode _ ms _ -> ms
         moduleInfo = case tree of
             OrgNode n _ -> n
             ModuleNode n _ _ _ _ _ -> n
+            UnparsableModuleNode n _ _ -> n
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
             UnamedModule (Just p) -> p

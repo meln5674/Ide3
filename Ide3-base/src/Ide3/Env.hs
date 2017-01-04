@@ -293,16 +293,14 @@ runDescent1 :: DescentChain1 a m u r -> a -> SolutionResult u m (r,a)
 runDescent1 = runStateT
 
 -- | Run a stateful operation over a value with an environment with a key
-runDescent2 :: Monad m 
-            => DescentChain2 a b m u r 
+runDescent2 :: DescentChain2 a b m u r 
             -> b 
             -> a 
             -> SolutionResult u m (r,a)
 runDescent2 f b a = runReaderT (runStateT f a) b
 
 -- | Run a stateful operation over a value with an environment with two keys
-runDescent3 :: Monad m 
-            => DescentChain3 a b c m u r 
+runDescent3 :: DescentChain3 a b c m u r 
             -> b 
             -> c 
             -> a 
@@ -310,8 +308,7 @@ runDescent3 :: Monad m
 runDescent3 f b c a = runReaderT (runReaderT (runStateT f a) b) c
 
 -- | Run a stateful operation over a value with an environment with three keys
-runDescent4 :: Monad m 
-            => DescentChain4 a b c d m u r 
+runDescent4 :: DescentChain4 a b c d m u r 
             -> b 
             -> c 
             -> d 
@@ -321,8 +318,7 @@ runDescent4 f b c d a =
     runReaderT (runReaderT (runReaderT (runStateT f a) b) c) d
 
 -- | Run a stateful operation over a value with an environment with four keys
-runDescent5 :: Monad m 
-            => DescentChain5 a b c d e m u r 
+runDescent5 :: DescentChain5 a b c d e m u r 
             -> b 
             -> c 
             -> d 

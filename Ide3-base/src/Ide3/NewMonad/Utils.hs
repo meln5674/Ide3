@@ -20,7 +20,6 @@ module Ide3.NewMonad.Utils
 import qualified Data.Map as Map
 import qualified Ide3.OrderedMap as OMap
 
-import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.SrcLoc
@@ -64,7 +63,6 @@ addRawDeclaration pji mi str = case Declaration.parse str of
 
 -- | Parse an entire module and add it to the project
 addRawModule :: ( ProjectModuleClass m
-                , ProjectExternModuleClass m
                 , ModuleDeclarationClass m
                 , ModuleImportClass m
                 , ModuleExportClass m
@@ -85,10 +83,10 @@ addRawModule pji str p = case Module.parse str p of
                    , modulePragmas
                    , moduleHeader
                    } -> do
-                mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
-                mapM (addImport pji mi) $ Map.elems $ moduleImports
+                mapM_ (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
+                mapM_ (addImport pji mi) $ Map.elems $ moduleImports
                 maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
-                mapM (addPragma pji mi) $ modulePragmas
+                mapM_ (addPragma pji mi) $ modulePragmas
                 editModuleHeader pji mi $ const $ moduleHeader
             UnparsableModule { moduleContents } -> do
                 setModuleUnparsable pji mi moduleContents
@@ -97,16 +95,15 @@ addRawModule pji str p = case Module.parse str p of
 
 -- | Parse an entire module and add it to the project
 updateRawModule :: ( ProjectModuleClass m
-                , ProjectExternModuleClass m
-                , ModuleDeclarationClass m
-                , ModuleImportClass m
-                , ModuleExportClass m
-                , ModulePragmaClass m
-                ) 
-             => ProjectInfo 
-             -> String 
-             -> Maybe FilePath 
-             -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
+                   , ModuleDeclarationClass m
+                   , ModuleImportClass m
+                   , ModuleExportClass m
+                   , ModulePragmaClass m
+                   ) 
+                => ProjectInfo 
+                -> String 
+                -> Maybe FilePath 
+                -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
 updateRawModule pji str p = case Module.parse str p of
     Right (m,_,_,err) -> do
         let mi = Module.info m
@@ -118,10 +115,10 @@ updateRawModule pji str p = case Module.parse str p of
                    , modulePragmas
                    , moduleHeader
                    } -> do
-                mapM (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
-                mapM (addImport pji mi) $ Map.elems $ moduleImports
+                mapM_ (addDeclaration pji mi) $ OMap.elems $ moduleDeclarations
+                mapM_ (addImport pji mi) $ Map.elems $ moduleImports
                 maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
-                mapM (addPragma pji mi) $ modulePragmas
+                mapM_ (addPragma pji mi) $ modulePragmas
                 editModuleHeader pji mi $ const $ moduleHeader
             UnparsableModule { moduleContents } -> do
                 setModuleUnparsable pji mi moduleContents

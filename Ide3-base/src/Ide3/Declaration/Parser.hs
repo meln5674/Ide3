@@ -41,7 +41,7 @@ import Ide3.Types.Internal
 import qualified Ide3.Constructor.Exts as Constructor
 
 -- | Convert a declaration if it is a type synonym
-parseTypeSynonym :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseTypeSynonym :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseTypeSynonym (TypeDecl _ h t)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (TypeSynonym (toSym h)
@@ -50,7 +50,7 @@ parseTypeSynonym (TypeDecl _ h t)
 parseTypeSynonym _ = Nothing
 
 -- | Convert a declaration if it is a GADT newtype
-parseGADTNewtypeDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseGADTNewtypeDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
@@ -59,7 +59,7 @@ parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
 parseGADTNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a newtype declaration
-parseNewtypeDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseNewtypeDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
     = Just $ TypeDeclaration (DeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
@@ -68,7 +68,7 @@ parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
 parseNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a GADT data
-parseGADTDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseGADTDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration 
                 (DeclarationInfo (toSym h))
@@ -78,7 +78,7 @@ parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
 parseGADTDecl _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
-parseDataDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseDataDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseDataDecl (DataDecl _ (DataType _) _ h cons _)
     = Just $ TypeDeclaration
         (DeclarationInfo (toSym h))
@@ -88,7 +88,7 @@ parseDataDecl (DataDecl _ (DataType _) _ h cons _)
 parseDataDecl _ = Nothing
 
 -- | Convert a declaration if it is a function bind
-parseFuncBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseFuncBind :: Decl t -> Maybe Declaration
 parseFuncBind (FunBind _ (m:_))
     = Just $ BindDeclaration
         (DeclarationInfo $ toSym n) 
@@ -100,7 +100,7 @@ parseFuncBind (FunBind _ (m:_))
 parseFuncBind _ = Nothing
 
 -- | Convert a declaration if it is a type signature
-parseTypeSignature :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseTypeSignature :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseTypeSignature (TypeSig _ ns t) = case allsigs of
     Nothing -> Nothing
     Just [] -> Nothing
@@ -132,7 +132,7 @@ parseClassDecl (ClassDecl _ _ h _ ds)
 parseClassDecl _ = Nothing
 
 -- | Convert a declaration if it is an instance declaration
-parseInstanceDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseInstanceDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseInstanceDecl (InstDecl _ _ r _)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
@@ -141,7 +141,7 @@ parseInstanceDecl (InstDecl _ _ r _)
 parseInstanceDecl _ = Nothing
 
 -- | Convert a declaration if it is a pattern bind
-parsePatBind :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parsePatBind :: Decl t -> Maybe Declaration
 parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
     ns@(n:_) -> Just $
@@ -151,7 +151,7 @@ parsePatBind (PatBind _ p _ _) = case findName p of
 parsePatBind _ = Nothing
 
 -- | Convert a declaration if it is a standalone deriving declaration
-parseDerivingDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
+parseDerivingDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
     = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
            $ DerivingDeclaration cls ts

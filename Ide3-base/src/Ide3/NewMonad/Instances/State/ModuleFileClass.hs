@@ -12,7 +12,6 @@ Portability : POSIX
 
 module Ide3.NewMonad.Instances.State.ModuleFileClass where
 
-import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
@@ -24,6 +23,6 @@ import qualified Ide3.Env.Solution as Solution
 -- | Convert a module to file contents by combining the bodies of each of its
 -- elements
 instance StatefulSolutionClass m => ModuleFileClass (StatefulWrapper m) where
-    toFile pi mi = do
-        m <- modifySolutionER $ runDescent3 Solution.getModule pi mi
+    toFile pji mi = do
+        m <- modifySolutionER $ runDescent3 Solution.getModule pji mi
         return $ Module.toFile m

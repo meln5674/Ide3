@@ -41,7 +41,7 @@ removeProject = do
     pji <- lift ask
     s <- get
     (p, s') <- lift $ lift $ removeChildT pji s
-    let p' = p :: Project
+    let _ = p :: Project
     put s'
 
 -- | Get the ids of all projects

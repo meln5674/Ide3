@@ -41,13 +41,23 @@ convertWithBody str export = WithBody (convert export) (ann export >< str)
 -- | Parse an export
 parse :: String -> Either (SolutionError u) Export
 parse s = case result of
-    ParseOk ok -> Right $ convert export
-      where 
+    ParseOk ok
+        | headAndImports <- unNonGreedy ok
+        , ModuleHeadAndImports _ _ (Just modHead) _ <- headAndImports 
+        , ModuleHead _ _ _ (Just specList) <- modHead
+        , ExportSpecList _ exportList <- specList
+        , [export] <- exportList
+            -> Right $ convert export
+      {-where 
         headAndImports = unNonGreedy ok
-        ModuleHeadAndImports _ _ (Just head) _ = headAndImports
-        ModuleHead _ _ _ (Just specList) = head
+        ModuleHeadAndImports _ _ (Just modHead) _ = headAndImports
+        ModuleHead _ _ _ (Just specList) = modHead
         ExportSpecList _ exportList = specList
-        [export] = exportList
+        [export] = exportList-}
+        | otherwise -> Left $ 
+            ParseError (SrcFileLoc "" (toSrcLoc (Row 1, Column 1)))
+                       "That isn't an export, and you know it" 
+                       ""
     ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
   where
     -- Parsing an export is done by putting in a mock export list, parsing that

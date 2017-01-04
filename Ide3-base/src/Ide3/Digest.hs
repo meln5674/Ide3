@@ -174,9 +174,7 @@ digestSolution :: forall m u
                -> [ProjectDigestParams]
                -> SolutionResult u m Solution
 digestSolution si ps = do
-    let y :: ( MonadIO m
-             )
-           => SolutionResult u (StatefulWrapper (SolutionStateT m)) Solution
+    let y :: SolutionResult u (StatefulWrapper (SolutionStateT m)) Solution
         y = digestSolutionM si ps >> getSolution
     (z,_) <- lift $ flip runStateT Solution.empty 
                   $ runSolutionStateT 

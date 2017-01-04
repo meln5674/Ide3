@@ -63,11 +63,11 @@ instance (Read k, Read v, Ord k) => Read (OrderedMap k v) where
         firstElem f (a,b) = (f a,b)
 
 -- | An empty map
-empty :: Ord k => OrderedMap k v
+empty :: OrderedMap k v
 empty = OrderedMap Map.empty Map.empty
 
 -- | Get the next order of a key to be inserted
-nextOrder :: Ord k => OrderedMap k v -> Order
+nextOrder :: OrderedMap k v -> Order
 nextOrder m = case Map.maxViewWithKey $ orderMap m of
     Nothing -> 0
     Just ((k,_),_) -> succ k
@@ -104,7 +104,7 @@ lookup :: Ord k => k -> OrderedMap k v -> Maybe v
 lookup k = liftM fst . Map.lookup k . itemMap
 
 -- | Retrieve the keys of a map, in the order they were inserted
-keys :: Ord k => OrderedMap k v -> [k]
+keys :: OrderedMap k v -> [k]
 keys = Map.elems . orderMap 
 
 -- | Retrieve the elements of a map, in the order their keys were inserted
@@ -144,11 +144,11 @@ modifyKey k k' m = m{ itemMap = itemMap', orderMap = orderMap' }
     orderMap' = Map.insert ord k' $ orderMap m
 
 -- | Apply a transformation to each value in the map
-map :: Ord k => (v -> v') -> OrderedMap k v -> OrderedMap k v'
+map :: (v -> v') -> OrderedMap k v -> OrderedMap k v'
 map f m = m { itemMap = flip Map.map (itemMap m) $ \(x,ord) -> (f x,ord) }
 
 -- | Apply a transformation to each value in the map using the key as well
-mapWithKey :: Ord k => (k -> v -> v') -> OrderedMap k v -> OrderedMap k v'
+mapWithKey :: (k -> v -> v') -> OrderedMap k v -> OrderedMap k v'
 mapWithKey f m = m
     { itemMap = Map.mapWithKey (\k (v,o) -> (f k v,o)) $ itemMap m }
 
@@ -177,7 +177,7 @@ partitionBy f ys = map reverse $ go ys empty
             Nothing -> [x]
         m' = insert k v' m
 
-instance Ord k => Functor (OrderedMap k) where
+instance Functor (OrderedMap k) where
     fmap = map
 
 instance Ord k => Foldable (OrderedMap k) where

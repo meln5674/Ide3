@@ -33,7 +33,7 @@ renameSymbols :: (SolutionMonad m)
              -> SolutionResult u m DeclarationInfo
 renameSymbols pji mi di pairs = do
     let edit str = foldr replace' str pairs
-        replace' (Symbol old, Symbol new) str' = replace old new str'
+        replace' (Symbol src, Symbol dest) str' = replace src dest str'
     editDeclaration pji mi di $ \d -> do
         let str = body d
             str' = edit str

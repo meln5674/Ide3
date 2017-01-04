@@ -60,7 +60,7 @@ annotate :: FileSpannable l => (a -> l) -> (a -> x) -> a -> Ann SrcFileSpan x
 annotate getAnn convert a = Ann (toSrcFileSpan $ getAnn a) (convert a)
 
 -- | Extract identifying information about a module
-extractInfo :: (SrcInfo l, FileSpannable l) 
+extractInfo :: (FileSpannable l) 
             => String 
             -> (Syntax.Module l, [Comment]) 
             -> Ann SrcFileSpan ModuleInfo
@@ -87,7 +87,7 @@ extractPragmas _ m
 extractPragmas _ _ = []
 
 -- | Extract the header from a module
-extractHeader :: (SrcInfo l, FileSpannable l) 
+extractHeader :: (FileSpannable l) 
               => String -> (Syntax.Module l, [Comment]) 
               -> Ann SrcFileSpan String
 extractHeader s (Syntax.Module mspan maybeHeader _ _ _,comments) =
@@ -166,7 +166,6 @@ parse s p = case parseModuleWithComments parseMode s of
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
             let mi = maybe (UnamedModule p) (ModuleInfo . Symbol . getModuleName) maybeName
-                errMsg = (show (toSrcFileLoc l) ++ ": " ++ msg) 
                 getModuleName (Syntax.ModuleName _ x) = x
                 _ = l' :: SrcSpanInfo
             return $ Unparsable (toSrcLoc l) msg mi s
@@ -198,7 +197,6 @@ parseMain s p = case parseModuleWithComments parseMode s of
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
             let mi = ModuleInfo $ Symbol $ maybe "Main" getModuleName maybeName
-                errMsg = (show (toSrcFileLoc l) ++ ": " ++ msg) 
                 getModuleName (Syntax.ModuleName _ x) = x
                 _ = l' :: SrcSpanInfo
             return $ Unparsable (toSrcLoc l) msg mi s
