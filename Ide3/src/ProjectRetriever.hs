@@ -19,24 +19,9 @@ module ProjectRetriever
     , mapProjectRetriever
     ) where
 
-import System.Exit
-import System.Process
-import System.Directory
-import System.FilePath
-
-import Data.List
-
-import Control.Monad
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
 import Ide3.Types
-
-import Ide3.NewMonad
-import Ide3.Digest
-
-import Args
-import Viewer
 
 -- | The result of initialization
 data ProjectRetrieverResult
@@ -49,10 +34,9 @@ data ProjectRetriever a m = ProjectRetriever
     { runProjectRetrieverInternal :: forall u . ProjectInfo -> SolutionResult u m a }
 
 -- | Run an Retriever with its arguments
-runProjectRetriever :: (Monad m)
-               => ProjectRetriever a m
-               -> ProjectInfo
-               -> SolutionResult u m a
+runProjectRetriever :: ProjectRetriever a m
+                    -> ProjectInfo
+                    -> SolutionResult u m a
 runProjectRetriever = runProjectRetrieverInternal
 
 -- | An Retriever that represents no initialization capability, and will
@@ -60,5 +44,7 @@ runProjectRetriever = runProjectRetrieverInternal
 noProjectRetriever :: Monad m => ProjectRetriever a m
 noProjectRetriever = ProjectRetriever $ \_ -> throwE $ Unsupported "No project Retriever specified"
 
-mapProjectRetriever :: (forall a . m a -> m' a) -> ProjectRetriever a m -> ProjectRetriever a m'
+mapProjectRetriever :: (forall b . m b -> m' b) 
+                    -> ProjectRetriever a m 
+                    -> ProjectRetriever a m'
 mapProjectRetriever f (ProjectRetriever b) = ProjectRetriever (\x -> mapExceptT f $ b x) 

@@ -7,9 +7,7 @@ import Control.Monad.Trans
 import GI.Gtk
 import GI.Gdk
 
-import Ide3.Types hiding (moduleInfo, projectInfo)
-
-import GuiEnv
+import Ide3.Types
 
 import GuiHelpers hiding (makeMenuWith)
 
@@ -74,13 +72,13 @@ makeMenuWith f = do
 
 
 makeModuleMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
-makeModuleMenu pi mi = makeMenuWith $ \menu -> do
+makeModuleMenu pji mi = makeMenuWith $ \menu -> do
     newDeclButton <- makeNewDeclButton menu
     newSubModuleButton <- makeNewSubModuleButton menu
     renameModuleButton <- makeRenameModuleButton menu
     deleteModuleButton <- makeDeleteModuleButton menu
     return ModuleMenu
-           { moduleInfo = ProjectChild pi mi
+           { moduleInfo = ProjectChild pji mi
            , newDeclButton
            , newSubModuleButton
            , renameModuleButton
@@ -101,13 +99,13 @@ makeDeleteModuleButton = makeMenuButton "Delete"
 
 
 makeDeclMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> DeclarationInfo -> m ContextMenu
-makeDeclMenu pi mi di = makeMenuWith $ \menu -> do
+makeDeclMenu pji mi di = makeMenuWith $ \menu -> do
     exportDeclarationButton <- makeExportDeclarationButton menu
     unExportDeclarationButton <- makeUnExportDeclarationButton menu
     moveDeclarationButton <- makeMoveDeclarationButton menu
     deleteDeclarationButton <- makeDeleteDeclarationButton menu
     return DeclMenu
-           { declInfo = ProjectChild pi $ ModuleChild mi di
+           { declInfo = ProjectChild pji $ ModuleChild mi di
            , exportDeclarationButton
            , unExportDeclarationButton
            , moveDeclarationButton
@@ -127,11 +125,11 @@ makeDeleteDeclarationButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteDeclarationButton = makeMenuButton "Delete"
 
 makeImportMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> ImportId -> m ContextMenu
-makeImportMenu pi mi ii = makeMenuWith $ \menu -> do
+makeImportMenu pji mi ii = makeMenuWith $ \menu -> do
     editImportButton <- makeEditImportButton menu
     deleteImportButton <- makeDeleteImportButton menu
     return ImportMenu
-           { importInfo = ProjectChild pi $ ModuleChild mi ii
+           { importInfo = ProjectChild pji $ ModuleChild mi ii
            , editImportButton
            , deleteImportButton
            }
@@ -143,11 +141,11 @@ makeDeleteImportButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteImportButton = makeMenuButton "Delete"
 
 makeExportMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> ExportId -> m ContextMenu
-makeExportMenu pi mi ei = makeMenuWith $ \menu -> do
+makeExportMenu pji mi ei = makeMenuWith $ \menu -> do
     editExportButton <- makeEditExportButton menu
     deleteExportButton <- makeDeleteExportButton menu
     return ExportMenu
-           { exportInfo = ProjectChild pi $ ModuleChild mi ei
+           { exportInfo = ProjectChild pji $ ModuleChild mi ei
            , editExportButton
            , deleteExportButton
            }
@@ -159,10 +157,10 @@ makeDeleteExportButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteExportButton = makeMenuButton "Delete"
 
 makeImportsMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
-makeImportsMenu pi mi = makeMenuWith $ \menu -> do
+makeImportsMenu pji mi = makeMenuWith $ \menu -> do
     newImportButton <- makeNewImportButton menu
     return ImportsMenu
-           { importsInfo = ProjectChild pi mi
+           { importsInfo = ProjectChild pji mi
            , newImportButton
            }
 
@@ -170,11 +168,11 @@ makeNewImportButton :: (MonadIO m) => Menu -> m MenuItem
 makeNewImportButton = makeMenuButton "New Import"
 
 makeExportsMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
-makeExportsMenu pi mi = makeMenuWith $ \menu -> do
+makeExportsMenu pji mi = makeMenuWith $ \menu -> do
     newExportButton <- makeNewExportButton menu
     exportAllButton <- makeExportAllButton menu
     return ExportsMenu
-           { exportsInfo = ProjectChild pi mi
+           { exportsInfo = ProjectChild pji mi
            , newExportButton
            , exportAllButton
            }
@@ -186,12 +184,12 @@ makeExportAllButton :: (MonadIO m) => Menu -> m MenuItem
 makeExportAllButton = makeMenuButton "Export All"
 
 makeProjectMenu :: (MonadIO m) => ProjectInfo -> m ContextMenu
-makeProjectMenu pi = makeMenuWith $ \menu -> do
+makeProjectMenu pji = makeMenuWith $ \menu -> do
     newModuleButton <- makeNewModuleButton menu
     editProjectButton <- makeEditProjectButton menu
     deleteProjectButton <- makeDeleteProjectButton menu
     return ProjectMenu
-        { projectInfo = pi
+        { projectInfo = pji
         , newModuleButton
         , editProjectButton
         , deleteProjectButton

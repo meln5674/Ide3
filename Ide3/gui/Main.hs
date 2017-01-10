@@ -12,49 +12,32 @@ module Main where
 
 import qualified Data.Text as T
 
-import Data.Tree
 import Data.Proxy
-import Data.Functor.Compose
-
-import GHC.Word
-
-import System.Exit
-import System.Directory
-import System.FilePath
 
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.Identity
-import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict hiding (withState)
 
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 
-import GI.GLib.Callbacks
 import GI.Gtk hiding (main, on)
 import qualified GI.Gtk as Gtk
-import GI.Gdk hiding (window, on)
+import GI.Gdk hiding (on)
 
 
 import Ide3.Types
-import Ide3.Utils
 import Ide3.Types.State
-import Ide3.NewMonad
-import Ide3.NewMonad.Instances.State.Class
+import Ide3.NewMonad.Instances.State
 import Ide3.NewMonad.Instances.State.Class.Instances.Strict
-import Ide3.Digest
 import qualified Ide3.Solution as Solution
 
 import Viewer
-import ViewerMonad
 import ViewerMonad2
 
-import SolutionTree
-
 import GuiMonad
-import GuiCommand
 import GuiEnv
 
 import GuiHelpers
@@ -62,44 +45,26 @@ import GuiHelpers
 import Dialogs
 import Dialogs.Class
 
-import Dialogs.MainWindow (MainWindow)
-import Dialogs.NewSolutionDialog (NewSolutionDialog)
-import Dialogs.NewModuleDialog (NewModuleDialog)
-import Dialogs.NewImportDialog (NewImportDialog)
-import Dialogs.NewExportDialog (NewExportDialog)
-import SolutionContextMenu (ContextMenu)
-
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
-import qualified Dialogs.NewModuleDialog as NewModuleDialog
-import qualified Dialogs.NewImportDialog as NewImportDialog
-import qualified Dialogs.NewExportDialog as NewExportDialog
-import qualified SolutionContextMenu
 
 import GuiT
-
-import SearchMode
 
 import PseudoState
 
 import GuiViewer
-import GuiViewer.Class
 
-import CabalMonad
 import CabalFilesystemSolution
 
 import Initializer
 
 import GuiClass
 import GuiClass.GuiEnv
---import GuiClass.GuiEnv.Stack
-import GuiClass.GuiT
+import GuiClass.GuiT()
 
 import EnvironmentMonad
-import EnvironmentMonad.Stack
-
-import Args
+import EnvironmentMonad.Stack()
 
 import MainSignals
 
@@ -203,8 +168,8 @@ doMain :: forall proxy m p
        -> IO ()
 -}
 doMain :: a -> (FileSystemSolution,Solution) -> IO ()
-doMain _ init = do
-    projectMVar <- newMVar (emptyGuiViewer,(emptyViewer, init))
+doMain _ initialState = do
+    projectMVar <- newMVar (emptyGuiViewer,(emptyViewer, initialState))
     _ <- Gtk.init Nothing
     components <- initializeComponents
     --manager <- uiManagerNew
@@ -215,19 +180,20 @@ doMain _ init = do
     dialogs <- flip runGuiEnvT env $ do
         withGuiComponents $ applyDeclBufferAttrs defaultTextAttrs
         newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
-            runIdentityT $ dialog `on1` NewSolutionDialog.cancelClicked $ \event -> lift $ do
+            void $ runIdentityT $ dialog `on` NewSolutionDialog.cancelClicked $ Func1 $ \_ -> lift $ do
                 NewSolutionDialog.setVisible dialog False
                 return False
             return dialog
         newProjectDialog <- NewProjectDialog.make $ \dialog -> do
             runIdentityT $ do
-                dialog `on1` NewProjectDialog.cancelClicked $ \event -> lift $ do
+                void $ dialog `on` NewProjectDialog.cancelClicked $ Func1 $ \_ -> lift $ do
                     NewProjectDialog.setVisible dialog False
                     return False
             return dialog
         mainWindow <- MainWindow.make $ \gui -> do
             setupKeyboardShortcuts gui group
             return gui
+        --mainWindow `MainWindow.setSearchBarVisible` False
         newSolutionDialog `NewSolutionDialog.setVisible` False
         newProjectDialog `NewProjectDialog.setVisible` False
         return Dialogs
@@ -244,12 +210,10 @@ doMain _ init = do
             newSolutionDialog <- liftDialogs $ withNewSolutionDialog id
             newProjectDialog <- liftDialogs $ withNewProjectDialog id
             setupSignals gui
-            newSolutionDialog `on1` NewSolutionDialog.confirmClicked $ \event -> do
+            void $ newSolutionDialog `on` NewSolutionDialog.confirmClicked $ Func1 $ \_ -> do
                 onNewSolutionConfirmed
-                --GuiT (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) (FileSystemSolution, Solution) IO ()
                 return False
-            newProjectDialog `on1` NewProjectDialog.confirmClicked $ \event -> do
-                liftIO $ putStrLn "project event firing"
+            void $ newProjectDialog `on` NewProjectDialog.confirmClicked $ Func1 $ \_ -> do
                 mode <- NewProjectDialog.getDialogMode newProjectDialog
                 case mode of
                     NewProjectDialog.CreateProject -> onNewProjectConfirmed
@@ -258,7 +222,8 @@ doMain _ init = do
                             $ ProjectInfo 
                             $ T.unpack name
                 return False
-            GuiT $ intercept (GI.Gdk.threadsAddIdle 200 . ($ ())) (const $ runIdleThread >> return True)
+            void $ GuiT $ intercept (GI.Gdk.threadsAddIdle 200 . ($ ())) 
+                                    (const $ runIdleThread >> return True)
             Gtk.main
     
     runGuiT go env dialogs

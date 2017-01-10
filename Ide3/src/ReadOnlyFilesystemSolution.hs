@@ -63,7 +63,7 @@ newtype ReadOnlyFilesystemSolutionT m a
 --type ReadOnlyFilesystemSolutionT' m = StatefulSolution (ReadOnlyFilesystemSolutionT m)
 
 -- | Run an action inside the mechanism with the provided state
-runReadOnlyFilesystemSolutionT :: MonadIO m => ReadOnlyFilesystemSolutionT m a -> FileSystemSolution -> m (a, FileSystemSolution)
+runReadOnlyFilesystemSolutionT :: ReadOnlyFilesystemSolutionT m a -> FileSystemSolution -> m (a, FileSystemSolution)
 runReadOnlyFilesystemSolutionT = runStateT . runReadOnlyFilesystemSolutionTInternal
 
 -- | Run an action inside the mechanism 
@@ -115,7 +115,7 @@ instance MonadIO m => StatefulPersistenceClass (StateT FileSystemSolution m) whe
     finalizeState _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (MonadIO m, StatefulSolutionClass m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
+instance (Monad m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested

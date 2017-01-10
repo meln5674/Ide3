@@ -44,8 +44,8 @@ module Dialogs.MainWindow
     , runClickedEvent
     , errorClickedEvent
     , windowClosedEvent
-    --, findClickedEvent
-    --, navigateClickedEvent
+    , findClickedEvent
+    , navigateClickedEvent
     --, searchClickedEvent
     , gotoDeclarationClickedEvent
     , backClickedEvent
@@ -72,8 +72,7 @@ import Data.Monoid
 
 import Data.Text hiding (map)
 
-import Data.Functor.Compose
-
+import Control.Monad
 import Control.Monad.Trans
 
 import Data.GI.Base.Attributes
@@ -91,8 +90,6 @@ import GuiClass.Types
 
 import GuiEnv
 import GuiMonad
-
-import SolutionTree
 
 import GuiHelpers
 
@@ -119,8 +116,9 @@ data MainWindow
 
 
 -- | Renderer for the solution tree
-renderSolutionTreeElem :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                       => SolutionTreeElem -> [AttrOp o AttrSet]
+renderSolutionTreeElem :: (AttrSetC info o "text" Text) 
+                       => SolutionTreeElem 
+                       -> [AttrOp o 'AttrSet]
 renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := pack s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := pack path]
@@ -138,58 +136,65 @@ renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)))
     = [#text := (pack path <> " (UNPARSEABLE)" :: Text)]
 renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing))
     = [#text := ("??? (UNPARSEABLE)" :: Text)]
+renderSolutionTreeElem SolutionElem = [#text := ("THIS SHOULDN'T BE SEEN" :: Text)]
 
 
 -- | Renderer for the error list image column
-renderImageCell :: (AttrSetC info o "stockId" Text, IsCellRendererPixbuf o) 
-                => Error ItemPath -> [AttrOp o AttrSet]
+renderImageCell :: (AttrSetC info o "stockId" Text) 
+                => Error ItemPath 
+                -> [AttrOp o 'AttrSet]
 renderImageCell (Warning _ _ _ _) = [#stockId := STOCK_DIALOG_WARNING]
 renderImageCell (Error _ _ _ _) = [#stockId := STOCK_DIALOG_ERROR]
 
 -- | Renderer for the error list project column
-renderProjectCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                  => Error ItemPath -> [AttrOp o AttrSet]
+renderProjectCell :: (AttrSetC info o "text" Text)
+                  => Error ItemPath 
+                  -> [AttrOp o 'AttrSet]
 renderProjectCell e = [#text := pack (unProjectInfo pji)]
   where
     (ProjectChild pji _) = errorLocation e
 
 -- | Renderer for the error list module column
-renderModuleCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                 => Error ItemPath -> [AttrOp o AttrSet]
+renderModuleCell :: (AttrSetC info o "text" Text) 
+                 => Error ItemPath 
+                 -> [AttrOp o 'AttrSet]
 renderModuleCell e = [#text := pack (moduleInfoString mi "???")]
   where
     (ProjectChild _ (ModuleChild mi _)) = errorLocation e
 
 -- | Renderer for the error list declaration column
-renderDeclarationCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-              => Error ItemPath -> [AttrOp o AttrSet]
-renderDeclarationCell e = [#text := text]
+renderDeclarationCell :: (AttrSetC info o "text" Text)
+              => Error ItemPath 
+              -> [AttrOp o 'AttrSet]
+renderDeclarationCell err = [#text := text]
   where
-    (ProjectChild _ (ModuleChild _ x)) = errorLocation e
+    (ProjectChild _ (ModuleChild _ x)) = errorLocation err
     text = pack $ case x of
-        Just x -> case x of
-            HeaderCommentString _ -> "[MODULE HEADER]"
-            PragmaString p -> "[PRAGMA] " ++ p
-            ImportString i -> body i
-            ExportString e -> "[EXPORT] " ++ body e
-            DeclarationString di -> getSymbol $ getDeclarationInfo $ item di
+        Just (HeaderCommentString _) -> "[MODULE HEADER]"
+        Just (PragmaString p) -> "[PRAGMA] " ++ p
+        Just (ImportString i) -> body i
+        Just (ExportString e) -> "[EXPORT] " ++ body e
+        Just (DeclarationString di) -> getSymbol $ getDeclarationInfo $ item di
         Nothing -> ""
 
 -- | Renderer for the error list row column
-renderRowCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-              => Error ItemPath -> [AttrOp o AttrSet]
+renderRowCell :: (AttrSetC info o "text" Text) 
+              => Error ItemPath 
+              -> [AttrOp o 'AttrSet]
 renderRowCell (Warning _ row _ _) = [#text := pack (show row)]
 renderRowCell (Error _ row _ _) = [#text := pack (show row)]
 
 -- | Renderer for the error list column column
-renderColumnCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                 => Error ItemPath -> [AttrOp o AttrSet]
+renderColumnCell :: (AttrSetC info o "text" Text)
+                 => Error ItemPath 
+                 -> [AttrOp o 'AttrSet]
 renderColumnCell (Warning _ _ col _) = [#text := pack (show col)]
 renderColumnCell (Error _ _ col _) = [#text := pack (show col)]
 
 -- | Renderer for the error list message column
-renderMessageCell :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                  => Error ItemPath -> [AttrOp o AttrSet]
+renderMessageCell :: (AttrSetC info o "text" Text) 
+                  => Error ItemPath 
+                  -> [AttrOp o 'AttrSet]
 renderMessageCell (Warning _ _ _ msg) = [#text := pack msg]
 renderMessageCell (Error _ _ _ msg) = [#text := pack msg]
 
@@ -202,12 +207,12 @@ make :: (MonadIO m)
 make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
     makeOverlayWith window $ \overlay -> do
-        --searchBarBox <- vBoxNew False 0
-        --overlay `overlayAddOverlay` searchBarBox
-        --overlaySetOverlayPassThrough overlay searchBarBox True
-        --searchBar <- SearchBar.make searchBarBox
-        let searchBar = undefined
-        --SearchBar.setVisible searchBar False
+        searchBarBox <- vBoxNew False 0
+        overlay `overlayAddOverlay` searchBarBox
+        overlaySetOverlayPassThrough overlay searchBarBox True
+        searchBar <- SearchBar.make searchBarBox
+        --let searchBar = undefined
+        SearchBar.setVisible searchBar False
         makeVBoxWith overlay $ \container -> do
             menuBar <- makeMainMenuBar container
             fileMenu <- makeFileMenu menuBar
@@ -407,7 +412,7 @@ makeSolutionViewer :: (MonadIO m
                      , IsCellRenderer cell
                      ) 
                   => cell
-                  -> (SolutionTreeElem -> [AttrOp cell AttrSet])
+                  -> (SolutionTreeElem -> [AttrOp cell 'AttrSet])
                   -> self
                   -> GuiEnvT {-proxy-} m' p  m SolutionViewer
 makeSolutionViewer renderer renderFunc container = do
@@ -431,7 +436,7 @@ makeProjView :: ( MonadIO m
                 ) 
              => cell 
              -> self 
-             -> (SolutionTreeElem -> [AttrOp cell AttrSet]) 
+             -> (SolutionTreeElem -> [AttrOp cell 'AttrSet]) 
              -> GuiEnvT {-proxy-} m' p  m TreeView
 makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
     treeViewColumn <- treeViewColumnNew
@@ -535,13 +540,13 @@ makeErrorView container = do
             treeViewColumnSetExpand messageColumn True
             
             
-            treeViewAppendColumn errorView imageColumn
-            treeViewAppendColumn errorView projectColumn
-            treeViewAppendColumn errorView moduleColumn
-            treeViewAppendColumn errorView declarationColumn
-            treeViewAppendColumn errorView rowColumn
-            treeViewAppendColumn errorView columnColumn
-            treeViewAppendColumn errorView messageColumn
+            void $ treeViewAppendColumn errorView imageColumn
+            void $ treeViewAppendColumn errorView projectColumn
+            void $ treeViewAppendColumn errorView moduleColumn
+            void $ treeViewAppendColumn errorView declarationColumn
+            void $ treeViewAppendColumn errorView rowColumn
+            void $ treeViewAppendColumn errorView columnColumn
+            void $ treeViewAppendColumn errorView messageColumn
             
             set projectColumn [treeViewColumnResizable := True]
             set moduleColumn [treeViewColumnResizable := True]
@@ -556,8 +561,7 @@ makeMainWindowWith :: (MonadIO m)
                    => (Window -> GuiEnvT {-proxy-} m' p  m a) 
                    -> GuiEnvT {-proxy-} m' p  m a
 makeMainWindowWith f = do
-    window <- liftIO $ do
-        new Window []
+    window <- new Window []
     r <- f window
     liftIO $ widgetShowAll window
     return r
@@ -660,9 +664,6 @@ getSolutionPathClicked (x',y') window = do
           where
             xoffset = fromIntegral xoffset'
             yoffset = fromIntegral yoffset'
-        (_, Just path'', _, _, _) -> do
-            --treePathFree path''
-            return Nothing
         _ -> return Nothing
   where
     x = fromIntegral x'
@@ -687,24 +688,85 @@ focusDeclView :: (MonadIO m)
               -> m ()
 focusDeclView = widgetGrabFocus . declView . solutionViewer
 
-{-addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()-}
+addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()
 addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g
 
+addFileMenuAccelerator :: ( MonadIO m
+                          , IsAccelGroup group
+                          , Integral key
+                          , IsWidget subObject
+                          )
+                       => (FileMenu -> subObject)
+                       -> Text
+                       -> MainWindow
+                       -> group
+                       -> key
+                       -> [ModifierType] 
+                       -> [AccelFlags]
+                       -> m ()
 addFileMenuAccelerator f e = (f . fileMenu) `addAccel` e
+
+addSolutionMenuAccelerator :: ( MonadIO m
+                              , IsAccelGroup group
+                              , Integral key
+                              , IsWidget subObject
+                              )
+                       => (SolutionMenu -> subObject)
+                       -> Text
+                       -> MainWindow
+                       -> group
+                       -> key
+                       -> [ModifierType] 
+                       -> [AccelFlags]
+                       -> m ()
 addSolutionMenuAccelerator f e = (f . solutionMenu) `addAccel` e
+
+addSearchMenuAccelerator :: ( MonadIO m
+                            , IsAccelGroup group
+                            , Integral key
+                            , IsWidget subObject
+                            )
+                       => (SearchMenu -> subObject)
+                       -> Text
+                       -> MainWindow
+                       -> group
+                       -> key
+                       -> [ModifierType] 
+                       -> [AccelFlags]
+                       -> m ()
 addSearchMenuAccelerator f e = (f . searchMenu) `addAccel` e
+
+addNavigationMenuAccelerator :: ( MonadIO m
+                                , IsAccelGroup group
+                                , Integral key
+                                , IsWidget subObject
+                                )
+                       => (NavigationMenu -> subObject)
+                       -> Text
+                       -> MainWindow
+                       -> group
+                       -> key
+                       -> [ModifierType] 
+                       -> [AccelFlags]
+                       -> m ()
 addNavigationMenuAccelerator f e = (f . navigationMenu) `addAccel` e
 
-addNewClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
-                                  => MainWindow
-                                  -> group
-                                  -> key
-                                  -> [ModifierType] 
-                                  -> [AccelFlags]
-                                  -> m ()
+addNewClickedEventAccelerator :: ( MonadIO m
+                                 , IsAccelGroup group
+                                 , Integral key
+                                 )
+                              => MainWindow
+                              -> group
+                              -> key
+                              -> [ModifierType] 
+                              -> [AccelFlags]
+                              -> m ()
 addNewClickedEventAccelerator = newButton `addFileMenuAccelerator` "activate"
 
-addOpenClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
+addOpenClickedEventAccelerator :: ( MonadIO m
+                                  , IsAccelGroup group
+                                  , Integral key
+                                  )
                                   => MainWindow
                                   -> group
                                   -> key

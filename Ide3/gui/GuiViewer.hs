@@ -16,13 +16,10 @@ import Control.Monad.Trans.State.Strict
 
 import Ide3.Utils
 import Ide3.NewMonad
-import Ide3.Types
 
 import Viewer
 
 import PseudoState
-
-import ViewerMonad
 
 import SearchMode 
 

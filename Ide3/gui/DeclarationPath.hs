@@ -21,7 +21,6 @@ module DeclarationPath
 import Control.Monad
 
 import Text.Parsec hiding (parse)
-import Text.Parsec.Char
 
 import Ide3.Types
 

@@ -13,10 +13,6 @@ module MainSignals where
 
 import Data.Text
 
-import Data.Tree
-import Data.Proxy
-import Data.Functor.Compose
-
 import System.Exit
 import System.Directory
 import System.FilePath
@@ -24,11 +20,6 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
-import Control.Monad.Trans.Identity
-import Control.Monad.Trans.Except
-import Control.Monad.Trans.State.Strict hiding (withState)
-
-import Control.Concurrent.MVar
 
 import GI.Gtk hiding (TreePath, on, after)
 import qualified GI.Gtk as Gtk
@@ -36,43 +27,22 @@ import GI.Gdk hiding (on, after)
 import qualified GI.Gdk as Gdk
 
 import Ide3.Types
-import Ide3.Utils
-import Ide3.Types.State
 import Ide3.NewMonad
-import Ide3.NewMonad.Instances.State.Class
-import Ide3.NewMonad.Instances.State.Class.Instances.Strict
-import Ide3.Digest
-import qualified Ide3.Solution as Solution
 
 import GuiClass
 import EnvironmentMonad
 
 import GuiMonad
---import GuiCommand
 import GuiCommandGeneric
-import GuiEnv
 
 import Viewer
-
-import ViewerMonad
-
-import GuiViewer
-import GuiViewer.Class
-
-import ViewerMonad2
 
 import GuiHelpers
 
 import Dialogs.MainWindow (MainWindow)
-import Dialogs.NewSolutionDialog (NewSolutionDialog)
-import Dialogs.NewModuleDialog (NewModuleDialog)
-import Dialogs.NewImportDialog (NewImportDialog)
-import Dialogs.NewExportDialog (NewExportDialog)
-import Dialogs.MoveDeclarationDialog (MoveDeclarationDialog)
 import SolutionContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
-import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
@@ -81,13 +51,7 @@ import qualified SolutionContextMenu
 
 import SearchMode
 
-import GuiT
-import Dialogs
-import Dialogs.Class
-
 import SolutionTree
-
-import DeclarationPath
 
 type MainGuiClass t m' p m = 
     ( MonadIO m
@@ -120,7 +84,7 @@ type MainGuiClass t m' p m =
 
 type MainGuiClassIO t m' p m = ( MainGuiClass t m' p m )
 
-onNewSolutionConfirmed :: forall t proxy m' p m
+onNewSolutionConfirmed :: forall t {-proxy-} m' p m
                        . ( MainGuiClassIO t m' p m
                          )
                       => t m ()
@@ -133,20 +97,20 @@ onNewSolutionConfirmed = {-withNewSolutionDialog $ \dialog -> id $ do
     doAddSolution
     
 
-onNewProjectConfirmed :: forall t proxy m' p m
+onNewProjectConfirmed :: forall t {-proxy-} m' p m
                        . ( MainGuiClassIO t m' p m
                          )
                       => t m ()
 onNewProjectConfirmed = doAddProject
 
-onEditProjectConfirmed :: forall t proxy m' p m
+onEditProjectConfirmed :: forall t {-proxy-} m' p m
                        . ( MainGuiClassIO t m' p m
                          )
                       => ProjectInfo
                       -> t m ()
 onEditProjectConfirmed = doEditProject
 
-onNewClicked :: forall t proxy m' p m
+onNewClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m
                  )
               => t m ()
@@ -159,7 +123,7 @@ onNewClicked = do
     doNewStart
     return ()
 
-onOpenClicked :: forall t proxy m' p m
+onOpenClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onOpenClicked = do
@@ -167,10 +131,16 @@ onOpenClicked = do
         [ #title := "Select solution file to open"
         , #action := FileChooserActionOpen
         ]
-    dialogAddButton dialog "Close" $ fromIntegral $ fromEnum $ ResponseTypeReject
-    dialogAddButton dialog "Open" $ fromIntegral $ fromEnum $ ResponseTypeAccept
-    r <- liftM (toEnum . fromIntegral) $ dialogRun dialog
-    case r of
+    void $ dialogAddButton dialog "Close" 
+         $ fromIntegral 
+         $ fromEnum 
+         $ ResponseTypeReject
+    void $ dialogAddButton dialog "Open"
+         $ fromIntegral 
+         $ fromEnum 
+         $ ResponseTypeAccept
+    result <- liftM (toEnum . fromIntegral) $ dialogRun dialog
+    case result of
         ResponseTypeAccept -> do
             Just path <- fileChooserGetFilename dialog
             widgetDestroy dialog
@@ -178,7 +148,7 @@ onOpenClicked = do
             liftIO $ setCurrentDirectory $ takeDirectory path
         _ -> widgetDestroy dialog
 
-onDigestClicked :: forall t proxy m' p m
+onDigestClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onDigestClicked = do
@@ -186,10 +156,16 @@ onDigestClicked = do
         [ #title := "Select directory to digest"
         , #action := FileChooserActionSelectFolder
         ]
-    dialogAddButton dialog "Close" $ fromIntegral $ fromEnum ResponseTypeReject
-    dialogAddButton dialog "Open" $ fromIntegral $ fromEnum ResponseTypeAccept
-    r <- liftM (toEnum . fromIntegral) $ dialogRun dialog
-    case r of
+    void $ dialogAddButton dialog "Close" 
+         $ fromIntegral 
+         $ fromEnum 
+         $ ResponseTypeReject
+    void $ dialogAddButton dialog "Open" 
+         $ fromIntegral 
+         $ fromEnum 
+         $ ResponseTypeAccept
+    result <- liftM (toEnum . fromIntegral) $ dialogRun dialog
+    case result of
         ResponseTypeAccept -> do
             Just path <- fileChooserGetFilename dialog
             widgetDestroy dialog
@@ -199,201 +175,199 @@ onDigestClicked = do
 
 
 
-onDeclClicked :: forall t proxy m' p m
+onDeclClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => Gtk.TreePath
               -> TreeViewColumn
               -> t m ()
 onDeclClicked path _ = withGtkTreePath path doGetDecl
 
-onBuildClicked :: forall t proxy m' p m
+onBuildClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
               => t m ()
 onBuildClicked = void $ doBuild
 
-onRunClicked :: forall t proxy m' p m
+onRunClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onRunClicked = doRun
 
 
-onSaveClicked :: forall t proxy m' p m
+onSaveClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onSaveClicked = doSave
 
-onSaveSolutionClicked :: forall t proxy m' p m 
+onSaveSolutionClicked :: forall t {-proxy-} m' p m 
                . ( MainGuiClass t m' p m )
               => t m ()
 onSaveSolutionClicked = id $ doSaveSolution Nothing
 
-onNewProjectClicked :: forall t proxy m' p m
+onNewProjectClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
 onNewProjectClicked = doNewProjectStart
 
-onEditProjectClicked :: forall t proxy m' p m
+onEditProjectClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> t m ()
 onEditProjectClicked = doEditProjectStart
 
-onDeleteProjectClicked :: forall t proxy m' p m 
+onDeleteProjectClicked :: forall t {-proxy-} m' p m 
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> t m Bool
-onDeleteProjectClicked pi = undefined
-    
+onDeleteProjectClicked pji = undefined
 
-
-onNewModuleClicked :: forall t proxy m' p m
+onNewModuleClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> Maybe String
               -> t m Bool
-onNewModuleClicked pi modName = do
+onNewModuleClicked pji modName = do
     NewModuleDialog.make (fmap pack modName) $ \dialog -> do
-        dialog `on1` NewModuleDialog.confirmClickedEvent $ \event -> do
+        dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \event -> do
             moduleName <- NewModuleDialog.getModuleName dialog
             case moduleName of
                 "" -> doError $ InvalidOperation "Please enter a module name" ""
                 name -> do
-                    doAddModule pi (ModuleInfo (Symbol $ unpack moduleName))
+                    doAddModule pji (ModuleInfo (Symbol $ unpack moduleName))
                     NewModuleDialog.close dialog
             return False
-        dialog `on1` NewModuleDialog.cancelClickedEvent $ \event -> do
+        dialog `on` NewModuleDialog.cancelClickedEvent $ Func1 $ \event -> do
             NewModuleDialog.close dialog
             return False
     return False
 
-onNewImportClicked :: forall t proxy m' p m
+onNewImportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> t m Bool
-onNewImportClicked pi mi = do
+onNewImportClicked pji mi = do
     NewImportDialog.makeNew $ \dialog -> do
-        dialog `on1` NewImportDialog.confirmClickedEvent $ \event -> do
+        dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \event -> do
             import_ <- NewImportDialog.getImport dialog
             case import_ of
                 "" -> doError $ InvalidOperation "Please enter an import" ""
                 import_ -> do
-                    maybeError <- doAddImport pi mi $ unpack import_
+                    maybeError <- doAddImport pji mi $ unpack import_
                     case maybeError of
                         Just err -> doError err
                         Nothing -> NewImportDialog.close dialog
             return False
-        dialog `on1` NewImportDialog.cancelClickedEvent $ \event -> do
+        dialog `on` NewImportDialog.cancelClickedEvent $ Func1 $ \event -> do
             NewImportDialog.close dialog
             return False
     return False
 
 
-onEditImportClicked :: forall t proxy m' p m
+onEditImportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> ImportId
               -> t m Bool
-onEditImportClicked pi mi ii = do
-    getResult <- doGetImport pi mi ii
+onEditImportClicked pji mi ii = do
+    getResult <- doGetImport pji mi ii
     case getResult of
         Nothing -> return False
         Just importStr -> do
             NewImportDialog.makeEdit (pack importStr) $ \dialog -> do
-                dialog `on1` NewImportDialog.confirmClickedEvent $ \event -> do
+                dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \event -> do
                     import_ <- NewImportDialog.getImport dialog
                     case import_ of
                         "" -> doError $ InvalidOperation "Please enter an import" ""
                         import_ -> do
-                            maybeError <- doEditImport pi mi ii $ unpack import_
+                            maybeError <- doEditImport pji mi ii $ unpack import_
                             case maybeError of
                                 Just err -> doError err
                                 Nothing -> NewImportDialog.close dialog
                     return False
-                dialog `on1` NewImportDialog.cancelClickedEvent $ \event -> do
+                dialog `on` NewImportDialog.cancelClickedEvent $ Func1 $ \event -> do
                     NewImportDialog.close dialog
                     return False
             return False
 
-onNewExportClicked :: forall t proxy m' p m
+onNewExportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> t m Bool
-onNewExportClicked pi mi = do
+onNewExportClicked pji mi = do
     NewExportDialog.makeNew $ \dialog -> do
-        dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
+        dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
             export_ <- NewExportDialog.getExport dialog
             case export_ of
                 "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- doAddExport pi mi $ unpack export_
+                    maybeError <- doAddExport pji mi $ unpack export_
                     case maybeError of
                         Just err -> id $ doError err
                         Nothing -> NewExportDialog.close dialog
             return False
-        dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
+        dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \event -> do
             NewExportDialog.close dialog
             return False
     return False
 
-onExportAllClicked :: forall t proxy m' p m
+onExportAllClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> t m Bool
-onExportAllClicked pi mi = id $ do
-    doExportAll pi mi
+onExportAllClicked pji mi = id $ do
+    doExportAll pji mi
     return False
     
 
-onEditExportClicked :: forall t proxy m' p m
+onEditExportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> ExportId
               -> t m Bool
-onEditExportClicked pi mi ii = do
-    getResult <- doGetExport pi mi ii
+onEditExportClicked pji mi ii = do
+    getResult <- doGetExport pji mi ii
     case getResult of
         Nothing -> return False
         Just exportStr -> do
             NewExportDialog.makeEdit (pack exportStr) $ \dialog -> do
-                dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
+                dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
                     export_ <- NewExportDialog.getExport dialog
                     case export_ of
                         "" -> doError $ InvalidOperation "Please enter an export" ""
                         export_ -> do
-                            maybeError <- doEditExport pi mi ii $ unpack export_
+                            maybeError <- doEditExport pji mi ii $ unpack export_
                             case maybeError of
                                 Just err -> doError err
                                 Nothing -> NewExportDialog.close dialog
                     return False
-                dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
+                dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \event -> do
                     NewExportDialog.close dialog
                     return False
             return False
 
-onExportDeclarationClicked :: forall t proxy m' p m
+onExportDeclarationClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> ModuleInfo
               -> DeclarationInfo
               -> t m Bool
-onExportDeclarationClicked pi mi (DeclarationInfo (Symbol declStr)) = do
+onExportDeclarationClicked pji mi (DeclarationInfo (Symbol declStr)) = do
     NewExportDialog.makeEdit (pack declStr) $ \dialog -> do
-        dialog `on1` NewExportDialog.confirmClickedEvent $ \event -> do
+        dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
             export_ <- NewExportDialog.getExport dialog
             case export_ of
                 "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- doAddExport pi mi $ unpack export_
+                    maybeError <- doAddExport pji mi $ unpack export_
                     case maybeError of
                         Just err -> doError err
                         Nothing -> NewExportDialog.close dialog
             return False
-        dialog `on1` NewExportDialog.cancelClickedEvent $ \event -> do
+        dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \event -> do
             NewExportDialog.close dialog
             return False
     return False
@@ -404,9 +378,9 @@ onMoveDeclarationClicked :: forall t m' p m
                          -> ModuleInfo
                          -> DeclarationInfo
                          -> t m Bool
-onMoveDeclarationClicked pi mi di@(DeclarationInfo (Symbol declStr)) = do
+onMoveDeclarationClicked pji mi di@(DeclarationInfo (Symbol declStr)) = do
     MoveDeclarationDialog.make $ \dialog -> do
-        dialog `on1` MoveDeclarationDialog.confirmClickedEvent $ \event -> do
+        dialog `on` MoveDeclarationDialog.confirmClickedEvent $ Func1 $ \event -> do
             pathClicked <- MoveDeclarationDialog.getSelectedModulePath dialog
             case pathClicked of
                 Nothing -> doError $ InvalidOperation "Please select a module" 
@@ -414,8 +388,8 @@ onMoveDeclarationClicked pi mi di@(DeclarationInfo (Symbol declStr)) = do
                 Just (path, col) -> do
                     item <- findAtPath path
                     case item of
-                        ModuleResult pi' mi' _ -> do
-                            doMoveDeclaration pi mi di pi' mi'
+                        ModuleResult pji' mi' _ -> do
+                            doMoveDeclaration pji mi di pji' mi'
                             MoveDeclarationDialog.close dialog
                         ProjectResult _ -> do
                             doError $ InvalidOperation "Please select a module"
@@ -424,132 +398,135 @@ onMoveDeclarationClicked pi mi di@(DeclarationInfo (Symbol declStr)) = do
                             doError $ InvalidOperation "An internal error has occured"
                                                        ""
             return False
-        dialog `on1` MoveDeclarationDialog.cancelClickedEvent $ \event -> do
+        dialog `on` MoveDeclarationDialog.cancelClickedEvent $ Func1 $ \event -> do
             MoveDeclarationDialog.close dialog
             return False
     return False
         
 
-setupModuleContextMenu :: forall t proxy m' p m
+setupModuleContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> t m ContextMenu
-setupModuleContextMenu pi mi = do
-    menu <- SolutionContextMenu.makeModuleMenu pi mi
-    menu `on1` SolutionContextMenu.newSubModuleClickedEvent $ \event -> do
-        onNewModuleClicked pi $ case mi of
+setupModuleContextMenu pji mi = do
+    menu <- SolutionContextMenu.makeModuleMenu pji mi
+    menu `on` SolutionContextMenu.newSubModuleClickedEvent $ Func1 $ \event -> do
+        onNewModuleClicked pji $ case mi of
             mi@(ModuleInfo (Symbol prefix)) -> Just prefix
             mi -> Nothing
-    menu `on1` SolutionContextMenu.newDeclClickedEvent $ \event -> do
-        doAddDeclaration pi mi $ DeclarationInfo $ Symbol "New Declaration"
+    menu `on` SolutionContextMenu.newDeclClickedEvent $ Func1 $ \event -> do
+        doAddDeclaration pji mi $ DeclarationInfo $ Symbol "New Declaration"
         return False
-    menu `on1` SolutionContextMenu.deleteModuleClickedEvent $ \event -> do
-        doRemoveModule pi mi
+    menu `on` SolutionContextMenu.deleteModuleClickedEvent $ Func1 $ \event -> do
+        doRemoveModule pji mi
         return False
     return menu
 
 
-setupProjectContextMenu :: forall t proxy m' p m
+setupProjectContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> t m ContextMenu
-setupProjectContextMenu pi = do
-    menu <- SolutionContextMenu.makeProjectMenu pi
-    menu `on1` SolutionContextMenu.newModuleClickedEvent $ \event -> do
-        onNewModuleClicked pi Nothing
-    menu `on1` SolutionContextMenu.editProjectClickedEvent $ \event -> do
-        onEditProjectClicked pi
+setupProjectContextMenu pji = do
+    menu <- SolutionContextMenu.makeProjectMenu pji
+    menu `on` SolutionContextMenu.newModuleClickedEvent $ Func1 $ \event -> do
+        onNewModuleClicked pji Nothing
+    menu `on` SolutionContextMenu.editProjectClickedEvent $ Func1 $ \event -> do
+        onEditProjectClicked pji
         return False
-    menu `on1` SolutionContextMenu.deleteProjectClickedEvent $ \event -> do
-        onDeleteProjectClicked pi
+    menu `on` SolutionContextMenu.deleteProjectClickedEvent $ Func1 $ \event -> do
+        onDeleteProjectClicked pji
     return menu
 
-setupSolutionContextMenu :: forall t proxy m' p m
+setupSolutionContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => t m ContextMenu
 setupSolutionContextMenu = do
     menu <- SolutionContextMenu.makeSolutionMenu
-    menu `on1` SolutionContextMenu.newProjectClickedEvent $ \event -> do
+    menu `on` SolutionContextMenu.newProjectClickedEvent $ Func1 $ \event -> do
         onNewProjectClicked
         return False
     return menu
 
-setupDeclContextMenu :: forall t proxy m' p m
+setupDeclContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> DeclarationInfo
                  -> t m ContextMenu
-setupDeclContextMenu pi mi di = do
-    menu <- SolutionContextMenu.makeDeclMenu pi mi di
-    menu `on1` SolutionContextMenu.deleteDeclarationClickedEvent $ \event -> do
-        doRemoveDeclaration pi mi di
+setupDeclContextMenu pji mi di = do
+    menu <- SolutionContextMenu.makeDeclMenu pji mi di
+    menu `on` SolutionContextMenu.deleteDeclarationClickedEvent $ Func1 $ \event -> do
+        doRemoveDeclaration pji mi di
         return False
-    menu `on1` SolutionContextMenu.exportDeclarationClickedEvent $ \event -> do
-        onExportDeclarationClicked pi mi di
-    menu `on1` SolutionContextMenu.moveDeclarationClickedEvent $ \event -> do
-        onMoveDeclarationClicked pi mi di
-    menu `on1` SolutionContextMenu.unExportDeclarationClickedEvent $ \event -> do
-        doUnExportDeclaration pi mi di
+    menu `on` SolutionContextMenu.exportDeclarationClickedEvent $ Func1 $ \event -> do
+        onExportDeclarationClicked pji mi di
+    menu `on` SolutionContextMenu.moveDeclarationClickedEvent $ Func1 $ \event -> do
+        onMoveDeclarationClicked pji mi di
+    menu `on` SolutionContextMenu.unExportDeclarationClickedEvent $ Func1 $ \event -> do
+        doUnExportDeclaration pji mi di
         return False
     return menu
 
-setupImportsContextMenu :: forall t proxy m' p m
+setupImportsContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> t m ContextMenu
-setupImportsContextMenu pi mi = id $ do
-    menu <- SolutionContextMenu.makeImportsMenu pi mi
-    menu `on1` SolutionContextMenu.newImportClickedEvent $ \event -> onNewImportClicked pi mi
+setupImportsContextMenu pji mi = id $ do
+    menu <- SolutionContextMenu.makeImportsMenu pji mi
+    menu `on` SolutionContextMenu.newImportClickedEvent $ Func1 $ \event -> do
+        onNewImportClicked pji mi
     return menu
 
 
-setupExportsContextMenu :: forall t proxy m' p m
+setupExportsContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> t m ContextMenu
-setupExportsContextMenu pi mi = do
-    menu <- SolutionContextMenu.makeExportsMenu pi mi
-    menu `on1` SolutionContextMenu.newExportClickedEvent $ \event -> onNewExportClicked pi mi
-    menu `on1` SolutionContextMenu.exportAllClickedEvent $ \event -> onExportAllClicked pi mi
+setupExportsContextMenu pji mi = do
+    menu <- SolutionContextMenu.makeExportsMenu pji mi
+    menu `on` SolutionContextMenu.newExportClickedEvent $ Func1 $ \event -> do
+        onNewExportClicked pji mi
+    menu `on` SolutionContextMenu.exportAllClickedEvent $ Func1 $ \event -> do
+        onExportAllClicked pji mi
     return menu
 
-setupImportContextMenu :: forall t proxy m' p m
+setupImportContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> ImportId
                  -> t m ContextMenu
-setupImportContextMenu pi mi ii = do
-    menu <- SolutionContextMenu.makeImportMenu pi mi ii
-    menu `on1` SolutionContextMenu.deleteImportClickedEvent $ \event -> do
-        doRemoveImport pi mi ii
+setupImportContextMenu pji mi ii = do
+    menu <- SolutionContextMenu.makeImportMenu pji mi ii
+    menu `on` SolutionContextMenu.deleteImportClickedEvent $ Func1 $ \event -> do
+        doRemoveImport pji mi ii
         return False
-    menu `on1` SolutionContextMenu.editImportClickedEvent $ \event -> do
-        onEditImportClicked pi mi ii
+    menu `on` SolutionContextMenu.editImportClickedEvent $ Func1 $ \event -> do
+        onEditImportClicked pji mi ii
         return False
     return menu
 
-setupExportContextMenu :: forall t proxy m' p m
+setupExportContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
                  -> ModuleInfo
                  -> ExportId
                  -> t m ContextMenu
-setupExportContextMenu pi mi ei = do
-    menu <- SolutionContextMenu.makeExportMenu pi mi ei
-    menu `on1` SolutionContextMenu.deleteExportClickedEvent $ \event -> do
-        doRemoveExport pi mi ei
+setupExportContextMenu pji mi ei = do
+    menu <- SolutionContextMenu.makeExportMenu pji mi ei
+    menu `on` SolutionContextMenu.deleteExportClickedEvent $ Func1 $ \event -> do
+        doRemoveExport pji mi ei
         return False
-    menu `on1` SolutionContextMenu.editExportClickedEvent $ \event -> do
-        onEditExportClicked pi mi ei
+    menu `on` SolutionContextMenu.editExportClickedEvent $ Func1 $ \event -> do
+        onEditExportClicked pji mi ei
         return False
     return menu                        
 
-onSolutionViewClicked :: forall t proxy m' p m
+onSolutionViewClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
               => MainWindow
               -> EventButton -> t m Bool
@@ -566,19 +543,19 @@ onSolutionViewClicked gui event = do
             Just (path, col, p) -> do
                 item <- findAtPath path
                 case item of
-                    ProjectResult pi -> setupProjectContextMenu pi
-                    ModuleResult pi mi _ -> setupModuleContextMenu pi mi
-                    DeclResult pi mi di -> setupDeclContextMenu pi mi di
-                    ImportsResult pi mi -> setupImportsContextMenu pi mi
-                    ExportsResult pi mi -> setupExportsContextMenu pi mi
-                    ImportResult pi mi ii -> setupImportContextMenu pi mi ii
-                    ExportResult pi mi ei -> setupExportContextMenu pi mi ei
+                    ProjectResult pji -> setupProjectContextMenu pji
+                    ModuleResult pji mi _ -> setupModuleContextMenu pji mi
+                    DeclResult pji mi di -> setupDeclContextMenu pji mi di
+                    ImportsResult pji mi -> setupImportsContextMenu pji mi
+                    ExportsResult pji mi -> setupExportsContextMenu pji mi
+                    ImportResult pji mi ii -> setupImportContextMenu pji mi ii
+                    ExportResult pji mi ei -> setupExportContextMenu pji mi ei
                     NoSearchResult -> setupSolutionContextMenu
         lift $ SolutionContextMenu.showMenu menu event
     return False    
 
 
-onDeclEdited :: forall t proxy m' p m
+onDeclEdited :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m 
                  , EditorBufferClass (t m)
                  )
@@ -586,7 +563,7 @@ onDeclEdited :: forall t proxy m' p m
 onDeclEdited = reapplySyntaxHighlighting
 
 {-
-onFindClicked :: forall t proxy m p 
+onFindClicked :: forall t {-proxy-} m p 
                . ( MainGuiClass t m p  )
               => MainWindow
               -> t  IO ()
@@ -595,7 +572,7 @@ onFindClicked window = do
     MainWindow.setSearchMode window Find
     doSetSearchMode Find
 
-onNavigateClicked :: forall t proxy m p 
+onNavigateClicked :: forall t {-proxy-} m p 
                . ( MainGuiClass t m p  )
               => MainWindow
               -> t  IO ()
@@ -604,31 +581,31 @@ onNavigateClicked window = do
     MainWindow.setSearchMode window Navigate
     doSetSearchMode Navigate
 
-onSearchClicked :: forall t proxy m' p m
+onSearchClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m p  )
               => t  IO ()
 onSearchClicked = doSearch
 -}
 
 onGotoDeclarationClicked
-    :: forall t proxy m' p m
+    :: forall t {-proxy-} m' p m
      . ( MainGuiClassIO t m' p m )
     => t m ()
 onGotoDeclarationClicked = doGotoDeclaration
 
 onBackClicked
-    :: forall t proxy m' p m
+    :: forall t {-proxy-} m' p m
      . ( MainGuiClassIO t m' p m )
     => t m ()
 onBackClicked = doBackHistory
 
 onForwardClicked
-    :: forall t proxy m' p m
+    :: forall t {-proxy-} m' p m
      . ( MainGuiClassIO t m' p m )
     => t m ()
 onForwardClicked = doForwardHistory
 
-onErrorClicked :: forall t proxy m' p m
+onErrorClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => MainWindow
               -> Gtk.TreePath
@@ -640,7 +617,7 @@ onErrorClicked gui path _ = do
         
 
 {-
-declBufferEdited :: GuiEnvSignal proxy m' p IO GuiComponents TextBuffer IO ()
+declBufferEdited :: GuiEnvSignal {-proxy-} m' p IO GuiComponents TextBuffer IO ()
 declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
 -}
 
@@ -649,24 +626,27 @@ declBufferEdited comp = withEditorBuffer comp $ \buffer -> (buffer, #endUserActi
 
 setupSignals :: ( MainGuiClassIO t m' p m ) => MainWindow -> t m ()
 setupSignals gui = do
-    gui `on` MainWindow.newClickedEvent $ onNewClicked
-    gui `on` MainWindow.openClickedEvent $ onOpenClicked
-    gui `on` MainWindow.digestClickedEvent $ onDigestClicked
-    gui `on` MainWindow.saveClickedEvent $ onSaveClicked
-    gui `on` MainWindow.saveSolutionClickedEvent $ onSaveSolutionClicked
-    gui `on2` MainWindow.declClickedEvent $ onDeclClicked
-    gui `on1` MainWindow.projectViewClickedEvent $ onSolutionViewClicked gui
-    gui `on` MainWindow.buildClickedEvent $ onBuildClicked
-    gui `on` MainWindow.runClickedEvent $ onRunClicked
-    --gui `on` MainWindow.findClickedEvent $ onFindClicked gui
-    --gui `on` MainWindow.navigateClickedEvent $ onNavigateClicked gui
-    --gui `on` MainWindow.searchClickedEvent $ onSearchClicked
-    gui `on` MainWindow.gotoDeclarationClickedEvent $ onGotoDeclarationClicked
-    gui `on` MainWindow.backClickedEvent $ onBackClicked
-    gui `on` MainWindow.forwardClickedEvent $ onForwardClicked
-    gui `on` MainWindow.declarationEditedEvent $ onDeclEdited
-    gui `on2` MainWindow.errorClickedEvent $ onErrorClicked gui
-    gui `on` MainWindow.windowClosedEvent $ liftIO exitSuccess
+    gui `on` MainWindow.newClickedEvent $ Func0 $ onNewClicked
+    gui `on` MainWindow.openClickedEvent $ Func0 $ onOpenClicked
+    gui `on` MainWindow.digestClickedEvent $ Func0 $ onDigestClicked
+    gui `on` MainWindow.saveClickedEvent $ Func0 $ onSaveClicked
+    gui `on` MainWindow.saveSolutionClickedEvent $
+        Func0 $ onSaveSolutionClicked
+    gui `on` MainWindow.declClickedEvent $ Func2 $ onDeclClicked
+    gui `on` MainWindow.projectViewClickedEvent $
+        Func1 $ onSolutionViewClicked gui
+    gui `on` MainWindow.buildClickedEvent $ Func0 $ onBuildClicked
+    gui `on` MainWindow.runClickedEvent $ Func0 $ onRunClicked
+    --gui `on_` MainWindow.findClickedEvent $ Func0 $ onFindClicked gui
+    --gui `on_` MainWindow.navigateClickedEvent $ Func0 $ onNavigateClicked gui
+    --gui `on_` MainWindow.searchClickedEvent $ Func0 $ onSearchClicked
+    gui `on` MainWindow.gotoDeclarationClickedEvent $ 
+        Func0 $ onGotoDeclarationClicked
+    gui `on` MainWindow.backClickedEvent $ Func0 $ onBackClicked
+    gui `on` MainWindow.forwardClickedEvent $ Func0 $ onForwardClicked
+    gui `on` MainWindow.declarationEditedEvent $ Func0 $ onDeclEdited
+    gui `on` MainWindow.errorClickedEvent $ Func2 $ onErrorClicked gui
+    gui `on` MainWindow.windowClosedEvent $ Func0 $ liftIO exitSuccess
     return ()
 
 

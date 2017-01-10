@@ -135,6 +135,7 @@ diffRows (SrcLoc r1 c1) (SrcLoc r2 _) = (SrcLoc (r1-r2) c1)
 instance Loccable SrcLoc where
     toSrcLoc = id
 
+-- | From Tuple
 instance Loccable (Row,Column) where
     toSrcLoc = uncurry SrcLoc
 

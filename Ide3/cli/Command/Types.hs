@@ -19,11 +19,11 @@ newtype Output a = MkOutput (Either a String)
 
 
 -- | Create an Output from a showable
-asShow :: Show a => a -> Output a
+asShow :: a -> Output a
 asShow = MkOutput . Left
 
 -- | Create a list of Outputs from a list showables
-asShows :: Show a => [a] -> [Output a]
+asShows :: [a] -> [Output a]
 asShows = map asShow
 
 -- | Create an Output from a string

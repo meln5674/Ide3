@@ -145,9 +145,10 @@ digestProjectM pji p maybeip = do
 -- | Parameters for digesting a project
 data ProjectDigestParams 
     = Params 
-        ProjectInfo         -- ^ Info to give to the project
-        FilePath            -- ^ Root directory of the project
-        (Maybe FilePath)    -- ^ Optionally, a path to the interfaces file
+    { projectDigestInfo :: ProjectInfo 
+    , projectDigestRoot :: FilePath 
+    , projectDigestInterfacePath :: Maybe FilePath 
+    } 
 
 -- | Digest a solution from the file system inside of a monad transformer
 digestSolutionM :: ( MonadIO m

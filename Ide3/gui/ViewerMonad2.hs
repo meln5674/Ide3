@@ -167,12 +167,9 @@ With these two, an stack of an abitrary number of StateT, capped with a ReaderT
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-} 
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverlappingInstances #-}
 module ViewerMonad2 where
 
 import Control.Monad.Trans.Identity
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.State.Strict
 
 import Control.Concurrent.MVar
 
@@ -226,7 +223,9 @@ instance (InteruptMonad2 inner m) => InteruptMonad2 (outer,inner) (StateT outer 
 
 
 -- | A reader can wrap something which needs no arguments
-instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad1 (MVar s) (t m) where
+instance {-# OVERLAPPABLE #-} 
+         (Monad (t m), PseudoStateT t s, InteruptMonad0 m) 
+      => InteruptMonad1 (MVar s) (t m) where
     interupt1 var f = do  
         s <- takeMVar var
         (x,s') <- interupt0 $ runPseudoStateT f s
@@ -234,11 +233,17 @@ instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad1 (MV
         return x
 
 -- | A state can wrap something which needs no arguments
-instance (Monad (t m), PseudoStateT t s, InteruptMonad0 m) => InteruptMonad2 s (t m) where
+instance {-# OVERLAPPABLE #-}
+         (Monad (t m), PseudoStateT t s, InteruptMonad0 m) 
+      => InteruptMonad2 s (t m) 
+ where
     interupt2 s f = interupt0 $ runPseudoStateT f s 
 
 -- | A state can become a reader by accepting its argument as a mutable reference
-instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad1 (MVar (s,s')) (t m) where
+instance {-# OVERLAPPABLE #-}
+         (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) 
+      => InteruptMonad1 (MVar (s,s')) (t m) where
+    
     interupt1 var f = do
         (s,s2) <- takeMVar var
         ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
@@ -246,11 +251,15 @@ instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad1 
         return x
 
 -- | Two readers can stack on top of eachother by combining their environments in a tuple
-instance (Monad (t m), PseudoReaderT t r1, InteruptMonad1 r2 m) => InteruptMonad1 (r1,r2) (t m) where
+instance {-# OVERLAPPABLE #-}
+         (Monad (t m), PseudoReaderT t r1, InteruptMonad1 r2 m) 
+      => InteruptMonad1 (r1,r2) (t m) where
     interupt1 (r1,r2) f = interupt1 r2 $ runPseudoReaderT f r1
 
 -- | Two states can statck on top of eachother by combining their states in a tuple
-instance (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) => InteruptMonad2 (s,s') (t m) where
+instance {-# OVERLAPPABLE #-}
+         (Monad (t m), PseudoStateT t s, InteruptMonad2 s' m) 
+      => InteruptMonad2 (s,s') (t m) where
     interupt2 (s,s2) f = do
         ((x,s'),s2') <- interupt2 s2 $ runPseudoStateT f s
         return (x,(s',s2'))

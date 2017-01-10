@@ -7,19 +7,14 @@ module GuiClass.GuiEnv where
 
 import Prelude hiding (length)
 
-import Data.Tree
-
-import Data.Text hiding (reverse, map)
+import Data.Text hiding (reverse, map, init, last)
 
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Reader
 
 import Ide3.Types
 
-import GI.Gtk hiding (TreePath)
-import qualified GI.Gtk as Gtk
-import GI.Gdk
+import GI.Gtk hiding (TreePath, init)
 import Data.GI.Gtk.ModelView.SeqStore
 import Data.GI.Gtk.ModelView.ForestStore
 
@@ -30,33 +25,34 @@ import GuiHelpers
 
 import SyntaxHighlighter2
 
-instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m') where
+instance ( MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m') where
     getElemAtSolutionTreePath [] = return SolutionElem
-    getElemAtSolutionTreePath path 
+    getElemAtSolutionTreePath purepath 
         = withGuiComponents 
         $ \comp -> withSolutionTree comp 
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> forestStoreGetValue tree path
-    getTreeAtSolutionTreePath path
+    getTreeAtSolutionTreePath purepath
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> forestStoreGetTree tree path
-    getForestAtSolutionTreePath path
+    getForestAtSolutionTreePath purepath
         = withGuiComponents
         $ \comp -> withSolutionTree comp
         $ \tree -> do
-            let descend trees (ix:ixs) = do
-                    result <- withTreePath (path ++ [ix]) $ forestStoreLookup tree
+            let descend trees [] = return trees
+                descend trees (ix:ixs) = do
+                    result <- withTreePath (purepath ++ [ix]) $ forestStoreLookup tree
                     case result of
                         Nothing -> return trees
                         Just tree' -> descend (tree':trees) ixs
             trees <- descend [] [0..]
             return $ reverse trees
-    lookupAtSolutionTreePath path
+    lookupAtSolutionTreePath purepath
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> do
             forestStoreLookup tree path
     setSolutionTree forest'
@@ -66,38 +62,49 @@ instance ( Monad m, MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m')
         $ \path -> addIdleTask $ IdleThreadTask $ do
             forestStoreClear tree
             forestStoreInsertForest tree path (-1) forest'
-    updateSolutionTreePathNode path f
+    updateSolutionTreePathTree purepath f
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
+        $ \wholePath -> withTreePath (init purepath)
+        $ \parentPath -> addIdleTask $ IdleThreadTask $ do
+            let childIndex = last purepath
+            oldTree <- forestStoreGetTree tree wholePath
+            let newTree = f oldTree
+            void $ forestStoreRemove tree wholePath
+            forestStoreInsertTree tree parentPath childIndex newTree
+    updateSolutionTreePathNode purepath f
+        = withGuiComponents
+        $ \comp -> withSolutionTree comp
+        $ \tree -> withTreePath purepath
         $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreChange tree path f
-    insertSolutionTreePathNode path ix node
+    insertSolutionTreePathNode purepath ix node
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreInsert tree path (maybe (-1) id ix) node
-    insertSolutionTreePathTree path ix tree'
+    insertSolutionTreePathTree purepath ix tree'
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreInsertTree tree path (maybe (-1) id ix) tree'
-    removeSolutionTreePathNode path
+    removeSolutionTreePathNode purepath
         = withGuiComponents
         $ \comp -> withSolutionTree comp
-        $ \tree -> withTreePath path
+        $ \tree -> withTreePath purepath
         $ \path -> addIdleTask $ IdleThreadTask $ do
             void $ forestStoreRemove tree path 
             
 
 
-instance ( Monad m, MonadIO m' ) => SearchBarClass (GuiEnvT {-proxy-} m p m') where
+instance ( MonadIO m' ) => SearchBarClass (GuiEnvT {-proxy-} m p m') where
     getSearchBarText = withGuiComponents $ flip withSearchBuffer $ \buffer -> lift $ do
         liftIO $ get buffer entryBufferText
 
-instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
+instance ( MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
     setEditorBufferText text 
         = withGuiComponents
         $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do 
@@ -151,7 +158,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
             col <- textIterGetLineOffset iter
             return (Row $ fromIntegral row, Column $ fromIntegral col)
       where
-        offset = fromIntegral offset
+        offset = fromIntegral offset'
     getEditorBufferIndexAtPosition (Row row', Column col')
         = withGuiComponents
         $ flip withEditorBuffer $ \buffer -> do
@@ -172,11 +179,11 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
     applySyntaxHighlighting hs
         = withGuiComponents 
         $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
-            (start, end) <- textBufferGetBounds buffer
-            textBufferRemoveAllTags buffer start end
-            start <- textBufferGetStartIter buffer
-            end <- textBufferGetEndIter buffer
-            textBufferApplyTagByName buffer (pack $ show Comment) start end
+            (startBounds, endBounds) <- textBufferGetBounds buffer
+            textBufferRemoveAllTags buffer startBounds endBounds
+            startIter <- textBufferGetStartIter buffer
+            endIter <- textBufferGetEndIter buffer
+            textBufferApplyTagByName buffer (pack $ show Comment) startIter endIter
             forM_ hs $ \(HighlightInst tag 
                                       (Row startRow', Column startCol')
                                       (Row endRow', Column endCol')) -> do
@@ -186,7 +193,7 @@ instance ( Monad m, MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m')
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
             
 
-instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') where
+instance ( MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') where
     setBuildBufferText text
         = withGuiComponents 
         $ flip withBuildBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
@@ -230,7 +237,7 @@ instance ( Monad m, MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') 
             textBufferSelectRange buffer start end
 
 
-instance ( Monad m, MonadIO m') => ErrorListClass (GuiEnvT {-proxy-} m p m') where
+instance ( MonadIO m') => ErrorListClass (GuiEnvT {-proxy-} m p m') where
     clearErrorList
         = withGuiComponents
         $ flip withErrorList $ \list -> addIdleTask $ IdleThreadTask $ do

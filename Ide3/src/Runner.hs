@@ -22,7 +22,6 @@ module Runner
 
 import Control.Monad.Trans.Except
 
-import Ide3.NewMonad
 import Ide3.Types
 
 -- | Result of running a solution

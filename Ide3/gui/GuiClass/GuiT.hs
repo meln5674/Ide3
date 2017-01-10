@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module GuiClass.GuiT where
 
-import Data.Text (Text)
 import qualified Data.Text as T
 
 import System.Directory
@@ -14,12 +13,9 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Trans.Reader
 
 import ViewerMonad
-import Viewer
 
-import Ide3.NewMonad
 import Ide3.Types
 import Ide3.Utils
 
@@ -28,16 +24,10 @@ import Ide3.Utils
 import EnvironmentMonad
 
 import Initializer.Stack
-import ProjectInitializer.Stack
+import ProjectInitializer.Stack()
 import ProjectInitializer.Stack.Types
-import CabalMonad
 
-import GuiMonad
 import GuiClass
-import GuiEnv
-import GuiHelpers
-
-import SolutionTree
 
 import Dialogs.Class
 
@@ -48,8 +38,7 @@ import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..), DialogMode(
 import GuiT
 
 
-instance ( Monad m'
-         , MonadIO m
+instance ( MonadIO m
          , ProjectArgType m' ~ StackProjectInitializerArgs'
          ) => ProjectInitializerClass (GuiT m' p m) where
     type ClassProjectInitializerMonad (GuiT m' p m) = m'
@@ -66,10 +55,10 @@ instance ( Monad m'
         $ \dialog -> do
             NewProjectDialog.setVisible dialog True
             NewProjectDialog.resetFields dialog
-            let ProjectInfo projectName = getProjectInfo arg
             NewProjectDialog.setDialogMode dialog 
                 $ EditProject 
-                $ T.pack projectName
+                $ T.pack 
+                $ (let ProjectInfo projectName = getProjectInfo arg in projectName)
             NewProjectDialog.setPrimarySrcDir dialog 
                 $ T.pack 
                 $ primarySrcDir arg
@@ -176,10 +165,10 @@ getSolutionCreatorArg'
         = liftDialogs
         $ withNewSolutionDialogM
         $ \dialog -> do
-            projectRoot <- NewSolutionDialog.getSelectedFolder dialog
+            maybeProjectRoot <- NewSolutionDialog.getSelectedFolder dialog
             projectName <- liftM T.unpack $ NewSolutionDialog.getSolutionName dialog
             templateName <- liftM (fmap T.unpack) $ NewSolutionDialog.getTemplateName dialog
-            runExceptT $ case projectRoot of
+            runExceptT $ case maybeProjectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
                     wrapIOError $ setCurrentDirectory $ projectRoot

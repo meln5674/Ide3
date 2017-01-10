@@ -21,16 +21,8 @@ module Builder
     )
     where
 
-import Control.Exception.Base hiding (catch)
-
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
-import Control.Monad.Catch
 
-import System.Exit
-import System.Process
-
-import Ide3.NewMonad
 import Ide3.Types
 
 import ErrorParser.Types
@@ -47,7 +39,7 @@ data BuilderResult
 newtype Builder m = MkBuilder { runBuilderInternal :: forall u . SolutionResult u m BuilderResult }
 
 -- | Execute the actions of a builder inside a monad.
-runBuilder :: (Monad m) => Builder m -> SolutionResult u m BuilderResult
+runBuilder :: Builder m -> SolutionResult u m BuilderResult
 runBuilder = runBuilderInternal
 
 -- | A builder which represents having no build capabilities and will always result in an erro

@@ -3,31 +3,22 @@
 {-# LANGUAGE KindSignatures #-}
 module GuiEnv where
 
-import Data.Functor.Identity
-
 import Control.Concurrent
 import Control.Monad.STM
 
 import Control.Concurrent.STM.TChan
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
-
---import Graphics.UI.Gtk
-
 
 import Ide3.Utils
 
 import GuiHelpers
 import Viewer
 import GuiMonad
-import GuiClass
 
 import GuiViewer
 import GuiViewer.Class
-
-import Dialogs.NewSolutionDialog.Types
 
 newtype IdleThreadTask = IdleThreadTask { getIdleThreadTask :: IO () }
 
@@ -96,18 +87,18 @@ instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT {-proxy-} m' p m) where
     replaceHistoryText = lift . replaceHistoryText
     navigateHistoryBack = lift navigateHistoryBack
     navigateHistoryForward = lift navigateHistoryForward
+    updateHistoryPath = lift .-.. updateHistoryPath
 
-runGuiEnvT :: (Monad m) => GuiEnvT {-proxy-} m' p  m a -> GuiEnv {-proxy-} m' p  -> m a
+runGuiEnvT :: GuiEnvT {-proxy-} m' p  m a -> GuiEnv {-proxy-} m' p  -> m a
 runGuiEnvT = runReaderT . runGuiEnvTInternal
 
-mkGuiEnvT :: (Monad m) => (GuiEnv {-proxy-} m' p  -> m a) -> GuiEnvT {-proxy-} m' p  m a
+mkGuiEnvT :: (GuiEnv {-proxy-} m' p  -> m a) -> GuiEnvT {-proxy-} m' p  m a
 mkGuiEnvT = GuiEnvT . ReaderT
 
 getEnv :: (Monad m) => GuiEnvT {-proxy-} m' p  m (GuiEnv {-proxy-} m' p )
 getEnv = GuiEnvT $ ask
 
-mapGuiEnv :: (Monad m1, Monad m2) 
-          => (m1 a -> m2 b) 
+mapGuiEnv :: (m1 a -> m2 b) 
           -> GuiEnvT {-proxy-} m' p  m1 a 
           -> GuiEnvT {-proxy-} m' p  m2 b
 mapGuiEnv f m = GuiEnvT $ mapReaderT f $ runGuiEnvTInternal m 

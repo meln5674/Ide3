@@ -12,7 +12,6 @@ module GuiClass
 import Data.Text
 import Data.Tree
 
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
 import Ide3.Types
@@ -20,7 +19,6 @@ import Ide3.Types
 import ErrorParser.Types
 
 import DeclarationPath
-import SearchMode
 
 import GuiClass.Types
 

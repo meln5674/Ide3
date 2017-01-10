@@ -2,7 +2,6 @@ module GuiViewer.Class where
 
 import Data.Text
 
-import Ide3.Types
 import SearchMode
 import DeclarationPath
 

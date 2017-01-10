@@ -33,7 +33,6 @@ import Control.Monad.Trans
 import Data.GI.Base.Overloading
 import GI.Gtk
 import GI.Gdk
-import Data.GI.Base
 import Data.GI.Base.Signals
 
 import GuiHelpers hiding (on, after)
@@ -106,7 +105,7 @@ addTabEvent textView = textView `on` #keyPressEvent $ \event -> do
 betterTextViewNew :: MonadIO m => m BetterTextView
 betterTextViewNew = do
     textView <- new TextView []
-    addTabEvent textView
+    void $ addTabEvent textView
     return $ BetterTextView textView
 
 -- | Create a new BetterTextView with the provided buffer
@@ -115,7 +114,7 @@ betterTextViewNewWithBuffer :: (MonadIO m, IsTextBuffer buffer)
                             -> m BetterTextView
 betterTextViewNewWithBuffer buf = do
     textView <- textViewNewWithBuffer buf
-    addTabEvent textView
+    void $ addTabEvent textView
     return $ BetterTextView textView
 
 -- | Modify a GI attribute meant for a GtkTextView to be applied to a 

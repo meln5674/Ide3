@@ -20,24 +20,12 @@ module ProjectInitializer
     , mapProjectInitializer
     ) where
 
-import System.Exit
-import System.Process
-import System.Directory
-import System.FilePath
-
-import Data.List
-
 import Control.Monad
-import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
 import Ide3.Types
 
-import Ide3.NewMonad
-import Ide3.Digest
-
 import Args
-import Viewer
 
 -- | The result of initialization
 data ProjectInitializerResult
@@ -50,17 +38,16 @@ newtype ProjectInitializer a m = ProjectInitializer
     { runProjectInitializerInternal :: forall u . a -> SolutionResult u m ProjectInitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
-runProjectInitializerWithInput :: (Monad m, Args a)
+runProjectInitializerWithInput :: (Args a)
                => ProjectInitializer a m
                -> [String]
                -> Either String (SolutionResult u m ProjectInitializerResult)
 runProjectInitializerWithInput initializer = liftM (runProjectInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
-runProjectInitializer :: (Monad m, Args a)
-               => ProjectInitializer a m
-               -> a
-               -> SolutionResult u m ProjectInitializerResult
+runProjectInitializer :: ProjectInitializer a m
+                      -> a
+                      -> SolutionResult u m ProjectInitializerResult
 runProjectInitializer = runProjectInitializerInternal
 
 -- | An Initializer that represents no initialization capability, and will
@@ -68,5 +55,7 @@ runProjectInitializer = runProjectInitializerInternal
 noProjectInitializer :: Monad m => ProjectInitializer a m
 noProjectInitializer = ProjectInitializer $ \_ -> throwE $ Unsupported "No project initializer specified"
 
-mapProjectInitializer :: (forall a . m a -> m' a) -> ProjectInitializer a m -> ProjectInitializer a m'
+mapProjectInitializer :: (forall b . m b -> m' b) 
+                      -> ProjectInitializer a m 
+                      -> ProjectInitializer a m'
 mapProjectInitializer f (ProjectInitializer b) = ProjectInitializer $ \x -> mapExceptT f $ b x

@@ -121,24 +121,6 @@ runSimpleFilesystemSolutionT
 --runNewSimpleFilesystemSolutionT :: SimpleFilesystemSolutionT m a -> m (a, FileSystemSolution)
 --runNewSimpleFilesystemSolutionT = flip runSimpleFilesystemSolutionT Unopened
 
-{-
--- | Get the project state from the inner type
-getFsp' :: (Monad m) => SimpleFilesystemSolutionT' m FileSystemSolution
-getFsp' = SimpleFilesystemSolutionT' $ get
-
--- | Set the project state from the inner type
-putFsp' :: (Monad m) => FileSystemSolution -> SimpleFilesystemSolutionT' m ()
-putFsp' = SimpleFilesystemSolutionT' . put
--}
-
--- | Get the project state from the inner type
-getFsp' :: (Monad m) => StateT FileSystemSolution m FileSystemSolution
-getFsp' = get
-
--- | Set the project state from the inner type
-putFsp' :: (Monad m) => FileSystemSolution -> StateT FileSystemSolution m ()
-putFsp' = put
-
 -- | Get the project state from the outer type
 getFsp :: (Monad m) => SimpleFilesystemSolutionT m FileSystemSolution
 --getFsp = SimpleFilesystemSolutionT $ lift $ getFsp'
@@ -236,16 +218,41 @@ makeFileListing :: ( ProjectModuleClass m
                    ) 
                 => ProjectInfo 
                 -> SolutionResult u m FileListing
-makeFileListing pi = do
-    t <- makeTree pi
-    let dirs (OrgNode i ts) =  (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
+makeFileListing pji = do
+    t <- makeTree pji
+    let subModules (OrgNode _ ts) = ts
+        subModules (ModuleNode _ ts _ _ _ _) = ts
+        subModules (UnparsableModuleNode _ ts _) = ts
+        
+        nodeInfo (OrgNode mi _) = mi
+        nodeInfo (ModuleNode mi _ _ _ _ _) = mi
+        nodeInfo (UnparsableModuleNode mi _ _) = mi
+        
+        nodeDecls (ModuleNode _ _ _ ds _ _) = Just ds
+        nodeDecls _ = Nothing
+        
+        dirs node = do
+            dir <- liftM takeDirectory $ modulePath $ nodeInfo node
+            let subDirs = concat $ mapMaybe dirs $ subModules node
+            return $ dir : subDirs
+        {-
+        dirs (OrgNode i ts) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
         dirs (ModuleNode i ts _ _ _ _) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
+        -}
+        declInfos node = case nodeDecls node of
+            Just ds -> (nodeInfo node, ds) : subDecls
+            Nothing -> subDecls
+          where
+            subDecls = concatMap declInfos $ subModules node
+        {-
         declInfos (OrgNode _ ts) = concatMap declInfos ts
         declInfos (ModuleNode i ts _ ds _ _) = (i, ds) : concatMap declInfos ts
+        declInfos (UnparsableModuleNode
+        -}
         dirs' = concat $ mapMaybe dirs t
         declInfos' = concatMap declInfos t
     declGroups <- forM declInfos' $ \(mi, dis) -> do
-        ds <- forM dis $ getDeclaration pi mi
+        ds <- forM dis $ getDeclaration pji mi
         case modulePath mi of
             Nothing -> return Nothing 
             Just p -> return $ Just $ OutputPair p $ intercalate "\n" $ map body ds
@@ -285,8 +292,6 @@ instance ( MonadIO m
         case fsp of
             Opened (Just _) -> lift $ putFsp $ Opened $ Just path
             Opened Nothing -> do
-                let parts = splitPath path
-                    solutionName = takeBaseName $ last parts
                 lift $ putFsp $ Opened $ Just path
             _ -> throwE $ InvalidOperation "Cannot set target path without open project" ""
     -- | Check if either there is a new project, digested path, or Read'd file

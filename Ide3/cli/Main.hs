@@ -85,7 +85,7 @@ deriving instance (MonadException m) => MonadException (RDONLY.ReadOnlyFilesyste
 
 -- | Run a single iteration of reading input from the user, deciding which command to run,
 -- running it, then printing the response, and indicating if the user wishes to quit
-repl :: (MonadException m, ViewerAction m) 
+repl :: (MonadException m) 
      => InputT (CommandT () (ViewerStateT m)) Bool
 repl = do
     input <- getInputLine ">"
@@ -104,26 +104,15 @@ runMain = do
     when continue runMain
 
 -- | Settings for the line editor transformer
-settings :: (MonadException m, ViewerAction m)
+settings :: (MonadException m)
          => Settings (CommandT () (ViewerStateT m))
 settings = Settings{complete=cmdCompletion, historyFile=Nothing, autoAddHistory=True}
 
 -- | List of commands, using a specified editor
-commandList :: ( {-?mProxy :: Proxy m
-               ,-} Monad m
-               , MonadMask m
-               , ViewerIOAction m
+commandList :: ( ViewerIOAction m
                , Args a
                , Args pa
                , PersistenceClass m
-               , SolutionClass m
-               , ProjectModuleClass m
-               , ProjectExternModuleClass m
-               , ModuleDeclarationClass m
-               , ModuleImportClass m
-               , ModuleExportClass m
-               , ModulePragmaClass m
-               , ExternModuleExportClass m
                )
             => Editor m
             -> Builder m
@@ -176,23 +165,12 @@ commandList editor builder runner initializer projectInitializer =
 
 
 -- | Run the main program using the specified persistance mechanism and editor
-runWith :: ( {-?mProxy :: Proxy m
-           ,-} Monad m
+runWith :: ( Monad m
            , MonadException (t m)
-           , MonadMask (t m)
            , ViewerAction (t m)
-           , Monad (t m)
            , Args a
            , Args pa
            , PersistenceClass (t m)
-           , SolutionClass (t m)
-           , ProjectModuleClass (t m)
-           , ProjectExternModuleClass (t m)
-           , ModuleDeclarationClass (t m)
-           , ModuleImportClass (t m)
-           , ModuleExportClass (t m)
-           , ModulePragmaClass (t m)
-           , ExternModuleExportClass (t m)
            )
         => (forall b . t m b -> fsp -> m (b, fsp))
         -> fsp 
@@ -239,22 +217,12 @@ data {- (Monad (t (StateT Solution IO))) => -} AppSetup a pa t fsp m
     }
 
 -- | Run the main program with the specified setup
-runWithSetup :: ( {-?mProxy :: Proxy m
-                ,-} Monad m
+runWithSetup :: ( Monad m
                 , MonadException (t m)
-                , MonadMask (t m)
                 , ViewerAction (t m)
-                , Monad (t m)
                 , Args a
                 , Args pa
                 , PersistenceClass (t m)
-                , SolutionClass (t m)
-                , ProjectModuleClass (t m)
-                , ProjectExternModuleClass (t m)
-                , ModuleDeclarationClass (t m)
-                , ModuleImportClass (t m)
-                , ModuleExportClass (t m)
-                , ModulePragmaClass (t m)
                 )
              => AppSetup a pa t fsp m
              -> m ()
@@ -270,14 +238,12 @@ runWithSetup setup = runWith
 -- | Change a setup to use the nano editor
 useNanoEditor :: ( MonadIO (t m)
                  , MonadMask (t m)
-                 , Monad (t m)
                  ) 
                => AppSetup a pa t fsp m -> AppSetup a pa t fsp m
 useNanoEditor s = s{appEditor = nanoEditor}
 
 useStackBuilder :: ( MonadIO (t m)
                    , MonadMask (t m)
-                   , Monad (t m)
                    , CabalMonad (t m)
                    ) 
                 => AppSetup a pa t fsp m -> AppSetup a pa t fsp m
@@ -285,32 +251,18 @@ useStackBuilder s = s{appBuilder = stackBuilder}
 
 useStackRunner :: ( MonadIO (t m)
                   , MonadMask (t m)
-                  , Monad (t m)
                   , CabalMonad (t m)
                   ) 
                => AppSetup a pa t fsp m -> AppSetup a pa t fsp m
 useStackRunner s = s{appRunner = stackRunner}
 
-useStackInitializer :: ( Monad m
-                       , MonadIO (t m)
-                       , MonadMask (t m)
-                       , Monad (t m)
-                       , SolutionClass (t m)
-                       , ProjectModuleClass (t m)
-                       , ProjectExternModuleClass (t m)
-                       , PersistenceClass (t m)
-                       , CabalMonad (t m)
+useStackInitializer :: ( MonadIO (t m)
                        ) 
                     => AppSetup a pa t fsp m -> AppSetup StackInitializerArgs pa t fsp m
 useStackInitializer s = s{appInitializer = stackInitializer}
 
-useStackProjectInitializer :: ( Monad m
-                              , MonadIO (t m)
-                              , MonadMask (t m)
-                              , Monad (t m)
-                              , PersistenceClass (t m)
+useStackProjectInitializer :: ( MonadIO (t m)
                               , CabalMonad (t m)
-                              , SolutionClass (t m)
                               ) 
                            => AppSetup a pa t fsp m -> AppSetup a StackProjectInitializerArgs' t fsp m
 useStackProjectInitializer s = s{appProjectInitializer = stackProjectInitializer}

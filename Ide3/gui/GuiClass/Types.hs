@@ -11,8 +11,6 @@ newtype Row = Row { getRow :: Int } deriving (Eq, Ord)
 newtype Column = Column { getColumn :: Int } deriving (Eq, Ord)
 -}
 
-import ErrorParser.Types
-
 type CursorPosition = (Row,Column)
 type TreePath = [Int]
 

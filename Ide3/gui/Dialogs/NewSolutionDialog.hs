@@ -13,17 +13,13 @@ module Dialogs.NewSolutionDialog
     , getTemplateName
     ) where
 
-import GHC.OverloadedLabels
-
 import Data.Text
 
 import Control.Monad
 import Control.Monad.Trans
 
 import GI.Gtk
-import GI.Gdk
 
-import GuiEnv
 import GuiHelpers
 
 import Dialogs.NewSolutionDialog.Types
@@ -142,7 +138,7 @@ make f = makeWindowWith
             confirmButton <- makeConfirmButton hbox
             cancelButton <- makeCancelButton hbox
             return (confirmButton,cancelButton)
-        window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
+        void $ window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
         f NewSolutionDialog
           { window
           , fileChooser

@@ -12,9 +12,6 @@ import Distribution.ModuleName
 import Distribution.Text
 
 import Ide3.Types
-import Ide3.NewMonad
-
-import Args
 
 import ProjectEditor
 
@@ -25,11 +22,9 @@ import ProjectInitializer.Stack.Types
 
 -- | An Editor that uses the stack new command to create a new solution
 stackProjectEditor :: ( MonadIO m
-                           , PersistenceClass m
-                           , CabalMonad m
-                           , SolutionClass m
-                           )
-                        => ProjectEditor StackProjectInitializerArgs' m
+                      , CabalMonad m
+                      )
+                   => ProjectEditor StackProjectInitializerArgs' m
 stackProjectEditor = ProjectEditor $ \pji arg -> do
     oldCabalProjectInfo <- getCabalProjectInfo pji
     p <- getCabalProject oldCabalProjectInfo

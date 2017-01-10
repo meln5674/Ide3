@@ -14,7 +14,7 @@ import Language.Haskell.Exts.SrcLoc
 import Ide3.Types (SolutionResult, SolutionError (..))
 
 import Ide3.SrcLoc
-import Ide3.SrcLoc.Exts
+import Ide3.SrcLoc.Exts()
 
 import GuiClass.Types
 
@@ -190,9 +190,11 @@ getHighlights :: (Monad m)
               => String 
               -> SolutionResult u m [HighlightInst]
 getHighlights text = case Lex.lexTokenStream text of
-    ParseOk toks -> forM toks $ \Loc{loc=loc,unLoc=tok} -> lift $ do
-        let start = let (s,e) = srcSpanStart loc in (Row $ s-1,Column $ e-1)
-        let end = let (s,e) = srcSpanEnd loc in (Row $ s-1,Column $ e-1)
-        let tok' = classifyToken tok
+    ParseOk toks -> forM toks $ \tok -> lift $ do
+        let (startRow, startCol) = srcSpanStart $ loc tok
+            (endRow, endCol) = srcSpanEnd $ loc tok
+            start = (Row $ startRow-1, Column $ startCol-1)
+            end = (Row $ endRow-1,Column $ endCol-1)
+            tok' = classifyToken $ unLoc tok
         return $ HighlightInst tok' start end
-    ParseFailed loc err -> throwE $ ParseError (SrcFileLoc "" $ toSrcLoc loc) err ""
+    ParseFailed l err -> throwE $ ParseError (SrcFileLoc "" $ toSrcLoc l) err ""

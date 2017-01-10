@@ -2,8 +2,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 module EnvironmentMonad.Stack 
-    ( module EnvironmentMonad.Stack
-    , module EnvironmentMonad
+    ( module EnvironmentMonad
     , module Builder.Stack
     , module Runner.Stack
     , module Initializer.Stack
@@ -13,10 +12,6 @@ module EnvironmentMonad.Stack
 import Control.Monad.Catch
 
 import Control.Monad.Trans
-
-import Ide3.NewMonad
-
-import CabalMonad
 
 import EnvironmentMonad
 
@@ -62,11 +57,11 @@ instance (MonadIO m, MonadMask m) => BuilderMonad (CabalSolution m) where
 instance (MonadIO m, MonadMask m) => RunnerMonad (CabalSolution m) where
     getRunner = return stackRunner
 
-instance (MonadIO m, MonadMask m) => InitializerMonad (CabalSolution m) where
+instance ( MonadIO m ) => InitializerMonad (CabalSolution m) where
    type ArgType (CabalSolution m) = StackInitializerArgs
    getInitializer = return stackInitializer 
 
-instance (MonadIO m, MonadMask m, SolutionMonad m, ModuleFileClass m) 
+instance ( MonadIO m ) 
         => ProjectInitializerMonad (CabalSolution m) where
     type ProjectArgType (CabalSolution m) = StackProjectInitializerArgs'
     getProjectInitializer = return stackProjectInitializer

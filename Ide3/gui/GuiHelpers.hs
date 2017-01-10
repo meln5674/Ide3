@@ -32,6 +32,10 @@ function.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE OverloadedStrings, OverloadedLabels #-}
 {-# LANGUAGE DataKinds, KindSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 module GuiHelpers 
     ( makeMenuWith
     , makeMenuButton
@@ -55,14 +59,18 @@ module GuiHelpers
     , afterSub
     , SubSignalProxy
     , ownSignal
+    , FuncClass (..)
+    , Func0 (Func0)
+    , Func1 (Func1)
+    , Func2 (Func2)
+    , Func3 (Func3)
+    , Func4 (Func4)
+    , Func5 (Func5)
+    , Func6 (Func6)
     , on
-    , on1
-    , on2
-    , on3
+--    , on_
     , after
-    , after1
-    , after2
-    , after3
+--    , after_
     , SubAttrLabelProxy
     , SubAttrOp
     , getSub
@@ -72,14 +80,13 @@ module GuiHelpers
 
 import GHC.TypeLits
 
-import Data.Text hiding (map)
+import Data.Text hiding (map, group)
 
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Identity
 
-import Data.GI.Base.GValue
 import Data.GI.Base.Signals hiding (on, after)
 import Data.GI.Base.Attributes
 import GI.Gtk hiding (on, after, TreePath)
@@ -196,7 +203,7 @@ makeNotebookPageWith :: ( MonadIO m )
                      -> m b
 makeNotebookPageWith notebook name f = do
     vbox <- liftIO $ vBoxNew False 0
-    notebookAppendPage notebook vbox noLabel
+    void $ notebookAppendPage notebook vbox noLabel
     notebookSetTabLabelText notebook vbox name
     f vbox
 
@@ -377,6 +384,201 @@ curry3 f a b c = f (a,b,c)
 uncurry3 :: (a -> b -> c -> d) -> (a,b,c) -> d
 uncurry3 f (a,b,c) = f a b c
 
+
+newtype Func0 a = Func0 { unFunc0 :: a }
+newtype Func1 a b = Func1 { unFunc1 :: a -> b }
+newtype Func2 a b c = Func2 { unFunc2 :: a -> b -> c }
+newtype Func3 a b c d = Func3 { unFunc3 :: a -> b -> c -> d }
+newtype Func4 a b c d e = Func4 { unFunc4 :: a -> b -> c -> d -> e}
+newtype Func5 a b c d e f = Func5 { unFunc5 :: a -> b -> c -> d -> e -> f}
+newtype Func6 a b c d e f g =  Func6 { unFunc6 :: a -> b -> c -> d -> e -> f -> g}
+
+type family FuncArgType x = arg where
+    FuncArgType Func0 = ()
+    FuncArgType (Func1 a) = a
+    FuncArgType (Func2 a b) = (a, b)
+
+type family FuncType x z = f where
+    FuncType Func0 z = z
+    FuncType (Func1 a) z = a -> z
+    FuncType (Func2 a b) z = a -> b -> z
+
+class FuncClass x where
+    uncurry' :: x a -> (FuncArgType x -> a)
+    curry' :: (FuncArgType x -> a) -> x a
+    mkFunc :: FuncType x a -> x a
+    unmkFunc :: x a -> FuncType x a
+
+instance FuncClass Func0 where
+    uncurry' = const . unFunc0 
+    curry' = Func0 . ($())
+    mkFunc = Func0
+    unmkFunc = unFunc0
+
+
+instance FuncClass (Func1 a) where
+    uncurry' = unFunc1
+    curry' = Func1
+    mkFunc = Func1
+    unmkFunc = unFunc1
+
+instance FuncClass (Func2 a b) where
+    uncurry' = uncurry . unFunc2
+    curry' = Func2 . curry
+    mkFunc = Func2
+    unmkFunc = unFunc2
+
+
+{-
+newtype Func0 m a = Func0 { unFunc0 :: m a }
+newtype Func1 a m b = Func1 { unFunc1 :: a -> m b }
+newtype Func2 a b m c = Func2 { unFunc2 :: a -> b -> m c }
+newtype Func3 a b c m d = Func3 { unFunc3 :: a -> b -> c -> m d }
+newtype Func4 a b c d m e = Func4 { unFunc4 :: a -> b -> c -> d -> m e}
+newtype Func5 a b c d e m f = Func5 { unFunc5 :: a -> b -> c -> d -> e -> m f}
+newtype Func6 a b c d e f m g =  Func6 { unFunc6 :: a -> b -> c -> d -> e -> f -> m g}
+
+type family FuncArgType x = arg where
+    FuncArgType Func0 = ()
+    FuncArgType (Func1 a) = a
+    FuncArgType (Func2 a b) = (a, b)
+
+type family FuncType x m z = f | f -> x m z where
+    FuncType Func0 m z = m z
+    FuncType (Func1 a) m z = a -> m z
+    FuncType (Func2 a b) m z = a -> b -> m z
+
+class FuncClass x where
+    uncurry' :: x m a -> (FuncArgType x -> m a)
+    curry' :: (FuncArgType x -> m a) -> x m a
+    mkFunc :: FuncType x m a -> x m a
+    unmkFunc :: x m a -> FuncType x m a
+
+instance FuncClass Func0 where
+    uncurry' = const . unFunc0 
+    curry' = Func0 . ($())
+    mkFunc = Func0
+    unmkFunc = unFunc0
+
+
+instance FuncClass (Func1 a) where
+    uncurry' = unFunc1
+    curry' = Func1
+    mkFunc = Func1
+    unmkFunc = unFunc1
+
+instance FuncClass (Func2 a b) where
+    uncurry' = uncurry . unFunc2
+    curry' = Func2 . curry
+    mkFunc = Func2
+    unmkFunc = unFunc2
+-}
+
+{-
+instance FuncClass (Func3 a b c) where
+    --type FuncArgType (Func3 a b c) = (a, b, c)
+    --type FuncType (Func3 a b c) d = a -> b -> c -> d
+    uncurry' (Func3 f) = \(a, b, c) -> f a b c
+    curry' f = Func3 $ \a b c -> f (a, b, c)
+
+instance FuncClass (Func4 a b c d) where
+    --type FuncArgType (Func4 a b c d) = (a, b, c, d)
+    --type FuncType (Func4 a b c d) e = a -> b -> c -> d -> e
+    uncurry' (Func4 f) = \(a, b, c, d) -> f a b c d
+    curry' f = Func4 $ \a b c d -> f (a, b, c, d)
+
+instance FuncClass (Func5 a b c d e) where
+    --type FuncArgType (Func5 a b c d e) = (a, b, c, d, e)
+    --type FuncType (Func5 a b c d e) f = a -> b -> c -> d -> e -> f
+    uncurry' (Func5 f) = \(a, b, c, d, e) -> f a b c d e
+    curry' f = Func5 $ \a b c d e -> f (a, b, c, d, e)
+
+instance FuncClass (Func6 a b c d e f') where
+    --type FuncArgType (Func6 a b c d e f') = (a, b, c, d, e, f')
+    --type FuncType (Func6 a b c d e f) g = a -> b -> c -> d -> e -> f -> g
+    uncurry' (Func6 f) = \(a, b, c, d, e, f') -> f a b c d e f'
+    curry' f = Func6 $ \a b c d e f' -> f (a, b, c, d, e, f')
+-}
+
+on :: forall object subObject info handler m t m' b
+    . ( GObject subObject
+      , Monad m'
+      , MonadIO m
+      , SignalInterceptClass t
+      , SignalInfo info
+      , HaskellCallbackType info ~ FuncType handler (m' b)
+      , FuncClass handler
+      )
+   => object
+   -> SubSignalProxy object subObject info
+   -> handler (t m' b)
+   -> t m SignalHandlerId
+on obj event handler' = intercept add handler
+  where
+    add :: (FuncArgType handler -> m' b) -> m SignalHandlerId
+    add h = onSub obj event $ unmkFunc $ (curry' h :: handler (m' b))
+    handler :: FuncArgType handler -> t m' b
+    handler = uncurry' $ (handler' :: handler (t m' b))
+
+{-
+on_ :: forall object subObject info handler m t m' b
+     . ( GObject subObject
+       , Monad m'
+       , MonadIO m
+       , SignalInterceptClass t
+       , SignalInfo info
+       , HaskellCallbackType info ~ FuncType handler (m' b)
+       , FuncClass handler
+       , Functor (t m)
+       )
+    => object
+    -> SubSignalProxy object subObject info
+    -> FuncType handler (t m' b)
+    -> t m ()
+on_ obj event handler = void $ (on :: object 
+        -> SubSignalProxy object subObject info 
+        -> FuncType handler (t m' b) 
+        -> t m SignalHandlerId) obj event handler
+-}
+
+after :: forall object subObject info handler m t m' b
+       . ( GObject subObject
+         , Monad m'
+         , MonadIO m
+         , SignalInterceptClass t
+         , SignalInfo info
+         , HaskellCallbackType info ~ FuncType handler (m' b)
+         , FuncClass handler
+         )
+      => object
+      -> SubSignalProxy object subObject info
+      -> handler (t m' b)
+      -> t m SignalHandlerId
+after obj event handler' = intercept add handler
+  where
+    add :: (FuncArgType handler -> m' b) -> m SignalHandlerId
+    add h = afterSub obj event $ unmkFunc $ (curry' h :: handler (m' b))
+    handler :: FuncArgType handler -> t m' b
+    handler = uncurry' $ (handler' :: handler (t m' b))
+
+{-
+after_ :: ( GObject subObject
+          , Monad m'
+          , MonadIO m
+          , SignalInterceptClass t
+          , SignalInfo info
+          , HaskellCallbackType info ~ FuncType handler (m' b)
+          , FuncClass handler
+          , Functor (t m)
+          )
+       => object
+       -> SubSignalProxy object subObject info
+       -> FuncType handler (t m' b)
+       -> t m ()
+after_ obj event handler = void $ after obj event handler
+-}
+
+{-
 -- | Attach a handler requring context and no arguments
 on :: ( GObject subObject
       , Monad m'
@@ -391,6 +593,9 @@ on :: ( GObject subObject
    -> t m SignalHandlerId
 on obj event handler =
     (onSub obj event . ($())) `intercept` const handler
+
+
+on_ obj event handler = void $ on obj event handler
 
 -- | Attach a handler requring context and 1 argument
 on1 :: ( GObject subObject
@@ -407,6 +612,8 @@ on1 :: ( GObject subObject
 on1 obj event handler = do
     onSub obj event `intercept` handler
 
+on1_ obj event handler = void $ on1 obj event handler
+
 -- | Attach a handler requring context and 2 arguments
 on2 :: ( GObject subObject
        , Monad m'
@@ -421,6 +628,8 @@ on2 :: ( GObject subObject
     -> t m SignalHandlerId
 on2 obj event handler = (onSub obj event . curry) `intercept` uncurry handler
 
+on2_ obj event handler = void $ on2 obj event handler
+
 -- | Attach a handler requring context and 3 arguments
 on3 :: ( GObject subObject
        , Monad m'
@@ -434,6 +643,9 @@ on3 :: ( GObject subObject
     -> (a -> b -> c -> t m' d)
     -> t m SignalHandlerId
 on3 obj event handler = (onSub obj event . curry3) `intercept` uncurry3 handler
+
+on3_ obj event handler = void $ on3 obj event handler
+
 
 -- | Same as 'on', except the handler fires after the default one
 after :: ( GObject subObject
@@ -450,6 +662,8 @@ after :: ( GObject subObject
 after obj event handler =
     (afterSub obj event . ($())) `intercept` const handler
 
+after_ obj event handler = void $ after obj event handler
+
 -- | Same as 'on1', except the handler fires after the default one
 after1 :: ( GObject subObject
           , Monad m'
@@ -464,6 +678,8 @@ after1 :: ( GObject subObject
        -> t m SignalHandlerId
 after1 obj event handler = do
     afterSub obj event `intercept` handler
+
+after1_ obj event handler = void $ after1 obj event handler
 
 -- | Same as 'on2', except the handler fires after the default one
 after2 :: ( GObject subObject
@@ -480,6 +696,8 @@ after2 :: ( GObject subObject
 after2 obj event handler =
     (afterSub obj event . curry) `intercept` uncurry handler
 
+after2_ obj event handler = void $ after2 obj event handler
+
 -- | Same as 'on3', except the handler fires after the default one
 after3 :: ( GObject subObject
           , Monad m'
@@ -493,6 +711,10 @@ after3 :: ( GObject subObject
        -> (a -> b -> c -> t m' d)
        -> t m SignalHandlerId
 after3 obj event handler = (afterSub obj event . curry3) `intercept` uncurry3 handler
+
+after3_ obj event handler = void $ after3 obj event handler
+-}
+
 
 -- | Attributes for widgets inside of data structures.
 -- These attributes are represented as functions mapping the data structure to
@@ -516,7 +738,7 @@ getSub :: ( AttrGetC info subObj attr result
 getSub obj subAttr = uncurry get $ subAttr obj
 
 -- | Assign the value of an attribute of a widget in a data structure
-setSub :: MonadIO m => object -> [SubAttrOp object subObject AttrSet] -> m ()
+setSub :: MonadIO m => object -> [SubAttrOp object subObject 'AttrSet] -> m ()
 setSub obj subAttrs = mapM_ (uncurry set) x
   where
     x = map (fmap (:[]) . ($obj)) subAttrs 
@@ -532,7 +754,7 @@ withTreePath purePath f = do
     return result
   where
     allocPath [] = treePathNew
-    allocPath path = treePathNewFromIndices $ map fromIntegral purePath
+    allocPath path = treePathNewFromIndices $ map fromIntegral path
 
 -- | Perform an action with the underlying tree path from an alocated tree
 -- path    

@@ -13,14 +13,9 @@ module Dialogs.NewImportDialog
 
 import Data.Text
 
-import Control.Monad
 import Control.Monad.Trans
 
 import GI.Gtk
-import GI.Gdk
-
-import GuiEnv
-import GuiHelpers
 
 import Dialogs.GenericNewDialog ( GenericNewDialog, GenericNewDialogSignal, NewDialog )
 import qualified Dialogs.GenericNewDialog as Generic

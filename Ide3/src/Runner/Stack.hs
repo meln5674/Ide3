@@ -3,7 +3,7 @@ module Runner.Stack where
 import Control.Exception.Base hiding (catch)
 
 import Distribution.Package
-import Distribution.PackageDescription
+import Distribution.PackageDescription hiding (testName)
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except

@@ -11,9 +11,6 @@ import Distribution.ModuleName
 import Distribution.Text
 
 import Ide3.Types
-import Ide3.NewMonad
-
-import Args
 
 import ProjectInitializer
 
@@ -25,9 +22,7 @@ import ProjectInitializer.Stack.Types
 
 -- | An Initializer that uses the stack new command to create a new solution
 stackProjectInitializer :: ( MonadIO m
-                           , PersistenceClass m
                            , CabalMonad m
-                           , SolutionClass m
                            )
                         => ProjectInitializer StackProjectInitializerArgs' m
 stackProjectInitializer = ProjectInitializer $ \arg -> do

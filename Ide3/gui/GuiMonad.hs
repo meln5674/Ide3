@@ -17,11 +17,8 @@ module GuiMonad
 
 import Data.Text
 
-import Data.Tree
-
 import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Except
 
 import Data.GI.Base.Attributes
 import GI.Gtk
@@ -30,8 +27,6 @@ import Data.GI.Gtk.ModelView.ForestStore
 import Data.GI.Gtk.ModelView.SeqStore
 
 import ErrorParser.Types
-
-import SolutionTree
 
 import SyntaxHighlighter2
 
@@ -51,7 +46,7 @@ data GuiComponents
     }
 
 
-defaultTextAttrs :: SyntaxComponent -> [AttrOp TextTag AttrSet]
+defaultTextAttrs :: SyntaxComponent -> [AttrOp TextTag 'AttrSet]
 defaultTextAttrs VarId = [textTagForeground := "navy", textTagWeight := 600]
 defaultTextAttrs ConId = [textTagForeground := "purple4", textTagWeight := 800]
 defaultTextAttrs VarSym = [textTagForeground := "grey"]
@@ -72,7 +67,7 @@ makeDeclBuffer = do
     return buffer
 
 applyDeclBufferAttrs :: MonadIO m 
-                     => (SyntaxComponent -> [AttrOp TextTag AttrSet]) 
+                     => (SyntaxComponent -> [AttrOp TextTag 'AttrSet]) 
                      -> GuiComponents
                      -> m ()
 applyDeclBufferAttrs attrs comp = withEditorBuffer comp $ \buffer -> do

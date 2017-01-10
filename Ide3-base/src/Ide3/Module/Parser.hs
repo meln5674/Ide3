@@ -43,16 +43,20 @@ import Ide3.Utils.Parser
 
 -- | Results of extracting information from the third-party parser
 data ExtractionResults l
-    = Extracted (Ann l ModuleInfo)
-                (Ann l String)
-                [(Ann l Pragma)]
-                (Maybe [Ann l (WithBody Export)])
-                [Ann l (WithBody Import)]
-                [Ann l (WithBody Declaration)]
-    | Unparsable SrcLoc -- ^ Location
-                 String -- ^ Message
-                 ModuleInfo -- ^ 
-                 String -- ^ Contentes
+    = Extracted 
+    { extractedModuleInfo :: Ann l ModuleInfo
+    , extractedModuleHeader :: (Ann l String)
+    , exrtractedPragmas :: [(Ann l Pragma)]
+    , extractedExports :: Maybe [Ann l (WithBody Export)]
+    , extractedImports :: [Ann l (WithBody Import)]
+    , extractedDeclarations :: [Ann l (WithBody Declaration)]
+    }
+    | Unparsable
+    { unparsableErrorLocation :: SrcLoc
+    , unparsableErrorMessage :: String
+    , unparsableModuleInfo :: ModuleInfo
+    , unparsableModuleContents :: String
+    }
 
 -- | Create an annotated item by applying an annotation extration and item
 -- extraction function

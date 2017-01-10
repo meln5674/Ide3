@@ -29,10 +29,8 @@ instance Foldable History where
     foldMap f (History past future) = foldMap f past <> foldMap f future
 
 instance Traversable History where
-    sequence (History pastM futureM) = do
-        past <- sequence pastM
-        future <- sequence futureM
-        return $ History past future
+    sequenceA (History pastA futureA)
+        = History <$> sequenceA pastA <*> sequenceA futureA
         
         
 -- | Create an empty history
@@ -54,7 +52,7 @@ insertBack new (History past future) = History (new:past) future
 
 -- | Replace the present with a new value, returns Nothing if there is no present
 replace :: a -> History a -> Maybe (History a)
-replace present' (History (present:past) future) = Just $ History (present':past) future
+replace present' (History (_:past) future) = Just $ History (present':past) future
 replace _ _ = Nothing
 
 -- | Insert a value as the present, pushing the old present into the future
@@ -65,19 +63,19 @@ insertForward new (History [] future) = History [new] future
 -- | Delete the present, pulling the previous item of the past into the present
 -- Returns nothing if there is no present
 deleteBack :: History a -> Maybe (History a)
-deleteBack (History (present:past) future) = Just $ History past future
+deleteBack (History (_:past) future) = Just $ History past future
 deleteBack _ = Nothing
 
 -- | Delete the present, pulling the next item of the future into the present
 -- Returns nothing if there is no present
 deleteForward :: History a -> Maybe (History a)
-deleteForward (History (present:past) (present':future)) = Just $ History (present':past) future
-deleteForward (History (present:past) []) = Just $ History past []
+deleteForward (History (_:past) (present':future)) = Just $ History (present':past) future
+deleteForward (History (_:past) []) = Just $ History past []
 deleteForward _ = Nothing
 
 -- | Discard all values in the past, making the present the beginning of time
 abandonPast :: History a -> History a
-abandonPast (History (current:past) future) = History [current] future
+abandonPast (History (current:_) future) = History [current] future
 abandonPast x = x
 
 -- | Discard all values in the future, making the present the end of time
@@ -86,7 +84,7 @@ abandonFuture (History past _) = History past []
 
 -- | Get the present value if there is one
 present :: History a -> Maybe a
-present (History (current:past) future) = Just current
+present (History (current:_) _) = Just current
 present _ = Nothing
 
 -- | Shift back one step into the past, making the present the next item in the future

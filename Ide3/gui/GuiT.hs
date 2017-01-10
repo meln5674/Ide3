@@ -9,9 +9,7 @@ module GuiT where
 import Data.Text
 
 import Control.Concurrent
-import Control.Concurrent.MVar
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
@@ -23,16 +21,12 @@ import ViewerMonad2
 
 import GuiHelpers
 
-import GuiViewer.Class
 import GuiClass
-import GuiClass.GuiEnv
+import GuiClass.GuiEnv()
 
 import GuiEnv
 import Dialogs
-import Dialogs.Class
 import GenericGuiEnv
-
-import EnvironmentMonad
 
 newtype GuiT m' p m a = GuiT { runGuiTInternal :: GuiEnvT m' p (DialogsT m) a }
   deriving 
@@ -86,13 +80,13 @@ instance ( Monad m
 liftEnv :: Monad m => GuiEnvT m' p m a -> GuiT m' p m a
 liftEnv f = GuiT $ mkGuiEnvT $ \env -> lift $ runGuiEnvT f env
 
-liftDialogs :: Monad m => DialogsT m a -> GuiT m' p m a
+liftDialogs :: DialogsT m a -> GuiT m' p m a
 liftDialogs f = GuiT $ GuiEnvT $ ReaderT $ const f
 
-runGuiT :: Monad m => GuiT m' p m a -> GuiEnv m' p -> Dialogs -> m a
+runGuiT :: GuiT m' p m a -> GuiEnv m' p -> Dialogs -> m a
 runGuiT f env dialogs = runDialogsT (runGuiEnvT (runGuiTInternal f) env) dialogs
 
-mkGuiT :: Monad m => (GuiEnv m' p -> Dialogs -> m a) -> GuiT m' p m a
+mkGuiT :: (GuiEnv m' p -> Dialogs -> m a) -> GuiT m' p m a
 mkGuiT f = GuiT $ mkGuiEnvT $ \env -> mkDialogsT (f env)
 
 

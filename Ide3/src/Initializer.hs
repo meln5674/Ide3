@@ -24,13 +24,9 @@ module Initializer
 import Control.Monad
 import Control.Monad.Trans.Except
 
-import Ide3.NewMonad
-import Ide3.Digest
-
 import Ide3.Types
 
 import Args
-import Viewer
 
 -- | The result of initialization
 data InitializerResult
@@ -43,15 +39,14 @@ newtype Initializer a m = Initializer
     { runInitializerInternal :: forall u . a -> SolutionResult u m InitializerResult }
 
 -- | Run an initializer with a list of strings to parse into arguments
-runInitializerWithInput :: (Monad m, Args a) 
+runInitializerWithInput :: (Args a) 
                => Initializer a m
                -> [String]
                -> Either String (SolutionResult u m InitializerResult)
 runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
-runInitializer :: (Monad m, Args a)
-               => Initializer a m
+runInitializer :: Initializer a m
                -> a
                -> SolutionResult u m InitializerResult
 runInitializer = runInitializerInternal
@@ -62,6 +57,8 @@ runInitializer = runInitializerInternal
 noInitializer :: Monad m => Initializer a m
 noInitializer = Initializer $ \_ -> throwE $ Unsupported "No initializer specified"
 
-mapInitializer :: (forall a . m a -> m' a) -> Initializer a m -> Initializer a m'
+mapInitializer :: (forall b . m b -> m' b) 
+               -> Initializer a m 
+               -> Initializer a m'
 mapInitializer f (Initializer b) = Initializer $ \x -> mapExceptT f $ b x
     

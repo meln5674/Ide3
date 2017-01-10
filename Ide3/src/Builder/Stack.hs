@@ -2,7 +2,6 @@ module Builder.Stack where
 
 import Data.List
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Catch
@@ -14,25 +13,22 @@ import System.Directory
 import System.Exit
 import System.Process
 
-import Distribution.PackageDescription
+import Distribution.PackageDescription hiding (description)
 import Distribution.Version
 import Distribution.Package
 
-import Ide3.NewMonad
 import Ide3.Types
-import Ide3.Utils
 
 import CabalMonad
 
 import Builder
 
 import ErrorParser
-import ErrorParser.Types
 
 -- | A builder which uses stack to build a stack solution
 stackBuilder :: (MonadIO m, MonadMask m, CabalMonad m) => Builder m
 stackBuilder = MkBuilder $ flip catch handleException $ do
-    (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" ["build"] ""
+    (ec, _, err) <- liftIO $ readProcessWithExitCode "stack" ["build"] ""
     desc <- getPackageDescription
     let pkgString pkg = 
             (unPackageName $ pkgName $ package pkg) 
@@ -46,7 +42,7 @@ stackBuilder = MkBuilder $ flip catch handleException $ do
     buildLog <- do
         logContents <- if logExists
             then liftIO $ readFile logPath
-            else return "I COULDN'T FIND THE LOG FILE\n"
+            else return "" --return "I COULDN'T FIND THE LOG FILE\n"
         return $ err ++ logContents 
     let errorList = parseLog $ buildLog
     case errorList of

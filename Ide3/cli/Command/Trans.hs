@@ -25,7 +25,7 @@ runCommandT f = flip evalStateT True . runReaderT f
 
 -- | Run an action in the CommandT transformer with a set of commands an an
 -- initial quit state
-runCommandT' :: Monad m => CommandT u m a -> Bool -> [Command u m] -> m (a,Bool)
+runCommandT' :: CommandT u m a -> Bool -> [Command u m] -> m (a,Bool)
 runCommandT' f flag = flip runStateT flag . runReaderT f
 
 -- Get the list of commands inside the CommandT transformer
@@ -110,7 +110,7 @@ execCommand input u = do
         Left x -> x
 
 -- | Take a command and create a parser for it and its argument
-parseCommandT :: Monad m => Command u m -> ParsecT String u m (Command u m,String)
+parseCommandT :: Command u m -> ParsecT String u m (Command u m,String)
 parseCommandT cmd = do
     arg <- parser cmd
     return (cmd,arg)

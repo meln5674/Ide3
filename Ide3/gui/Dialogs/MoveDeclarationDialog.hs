@@ -21,7 +21,6 @@ import Control.Monad.Trans
 
 import Data.GI.Base.Attributes
 import GI.Gtk hiding (TreePath, SearchBar)
-import GI.Gdk hiding (Window, windowNew)
 import Data.GI.Gtk.ModelView.CellLayout
 import Data.GI.Gtk.ModelView.ForestStore
 
@@ -30,8 +29,8 @@ import Ide3.Types
 import GuiClass
 import GuiHelpers
 
-renderSolutionTreeElem :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                       => SolutionTreeElem -> [AttrOp o AttrSet]
+renderSolutionTreeElem :: (AttrSetC info o "text" Text) 
+                       => SolutionTreeElem -> [AttrOp o 'AttrSet]
 renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := pack s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := pack path]
@@ -86,7 +85,7 @@ makeModuleTreeWith :: ( MonadIO m
                       , IsCellRenderer cell
                       )
                    => cell
-                   -> ( SolutionTreeElem -> [AttrOp cell AttrSet])
+                   -> ( SolutionTreeElem -> [AttrOp cell 'AttrSet])
                    -> self
                    -> m TreeView
 makeModuleTreeWith renderer renderFunc container
@@ -96,12 +95,12 @@ makeModuleTreeWith renderer renderFunc container
                 ProjectElem _ -> True
                 ModuleElem _ _ -> True
                 _ -> False
-        treeViewColumn <- treeViewColumnNew
-        treeViewModel <- forestStoreNew onlyModules
-        moduleTree <- treeViewNewWithModel treeViewModel
-        _ <- treeViewAppendColumn moduleTree treeViewColumn
-        cellLayoutPackStart treeViewColumn renderer False
-        cellLayoutSetAttributes treeViewColumn renderer treeViewModel renderFunc
+        column <- treeViewColumnNew
+        model <- forestStoreNew onlyModules
+        moduleTree <- treeViewNewWithModel model
+        _ <- treeViewAppendColumn moduleTree column
+        cellLayoutPackStart column renderer False
+        cellLayoutSetAttributes column renderer model renderFunc
         scrollWindow `containerAdd` moduleTree
         return moduleTree
 

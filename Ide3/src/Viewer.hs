@@ -173,29 +173,23 @@ saveSolution maybePath = do
 
 
 instance ViewerMonad m => ViewerStateClass (ViewerStateT m) where
-    setCurrentProject pi = ViewerStateT $ put $ Viewer (Just pi) Nothing Nothing
-    setCurrentModule pi mi = ViewerStateT $ put $ Viewer (Just pi) (Just mi) Nothing
-    setCurrentDecl pi mi di = ViewerStateT $ put $ Viewer (Just pi) (Just mi) (Just di)
+    setCurrentProject pji = ViewerStateT $ put $ Viewer (Just pji) Nothing Nothing
+    setCurrentModule pji mi = ViewerStateT $ put $ Viewer (Just pji) (Just mi) Nothing
+    setCurrentDecl pji mi di = ViewerStateT $ put $ Viewer (Just pji) (Just mi) (Just di)
     getCurrentProject = ViewerStateT $ gets currentProject
     getCurrentModule = ViewerStateT $ do
-        pi <- gets currentProject
-        mi <- gets currentModule
-        case pi of
-            Just pi -> case mi of
-                Just mi -> return $ Just (pi,mi)
-                Nothing -> return Nothing
-            Nothing -> return Nothing
+        maybePji <- gets currentProject
+        maybeMi <- gets currentModule
+        case (maybePji, maybeMi) of
+            (Just pji, Just mi) -> return $ Just (pji,mi)
+            _ -> return Nothing
     getCurrentDeclaration = ViewerStateT $ do
-        pi <- gets currentProject
-        mi <- gets currentModule
-        di <- gets currentDecl
-        case pi of
-            Just pi -> case mi of
-                Just mi -> case di of
-                    Just di -> return $ Just (pi,mi,di)
-                    Nothing -> return Nothing
-                Nothing -> return Nothing
-            Nothing -> return Nothing
+        maybePji <- gets currentProject
+        maybeMi <- gets currentModule
+        maybeDi <- gets currentDecl
+        case (maybePji, maybeMi, maybeDi) of
+            (Just pji, Just mi, Just di) -> return $ Just (pji,mi,di)
+            _ -> return Nothing
     setNoCurrentDecl = ViewerStateT $ put $ Viewer Nothing Nothing Nothing
     
     

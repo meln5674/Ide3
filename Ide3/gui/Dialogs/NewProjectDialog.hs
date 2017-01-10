@@ -45,11 +45,7 @@ module Dialogs.NewProjectDialog
     , TestSuiteType(..)
     ) where
 
-import Data.Functor.Identity
-
 import Data.Text (Text)
-import qualified Data.Text as T
-
 
 import Control.Concurrent.MVar
 
@@ -57,8 +53,6 @@ import Control.Monad
 import Control.Monad.Trans
 
 import GI.Gtk hiding (main)
-import qualified GI.Gtk as Gtk
-import GI.Gdk hiding (Window)
 import Data.GI.Gtk.ModelView.CellLayout
 import Data.GI.Gtk.ModelView.SeqStore
 import Data.GI.Base.Attributes
@@ -360,12 +354,12 @@ testTypeName :: TestSuiteType -> Text
 testTypeName ExitCode = exitcodeViewChildName
 testTypeName Detailed = detailedViewChildName
 
-renderProjectType :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                  => ProjectType -> [AttrOp o AttrSet]
+renderProjectType :: (AttrSetC info o "text" Text) 
+                  => ProjectType -> [AttrOp o 'AttrSet]
 renderProjectType type_ = [#text := projectTypeName type_]
 
-renderTestType :: (AttrSetC info o "text" Text, IsCellRendererText o) 
-                  => TestSuiteType -> [AttrOp o AttrSet]
+renderTestType :: (AttrSetC info o "text" Text) 
+                  => TestSuiteType -> [AttrOp o 'AttrSet]
 renderTestType type_ = [#text := testTypeName type_]
 
 
@@ -398,7 +392,7 @@ make f = makeWindowWith
                                 projectTypeRenderer 
                                 projectTypeModel 
                                 renderProjectType
-        mapM (seqStoreAppend projectTypeModel) 
+        mapM_ (seqStoreAppend projectTypeModel) 
             [ Executable
             , Library
             , TestSuite
@@ -410,19 +404,19 @@ make f = makeWindowWith
             cancelButton <- makeButton "Cancel" hbox
             return (confirmButton, cancelButton)
         dialogMode <- liftIO $ newMVar CreateProject
-        projectTypeDropdown `GI.Gtk.on` #changed $ do
+        void $ projectTypeDropdown `GI.Gtk.on` #changed $ do
             comboBoxGetActive projectTypeDropdown
             >>= seqStoreGetValue projectTypeModel
             >>= stackSetVisibleChildName 
                 (projectTypeStack projectTypeView)
                 . projectTypeName
-        (testTypeBox $ testSuiteView projectTypeView) `GI.Gtk.on` #changed $ do
+        void $ (testTypeBox $ testSuiteView projectTypeView) `GI.Gtk.on` #changed $ do
             comboBoxGetActive (testTypeBox $ testSuiteView projectTypeView) 
             >>= seqStoreGetValue (testTypeModel $ testSuiteView projectTypeView)
             >>= stackSetVisibleChildName
                 (testTypeStack $ testTypeView $ testSuiteView projectTypeView)
                 . testTypeName
-        window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
+        void $ window `GI.Gtk.on` #deleteEvent $ \_ -> widgetHideOnDelete window
         f NewProjectDialog
             { window
             , dialogMode
@@ -536,12 +530,12 @@ makeExecutableViewWith self f = do
         }
 
 makeLibraryViewWith :: ( MonadIO m
-                          , IsContainer self
-                          )
-                       => self
-                       -> ( LibraryView -> m b )
-                       -> m b
-makeLibraryViewWith self f = f LibraryView
+                       , IsContainer self
+                       )
+                    => self
+                    -> ( LibraryView -> m b )
+                    -> m b
+makeLibraryViewWith _ f = f LibraryView
     
 exitcodeViewChildName :: Text
 exitcodeViewChildName = "Exit Code"
@@ -566,7 +560,7 @@ makeTestSuiteViewWith self f = do
                             testTypeRenderer 
                             testTypeModel 
                             renderTestType
-    mapM (seqStoreAppend testTypeModel)
+    mapM_ (seqStoreAppend testTypeModel)
         [ ExitCode
         , Detailed
         ]

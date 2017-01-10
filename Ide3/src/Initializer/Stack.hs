@@ -4,17 +4,8 @@ import Initializer
 
 import System.Exit
 import System.Process
-import System.Directory
-import System.FilePath
 
-import Data.List
-
-import Control.Monad
 import Control.Monad.Trans
-import Control.Monad.Trans.Except
-
-import Ide3.Types
-import Ide3.NewMonad
 
 import Args
 
@@ -35,10 +26,6 @@ instance Args StackInitializerArgs where
 
 -- | An Initializer that uses the stack new command to create a new solution
 stackInitializer :: ( MonadIO m
-                    {-, SolutionClass m
-                    , ProjectModuleClass m
-                    , ProjectExternModuleClass m
-                    , PersistenceClass m-}
                     ) 
                  => Initializer StackInitializerArgs m
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do

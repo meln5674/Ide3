@@ -31,13 +31,10 @@ import Prelude hiding (length)
 
 import Data.Text
 
-import Control.Monad
 import Control.Monad.Trans
 
 import GI.Gtk
-import GI.Gdk hiding (Window)
 
-import GuiEnv
 import GuiHelpers
 
 -- | Class of dialogs which are based on the generic one
@@ -77,7 +74,7 @@ makeCancelButton hbox = liftIO $ do
     return cancelButton
 
 -- | Create the dialog and perform an action with it
-make :: (MonadIO m, NewDialog dialog) 
+make :: ( MonadIO m ) 
      => (GenericNewDialog -> dialog) -- ^ Function to wrap the generic dialog in 
                                      -- the new type
      -> Text                         -- ^ Title Text

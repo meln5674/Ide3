@@ -12,8 +12,6 @@ module Dialogs.SearchBar
     , setVisible
     ) where
 
-import Data.Text
-
 import Control.Monad.Trans
 
 import GI.Gtk hiding (SearchBar)
