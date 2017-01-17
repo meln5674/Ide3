@@ -28,6 +28,7 @@ library
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
                      , Ide3.Refactor
+                     , Ide3.NewerMonad
                      , Ide3.NewMonad
                      , Ide3.NewMonad.Utils
                      , Ide3.NewMonad.Instances.State

@@ -5,6 +5,8 @@ ghc-options:
 packages:
 - '.'
 - ../Ide3-base
+- ../Ide3-common
+- ../Ide3-stack
 - ../../../HsInterface
 extra-deps:
 - gi-gtk-hs-0.3.4.0
