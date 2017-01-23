@@ -96,6 +96,9 @@ instance MonadUnsplice (ReaderT r) where
 class MonadSplice2 t where
     splice2 :: (Monad m, MonadTrans u) => t m a -> t (u m) a
 
+instance MonadSplice2 (ExceptT e) where
+    splice2 (ExceptT f) = ExceptT $ lift f
+
 instance MonadSplice2 (StateT s) where
     splice2 (StateT f) = StateT $ \s -> lift $ f s
 

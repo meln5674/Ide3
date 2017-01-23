@@ -55,6 +55,7 @@ executable Ide3-GUI
                      --, GuiClass.Dialogs
                      , GuiClass.GuiEnv
                      --, GuiClass.GuiEnv.Stack
+                     , GuiClass.GuiT
                      , GuiClass.Types
                      , ViewerMonad2
                      , GuiHelpers

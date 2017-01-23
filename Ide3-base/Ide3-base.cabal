@@ -28,9 +28,10 @@ library
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
                      , Ide3.Refactor
-                     , Ide3.NewerMonad
                      , Ide3.NewMonad
                      , Ide3.NewMonad.Utils
+                     , Ide3.NewMonad.Instances.Lift
+                     , Ide3.NewMonad.Instances.Lift.TH
                      , Ide3.NewMonad.Instances.State
                      , Ide3.NewMonad.Instances.State.SolutionClass
                      , Ide3.NewMonad.Instances.State.ProjectModuleClass
@@ -93,6 +94,8 @@ library
                      , cereal
                      , directory
                      , exceptions
+                     , parsec
+                     , template-haskell
   default-language:    Haskell2010
 
 test-suite Ide3-test
