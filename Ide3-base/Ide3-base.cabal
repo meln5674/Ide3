@@ -44,6 +44,7 @@ library
                      , Ide3.NewMonad.Instances.State.ModuleFileClass
                      , Ide3.NewMonad.Instances.State.Compose
                      , Ide3.NewMonad.Instances.State.Class
+                     , Ide3.NewMonad.Instances.State.Class.Internal
                      , Ide3.NewMonad.Instances.State.Class.Instances.Strict
                      , Ide3.NewMonad.Instances.State.Class.Instances.Lazy
                      , Ide3.Import

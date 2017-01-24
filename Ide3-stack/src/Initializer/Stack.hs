@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 module Initializer.Stack where
 
 import Initializer
@@ -6,6 +7,8 @@ import System.Exit
 import System.Process
 
 import Control.Monad.Trans
+
+import Ide3.NewMonad
 
 import Args
 
@@ -26,6 +29,7 @@ instance Args StackInitializerArgs where
 
 -- | An Initializer that uses the stack new command to create a new solution
 stackInitializer :: ( MonadIO m
+                    , PersistToken m ~ FilePath
                     ) 
                  => Initializer StackInitializerArgs m
 stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
@@ -47,6 +51,6 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
             digestSolutionM solutionInfo projects
             -}
             --load
-            return $ InitializerSucceeded out err
+            return $ InitializerSucceeded out err path
             
         ExitFailure _ ->  return $ InitializerFailed out err

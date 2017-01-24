@@ -14,26 +14,26 @@ on specific parts of a haskell project.
 -}
 
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 module Ide3.NewMonad where
 
 import Ide3.Types
 
 -- | Class of monads which can create, save, and load haskell solutions
--- The load and finalize methods in this class take no arguments such as file
--- paths, and this is intentional. Monads in this class are expected to be able
--- to store the information for its specific type of loading and saving as a
--- context.
 class Monad m => PersistenceClass m where
-    -- | Load a project.
-    load :: SolutionResult u m ()
-    -- | Create a new project
-    new :: SolutionInfo 
-        -> SolutionResult u m ()
+    -- | Polymorphic token representing instructions on how to save/load, etc
+    type PersistToken m
+    -- | Load a solution
+    load :: PersistToken m -> SolutionResult u m ()
+    -- | Create a new solution
+    new :: SolutionInfo -> SolutionResult u m ()
     -- | Perform what ever actions are necessary to be able to load the current
-    --  project at another point in time, e.g. saving to disc, writing to a
+    --  solution at another point in time, e.g. saving to disc, writing to a
     --  network socket, etc.
     --  Instances are expected to perform a noop if this would do nothing
-    finalize :: SolutionResult u m ()
+    -- If nothing is passed, instances are expected to use the most recently
+    -- used token
+    finalize :: Maybe (PersistToken m) -> SolutionResult u m ()
 
 -- | Class of monads which can add, remove, edit, and retrieve projects.
 class Monad m => SolutionClass m where

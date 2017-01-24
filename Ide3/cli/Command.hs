@@ -4,6 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-|
 Module      : Command
 Description : Commands for the demo project
@@ -86,6 +87,7 @@ type ViewerAction m =
     , ModuleDeclarationClass m
     , ModulePragmaClass m
     , ExternModuleExportClass m
+    , ViewerPersistToken m ~ PersistToken m
     )
 type ViewerIOAction m = (ViewerAction m, MonadIO m)
 
@@ -138,14 +140,16 @@ doCd path = printOnError $ do
     return ""
 
 -- | Action for the new command
-doNew :: (ViewerAction m, Args a) => Initializer a m -> String -> ViewerStateT m String
+doNew :: (ViewerAction m, PersistenceClass m, Args a) => Initializer a m -> String -> ViewerStateT m String
 doNew initializer arg = printOnError $ do
     case runInitializerWithInput initializer =<< (parseArityN arg) of
         Left msg -> return msg
         Right initializerAction -> do
             r <- ExceptT $ lift $ runExceptT $ initializerAction
             case r of
-                InitializerSucceeded out err -> return $ out ++ err
+                InitializerSucceeded out err tok -> do
+                    load tok
+                    return $ out ++ err
                 InitializerFailed out err -> return $ out ++ err
 
 -- | Action for the open command
@@ -584,6 +588,7 @@ cdCmd = Command
 newCmd :: ( ViewerIOAction m
           , Args a
 --          , Show u
+          , PersistenceClass m
           ) 
        => Initializer a m -> Command u' (ViewerStateT m)
 newCmd initializer = Command

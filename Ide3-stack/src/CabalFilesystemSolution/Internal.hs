@@ -4,6 +4,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies #-}
 module CabalFilesystemSolution.Internal where
 
 import Data.List
@@ -47,10 +48,8 @@ import qualified DirtyModuleClass
 
 -- | State of the mechanism
 data FileSystemSolution
-    -- | A file containing a dump of a Solution is to be opened
-    = ToOpen FilePath
     -- | No solution opened
-    | Unopened
+    = Unopened
     -- | A digested path or dump file is opened if Just, a new solution if Nothing
     | Opened (Maybe CabalSolutionInfo)
 
@@ -609,35 +608,42 @@ instance ( MonadIO m
          , SolutionMonad m
          , ModuleFileClass m
          ) => PersistenceClass (CabalSolution m) where
+    type PersistToken (CabalSolution m) = FilePath
     -- | Set up an empty solution
     new i = do
-        lift $ putFsp $ Opened (Nothing)
+        lift $ putFsp $ Opened Nothing
         bounce $ editSolutionInfo $ const i
         pjis <- bounce $ getProjects
         forM_ pjis $ bounce . removeProject
     -- | Open a solution by reading the .cabal file and using it to find all of its modules
-    load = do
+    load path = do
+        pjis <- bounce $ getProjects
+        forM_ pjis $ bounce . removeProject
+        absPath <- wrapIOError $ makeAbsolute path
+        (cabalDirectory,cabalConfigPath) <- getCabalDirectoryAndConfigPath absPath
+        wrapIOError $ setCurrentDirectory cabalDirectory
+        cabalConfig <- wrapReadFile cabalConfigPath
+                            >>= ExceptT . return . parseCabalConfiguration
+        lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig Map.empty Set.empty False
+        ps <- getCabalProjects
+        liftIO $ print ps
+        forM_ ps $ getCabalProject >=> loadProject . getProjectInfo
+
+    -- | Write out the .cabal file and each of its modules
+    finalize Nothing = writeModulesAndConfig
+    finalize (Just newPath) = do
         fsp <- lift getFsp
         case fsp of
-            ToOpen path -> do
-                pjis <- bounce $ getProjects
-                forM_ pjis $ bounce . removeProject
-                absPath <- wrapIOError $ makeAbsolute path
-                (cabalDirectory,cabalConfigPath) <- getCabalDirectoryAndConfigPath absPath
-                wrapIOError $ setCurrentDirectory cabalDirectory
-                cabalConfig <- wrapReadFile cabalConfigPath
-                                    >>= ExceptT . return . parseCabalConfiguration
-                lift $ putFsp $ Opened $ Just $ CabalSolutionInfo cabalDirectory cabalConfig Map.empty Set.empty False
-                ps <- getCabalProjects
-                liftIO $ print ps
-                forM_ ps $ getCabalProject >=> loadProject . getProjectInfo
-            Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested solution" ""
+            Unopened -> throwE $ InvalidOperation "No solution open" ""
             Opened (Just info) -> do
-                lift $ putFsp $ ToOpen $ solutionPath info
-                load
-    -- | Write out the .cabal file and each of its modules
-    finalize = writeModulesAndConfig
+                pjis <- bounce getProjects
+                mis <- forM pjis $ \pji -> do
+                    mis <- getModules pji
+                    return (pji, mis)
+                let mis' = concatMap (\(pji,allMis) -> map (\mi -> (pji,mi)) allMis) mis
+                    info' = info{ solutionPath = newPath, dirtyModules = Set.fromList mis' }
+                lift $ putFsp $ Opened $ Just info'
+                writeModulesAndConfig
 
 
 instance (MonadIO m, SolutionClass m) => SolutionClass (CabalSolution m) where
@@ -811,6 +817,9 @@ instance ( MonadIO m
          , SolutionMonad m
          , ModuleFileClass m
          ) => ViewerMonad (CabalSolution m) where
+    type ViewerPersistToken (CabalSolution m) = FilePath
+    preparePathToken = return
+{-
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
@@ -818,18 +827,21 @@ instance ( MonadIO m
     -- | Set the path to Show to
     setTargetPath path = withOpenedSolution $ \info -> do
         lift $ putFsp $ Opened $ Just info{ solutionPath = path }
+-}
     -- | Check if either there is a new solution, digested path, or Read'd file
     hasOpenedSolution = do
         fsp <- getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False
+{-
     createNewFile path = do
         lift $ putFsp $ Opened Nothing
         setTargetPath path
     createNewDirectory path = do
         lift $ putFsp $ Opened Nothing
         setTargetPath path
+-}
     prepareBuild = writeModulesAndConfig
 
 

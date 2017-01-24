@@ -17,6 +17,7 @@ of existing standard haskell projects and then viewing/searching them.
 
 Attempting to save/edit/create using this persistence mechanism will result in an error
 -}
+{-# LANGUAGE TypeFamilies #-}
 module ReadOnlyFilesystemSolution
     ( ReadOnlyFilesystemSolutionT( ReadOnlyFilesystemSolutionT )
     , FileSystemSolution (Unopened)
@@ -38,10 +39,8 @@ import ViewerMonad
 
 -- | State of the mechanism
 data FileSystemSolution
-    -- | There is a path to be opened
-    = ToOpen FilePath
     -- | No project opened
-    | Unopened
+    = Unopened
     -- | A project at the path is opened
     | Opened SolutionInfo FilePath
     deriving Show
@@ -59,6 +58,8 @@ newtype ReadOnlyFilesystemSolutionT m a
     , MonadTrans
     , MonadIO
     )
+
+type PersistToken = FilePath
 
 --type ReadOnlyFilesystemSolutionT' m = StatefulSolution (ReadOnlyFilesystemSolutionT m)
 
@@ -84,54 +85,49 @@ instance SolutionStateM m => SolutionStateM (ReadOnlyFilesystemSolutionT m) wher
     putSolution = lift . putSolution
 -}
 
-instance MonadIO m => StatefulPersistenceClass (StateT FileSystemSolution m) where
+instance MonadIO m => StatefulPersistenceClass (ReadOnlyFilesystemSolutionT m) where
+    type StatefulPersistToken (ReadOnlyFilesystemSolutionT m) = PersistToken
     -- | Not supported
     newState _ = throwE $ Unsupported "Cannot create a new read-only project"
     -- | Digest a project after loading the interface file
-    loadState = do
-        fsp <- lift get
-        case fsp of
-            ToOpen solutionPath -> do
-                let parts = splitPath solutionPath
-                    projectName = last parts
-                    solutionName = last parts
-                    project = Params
-                                (ProjectInfo projectName)
-                                solutionPath
-                                (Just $ solutionPath </> "ifaces")
-                p <- digestSolution (SolutionInfo solutionName) [project]
-                lift $ put $ Opened (SolutionInfo solutionName) solutionPath
-                return p
-            Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened info solutionPath -> do
-                let (SolutionInfo solutionName) = info
-                    projectName = solutionName
-                    project = Params
-                                ( ProjectInfo projectName )
-                                  solutionPath
-                                ( Just $ solutionPath </> "ifaces" )
-                digestSolution info [project]
+    loadState solutionPath = do
+        let parts = splitPath solutionPath
+            projectName = last parts
+            solutionName = last parts
+            project = Params
+                        (ProjectInfo projectName)
+                        solutionPath
+                        (Just $ solutionPath </> "ifaces")
+        p <- digestSolution (SolutionInfo solutionName) [project]
+        lift $ putFsp $ Opened (SolutionInfo solutionName) solutionPath
+        return p
     -- | Not supported
-    finalizeState _ = throwE $ Unsupported "Cannot save a read-only project"
+    finalizeState _ _ = throwE $ Unsupported "Cannot save a read-only project"
 
 
-instance (Monad m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
+instance (MonadIO m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
+    type ViewerPersistToken (ReadOnlyFilesystemSolutionT m) = PersistToken
+    preparePathToken = return
+{-
     -- | Not supported
     setFileToOpen _ = throwE $ Unsupported "Cannot open a file in a readonly project"
     -- | Set the path to be digested
     setDirectoryToOpen x = lift $ putFsp $ ToOpen x
     -- | Unsupported
     setTargetPath _ = throwE $ Unsupported "Cannot set a target path for a readonly project"
+-}
     -- | Check if a project has been digested
     hasOpenedSolution = do
         fsp <- getFsp
         case fsp of
             Opened _ _ -> return True
             _ -> return False
+{-
     -- | Not supported
     createNewFile _ = throwE $ Unsupported "Cannot create a new readonly project"
     -- | Not supported
     createNewDirectory _ = throwE $ Unsupported "Cannot create a new readonly project"
+-}
     -- | Do nothing, as a read only project cannot make changes, so the project
     -- must allready be ready to build
     prepareBuild = return ()

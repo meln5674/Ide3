@@ -18,7 +18,7 @@ The monad in question must be wrapped in a StatefulWrapper to receive this
 instance, however, as otherwise this would require UndecidableInstances.
 -}
 
-
+{-# LANGUAGE TypeFamilies #-}
 module Ide3.NewMonad.Instances.State.Compose where
 
 import Control.Monad
@@ -32,7 +32,8 @@ instance ( StatefulSolutionClass m
          , StatefulPersistenceClass m
          )
       => PersistenceClass (StatefulWrapper m) where
-    load = loadState >>= putSolution
+    type PersistToken (StatefulWrapper m) = StatefulPersistToken m
+    load tok = loadState tok >>= putSolution
     new = newState >=> putSolution
-    finalize = getSolution >>= finalizeState
+    finalize tok = getSolution >>= finalizeState tok
 

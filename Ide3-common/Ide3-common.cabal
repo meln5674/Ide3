@@ -32,6 +32,7 @@ library
                      , ErrorParser
                      , ErrorParser.Types
                      , DirtyModuleClass
+    other-modules:     Viewer.Internal
     build-depends:     base
                      , temporary
                      , directory

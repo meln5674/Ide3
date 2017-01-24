@@ -172,7 +172,7 @@ getSolutionCreatorArg'
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
                     wrapIOError $ setCurrentDirectory $ projectRoot
-                    bounce $ setDirectoryToOpen $ projectRoot </> projectName
+                    --bounce $ setDirectoryToOpen $ projectRoot </> projectName
                     return $ StackInitializerArgs projectName templateName
             
 

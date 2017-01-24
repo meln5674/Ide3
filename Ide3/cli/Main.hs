@@ -5,6 +5,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 {-|
 Module      : Main
 Description : Demo solution main module
@@ -257,6 +258,7 @@ useStackRunner :: ( MonadIO (t m)
 useStackRunner s = s{appRunner = stackRunner}
 
 useStackInitializer :: ( MonadIO (t m)
+                       , PersistToken (t m) ~ FilePath
                        ) 
                     => AppSetup a pa t fsp m -> AppSetup StackInitializerArgs pa t fsp m
 useStackInitializer s = s{appInitializer = stackInitializer}

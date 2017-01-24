@@ -103,6 +103,7 @@ type GuiCommand t m =
     , SolutionInitializerClass (t m)
     , ProjectInitializerClass (t m)
     , EnvironmentMonad m
+    , PersistToken m ~ ViewerPersistToken m
     )
 
 -- | Fail the current action
@@ -149,7 +150,7 @@ doNew maybeSolutionRoot projectName templateName = do
         Nothing -> doError $ InvalidOperation "Please choose a directory" ""
         Just projectRoot -> do
             lift $ wrapIOError $ setCurrentDirectory projectRoot
-            lift $ setDirectoryToOpen $ projectRoot </> projectName
+            --lift $ setDirectoryToOpen $ projectRoot </> projectName
             initializer <- lift $ lift $ getInitializer
             let args = projectName : maybe [] (:[]) templateName
             r <- case runInitializerWithInput initializer args of
@@ -158,8 +159,9 @@ doNew maybeSolutionRoot projectName templateName = do
                     InternalError "Failed to parse initialization arguments" 
                                   err 
             case r of
-                InitializerSucceeded{} -> do
-                    lift $ load
+                InitializerSucceeded _ _ tok -> do
+                    --tok <- lift $ lift $ prepareDirectoryPathToken $ projectRoot </> projectName
+                    lift $ load tok
                     populateTree
                     lift $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> 
@@ -411,8 +413,8 @@ doAddSolution = do
     initializer <- lift $ lift $ getInitializer
     r <- lift $ runInitializer initializer args
     case r of
-        InitializerSucceeded{} -> do
-            lift $ load
+        InitializerSucceeded _ _ tok -> do
+            lift $ load tok
             populateTree
         InitializerFailed out err -> do
             doError $ InvalidOperation (out ++ err) ""
@@ -433,7 +435,7 @@ doAddProject = do
             splice finalizeProjectCreator
             lift $ addProject pji
             splice $ insertSolutionTreeNode SolutionPath (ProjectElem pji)
-            lift finalize
+            lift $ finalize Nothing
         ProjectInitializerFailed out err -> doError $ InvalidOperation (out ++ err) ""
 
 doEditProject :: ( GuiCommand t m
@@ -451,7 +453,7 @@ doEditProject pji = do
             splice finalizeProjectCreator
             lift $ editProjectInfo pji (const pji')
             splice $ updateSolutionTreeNode (ProjectPath pji) (const $ ProjectElem pji')
-            lift finalize
+            lift $ finalize Nothing
         ProjectEditorFailed out err -> doError $ InvalidOperation (out ++ err) ""
 
 -- | Add a module to a project

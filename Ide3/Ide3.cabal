@@ -32,7 +32,7 @@ executable Ide3-GUI
                      , BetterTextView
                      , DeclarationPath
                      , GuiViewer
-                     , GuiViewer.Class
+                     , GuiViewer.Internal
                      , GuiViewer.Class
                      , GuiCommand
                      , GuiCommandGeneric

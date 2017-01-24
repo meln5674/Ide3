@@ -18,6 +18,7 @@ as ReadOnlyFilesystemSolution can, but also can read and save projects from a
 single file using the Read/Show instances for the Solution type.
 
 -}
+{-# LANGUAGE TypeFamilies #-}
 module SimpleFilesystemSolution
     ( SimpleFilesystemSolutionT (SimpleFilesystemSolutionT)
     , FileSystemSolution (Unopened)
@@ -55,14 +56,12 @@ import PseudoState
 
 -- | State of the mechanism
 data FileSystemSolution
-    -- | A file containing a dump of a Solution is to be opened
-    = ToOpen FilePath
-    -- | A path is to be digested
-    | ToDigest FilePath
-    -- | No project opened
-    | Unopened
+    -- | No solution opened
+    = Unopened
     -- | A digested path or dump file is opened if Just, a new project if Nothing
-    | Opened (Maybe FilePath)
+    | Opened (Maybe SimpleFilePath)
+
+data SimpleFilePath = DumpFilePath FilePath | SolutionDirPath FilePath
 
 {-
 -- | State transformer for the mechanism
@@ -139,50 +138,52 @@ instance SolutionStateM m => SolutionStateM (SimpleFilesystemSolutionT m) where
 
 --instance MonadIO m => SolutionShellM (SimpleFilesystemSolutionT' m) where
 instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) where
+    type StatefulPersistToken (SimpleFilesystemSolutionT m) = SimpleFilePath
     -- | Create a new project
     newState i = do
         lift $ putFsp $ Opened Nothing
         return $ Solution.new i
     -- | Either digest a directory or open a file and use Read on the contents
-    loadState = do
-        fsp <- lift getFsp
-        case fsp of
-            ToDigest solutionPath -> do
-                let parts = splitPath solutionPath
-                    projectName = last parts
-                    solutionName = last parts
-                    project = Params
-                              ( ProjectInfo projectName )
-                                solutionPath
-                              ( Just $ solutionPath </> "ifaces" )
-                p <- digestSolution (SolutionInfo solutionName) [project]
-                lift $ putFsp $ Opened $ Just solutionPath
-                return p
-            ToOpen path -> do
-                result <- liftIO $ tryIOError $ readFile path
-                case result of
-                    Right contents -> case readMaybe contents of
-                        Just p -> do
-                            lift $ putFsp $ Opened $ Just path
-                            return p
-                        Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
-                    Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
-            Unopened -> throwE $ InvalidOperation "No path specified for opening" ""
-            Opened Nothing -> throwE $ InvalidOperation "Cannot re-open a digested project" ""
-            Opened (Just path) -> do
-                lift $ putFsp $ ToOpen path
-                loadState
+    loadState pathTok = case pathTok of
+        DumpFilePath path -> do
+            result <- liftIO $ tryIOError $ readFile path
+            case result of
+                Right contents -> case readMaybe contents of
+                    Just p -> do
+                        lift $ putFsp $ Opened $ Just pathTok
+                        return p
+                    Nothing -> throwE $ InvalidOperation "File did not contain a valid project" ""
+                Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
+        SolutionDirPath solutionPath -> do
+            let parts = splitPath solutionPath
+                projectName = last parts
+                solutionName = last parts
+                project = Params
+                          ( ProjectInfo projectName )
+                            solutionPath
+                          ( Just $ solutionPath </> "ifaces" )
+            p <- digestSolution (SolutionInfo solutionName) [project]
+            lift $ putFsp $ Opened $ Just pathTok
+            return p
     -- | Use Show to turn the current project into a string and write it to the
     -- correct file
-    finalizeState p = do
+    finalizeState Nothing p = do
         fsp <- lift getFsp
         case fsp of
-            Opened (Just path) -> do
+            Opened (Just path) -> finalizeState (Just path) p
+            _ -> throwE $ InvalidOperation "No open solution" ""
+    finalizeState (Just (DumpFilePath path)) p = do
+        fsp <- lift getFsp
+        case fsp of
+            Opened _ -> do
                 result <- liftIO $ tryIOError $ writeFile path $ show p
+                lift $ putFsp $ Opened $ Just $ DumpFilePath path
                 case result of
                     Right _ -> return ()
                     Left err -> throwE $ InvalidOperation ("Error on writing file: " ++ show err) ""
-            _ -> throwE $ InvalidOperation "Cannot finalize a project without a path to write to" ""
+            _ -> throwE $ InvalidOperation "No open solution" ""
+    finalizeState (Just (SolutionDirPath path)) p = 
+        throwE $ InvalidOperation "Directory solutions are read-only" ""
 
 -- | Get the for a module name
 moduleNamePath :: String -> FilePath
@@ -282,6 +283,13 @@ instance ( MonadIO m
          , ModulePragmaClass m
          ) 
          => ViewerMonad (SimpleFilesystemSolutionT m) where
+    type ViewerPersistToken (SimpleFilesystemSolutionT m) = SimpleFilePath
+    preparePathToken path = do
+        isDir <- liftIO $ doesDirectoryExist path
+        if isDir
+            then return $ SolutionDirPath path
+            else return $ DumpFilePath path
+{-
     -- | Set the Read file to be opened
     setFileToOpen path = lift $ putFsp $ ToOpen path
     -- | Set the path to be digested
@@ -294,12 +302,14 @@ instance ( MonadIO m
             Opened Nothing -> do
                 lift $ putFsp $ Opened $ Just path
             _ -> throwE $ InvalidOperation "Cannot set target path without open project" ""
+-}
     -- | Check if either there is a new project, digested path, or Read'd file
     hasOpenedSolution = do
         fsp <- getFsp
         case fsp of
             Opened _ -> return True
             _ -> return False
+{-
     -- | Create a new file project
     createNewFile path = do
         let solutionName = takeBaseName path
@@ -308,6 +318,7 @@ instance ( MonadIO m
         setTargetPath path
     -- | Unsupported
     createNewDirectory _ = throwE $ Unsupported "Cannot create a directory project using simple"
+-}    
     -- | Get a list of files and directories needed and then create them
     prepareBuild = bounce $ getProjects >>= mapM_ (makeFileListing >=> executeFileListing)
 
