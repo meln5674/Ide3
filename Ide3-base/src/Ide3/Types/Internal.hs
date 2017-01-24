@@ -230,6 +230,7 @@ data Declaration
     | BindDeclaration DeclarationInfo BindDeclaration
     -- |A modifier declaration provides some property of an existing declaration
     | ModifierDeclaration DeclarationInfo ModifierDeclaration
+    | SpliceDeclaration DeclarationInfo SpliceDeclaration
     | UnparseableDeclaration DeclarationInfo
     deriving (Show, Read, Eq)
 
@@ -271,6 +272,10 @@ data ModifierDeclaration
     | DerivingDeclaration Symbol [Symbol]
     deriving (Show, Read, Eq)
 
+data SpliceDeclaration
+    = QuasiQuoteDeclaration String String
+  deriving (Show, Read, Eq)
+  
 -- |The type of fixity of an operator or infix function
 data FixityType = FixityType
     deriving (Show, Read, Eq)

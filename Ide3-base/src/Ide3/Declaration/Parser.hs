@@ -159,6 +159,13 @@ parseDerivingDecl (DerivDecl _ _ r)
     (cls:ts) = findName r
 parseDerivingDecl _ = Nothing
 
+parseQuasiQuote :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseQuasiQuote (SpliceDecl _ (QuasiQuote _ name args)) = Just $ SpliceDeclaration di d
+  where
+    di = DeclarationInfo $ Symbol $ "[|" ++ name ++ "|" ++ args ++ "|]"
+    d = QuasiQuoteDeclaration name args
+parseQuasiQuote _ = Nothing
+
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
 --maybeFirst f xs = (sequence $ map f xs) >>= uncons >>= return . fst
 
@@ -179,6 +186,7 @@ tryConvert x
         , parseInstanceDecl
         , parseGADTDecl
         , parseGADTNewtypeDecl
+        , parseQuasiQuote
         ]
   
 -- | Parse a string containing 0 or more delcarations
