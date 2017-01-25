@@ -23,11 +23,13 @@ module Dialogs.MainWindow
     -- * Functions
     , make
 
+    , SolutionPathCoords (..)
     , getSolutionPathClicked
-    
-    , focusDeclView
+    , FocusTarget (..)
+    , setFocus
     , setSearchBarVisible
     , setSearchMode
+    , scrollEditorCursorIntoView
     
     , addAccelGroup
 
@@ -51,6 +53,8 @@ module Dialogs.MainWindow
     , backClickedEvent
     , forwardClickedEvent
     , declarationEditedEvent
+    
+    , solutionTreeQueryTooltipEvent
     
     -- * Accelerators
     , addNewClickedEventAccelerator
@@ -123,18 +127,21 @@ renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := pack s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := pack path]
 renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [#text := ("???" :: Text)]
-renderSolutionTreeElem (DeclElem s) = [#text := pack (getSymbol $ getDeclarationInfo s)]
+renderSolutionTreeElem (DeclElem (SymbolDeclarationInfo sym))
+    = [#text := pack (getSymbol sym)]
+renderSolutionTreeElem (DeclElem (RawDeclarationInfo s))
+    = [#text := pack s]
 renderSolutionTreeElem ImportsElem = [#text := ("Imports" :: Text)]
 renderSolutionTreeElem ExportsElem = [#text := ("Exports" :: Text)]
 renderSolutionTreeElem PragmasElem = [#text := ("Pragmas" :: Text)]
 renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [#text := pack importBody] 
 renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := pack exportBody] 
 renderSolutionTreeElem (PragmaElem p) = [#text := pack p]
-renderSolutionTreeElem (UnparsableModuleElem (ModuleInfo (Symbol s)))
+renderSolutionTreeElem (UnparsableModuleElem (ModuleInfo (Symbol s)) _ _)
     = [#text := (pack s <> " (UNPARSEABLE)" :: Text)]
-renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)))
+renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)) _ _)
     = [#text := (pack path <> " (UNPARSEABLE)" :: Text)]
-renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing))
+renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing) _ _)
     = [#text := ("??? (UNPARSEABLE)" :: Text)]
 renderSolutionTreeElem SolutionElem = [#text := ("THIS SHOULDN'T BE SEEN" :: Text)]
 
@@ -174,7 +181,9 @@ renderDeclarationCell err = [#text := text]
         Just (PragmaString p) -> "[PRAGMA] " ++ p
         Just (ImportString i) -> body i
         Just (ExportString e) -> "[EXPORT] " ++ body e
-        Just (DeclarationString di) -> getSymbol $ getDeclarationInfo $ item di
+        Just (DeclarationString di) -> case item di of
+            SymbolDeclarationInfo sym -> getSymbol sym
+            RawDeclarationInfo text -> text
         Nothing -> ""
 
 -- | Renderer for the error list row column
@@ -208,10 +217,10 @@ make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
     makeOverlayWith window $ \overlay -> do
         searchBarBox <- vBoxNew False 0
-        overlay `overlayAddOverlay` searchBarBox
+        --overlay `overlayAddOverlay` searchBarBox
+        --overlay `containerAdd` searchBarBox
         overlaySetOverlayPassThrough overlay searchBarBox True
         searchBar <- SearchBar.make searchBarBox
-        --let searchBar = undefined
         SearchBar.setVisible searchBar False
         makeVBoxWith overlay $ \container -> do
             menuBar <- makeMainMenuBar container
@@ -441,11 +450,13 @@ makeProjView :: ( MonadIO m
 makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
     treeViewColumn <- treeViewColumnNew
     projView <- withGuiComponents $ flip withSolutionTree treeViewNewWithModel
-    _ <- treeViewAppendColumn projView treeViewColumn
+    index <- treeViewAppendColumn projView treeViewColumn
     cellLayoutPackStart treeViewColumn renderer False
     withGuiComponents $ flip withSolutionTree $ \treeStore -> 
         cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc
     scrollWindow `containerAdd` projView
+    --projView `treeViewSetTooltipColumn` index
+    set projView [#hasTooltip := True]
     return projView
 
 makeDeclView :: ( MonadIO m
@@ -640,6 +651,9 @@ forwardClickedEvent = forwardButton `mkNavigationMenuSignal` #activate
 declarationEditedEvent :: MainWindowSignal TextBuffer TextBufferChangedSignalInfo
 declarationEditedEvent = declBuffer `mkSolutionViewerSignal` #changed
 
+solutionTreeQueryTooltipEvent :: MainWindowSignal TreeView WidgetQueryTooltipSignalInfo
+solutionTreeQueryTooltipEvent = projectView `mkSolutionViewerSignal` #queryTooltip
+
 {-
 searchClickedEvent :: (Monad m)
                    => MainWindowSignal proxy m' p  m Button IO ()
@@ -647,12 +661,18 @@ searchClickedEvent = wrapGuiEnvSignal searchBar SearchBar.searchClickedEvent
 -}
 
 
+data SolutionPathCoords
+    = BinWindowCoords Int Int
+    | WidgetCoords Int Int
 
 getSolutionPathClicked :: (MonadIO m)
-                      => (Int,Int)
+                      => SolutionPathCoords
                       -> MainWindow 
                       -> m (Maybe (TreePath, TreeViewColumn, (Int,Int)))
-getSolutionPathClicked (x',y') window = do
+getSolutionPathClicked coords window = do
+    (x, y) <- case coords of
+        BinWindowCoords x' y' -> return (fromIntegral x', fromIntegral y')
+        WidgetCoords x' y' -> treeViewConvertWidgetToBinWindowCoords (projectView $ solutionViewer window) (fromIntegral x') (fromIntegral y')
     result <- treeViewGetPathAtPos (projectView $ solutionViewer window) x y 
     case result of
         (True, Just path'', Just column, xoffset', yoffset') -> do
@@ -665,9 +685,6 @@ getSolutionPathClicked (x',y') window = do
             xoffset = fromIntegral xoffset'
             yoffset = fromIntegral yoffset'
         _ -> return Nothing
-  where
-    x = fromIntegral x'
-    y = fromIntegral y'
 
 setSearchBarVisible :: (MonadIO m)
                     => MainWindow
@@ -681,12 +698,28 @@ setSearchMode :: (MonadIO m)
               -> m ()
 setSearchMode window v = SearchBar.setSearchMode (searchBar window) v
 
+data FocusTarget
+    = FocusEditor
+    | FocusLog
+    | FocusErrorList
+    | FocusSolutionTree
 
+setFocus :: (MonadIO m) => FocusTarget -> MainWindow -> m ()
+setFocus FocusEditor = widgetGrabFocus . declView . solutionViewer
+setFocus FocusLog = widgetGrabFocus . buildView . buildViewer
+setFocus FocusErrorList = widgetGrabFocus . errorView . buildViewer
+setFocus FocusSolutionTree = widgetGrabFocus . projectView . solutionViewer
 
-focusDeclView :: (MonadIO m)
-              => MainWindow
-              -> m ()
-focusDeclView = widgetGrabFocus . declView . solutionViewer
+scrollEditorCursorIntoView :: (MonadIO m) => MainWindow -> m ()
+scrollEditorCursorIntoView window = do
+    let textView = declView $ solutionViewer window
+    buffer <- textViewGetBuffer textView
+    startMark <- textBufferGetInsert buffer
+    start <- textBufferGetIterAtMark buffer startMark
+    line <- textIterGetLine start
+    lineOffset <- textIterGetLineOffset start
+    liftIO $ print (line, lineOffset)
+    textViewScrollToMark textView startMark 0 True 0.5 0.5
 
 addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()
 addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g

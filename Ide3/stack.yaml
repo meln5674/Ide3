@@ -10,8 +10,6 @@ packages:
 - ../../../HsInterface
 extra-deps:
 - gi-gtk-hs-0.3.4.0
-- haskell-src-exts-1.17.1
-! compiler: ghc-8.0.1
 explicit-setup-deps:
   ! '*': true
-resolver: nightly-2016-12-31
+resolver: nightly-2017-01-07

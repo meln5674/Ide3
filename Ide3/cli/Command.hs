@@ -296,7 +296,7 @@ doCat :: ( ViewerAction m
       => String 
       -> ViewerStateT m String
 doCat sym = withSelectedModuleInfo $ \pji mi -> do
-    decl <- bounce $ getDeclaration pji mi $ DeclarationInfo $ Symbol sym
+    decl <- bounce $ getDeclaration pji mi $ SymbolDeclarationInfo $ Symbol sym
     return $ defaultOutputs . asStrings . lines . body $ decl
 
 -- | Action for the add module command
@@ -370,7 +370,7 @@ doRemoveDeclaration :: ( ViewerAction m
                     => String 
                     -> ViewerStateT m String
 doRemoveDeclaration sym = withSelectedModuleInfo $ \pji mi -> do
-    bounce $ removeDeclaration pji mi $ DeclarationInfo $ Symbol sym
+    bounce $ removeDeclaration pji mi $ SymbolDeclarationInfo $ Symbol sym
     return [asString "Removed" :: Output Bool]
 
 -- | Action for the edit command
@@ -381,7 +381,7 @@ doEdit :: forall m
        -> String 
        -> ViewerStateT m String
 doEdit editor sym = withSelectedModuleInfo $ \pji mi -> do
-    let declInfo = DeclarationInfo (Symbol sym)
+    let declInfo = SymbolDeclarationInfo (Symbol sym)
     decl <- bounce $ getDeclaration pji mi declInfo
     let declBody = body decl
     newDeclBody <- ExceptT $ lift $ runExceptT $ runEditor editor declBody
@@ -453,7 +453,9 @@ doSearch sym = printOnError $ do
         $ forM projects $ \pji -> liftM (map (\mi -> (pji,mi))) $ bounce $ getModules pji
     let matchingDeclsFrom pji mi = do
             decls <- lift $ bounce $ getDeclarations pji mi
-            let matches = filter (\(DeclarationInfo (Symbol sym')) -> sym `isInfixOf` sym') decls
+            let isMatch (SymbolDeclarationInfo (Symbol sym')) = sym `isInfixOf` sym'
+                isMatch (RawDeclarationInfo text) = sym `isInfixOf` text
+                matches = filter isMatch decls
                 taggedMatches = map (ProjectChild pji . ModuleChild mi) matches
             tell taggedMatches
     matchingDecls <- execWriterT $ forM modules $ uncurry matchingDeclsFrom
@@ -531,8 +533,10 @@ declarationNameCompletion s = do
         Just (pji, mi) -> do
             r <- runExceptT $ do
                 infos <- bounce $ getDeclarations pji mi
-                let syms = for infos $ \(DeclarationInfo (Symbol sym)) -> sym
-                let matchingSyms = filter (s `isPrefixOf`) syms
+                let getDeclText (SymbolDeclarationInfo (Symbol sym)) = sym
+                    getDeclText (RawDeclarationInfo text) = text
+                    syms = map getDeclText infos
+                    matchingSyms = filter (s `isPrefixOf`) syms
                 return $ Just $ for matchingSyms $ \sym -> 
                     Completion{ replacement = drop (length s) sym
                               , display = sym

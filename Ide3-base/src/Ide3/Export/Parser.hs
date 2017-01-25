@@ -11,10 +11,9 @@ Portability : POSIX
 
 module Ide3.Export.Parser (parse, convertWithBody) where
 
-import Language.Haskell.Exts.Parser (ParseResult(..))
-import Language.Haskell.Exts.Annotated.Parser hiding (parse)
-import qualified Language.Haskell.Exts.Annotated.Parser as Parser
-import Language.Haskell.Exts.Annotated.Syntax hiding (Module)
+import Language.Haskell.Exts.Parser hiding (parse)
+import qualified Language.Haskell.Exts.Parser as Parser
+import Language.Haskell.Exts.Syntax hiding (Module)
 import Language.Haskell.Exts.SrcLoc
 
 import Ide3.Types.Exts()
@@ -30,8 +29,11 @@ convert export = case export of
     EVar _ n -> SingleExport (toSym n)
     EAbs _ (NoNamespace _) n -> SingleExport (toSym n)
     EAbs{} -> error "FOUND AN ABS EXPORT"
-    EThingAll _ n -> AggregateExport (toSym n) Nothing
-    EThingWith _ n ns -> AggregateExport (toSym n) (Just $ map toSym ns)
+
+    EThingWith _ (EWildcard _ 0) n [] -> AggregateExport (toSym n) Nothing
+    EThingWith _ (NoWildcard _) n ns -> AggregateExport (toSym n) (Just $ map toSym ns)
+    EThingWith _ (EWildcard _ _) _ _ -> error "Not Supported: mixed export wildcards"
+
     EModuleContents _ n -> ModuleExport (toSym n)
 
 -- | Convert from the third party export and extract the body

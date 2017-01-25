@@ -40,6 +40,7 @@ head2Pred (BetterderivingHead cname args) = go (TH.ConT cname) args
     go t (x:xs) = go (TH.AppT t (TH.VarT x)) xs
   
 
+commaWithSpaces :: ParsecT String u TH.Q ()
 commaWithSpaces = spaces *> char ',' *> spaces
 
 lookupTypeNameOrFail :: String -> TH.Q TH.Name
@@ -56,35 +57,42 @@ lookupValueNameOrFail s = do
         Just n -> return n
         Nothing -> fail $ "Could not find value name " ++ s
 
+identChar :: ParsecT String u TH.Q Char
 identChar = alphaNum <|> char '\'' 
                      <|> char '_'
                      <|> char '.'
 
+tyCon :: ParsecT String u TH.Q TH.Name
 tyCon = lift . lookupTypeNameOrFail =<<
          ( (:) <$> upper 
                <*> many identChar
          )
 
+tyVar :: ParsecT String u TH.Q TH.Name
 tyVar = lift . lookupTypeNameOrFail =<<
         ( (:) <$> lower 
               <*> many identChar
         )
 
+idCon :: ParsecT String u TH.Q TH.Name
 idCon = lift . lookupValueNameOrFail =<<
         ( (:) <$> upper 
               <*> many identChar
         )
 
+idVar :: ParsecT String u TH.Q TH.Name
 idVar = lift . lookupValueNameOrFail =<<
         ( (:) <$> lower 
               <*> many identChar
         )
 
+localCon :: ParsecT String u TH.Q TH.Name
 localCon = TH.mkName
     <$> ( (:) <$> upper 
               <*> many identChar
         )
 
+localVar :: ParsecT String u TH.Q TH.Name
 localVar = TH.mkName
     <$> ( (:) <$> lower 
               <*> many identChar
@@ -94,13 +102,14 @@ localVar = TH.mkName
 mkOverrideMap :: [BetterderivingOverride] -> Map TH.Name TH.Name
 mkOverrideMap = M.fromList . (map $ \(BetterderivingOverride methodName liftFunc) -> (methodName, liftFunc))
 
---betterderivingHead :: ParsecT s u TH.Q BetterderivingHead
+betterderivingHead :: ParsecT String u TH.Q BetterderivingHead
 betterderivingHead = BetterderivingHead <$> tyCon 
                                         <*> (spaces *> sepBy localVar spaces)
 
+betterderivingOverride :: ParsecT String u TH.Q BetterderivingOverride
 betterderivingOverride = BetterderivingOverride <$> idVar <*> (spaces *> char '=' *> spaces *> idVar)
 
---betterderivingBody :: ParsecT s u TH.Q Betterderiving
+betterderivingBody :: ParsecT String u TH.Q Betterderiving
 betterderivingBody 
     = Betterderiving <$> idVar
                      <*> (endOfBodyLine *> sepBy betterderivingHead (try commaWithSpaces))
@@ -108,9 +117,10 @@ betterderivingBody
                      <*> (endOfBodyLine *> betterderivingHead)
                      <*> (mkOverrideMap <$> (endOfBodyLine *> sepBy betterderivingOverride (try commaWithSpaces)))
 
+endOfBodyLine :: ParsecT String u TH.Q ()
 endOfBodyLine = spaces *> char ';' *> spaces
 
---parseBetterderiving :: (SourceName, Line, Column) -> s -> TH.Q Betterderiving
+parseBetterderiving :: (SourceName, Line, Column) -> String -> TH.Q Betterderiving
 parseBetterderiving (file, line, col) s = do
     result <- runParserT p () "" s
     case result of
@@ -130,6 +140,7 @@ parseBetterderiving (file, line, col) s = do
         eof
         return b
             
+quoteBetterderivingDec :: String -> TH.Q [TH.Dec]
 quoteBetterderivingDec s = do
     loc <- TH.location
     let pos = ( TH.loc_filename loc
@@ -149,7 +160,7 @@ mkConApp n = go (TH.ConT n)
     go t (x:xs) = go (TH.AppT t x) xs
 
 modifyLast :: (a -> a) -> [a] -> [a]
-modifyLast f [] = error "Empty list"
+modifyLast _ [] = error "Empty list"
 modifyLast f [x] = [f x]
 modifyLast f (x:xs) = x : modifyLast f xs
 
@@ -191,7 +202,7 @@ mkSpliceInstanceMethod getLiftFunc (TH.SigD methodName methodType) = mkSpliceIns
 mkSpliceInstanceMethod _ x = fail $ "Couldn't reify method, got " ++ show x
 
 mkSpliceInstanceType :: TH.Name -> [TH.Name] -> TH.TypeFamilyHead -> TH.Q TH.Dec
-mkSpliceInstanceType conName conVars (TH.TypeFamilyHead typeName typeVars kindSig inject) = do
+mkSpliceInstanceType conName conVars (TH.TypeFamilyHead typeName typeVars _ _) = do
     let typeType = TH.ConT typeName
         typeVarNames = map getBndrName typeVars
         varTypes = map TH.VarT typeVarNames
@@ -215,7 +226,7 @@ spliceConName conName conVars varTypes = modifyLast (\v -> mkConApp conName $ ma
 
 mkSpliceInstance :: (TH.Name -> TH.Name) -> TH.Cxt -> TH.Name -> TH.Name -> [TH.Name] -> TH.Q TH.Dec
 mkSpliceInstance getLiftFunc conCxt className conName conVars = do
-    (TH.ClassI (TH.ClassD _ _ classVarBinders deps classItems) _) <- TH.reify className
+    (TH.ClassI (TH.ClassD _ _ classVarBinders _ classItems) _) <- TH.reify className
     let overlap = Nothing
         varNames = map getBndrName classVarBinders
         varTypes = map TH.VarT varNames

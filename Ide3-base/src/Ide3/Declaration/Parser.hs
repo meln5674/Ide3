@@ -18,9 +18,9 @@ import Data.List
 
 import Control.Monad
 
-import Language.Haskell.Exts.Annotated.Parser
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Ann, ann)
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.Parser
+import Language.Haskell.Exts.Syntax hiding (Symbol, Ann, ann)
+import qualified Language.Haskell.Exts.Syntax as Syntax
 import Language.Haskell.Exts.SrcLoc (SrcInfo)
 import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
@@ -41,57 +41,84 @@ import Ide3.Types.Internal
 import qualified Ide3.Constructor.Exts as Constructor
 
 -- | Convert a declaration if it is a type synonym
-parseTypeSynonym :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseTypeSynonym :: Decl t -> Maybe Declaration
 parseTypeSynonym (TypeDecl _ h t)
-    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
+    = Just $ TypeDeclaration (SymbolDeclarationInfo (toSym h))
                              (TypeSynonym (toSym h)
                                           (toSym t)
                              )
 parseTypeSynonym _ = Nothing
 
+parseTypeFamily :: Decl t -> Maybe Declaration
+parseTypeFamily (TypeFamDecl _ h _ _)
+    = Just $ TypeDeclaration (SymbolDeclarationInfo (toSym h))
+                             (OpenTypeFamilyDecl (toSym h)
+                             )
+parseTypeFamily (ClosedTypeFamDecl _ h _ _ eqs)
+    = Just $ TypeDeclaration (SymbolDeclarationInfo (toSym h))
+                             (ClosedTypeFamilyDecl (toSym h)
+                                                   eqnDecls
+                             )
+  where
+    eqnDecls = map (\(TypeEqn _ t _) -> let (_,args) = unwrapTyApp t in args) eqs
+parseTypeFamily _ = Nothing
+
 -- | Convert a declaration if it is a GADT newtype
-parseGADTNewtypeDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseGADTNewtypeDecl :: Decl t -> Maybe Declaration
 parseGADTNewtypeDecl (GDataDecl _ (NewType _) _ h _ [con] _)
-    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
+    = Just $ TypeDeclaration (SymbolDeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
                                               (Constructor.toConstructor con)
                              )
 parseGADTNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a newtype declaration
-parseNewtypeDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseNewtypeDecl :: Decl t -> Maybe Declaration
 parseNewtypeDecl (DataDecl _ (NewType _) _ h [con] _)
-    = Just $ TypeDeclaration (DeclarationInfo (toSym h))
+    = Just $ TypeDeclaration (SymbolDeclarationInfo (toSym h))
                              (NewtypeDeclaration (toSym h)
                                                  (Constructor.toConstructor con)
                              )
 parseNewtypeDecl _ = Nothing
 
 -- | Convert a declaration if it is a GADT data
-parseGADTDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseGADTDecl :: Decl t -> Maybe Declaration
 parseGADTDecl (GDataDecl _ (DataType _) _ h _ cons _)
     = Just $ TypeDeclaration 
-                (DeclarationInfo (toSym h))
+                (SymbolDeclarationInfo (toSym h))
                 (DataDeclaration (toSym h)
                                  (map Constructor.toConstructor cons)
                 )
 parseGADTDecl _ = Nothing
 
 -- | Convert a declaration if it is a data declaration
-parseDataDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseDataDecl :: Decl t -> Maybe Declaration
 parseDataDecl (DataDecl _ (DataType _) _ h cons _)
     = Just $ TypeDeclaration
-        (DeclarationInfo (toSym h))
+        (SymbolDeclarationInfo (toSym h))
         (DataDeclaration (toSym h)
                          (map Constructor.toConstructor cons)
         )
 parseDataDecl _ = Nothing
 
+unwrapTyApp :: Syntax.Type l -> (Symbol, [Symbol])
+unwrapTyApp = go []
+  where
+    go args (TyApp _ t' t) = go (toSym t:args) t'
+    go args t = (toSym t, args)
+
+parseTypeInstanceDecl :: Decl t -> Maybe Declaration
+parseTypeInstanceDecl (TypeInsDecl _ t@TyApp{} _)
+    = let (famSym, argSyms) = unwrapTyApp t
+      in  Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint t)
+                                     (TypeFamilyInstanceDeclaration famSym argSyms)
+parseTypeInstanceDecl _ = Nothing
+
 -- | Convert a declaration if it is a function bind
 parseFuncBind :: Decl t -> Maybe Declaration
 parseFuncBind (FunBind _ (m:_))
     = Just $ BindDeclaration
-        (DeclarationInfo $ toSym n) 
+        (SymbolDeclarationInfo $ toSym n) 
         (LocalBindDeclaration [toSym n] Nothing)
   where
     n = case m of
@@ -99,8 +126,22 @@ parseFuncBind (FunBind _ (m:_))
         InfixMatch _ _ n' _ _ _ -> n'
 parseFuncBind _ = Nothing
 
+parseFixityDecl :: Decl t -> Maybe Declaration
+parseFixityDecl d@(InfixDecl _ assoc priority ops)
+    -- TODO: Find a way to make a declaration info out of this
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint d)
+                                 (FixityDeclaration (map toSym ops)
+                                                    fixity
+                                 )
+  where
+    fixity = case assoc of
+        AssocLeft _ -> FixityLeft priority
+        AssocRight _ -> FixityRight priority
+        AssocNone _ -> FixityNone priority
+parseFixityDecl _ = Nothing
+
 -- | Convert a declaration if it is a type signature
-parseTypeSignature :: (SrcInfo t) => Decl t -> Maybe Declaration
+parseTypeSignature :: Decl t -> Maybe Declaration
 parseTypeSignature (TypeSig _ ns t) = case allsigs of
     Nothing -> Nothing
     Just [] -> Nothing
@@ -109,7 +150,7 @@ parseTypeSignature (TypeSig _ ns t) = case allsigs of
   where
     for xs f = map f xs
     allsigs = Just $ for ns $ \n ->
-        ModifierDeclaration (DeclarationInfo $ toSym n)
+        ModifierDeclaration (SymbolDeclarationInfo $ toSym n)
       $ TypeSignatureDeclaration (toSym n) (toSym t)
 parseTypeSignature _ = Nothing
 
@@ -120,21 +161,21 @@ parseClassDecl (ClassDecl _ _ h _ ds)
     $ ds >>= mapM parseSubDecl
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
-    parseSubDecl (ClsTyFam _ dHead _) 
+    parseSubDecl (ClsTyFam _ dHead _ _) 
         = Just 
         $ TypeDeclaration
-          (DeclarationInfo $ toSym dHead) 
+          (SymbolDeclarationInfo $ toSym dHead) 
         $ TypeSynonym (toSym dHead) (Symbol "")
     parseSubDecl _ = Nothing
     mkTopDecl ds' = TypeDeclaration 
-        (DeclarationInfo $ toSym h) 
+        (SymbolDeclarationInfo $ toSym h) 
         (ClassDeclaration (toSym h) ds')
 parseClassDecl _ = Nothing
 
 -- | Convert a declaration if it is an instance declaration
 parseInstanceDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseInstanceDecl (InstDecl _ _ r _)
-    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
   where
     (cls:ts) = findName r
@@ -146,24 +187,24 @@ parsePatBind (PatBind _ p _ _) = case findName p of
     [] -> Nothing
     ns@(n:_) -> Just $
         BindDeclaration 
-            (DeclarationInfo n)
+            (SymbolDeclarationInfo n)
             (LocalBindDeclaration ns Nothing)
 parsePatBind _ = Nothing
 
 -- | Convert a declaration if it is a standalone deriving declaration
 parseDerivingDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
-    = Just $ ModifierDeclaration (DeclarationInfo $ Symbol $ prettyPrint r) 
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint r) 
            $ DerivingDeclaration cls ts
   where
     (cls:ts) = findName r
 parseDerivingDecl _ = Nothing
 
-parseQuasiQuote :: (SrcInfo t) => Decl t -> Maybe Declaration
-parseQuasiQuote (SpliceDecl _ (QuasiQuote _ name args)) = Just $ SpliceDeclaration di d
+parseQuasiQuote :: Decl t -> Maybe Declaration
+parseQuasiQuote d@(SpliceDecl _ (QuasiQuote _ name args)) = Just $ SpliceDeclaration di d'
   where
-    di = DeclarationInfo $ Symbol $ "[|" ++ name ++ "|" ++ args ++ "|]"
-    d = QuasiQuoteDeclaration name args
+    di = RawDeclarationInfo $ prettyPrint d
+    d' = QuasiQuoteDeclaration name args
 parseQuasiQuote _ = Nothing
 
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
@@ -176,9 +217,12 @@ tryConvert x
     $ mconcat
     $ map (First . ($x))
         [ parseTypeSynonym
+        , parseTypeFamily
         , parseDataDecl
         , parseNewtypeDecl
+        , parseTypeInstanceDecl
         , parseFuncBind
+        , parseFixityDecl
         , parseClassDecl
         , parseTypeSignature
         , parsePatBind

@@ -397,11 +397,19 @@ type family FuncArgType x = arg where
     FuncArgType Func0 = ()
     FuncArgType (Func1 a) = a
     FuncArgType (Func2 a b) = (a, b)
+    FuncArgType (Func3 a b c) = (a, b, c)
+    FuncArgType (Func4 a b c d) = (a, b, c, d)
+    FuncArgType (Func5 a b c d e) = (a, b, c, d, e)
+    FuncArgType (Func6 a b c d e f) = (a, b, c, d, e, f)
 
 type family FuncType x z = f where
     FuncType Func0 z = z
     FuncType (Func1 a) z = a -> z
     FuncType (Func2 a b) z = a -> b -> z
+    FuncType (Func3 a b c) z = a -> b -> c -> z
+    FuncType (Func4 a b c d) z = a -> b -> c -> d -> z
+    FuncType (Func5 a b c d e) z = a -> b -> c -> d -> e -> z
+    FuncType (Func6 a b c d e f) z = a -> b -> c -> d -> e -> f -> z
 
 class FuncClass x where
     uncurry' :: x a -> (FuncArgType x -> a)
@@ -410,23 +418,35 @@ class FuncClass x where
     unmkFunc :: x a -> FuncType x a
 
 instance FuncClass Func0 where
-    uncurry' = const . unFunc0 
-    curry' = Func0 . ($())
+    uncurry' (Func0 x) = \() -> x
+    curry' f = Func0 (f ())
     mkFunc = Func0
     unmkFunc = unFunc0
 
 
 instance FuncClass (Func1 a) where
-    uncurry' = unFunc1
-    curry' = Func1
+    uncurry' (Func1 f) = \a -> f a
+    curry' f = Func1 $ \a -> f a
     mkFunc = Func1
     unmkFunc = unFunc1
 
 instance FuncClass (Func2 a b) where
-    uncurry' = uncurry . unFunc2
-    curry' = Func2 . curry
+    uncurry' (Func2 f) = \(a,b) -> f a b
+    curry' f = (Func2 $ \a b -> f (a,b))
     mkFunc = Func2
     unmkFunc = unFunc2
+
+instance FuncClass (Func3 a b c) where
+    uncurry' (Func3 f) = \(a,b,c) -> f a b c
+    curry' f = (Func3 $ \a b c -> f (a,b,c))
+    mkFunc = Func3
+    unmkFunc = unFunc3
+
+instance FuncClass (Func4 a b c d) where
+    uncurry' (Func4 f) = \(a,b,c,d) -> f a b c d
+    curry' f = (Func4 $ \a b c d -> f (a,b,c,d))
+    mkFunc = Func4
+    unmkFunc = unFunc4
 
 
 {-

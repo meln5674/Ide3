@@ -27,11 +27,11 @@ newtype Column = Column { unColumn :: Int }
 
 -- | A pair of a row and column
 data SrcLoc = SrcLoc { srcRow :: Row, srcColumn :: Column }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Read, Eq, Ord)
 
 -- | A start and end source location
 data SrcSpan = SrcSpan { spanStart :: SrcLoc, spanEnd :: SrcLoc } 
-  deriving (Show, Eq)
+  deriving (Show, Read, Eq)
 
 -- | A source location with a filename
 data SrcFileLoc

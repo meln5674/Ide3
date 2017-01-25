@@ -77,16 +77,19 @@ class Monad m => ProjectModuleClass m where
                      -> ModuleInfo
                      -> (String -> String)
                      -> SolutionResult u m ()
-    -- | Set a module as unparsable, and provide the contents
+    -- | Set a module as unparsable, and provide the contents, as well as the location
+    -- and message of the error
     setModuleUnparsable :: ProjectInfo
                         -> ModuleInfo
                         -> String
+                        -> SrcLoc
+                        -> String
                         -> SolutionResult u m ()
-    -- | Retreive the contents of a module if it was unparsable, otherwise
-    -- return nothing
+    -- | Retreive the contents of a module if it was unparsable, along with the
+    -- location and message of the error, otherwise return nothing
     getUnparsableModule :: ProjectInfo
                         -> ModuleInfo
-                        -> SolutionResult u m (Maybe String)
+                        -> SolutionResult u m (Maybe (String, SrcLoc, String))
     -- | Set a module as parsable and empty, the module must already exist.
     setModuleParsable :: ProjectInfo
                       -> ModuleInfo

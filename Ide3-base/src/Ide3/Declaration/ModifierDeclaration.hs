@@ -20,7 +20,8 @@ import Ide3.Types.Internal
 
 -- | Get a list of symbols that a declaration affects
 symbolsAffected :: ModifierDeclaration -> [Symbol]
-symbolsAffected (FixityDeclaration ss _ _) = ss
+symbolsAffected (FixityDeclaration ss _) = ss
 symbolsAffected (InstanceDeclaration _ ss _) = ss
 symbolsAffected (TypeSignatureDeclaration s _) = [s]
 symbolsAffected (DerivingDeclaration _ ss) = ss
+symbolsAffected (TypeFamilyInstanceDeclaration _ ss) = ss

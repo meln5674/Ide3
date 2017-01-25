@@ -11,9 +11,8 @@ Portability : POSIX
 
 module Ide3.Import.Parser where
 
-import Language.Haskell.Exts.Annotated.Parser
-import Language.Haskell.Exts.Parser (ParseResult(..))
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module)
+import Language.Haskell.Exts.Parser hiding (parse)
+import Language.Haskell.Exts.Syntax hiding (Symbol, Module)
 
 
 import Ide3.Types.Internal hiding (body)

@@ -10,8 +10,7 @@ Portability : POSIX
 -}
 module Ide3.Constructor.Exts where
 
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol)
-import Language.Haskell.Exts.SrcLoc
+import Language.Haskell.Exts.Syntax hiding (Symbol)
 
 import Ide3.Types.Internal
 import Ide3.Types.Exts ()
@@ -22,7 +21,7 @@ class ToConstructor a where
     toConstructor :: a -> Constructor
 
 -- | Extract constructor from declaration
-instance SrcInfo a => ToConstructor (ConDecl a) where
+instance ToConstructor (ConDecl a) where
     toConstructor (ConDecl _ n ts) = PrefixConstructor (toSym n) (map toSym ts)
     toConstructor (InfixConDecl _ tl n tr) =
         InfixConstructor (toSym tl) (toSym n) (toSym tr)
@@ -32,11 +31,11 @@ instance SrcInfo a => ToConstructor (ConDecl a) where
         f (FieldDecl _ fns t) = map (\fn -> (toSym fn,toSym t)) fns
 
 -- | Extract constructor from declaration
-instance SrcInfo a => ToConstructor (QualConDecl a) where
+instance ToConstructor (QualConDecl a) where
     toConstructor (QualConDecl _ _ _ d) = toConstructor d
 
 -- | Extract constructor from GADT declaration
-instance SrcInfo a => ToConstructor (GadtDecl a) where
+instance ToConstructor (GadtDecl a) where
     toConstructor (GadtDecl _ n (Just rs) _) =
         RecordConstructor (toSym n) (concatMap f rs)
       where

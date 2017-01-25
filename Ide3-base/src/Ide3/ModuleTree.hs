@@ -23,6 +23,7 @@ import Control.Monad
 
 import Ide3.NewMonad
 import Ide3.Types.Internal
+import Ide3.SrcLoc.Types
 
 -- | Utility function, just map with arguments reversed
 for :: [a] -> (a -> b) -> [b]
@@ -54,6 +55,8 @@ data ModuleTree
     | UnparsableModuleNode
         ModuleInfo
         [ModuleTree]
+        String
+        SrcLoc
         String
     deriving Show
 
@@ -106,9 +109,9 @@ fillTree pji (OrgNode i ts) = do
 fillTree pji (ModuleNode i ts _ _ _ _) = do
     maybeContents <- getUnparsableModule pji i
     case maybeContents of
-        Just contents -> do
+        Just (contents, loc, msg) -> do
             ts' <- mapM (fillTree pji) ts
-            return $ UnparsableModuleNode i ts' contents
+            return $ UnparsableModuleNode i ts' contents loc msg
         Nothing -> do
             ps <- getPragmas pji i
             ds <- getDeclarations pji i
@@ -122,9 +125,9 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
                     return $ Just x
             ts' <- mapM (fillTree pji) ts
             return $ ModuleNode i ts' ps ds is es
-fillTree pji (UnparsableModuleNode i ts s) = do
+fillTree pji (UnparsableModuleNode i ts s loc msg) = do
     ts' <- mapM (fillTree pji) ts
-    return $ UnparsableModuleNode i ts' s
+    return $ UnparsableModuleNode i ts' s loc msg
 
 -- | Generate a tree for specific module
 makeModuleTree :: ( ProjectModuleClass m
@@ -171,11 +174,11 @@ formatTree = intercalate "\n" . go []
         subModules = case tree of
             OrgNode _ ms -> ms
             ModuleNode _ ms _ _ _ _ -> ms
-            UnparsableModuleNode _ ms _ -> ms
+            UnparsableModuleNode _ ms _ _ _ -> ms
         moduleInfo = case tree of
             OrgNode n _ -> n
             ModuleNode n _ _ _ _ _ -> n
-            UnparsableModuleNode n _ _ -> n
+            UnparsableModuleNode n _ _ _ _ -> n
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
             UnamedModule (Just p) -> p
@@ -189,7 +192,8 @@ formatTree = intercalate "\n" . go []
             [] -> []
             ds -> map ((prefix ++) . ("|- " ++) . makeLine) ds
               where
-                makeLine (DeclarationInfo (Symbol s)) = s
+                makeLine (SymbolDeclarationInfo (Symbol s)) = s
+                makeLine (RawDeclarationInfo s) = s
         subModuleLines = case subModules of
             [] -> []
             ms -> firstModuleLines ++ lastModuleLines

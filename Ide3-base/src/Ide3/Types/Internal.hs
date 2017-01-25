@@ -218,32 +218,44 @@ data Export
 type ExportId = Int
 
 -- |Information identifying a declaration
-data DeclarationInfo = DeclarationInfo { getDeclarationInfo :: Symbol }
+data DeclarationInfo
+    -- | Info for declarations revoling around a single symbol
+    = SymbolDeclarationInfo
+        { getSymbolDeclarationInfo :: Symbol }
+    -- | Cop-out for everything else
+    | RawDeclarationInfo
+        { getRawDeclarationInfo :: String }
     deriving (Show, Read, Eq, Ord)
 
 
 -- |A declaration
 data Declaration
-    -- |A type declaration creates types
+    -- | A type declaration creates types
     = TypeDeclaration DeclarationInfo TypeDeclaration
-    -- |A bind declaration binds names and patterns to expressions
+    -- | A bind declaration binds names and patterns to expressions
     | BindDeclaration DeclarationInfo BindDeclaration
-    -- |A modifier declaration provides some property of an existing declaration
+    -- | A modifier declaration provides some property of an existing declaration
     | ModifierDeclaration DeclarationInfo ModifierDeclaration
+    -- | A template haskell quasi-quote splice
     | SpliceDeclaration DeclarationInfo SpliceDeclaration
+    -- | A declaration which cannot be parsed
     | UnparseableDeclaration DeclarationInfo
     deriving (Show, Read, Eq)
 
 
--- |A declaration which provides types
+-- | A declaration which provides types
 data TypeDeclaration
-    -- |Class declaration
+    -- | Class declaration
     = ClassDeclaration Symbol [Declaration]
-    -- |Type synonym
+    -- | Type synonym
     | TypeSynonym Symbol Symbol
-    -- |Data declaration
+    -- | Open type family
+    | OpenTypeFamilyDecl Symbol
+    -- | Closed type family
+    | ClosedTypeFamilyDecl Symbol [[Symbol]]
+    -- | Data declaration
     | DataDeclaration Symbol [Constructor]
-    -- |Newtype declaration
+    -- | Newtype declaration
     | NewtypeDeclaration Symbol Constructor
     deriving (Show, Read, Eq)
 
@@ -263,13 +275,14 @@ data BindDeclaration
 -- |A declaration which provides some property about another declaration
 data ModifierDeclaration
     -- |A declaration of an operator or infix function's precidence and fixity
-    = FixityDeclaration [Symbol] Int FixityType
+    = FixityDeclaration [Symbol] FixityType
     -- |A instance of a class
     | InstanceDeclaration Symbol [Symbol] [Declaration]
     -- |A type signature of a bind
     | TypeSignatureDeclaration Symbol Symbol
     -- | A standalone deriving declaration
     | DerivingDeclaration Symbol [Symbol]
+    | TypeFamilyInstanceDeclaration Symbol [Symbol]
     deriving (Show, Read, Eq)
 
 data SpliceDeclaration
@@ -277,7 +290,10 @@ data SpliceDeclaration
   deriving (Show, Read, Eq)
   
 -- |The type of fixity of an operator or infix function
-data FixityType = FixityType
+data FixityType 
+    = FixityLeft (Maybe Int)
+    | FixityRight (Maybe Int)
+    | FixityNone (Maybe Int)
     deriving (Show, Read, Eq)
 
 -- |A data or newtype constructor
@@ -422,8 +438,10 @@ instance Qualify Symbol where
 
 -- | Prepend module name and dot to declaration info
 instance Qualify DeclarationInfo where
-    qual (ModuleChild (ModuleInfo (Symbol m)) (DeclarationInfo (Symbol s)))
+    qual (ModuleChild (ModuleInfo (Symbol m)) (SymbolDeclarationInfo (Symbol s)))
         = Symbol $ m ++ '.' : s
+    qual (ModuleChild (ModuleInfo _) (RawDeclarationInfo _))
+        = error "Cannot qualify a non-symbol declaration"
     qual (ModuleChild (UnamedModule _) _)
         = error "Cannot qualifiy with an unnamed module"
 

@@ -24,6 +24,7 @@ import Control.Monad.Trans.Except
 import Ide3.Env
 import Ide3.Types.Internal
 import Ide3.Types.State
+import Ide3.SrcLoc.Types
 
 import qualified Ide3.Module as Module (new)
 import qualified Ide3.Env.Module as Module
@@ -103,12 +104,12 @@ editModuleHeader = descend1 $ do
 setModuleUnparsable :: Monad m
                      => DescentChain3 Project
                                       ModuleInfo
-                                      String
+                                      (String, SrcLoc, String)
                         m u ()
 setModuleUnparsable = descend1 $ do
     m <- get
-    contents <- lift ask
-    put $ UnparsableModule (moduleInfo m) contents
+    (contents, loc, msg) <- lift ask
+    put $ UnparsableModule (moduleInfo m) contents loc msg
 
 setModuleParsable :: Monad m
                    => DescentChain2 Project
@@ -121,11 +122,11 @@ setModuleParsable = descend0 $ do
 getUnparsableModule :: Monad m
                      => DescentChain2 Project
                                       ModuleInfo
-                        m u (Maybe String)
+                        m u (Maybe (String, SrcLoc, String))
 getUnparsableModule = descend0 $ do
     m <- get
     case m of
-        UnparsableModule _ contents -> return $ Just contents
+        UnparsableModule _ contents loc msg -> return $ Just (contents, loc, msg)
         _ -> return Nothing
         
 

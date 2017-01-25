@@ -676,9 +676,9 @@ instance ( MonadIO m
     editModuleHeader pji mi f = do
         setModuleDirty pji mi
         bounce $ editModuleHeader pji mi f
-    setModuleUnparsable pji mi contents = do
+    setModuleUnparsable pji mi contents loc msg = do
         setModuleDirty pji mi
-        bounce $ setModuleUnparsable pji mi contents
+        bounce $ setModuleUnparsable pji mi contents loc msg
     setModuleParsable pji mi = do
         setModuleDirty pji mi
         bounce $ setModuleParsable pji mi

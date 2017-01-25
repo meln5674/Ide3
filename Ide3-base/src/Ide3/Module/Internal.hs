@@ -287,7 +287,9 @@ parseUsing parser s p = case parser s p of
         declInfoAndItem d = (Declaration.info $ item $ unAnn d, unAnn d)
         decls' = OMap.fromList $ map declInfoAndItem decls
         module_ = Module newInfo header' pragmas' imports' exports' decls'
-    Right (Unparsable l msg mi contents) -> Right (UnparsableModule mi contents, [], [], Just (l,msg))
+    Right (Unparsable l msg mi contents) -> Right (unparsableModule, [], [], Just (l,msg))
+       where
+         unparsableModule = UnparsableModule mi contents l msg
     Left msg -> Left msg
 
 

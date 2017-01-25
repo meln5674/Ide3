@@ -16,6 +16,8 @@ import EnvironmentMonad
 import GuiClass
 import GuiClass.GuiEnv()
 
+import DeclarationPath
+
 import SearchMode
 
 import GenericGuiEnv
@@ -75,6 +77,16 @@ doGetDecl :: ( GuiCommand2 t m' m )
           => TreePath
           -> t m ()
 doGetDecl path = dialogOnError () $ Internal.doGetDecl path
+
+doGetItem :: ( GuiCommand2 t m' m )
+          => SolutionPath
+          -> t m ()
+doGetItem path = dialogOnError () $ Internal.doGetItem path
+
+doGotoSrcLoc :: ( GuiCommand2 t m' m )
+             => SrcLoc
+             -> t m ()
+doGotoSrcLoc = dialogOnError () . Internal.doGotoSrcLoc
 
 doBuild :: ( GuiCommand2 t m' m
            )

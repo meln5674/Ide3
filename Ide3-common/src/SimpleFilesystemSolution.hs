@@ -223,11 +223,11 @@ makeFileListing pji = do
     t <- makeTree pji
     let subModules (OrgNode _ ts) = ts
         subModules (ModuleNode _ ts _ _ _ _) = ts
-        subModules (UnparsableModuleNode _ ts _) = ts
+        subModules (UnparsableModuleNode _ ts _ _ _) = ts
         
         nodeInfo (OrgNode mi _) = mi
         nodeInfo (ModuleNode mi _ _ _ _ _) = mi
-        nodeInfo (UnparsableModuleNode mi _ _) = mi
+        nodeInfo (UnparsableModuleNode mi _ _ _ _) = mi
         
         nodeDecls (ModuleNode _ _ _ ds _ _) = Just ds
         nodeDecls _ = Nothing

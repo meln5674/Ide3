@@ -12,6 +12,8 @@ import GuiError
 
 type UserError = GuiError
 
+newtype IdleThreadTask = IdleThreadTask { getIdleThreadTask :: IO () }
+
 class (MonadTrans t) => GenericGuiEnv t where
     type MonadConstraint t (m :: * -> *) :: Constraint
     type NewMonadConstraint t (m :: * -> *) :: Constraint
@@ -23,3 +25,6 @@ class (MonadTrans t) => GenericGuiEnv t where
     dialogOnErrorConc :: (NewMonadConstraint t m, MonadConstraint t (MonadType t)) 
                   => t (SolutionResult UserError (MonadType t)) ()
                   -> t m ThreadId
+    addIdleTask :: (NewMonadConstraint t m, MonadConstraint t (MonadType t))
+                => IdleThreadTask
+                -> t m ()

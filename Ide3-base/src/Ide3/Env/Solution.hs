@@ -22,6 +22,7 @@ import Ide3.Env
 
 import Ide3.Types.Internal
 import Ide3.Types.State
+import Ide3.SrcLoc.Types
 
 import Ide3.Project as Project
 import qualified Ide3.Env.Project as Project
@@ -108,7 +109,7 @@ setModuleUnparsable :: Monad m
                      => DescentChain4 Solution
                                       ProjectInfo
                                       ModuleInfo
-                                      String
+                                      (String, SrcLoc, String)
                         m u ()
 setModuleUnparsable = descend2 $ Project.setModuleUnparsable
 
@@ -123,7 +124,7 @@ getUnparsableModule :: Monad m
                      => DescentChain3 Solution
                                       ProjectInfo
                                       ModuleInfo
-                        m u (Maybe String)
+                        m u (Maybe (String, SrcLoc, String))
 getUnparsableModule = descend1 $ Project.getUnparsableModule
 
 -- | Add an external module to a project

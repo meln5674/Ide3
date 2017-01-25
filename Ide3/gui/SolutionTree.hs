@@ -24,7 +24,7 @@ import DeclarationPath
 data TreeSearchResult
     = ProjectResult ProjectInfo
     | ModuleResult ProjectInfo ModuleInfo Bool
-    | UnparsableModuleResult ProjectInfo ModuleInfo
+    | UnparsableModuleResult ProjectInfo ModuleInfo SrcLoc String
     | DeclResult ProjectInfo ModuleInfo DeclarationInfo
     | ImportsResult ProjectInfo ModuleInfo
     | ExportsResult ProjectInfo ModuleInfo
@@ -67,8 +67,8 @@ makeModuleTree (ModuleNode mi ts ps ds is es)
     : makeExportsNode es 
     : map makeModuleTree ts 
     ++ map (flip Node [] . DeclElem) ds 
-makeModuleTree (UnparsableModuleNode mi ts _)
-    = Node (UnparsableModuleElem mi) $ map makeModuleTree ts
+makeModuleTree (UnparsableModuleNode mi ts _ loc msg)
+    = Node (UnparsableModuleElem mi loc msg) $ map makeModuleTree ts
     
 makeProjectTree :: ProjectInfo -> [ModuleTree] -> Tree SolutionTreeElem
 makeProjectTree pji branches = Node (ProjectElem pji) $ map makeModuleTree branches
@@ -84,7 +84,7 @@ getModuleParent pji mi = do
             item <- getElemAtSolutionTreePath path
             case item of
                 ModuleElem mi' _ -> return $ Just mi'
-                UnparsableModuleElem mi' -> return $ Just mi'
+                UnparsableModuleElem mi' _ _ -> return $ Just mi'
                 _ -> return Nothing            
         _ -> return Nothing
 
@@ -232,7 +232,7 @@ searchTreeForModulePart (ModuleInfo (Symbol s)) = searchTree''' moduleNameIsPref
             [] -> True
             ('.':_) -> True
             _ -> False
-        | (UnparsableModuleElem mi) <- mElem
+        | (UnparsableModuleElem mi _ _) <- mElem
         , (ModuleInfo sym) <- mi
         , (Symbol s') <- sym
         = s' `isPrefixOf` s && case drop (length s') s of
@@ -262,7 +262,7 @@ searchTreeForModule mi = MultiState $ \s ->
         xs -> xs
   where
     matchesModule (ModuleElem mi' _) = mi == mi'
-    matchesModule (UnparsableModuleElem mi') = mi == mi'
+    matchesModule (UnparsableModuleElem mi' _ _) = mi == mi'
     matchesModule _ = False
 
 searchTreeForModuleWithChild :: ModuleInfo -> MultiState (Tree SolutionTreeElem) TreePath
@@ -274,7 +274,7 @@ searchTreeForModuleWithChild mi = MultiState $ \s ->
         _ -> []
   where
     matchesModule (ModuleElem mi' _) = mi == mi'
-    matchesModule (UnparsableModuleElem mi') = mi == mi'
+    matchesModule (UnparsableModuleElem mi' _ _) = mi == mi'
     matchesModule _ = False
 
 
@@ -429,8 +429,8 @@ findAtPath path = do
             -> return $ ProjectResult pji
         (Just (ModuleElem mi b), _, _, Just (ProjectElem pji))
             -> return $ ModuleResult pji mi b
-        (Just (UnparsableModuleElem mi), _, _, Just (ProjectElem pji))
-            -> return $ UnparsableModuleResult pji mi
+        (Just (UnparsableModuleElem mi loc msg), _, _, Just (ProjectElem pji))
+            -> return $ UnparsableModuleResult pji mi loc msg
         (Just (DeclElem di), Just (ModuleElem mi _), _, Just (ProjectElem pji))
             -> return $ DeclResult pji mi di
         (Just ImportsElem, Just (ModuleElem mi _), _, Just (ProjectElem pji))
@@ -528,7 +528,7 @@ updateSolutionTreeTree spath f = do
 hasSubModules' :: SolutionViewClass m => SolutionPath -> m Bool
 hasSubModules' path = flip any <$> getTreeAtSolutionPath path <*> ( pure $ \case
         (ModuleElem _ _) -> True
-        (UnparsableModuleElem _) -> True
+        (UnparsableModuleElem _ _ _) -> True
         _ -> False)
 
 hasSubModules :: SolutionViewClass m => SolutionPath -> m Bool
@@ -571,7 +571,7 @@ removeModuleFromTree = go True
                             Node ModuleElem{} _ -> True
                             Node UnparsableModuleElem{} _ -> True
                             _ -> False
-                        Node (UnparsableModuleElem _) ts -> Node (ModuleElem mi True) ts
+                        Node (UnparsableModuleElem _ _ _) ts -> Node (ModuleElem mi True) ts
                         _ -> error "Solution Tree Integrity Lost"
                     -- If the current node is a parent of the deleted node, leave
                     -- it as is, then halt the walk
@@ -608,15 +608,15 @@ addModuleToTree pji mi = loop Nothing
     loop parent tree@(Node item trees') = do
         result <- case item of
             ModuleElem mi' _ -> lookupAtSolutionPath $ ModulePath pji mi'
-            UnparsableModuleElem mi' -> lookupAtSolutionPath $ UnparsableModulePath pji mi'
+            UnparsableModuleElem mi' _ _ -> lookupAtSolutionPath $ UnparsableModulePath pji mi'
             _ -> error "Solution Tree Integrity Lost"
         let mi' = case item of
                 ModuleElem x _ -> x
-                UnparsableModuleElem x -> x
+                UnparsableModuleElem x _ _ -> x
                 _ -> error "Solution Tree Integrity Lost"
             oldPath = case item of
                 ModuleElem _ _ -> ModulePath pji mi
-                UnparsableModuleElem _ -> UnparsableModulePath pji mi
+                UnparsableModuleElem _ _ _ -> UnparsableModulePath pji mi
                 _ -> error "Solution Tree Integrity Lost"
         case (result, trees') of
             -- If the path isn't there, this is the root of the new part

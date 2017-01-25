@@ -11,6 +11,7 @@
 {-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module MainSignals where
 
+import Data.Int
 import Data.Text
 
 import System.Exit
@@ -39,7 +40,7 @@ import Viewer
 
 import GuiHelpers
 
-import Dialogs.MainWindow (MainWindow)
+import Dialogs.MainWindow (MainWindow, FocusTarget (..), SolutionPathCoords (..))
 import SolutionContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
@@ -48,6 +49,10 @@ import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
 import qualified Dialogs.MoveDeclarationDialog as MoveDeclarationDialog
 import qualified SolutionContextMenu
+
+import GenericGuiEnv
+
+import DeclarationPath
 
 import SearchMode
 
@@ -355,7 +360,7 @@ onExportDeclarationClicked :: forall t {-proxy-} m' p m
               -> ModuleInfo
               -> DeclarationInfo
               -> t m Bool
-onExportDeclarationClicked pji mi (DeclarationInfo (Symbol declStr)) = do
+onExportDeclarationClicked pji mi (SymbolDeclarationInfo (Symbol declStr)) = do
     NewExportDialog.makeEdit (pack declStr) $ \dialog -> do
         dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
             export_ <- NewExportDialog.getExport dialog
@@ -371,6 +376,10 @@ onExportDeclarationClicked pji mi (DeclarationInfo (Symbol declStr)) = do
             NewExportDialog.close dialog
             return False
     return False
+onExportDeclarationClicked pji mi _ = do
+    doError $ InvalidOperation "This declaration is not exportable" ""
+    return False
+    
 
 onMoveDeclarationClicked :: forall t m' p m
                           . ( MainGuiClass t m' p m )
@@ -378,7 +387,7 @@ onMoveDeclarationClicked :: forall t m' p m
                          -> ModuleInfo
                          -> DeclarationInfo
                          -> t m Bool
-onMoveDeclarationClicked pji mi di@(DeclarationInfo (Symbol declStr)) = do
+onMoveDeclarationClicked pji mi di = do
     MoveDeclarationDialog.make $ \dialog -> do
         dialog `on` MoveDeclarationDialog.confirmClickedEvent $ Func1 $ \event -> do
             pathClicked <- MoveDeclarationDialog.getSelectedModulePath dialog
@@ -402,7 +411,7 @@ onMoveDeclarationClicked pji mi di@(DeclarationInfo (Symbol declStr)) = do
             MoveDeclarationDialog.close dialog
             return False
     return False
-        
+
 
 setupModuleContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
@@ -416,7 +425,7 @@ setupModuleContextMenu pji mi = do
             mi@(ModuleInfo (Symbol prefix)) -> Just prefix
             mi -> Nothing
     menu `on` SolutionContextMenu.newDeclClickedEvent $ Func1 $ \event -> do
-        doAddDeclaration pji mi $ DeclarationInfo $ Symbol "New Declaration"
+        doAddDeclaration pji mi $ RawDeclarationInfo $ "New Declaration"
         return False
     menu `on` SolutionContextMenu.deleteModuleClickedEvent $ Func1 $ \event -> do
         doRemoveModule pji mi
@@ -424,6 +433,23 @@ setupModuleContextMenu pji mi = do
     return menu
 
 
+setupUnparsableModuleContextMenu :: forall t m' p m
+                                  . ( MainGuiClassIO t m' p m )
+                                 => MainWindow
+                                 -> ProjectInfo
+                                 -> ModuleInfo
+                                 -> SrcLoc
+                                 -> t m ContextMenu
+setupUnparsableModuleContextMenu gui pji mi loc = do
+    menu <- SolutionContextMenu.makeUnparsableModuleMenu pji mi
+    menu `on` SolutionContextMenu.gotoErrorClickedEvent $ Func1 $ \event -> do
+        doGetItem $ UnparsableModulePath pji mi
+        MainWindow.setFocus FocusEditor gui
+        doGotoSrcLoc loc
+        addIdleTask $ IdleThreadTask $ MainWindow.scrollEditorCursorIntoView gui
+        return False
+    return menu
+    
 setupProjectContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
@@ -537,7 +563,7 @@ onSolutionViewClicked gui event = do
         y <- Gtk.get event #y
         time <- Gtk.get event #time
         let (x',y') = (round x, round y)
-        pathClicked <- MainWindow.getSolutionPathClicked (x',y') gui
+        pathClicked <- MainWindow.getSolutionPathClicked (BinWindowCoords x' y') gui
         menu <- case pathClicked of
             Nothing -> setupSolutionContextMenu
             Just (path, col, p) -> do
@@ -545,6 +571,7 @@ onSolutionViewClicked gui event = do
                 case item of
                     ProjectResult pji -> setupProjectContextMenu pji
                     ModuleResult pji mi _ -> setupModuleContextMenu pji mi
+                    UnparsableModuleResult pji mi loc _ -> setupUnparsableModuleContextMenu gui pji mi loc
                     DeclResult pji mi di -> setupDeclContextMenu pji mi di
                     ImportsResult pji mi -> setupImportsContextMenu pji mi
                     ExportsResult pji mi -> setupExportsContextMenu pji mi
@@ -613,8 +640,31 @@ onErrorClicked :: forall t {-proxy-} m' p m
               -> t m ()
 onErrorClicked gui path _ = do
     shouldFocus <- withGtkTreePath path doJumpToErrorLocation
-    when shouldFocus $ MainWindow.focusDeclView gui
-        
+    when shouldFocus $ MainWindow.setFocus FocusErrorList gui
+
+
+onSolutionTreeTooltipQuery :: forall t m' p m
+                            . ( MainGuiClass t m' p m)
+                           => MainWindow
+                           -> Int32
+                           -> Int32
+                           -> Bool
+                           -> Tooltip
+                           -> t m Bool
+onSolutionTreeTooltipQuery gui x' y' _ tooltip = do
+    let x = fromIntegral x'
+        y = fromIntegral y'
+    result <- MainWindow.getSolutionPathClicked (WidgetCoords x y) gui
+    case result of
+        Just (path, col, _) -> do
+            item <- findAtPath path
+            case item of
+                UnparsableModuleResult _ _ loc msg -> do
+                    let tooltipText = show loc ++ ": " ++ msg
+                    liftIO $ tooltipSetText tooltip $ Just $ pack tooltipText
+                    return True
+                _ -> return False
+        Nothing -> return False
 
 {-
 declBufferEdited :: GuiEnvSignal {-proxy-} m' p IO GuiComponents TextBuffer IO ()
@@ -647,6 +697,7 @@ setupSignals gui = do
     gui `on` MainWindow.declarationEditedEvent $ Func0 $ onDeclEdited
     gui `on` MainWindow.errorClickedEvent $ Func2 $ onErrorClicked gui
     gui `on` MainWindow.windowClosedEvent $ Func0 $ liftIO exitSuccess
+    gui `on` MainWindow.solutionTreeQueryTooltipEvent $ Func4 $ onSolutionTreeTooltipQuery gui
     return ()
 
 

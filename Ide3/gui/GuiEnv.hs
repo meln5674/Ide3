@@ -20,7 +20,7 @@ import GuiMonad
 import GuiViewer
 import GuiViewer.Class
 
-newtype IdleThreadTask = IdleThreadTask { getIdleThreadTask :: IO () }
+import GenericGuiEnv (IdleThreadTask(..))
 
 type MVarType p = (GuiViewerState, (ViewerState, p))
 

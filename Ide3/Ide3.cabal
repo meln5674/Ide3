@@ -84,7 +84,7 @@ executable Ide3-GUI
                      , text
                      , conduit
                      , conduit-extra
-                     , haskell-src-exts < 1.18
+                     , haskell-src-exts
                      , parsec
                      , stm
   default-language:    Haskell2010
@@ -92,7 +92,7 @@ executable Ide3-GUI
 custom-setup
     setup-depends:     base
                      , Cabal > 1.24
-                     , haskell-gi == 0.18
+                     , haskell-gi
 
                      
 executable Ide3-CLI
@@ -125,10 +125,8 @@ test-suite Ide3-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test, src, gui
   main-is:             Main.hs
-  other-modules:       ErrorParser
-                     , SolutionTree
+  other-modules:       SolutionTree
                      , DeclarationPath
-                     , Tests.ErrorParser
                      , Tests.SolutionTree
   build-depends:       base
                      , Ide3-common
@@ -137,7 +135,7 @@ test-suite Ide3-test
                      , mtl
                      , transformers
                      , parsec
-                     , haskell-src-exts < 1.18
+                     , haskell-src-exts
                      , directory
                      , exceptions
                      , process

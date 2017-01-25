@@ -24,7 +24,8 @@ import GuiHelpers
 import GuiClass
 import GuiClass.GuiEnv()
 
-import GuiEnv
+import GuiEnv hiding (addIdleTask)
+import qualified GuiEnv (addIdleTask)
 import Dialogs
 import GenericGuiEnv
 
@@ -124,3 +125,4 @@ instance GenericGuiEnv (GuiT m' p) where
                     Right () -> return ()
                     Left e -> do
                         displayError $ pack $ show $ e
+    addIdleTask t = GuiT $ GuiEnv.addIdleTask t

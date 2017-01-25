@@ -20,6 +20,7 @@ Portability : POSIX
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module GuiCommand.Internal where
 
 import Data.Monoid
@@ -193,7 +194,7 @@ openItem (ModulePath pji mi) = do
     lift $ lift $ setCurrentModule pji mi
     return $ T.pack header
 openItem (UnparsableModulePath pji mi) = do
-    Just contents <- lift $ getUnparsableModule pji mi
+    Just (contents, loc, msg) <- lift $ getUnparsableModule pji mi
     splice $ setEditorBufferTextHighlighted $ T.pack contents
     lift $ lift $ setCurrentModule pji mi
     return $ T.pack contents
@@ -215,10 +216,24 @@ doGetDecl path = do
         ModuleResult pji mi True -> do
             text <- openItem $ ModulePath pji mi
             lift $ lift $ openDeclarationInHistory (ModulePath pji mi) text
-        UnparsableModuleResult pji mi -> do
+        UnparsableModuleResult pji mi _ _ -> do
             text <- openItem $ UnparsableModulePath pji mi
             lift $ lift $ openDeclarationInHistory (UnparsableModulePath pji mi) text
         _ -> return ()
+
+doGetItem :: ( GuiCommand t m )
+          => SolutionPath
+          -> t (SolutionResult UserError m) ()
+doGetItem path = do
+    text <- openItem path
+    lift $ lift $ openDeclarationInHistory path text
+
+doGotoSrcLoc :: ( GuiCommand t m )
+             => SrcLoc
+             -> t (SolutionResult UserError m) ()
+doGotoSrcLoc SrcLoc{srcRow, srcColumn}
+    = splice $ selectEditorBufferText (srcRow-1,srcColumn-1) 
+                                      (srcRow-1,srcColumn-1)
 
 -- | Build the current project
 doBuild :: ( GuiCommand t m
@@ -330,7 +345,9 @@ saveUnparsableModule :: ( GuiCommand t m
 saveUnparsableModule pji mi = do
     -- Update the text from the buffer, still marked as
     -- unparsable
-    doWithEditorBuffer $ lift . setModuleUnparsable pji mi . T.unpack
+    Just (_, loc, msg) <- lift $ getUnparsableModule pji mi
+    doWithEditorBuffer $ \t -> do
+        lift $ setModuleUnparsable pji mi (T.unpack t) loc msg
     mi' <- lift $ refreshModule pji mi
     result' <- lift $ getUnparsableModule pji mi'
     case result' of
@@ -517,7 +534,7 @@ doUnExportDeclaration :: ( GuiCommand t m )
                       -> ModuleInfo
                       -> DeclarationInfo
                       -> t (SolutionResult UserError m)  ()
-doUnExportDeclaration pji mi (DeclarationInfo sym) = do
+doUnExportDeclaration pji mi (SymbolDeclarationInfo sym) = do
     matches <- lift $ do
         es <- do
             maybeEis <- getExports pji mi
@@ -544,6 +561,8 @@ doUnExportDeclaration pji mi (DeclarationInfo sym) = do
                                ++ "please remove export manually"
         _ -> doError $ Unsupported 
                        "Multiple exports found, please remove exports manually"
+doUnExportDeclaration pji mi _ = doError $ InvalidOperation "This declaration is not exportable" ""
+
 
 doMoveDeclaration :: ( GuiCommand t m )
                   => ProjectInfo

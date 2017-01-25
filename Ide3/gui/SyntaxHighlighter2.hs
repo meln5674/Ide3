@@ -1,5 +1,7 @@
 module SyntaxHighlighter2 where
 
+import Data.List
+
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -34,6 +36,12 @@ allSyntaxComponents :: [SyntaxComponent]
 allSyntaxComponents = [Comment .. Literal]
 
 data HighlightInst = HighlightInst SyntaxComponent CursorPosition CursorPosition
+  deriving (Show, Eq, Ord)
+
+{-
+instance Ord HighlightInst where
+    compare (HighlightInst a _ _) (HighlightInst b _ _) = compare a b
+-}
 
 classifyToken :: Lex.Token -> SyntaxComponent
 classifyToken Lex.VarId{}               = VarId

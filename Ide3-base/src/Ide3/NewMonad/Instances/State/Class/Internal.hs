@@ -21,8 +21,6 @@ import Control.Monad.Trans.Except
 import Ide3.Types.Internal
 import Ide3.Types.State
 
-import Ide3.Utils
-
 -- | Class of monads which can get and retrieve a Solution
 class Monad m => StatefulSolutionClass m where
     -- | Get the Solution

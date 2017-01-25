@@ -23,6 +23,8 @@ import GuiClass
 import GuiEnv
 import GuiHelpers
 
+import GenericGuiEnv (IdleThreadTask(..))
+
 import SyntaxHighlighter2
 
 instance ( MonadIO m' ) => SolutionViewClass (GuiEnvT {-proxy-} m p m') where
@@ -144,7 +146,9 @@ instance ( MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
         $ flip withEditorBuffer $ \buffer -> addIdleTask $ IdleThreadTask $ do
             start <- textBufferGetIterAtLineOffset buffer startRow startCol
             end <- textBufferGetIterAtLineOffset buffer endRow endCol
-            textBufferSelectRange buffer start end
+            if (startRow, startCol) == (endRow, endCol)
+                then textBufferPlaceCursor buffer start
+                else textBufferSelectRange buffer start end
       where
         startRow = fromIntegral startRow'
         startCol = fromIntegral startCol'
@@ -191,7 +195,6 @@ instance ( MonadIO m' ) => EditorBufferClass (GuiEnvT {-proxy-} m p m') where
                 start' <- textBufferGetIterAtLineOffset buffer startRow startCol
                 end' <- textBufferGetIterAtLineOffset buffer endRow endCol
                 textBufferApplyTagByName buffer (pack $ show tag) start' end'
-            
 
 instance ( MonadIO m' ) => BuildBufferClass (GuiEnvT {-proxy-} m p m') where
     setBuildBufferText text

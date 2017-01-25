@@ -27,6 +27,10 @@ data ElementMenu
     , renameModuleButton :: MenuItem
     , deleteModuleButton :: MenuItem
     }
+    | UnparsableModuleMenu
+    { moduleInfo :: ProjectChild ModuleInfo
+    , gotoErrorButton :: MenuItem
+    }
     | DeclMenu
     { declInfo :: ProjectChild (ModuleChild DeclarationInfo)
     , exportDeclarationButton :: MenuItem
@@ -97,6 +101,16 @@ makeRenameModuleButton = makeMenuButton "Rename"
 makeDeleteModuleButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteModuleButton = makeMenuButton "Delete"
 
+makeUnparsableModuleMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
+makeUnparsableModuleMenu pji mi = makeMenuWith $ \menu -> do
+    gotoErrorButton <- makeGotoErrorButton menu
+    return UnparsableModuleMenu
+            { moduleInfo = ProjectChild pji mi
+            , gotoErrorButton
+            }
+
+makeGotoErrorButton :: (MonadIO m) => Menu -> m MenuItem
+makeGotoErrorButton = makeMenuButton "Go to Error Location"
 
 makeDeclMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> DeclarationInfo -> m ContextMenu
 makeDeclMenu pji mi di = makeMenuWith $ \menu -> do
@@ -246,6 +260,9 @@ renameModuleClickedEvent = renameModuleButton `mkMenuSignal` #buttonPressEvent
 
 deleteModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 deleteModuleClickedEvent = deleteModuleButton `mkMenuSignal` #buttonPressEvent
+
+gotoErrorClickedEvent :: ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
+gotoErrorClickedEvent = gotoErrorButton `mkMenuSignal` #buttonPressEvent
 
 exportDeclarationClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 exportDeclarationClickedEvent = exportDeclarationButton `mkMenuSignal` #buttonPressEvent

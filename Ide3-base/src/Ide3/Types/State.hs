@@ -18,6 +18,7 @@ import Data.Map.Strict ( Map )
 import Ide3.OrderedMap (OrderedMap)
 
 import Ide3.Types.Internal
+import Ide3.SrcLoc.Types
 
 -- | A solution, a collection of projects
 data Solution
@@ -64,6 +65,8 @@ data Module
     | UnparsableModule
     { moduleInfo :: ModuleInfo
     , moduleContents :: String
+    , moduleErrorLoc :: SrcLoc 
+    , moduleErrorMsg :: String
     }
     deriving (Show, Read, Eq)
 

@@ -16,7 +16,7 @@ import Data.Monoid
 
 import Control.Monad
 
-import Language.Haskell.Exts.Annotated.Parser
+import Language.Haskell.Exts.Parser
 import Language.Haskell.Exts.Pretty
 import Language.Haskell.Exts.Parser
     ( ParseResult(..)
@@ -29,7 +29,7 @@ import Language.Haskell.Exts (readExtensions)
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc (SrcInfo, SrcSpanInfo)
 import Language.Haskell.Exts.Comments
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import qualified Language.Haskell.Exts.Syntax as Syntax
 
 import Ide3.Types.Internal
 
@@ -81,7 +81,7 @@ extractInfo _ (m,_) = Ann mAnn' mInfo
     mInfo = UnamedModule Nothing
 
 -- | Extract the pragmas from a module
-extractPragmas :: (SrcInfo l, FileSpannable l)
+extractPragmas :: (FileSpannable l)
                => String 
                -> (Syntax.Module l, [Comment]) 
                -> [(Ann SrcFileSpan Pragma)]

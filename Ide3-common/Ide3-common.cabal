@@ -45,3 +45,24 @@ library
                      , parsec
                      , containers
     default-language:  Haskell2010
+
+test-suite Ide3-common-test
+    type:               exitcode-stdio-1.0
+    hs-source-dirs:     test, src
+    main-is:            Main.hs
+    other-modules:      ErrorParser
+                      , Tests.ErrorParser
+    build-depends:      base
+                      , Ide3-base
+                       , HUnit
+                       , mtl
+                       , transformers
+                       , parsec
+                       , haskell-src-exts
+                       , directory
+                       , exceptions
+                       , process
+                       , filepath
+                       , text
+                       , containers
+

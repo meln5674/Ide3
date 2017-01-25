@@ -27,6 +27,8 @@ typeCreated (ClassDeclaration s _) = s
 typeCreated (TypeSynonym s _) = s
 typeCreated (DataDeclaration s _) = s
 typeCreated (NewtypeDeclaration s _) = s
+typeCreated (OpenTypeFamilyDecl s) = s
+typeCreated (ClosedTypeFamilyDecl s _) = s
 
 -- | Get the list of binds created by a declaration
 bindsCreated :: TypeDeclaration -> [Symbol]
@@ -37,6 +39,8 @@ bindsCreated (DataDeclaration _ cs)
     = concatMap Constructor.bindsProvided cs
 bindsCreated (NewtypeDeclaration _ c)
     = Constructor.bindsProvided c
+bindsCreated (OpenTypeFamilyDecl _) = []
+bindsCreated (ClosedTypeFamilyDecl _ _) = []
 
 -- | Get a list of constructors created by a declaration
 constructorsCreated :: TypeDeclaration -> [Symbol]
@@ -46,3 +50,5 @@ constructorsCreated (DataDeclaration _ cs)
     = map Constructor.symbol cs
 constructorsCreated (NewtypeDeclaration _ c)
     = [Constructor.symbol c]
+constructorsCreated (OpenTypeFamilyDecl _) = []
+constructorsCreated (ClosedTypeFamilyDecl _ _) = []

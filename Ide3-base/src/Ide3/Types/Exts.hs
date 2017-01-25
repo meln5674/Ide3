@@ -11,8 +11,8 @@ Portability : POSIX
 
 module Ide3.Types.Exts where
 
-import Language.Haskell.Exts.Annotated.Syntax hiding (Symbol, Module, Type)
-import qualified Language.Haskell.Exts.Annotated.Syntax as Syntax
+import Language.Haskell.Exts.Syntax hiding (Symbol, Module, Type)
+import qualified Language.Haskell.Exts.Syntax as Syntax
 import Language.Haskell.Exts.SrcLoc
 
 import Language.Haskell.Exts.Pretty
@@ -50,7 +50,7 @@ instance ToSym (QName a) where
     toSym (Special _ s) = toSym s
 
 -- | Convert to symbol using the pretty printer
-instance SrcInfo a => ToSym (Syntax.Type a) where
+instance ToSym (Syntax.Type a) where
     toSym = Symbol . prettyPrint
 
 -- | Extract recursively until the head is reached
@@ -59,6 +59,10 @@ instance ToSym (DeclHead a) where
     toSym (DHInfix _ _ n) = toSym n
     toSym (DHParen _ h) = toSym h
     toSym (DHApp _ h _) = toSym h
+
+instance ToSym (Op a) where
+    toSym (VarOp _ n) = toSym n
+    toSym (ConOp _ n) = toSym n
 
 -- | Search heads for names
 instance SrcInfo a => HasNames (InstRule a) where

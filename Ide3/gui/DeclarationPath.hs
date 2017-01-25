@@ -74,7 +74,9 @@ instance Show SolutionPath where
         = a ++ "/" ++ b ++ ":[IMPORTS]"
     show (ImportPath (ProjectInfo a) (ModuleInfo (Symbol b)) ii) 
         = a ++ "/" ++ b ++ ":[IMPORT ID=" ++ show ii ++ "]"
-    show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (DeclarationInfo (Symbol c)))
+    show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (SymbolDeclarationInfo (Symbol c)))
+        = a ++ "/" ++ b ++ ":" ++ c
+    show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (RawDeclarationInfo c))
         = a ++ "/" ++ b ++ ":" ++ c
 
 -- | Parser for the terminator between project and module names
@@ -95,7 +97,7 @@ moduleName = (ModuleInfo . Symbol) <$> (many $ notFollowedBy moduleTerminator  *
 
 -- | Parser for a declaration info
 declarationInfo :: Parsec String () DeclarationInfo 
-declarationInfo = (DeclarationInfo . Symbol) <$> many anyToken
+declarationInfo = (SymbolDeclarationInfo . Symbol) <$> many anyToken
 
 -- | Parser for a declaration path
 declarationPath :: Parsec String () SolutionPath

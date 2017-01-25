@@ -4,15 +4,9 @@ import Test.HUnit
 
 import System.Exit
 
-import Tests.SolutionTree
+import Tests.ErrorParser
 
 --allTests = TestList [test_parseLogFile "testlog", test_parseLogFile "testlog2"]
-
-allTests = TestList
-	[ test_insertProject
-	, test_updateModule
-	, test_moveModule
-	]
 
 main :: IO ()
 main = do
@@ -20,3 +14,4 @@ main = do
     if (errors counts /= 0 || failures counts /= 0)
         then exitFailure
         else exitSuccess
+

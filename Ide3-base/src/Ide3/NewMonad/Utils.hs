@@ -88,8 +88,8 @@ addRawModule pji str p = case Module.parse str p of
                 maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
                 mapM_ (addPragma pji mi) $ modulePragmas
                 editModuleHeader pji mi $ const $ moduleHeader
-            UnparsableModule { moduleContents } -> do
-                setModuleUnparsable pji mi moduleContents
+            UnparsableModule { moduleContents, moduleErrorLoc, moduleErrorMsg } -> do
+                setModuleUnparsable pji mi moduleContents moduleErrorLoc moduleErrorMsg
         return (mi, err)
     Left err -> throwE err
 
@@ -120,8 +120,8 @@ updateRawModule pji str p = case Module.parse str p of
                 maybe (exportAll pji mi) (mapM_ $ addExport pji mi) $ moduleExports
                 mapM_ (addPragma pji mi) $ modulePragmas
                 editModuleHeader pji mi $ const $ moduleHeader
-            UnparsableModule { moduleContents } -> do
-                setModuleUnparsable pji mi moduleContents
+            UnparsableModule { moduleContents, moduleErrorLoc, moduleErrorMsg } -> do
+                setModuleUnparsable pji mi moduleContents moduleErrorLoc moduleErrorMsg
         return (mi, err)
     Left err -> throwE err
 
