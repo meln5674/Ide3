@@ -237,3 +237,4 @@ mkSpliceInstance getLiftFunc conCxt className conName conVars = do
     return $ TH.InstanceD overlap cxt instType instMethods
 
 
+

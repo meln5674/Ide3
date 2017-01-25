@@ -1045,3 +1045,4 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
 
 instance Monad m => DirtyModuleClass (CabalSolution m) where
     isModuleDirty = CabalFilesystemSolution.Internal.isModuleDirty
+

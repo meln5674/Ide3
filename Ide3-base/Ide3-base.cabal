@@ -136,3 +136,4 @@ test-suite Ide3-test
 source-repository head
   type:     git
   location: https://github.com/githubuser/Ide3
+

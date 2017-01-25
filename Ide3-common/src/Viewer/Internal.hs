@@ -137,3 +137,4 @@ hasCurrentModule = liftM isJust getCurrentModule
 
 hasCurrentDeclaration :: (ViewerStateClass m) => m Bool
 hasCurrentDeclaration = liftM isJust getCurrentDeclaration
+

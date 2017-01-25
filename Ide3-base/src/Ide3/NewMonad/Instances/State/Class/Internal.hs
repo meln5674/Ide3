@@ -77,3 +77,4 @@ modifySolutionER f = do
     (x,s') <- f s
     putSolution s'
     return x
+

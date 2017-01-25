@@ -283,3 +283,4 @@ type SolutionFileMonad m = (SolutionMonad m, ModuleFileClass m)
 type PersistentSolutionFileMonad m = ( PersistentSolutionMonad m
                                      , ModuleFileClass m
                                      )
+

@@ -326,3 +326,4 @@ main = flip evalStateT Solution.empty
   where 
     ?proxy = undefined :: Proxy ()
     
+

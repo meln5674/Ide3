@@ -37,3 +37,4 @@ instance ( StatefulSolutionClass m
     new = newState >=> putSolution
     finalize tok = getSolution >>= finalizeState tok
 
+

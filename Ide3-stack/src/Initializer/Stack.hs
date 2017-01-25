@@ -54,3 +54,4 @@ stackInitializer = Initializer $ \(StackInitializerArgs path template) -> do
             return $ InitializerSucceeded out err path
             
         ExitFailure _ ->  return $ InitializerFailed out err
+

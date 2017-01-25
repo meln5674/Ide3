@@ -24,3 +24,4 @@ import Ide3.Utils
 import Ide3.NewMonad.Instances.State.Class.Internal
 
 [betterderiving| splice2; ; StatefulPersistenceClass; StatefulWrapper; |]
+

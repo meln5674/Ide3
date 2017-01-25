@@ -146,3 +146,4 @@ test-suite Ide3-test
 source-repository head
   type:     git
   location: https://github.com/meln5674/Ide3
+

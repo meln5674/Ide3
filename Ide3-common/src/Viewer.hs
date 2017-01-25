@@ -131,3 +131,4 @@ instance ViewerMonad m => ViewerStateClass (ViewerStateT m) where
 deriving instance (MonadMask m) => MonadMask (ViewerStateT m)
 deriving instance (MonadCatch m) => MonadCatch (ViewerStateT m)
 deriving instance (MonadThrow m) => MonadThrow (ViewerStateT m)
+

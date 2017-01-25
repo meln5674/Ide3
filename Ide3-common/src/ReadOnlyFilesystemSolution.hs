@@ -135,3 +135,4 @@ instance (MonadIO m) => ViewerMonad (ReadOnlyFilesystemSolutionT m) where
 
 instance PseudoStateT ReadOnlyFilesystemSolutionT FileSystemSolution where
     runPseudoStateT = runStateT . runReadOnlyFilesystemSolutionTInternal
+

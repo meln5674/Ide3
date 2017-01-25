@@ -196,3 +196,4 @@ instance ( MonadIO m
         $ \dialog -> NewSolutionDialog.setVisible dialog False
 
 
+

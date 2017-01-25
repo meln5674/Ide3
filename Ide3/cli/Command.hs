@@ -1007,3 +1007,4 @@ quitCmd = Command
     , completion = \_ -> return $  Just []
     , action = \_ -> doQuit
     }
+
