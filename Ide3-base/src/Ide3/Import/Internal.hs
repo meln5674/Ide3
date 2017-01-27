@@ -9,6 +9,7 @@ Stability   : experimental
 Portability : POSIX
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Import.Internal
     ( moduleName
     , isQualified
@@ -21,6 +22,8 @@ module Ide3.Import.Internal
 
 import Data.Maybe
 import Data.List
+
+import qualified Data.Text as T
 
 import Ide3.Utils
 import Ide3.Types.Internal
@@ -71,8 +74,8 @@ commonPath i1 i2 = sameCount /= 0
   where
     m1 = getSymbol $ moduleName i1
     m2 = getSymbol $ moduleName i2
-    p1 = splitByDots m1
-    p2 = splitByDots m2
+    p1 = T.splitOn "." m1
+    p2 = T.splitOn "." m2
     inits1 = tail $ inits p1
     inits2 = tail $ inits p2
     sameCount = length $ takeWhile id $ zipWith (==) inits1 inits2
@@ -83,10 +86,10 @@ editModuleName :: (Symbol -> Symbol)
                -> WithBody Import
 editModuleName f (WithBody (ModuleImport sym a b) s)
     = WithBody (ModuleImport (f sym) a b) 
-    $ replace (getSymbol sym) (getSymbol $ f sym) s
+    $ T.replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (WhitelistImport sym a b c) s)
     = WithBody (WhitelistImport (f sym) a b c) 
-    $ replace (getSymbol sym) (getSymbol $ f sym) s
+    $ T.replace (getSymbol sym) (getSymbol $ f sym) s
 editModuleName f (WithBody (BlacklistImport sym a b c) s)
     = WithBody (BlacklistImport (f sym) a b c) 
-    $ replace (getSymbol sym) (getSymbol $ f sym) s
+    $ T.replace (getSymbol sym) (getSymbol $ f sym) s

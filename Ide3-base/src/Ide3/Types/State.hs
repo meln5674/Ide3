@@ -11,7 +11,10 @@ Portability : POSIX
 
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Types.State where
+
+import Data.Text (Text)
 
 import Data.Map.Strict ( Map )
 
@@ -56,7 +59,7 @@ type DeclarationCollection = OrderedMap DeclarationInfo (WithBody Declaration)
 data Module
     = Module 
     { moduleInfo :: ModuleInfo
-    , moduleHeader :: String
+    , moduleHeader :: Text
     , modulePragmas :: [Pragma]
     , moduleImports :: ImportCollection
     , moduleExports :: ExportCollection
@@ -64,7 +67,7 @@ data Module
     }
     | UnparsableModule
     { moduleInfo :: ModuleInfo
-    , moduleContents :: String
+    , moduleContents :: Text
     , moduleErrorLoc :: SrcLoc 
     , moduleErrorMsg :: String
     }

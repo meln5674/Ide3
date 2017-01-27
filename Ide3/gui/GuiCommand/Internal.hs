@@ -166,7 +166,7 @@ doNew maybeSolutionRoot projectName templateName = do
                     populateTree
                     lift $ saveSolution $ Just $ projectRoot </> projectName
                 InitializerFailed out err -> 
-                    doError $ InvalidOperation (out ++ err) ""
+                    doError $ InvalidOperation (T.unpack $ out <> err) ""
 
 -- | Open a solution
 doOpen :: ( GuiCommand t m, MonadIO m )
@@ -184,20 +184,20 @@ openItem
     -> t (SolutionResult UserError m) Text
 openItem (DeclarationPath pji mi di) = do
     decl <- lift $ getDeclaration pji mi di
-    splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
+    splice $ setEditorBufferTextHighlighted $ body decl
     --lift $ liftIO $ print $ body decl
     lift $ lift $ setCurrentDecl pji mi di
-    return $ T.pack $ body decl
+    return $ body decl
 openItem (ModulePath pji mi) = do
     header <- lift $ getModuleHeader pji mi
-    splice $ setEditorBufferTextHighlighted $ T.pack header
+    splice $ setEditorBufferTextHighlighted header
     lift $ lift $ setCurrentModule pji mi
-    return $ T.pack header
+    return $ header
 openItem (UnparsableModulePath pji mi) = do
     Just (contents, loc, msg) <- lift $ getUnparsableModule pji mi
-    splice $ setEditorBufferTextHighlighted $ T.pack contents
+    splice $ setEditorBufferTextHighlighted contents
     lift $ lift $ setCurrentModule pji mi
-    return $ T.pack contents
+    return contents
 openItem _ = do
     splice $ setEditorBufferText ""
     return ""
@@ -278,7 +278,7 @@ doBuild = do
              $ OMap.mapWithKeyM fetchErrorLocations sortedErrors
 
     -- Add the whole text to the log tab and populate the error tab
-    splice $ setBuildBufferText $ T.pack text
+    splice $ setBuildBufferText text
     splice $ mapM_ addErrorToList errors'
 
 -- | Run the current project
@@ -293,9 +293,9 @@ doRun = do
         Just pji -> do
             r <- lift $ runRunner runner pji
             let text = case r of
-                    RunSucceeded out err -> out ++ err
-                    RunFailed out err -> out ++ err
-            splice $ setBuildBufferText $ T.pack text
+                    RunSucceeded out err -> out <> err
+                    RunFailed out err -> out <> err
+            splice $ setBuildBufferText text
 
 
 -- | Apply a monadic function to the contents of the editor buffer, update the
@@ -325,7 +325,7 @@ saveDeclaration pji mi di = do
         lift 
             $ editDeclaration pji mi di 
             $ const 
-            $ Declaration.parseAndCombine (T.unpack text) Nothing
+            $ Declaration.parseAndCombine text Nothing
     -- If the declaration's name has changed, update the tree with the
     -- new name, and replace the path in the history
     when (di /= di') $ do
@@ -347,7 +347,7 @@ saveUnparsableModule pji mi = do
     -- unparsable
     Just (_, loc, msg) <- lift $ getUnparsableModule pji mi
     doWithEditorBuffer $ \t -> do
-        lift $ setModuleUnparsable pji mi (T.unpack t) loc msg
+        lift $ setModuleUnparsable pji mi t loc msg
     mi' <- lift $ refreshModule pji mi
     result' <- lift $ getUnparsableModule pji mi'
     case result' of
@@ -377,7 +377,7 @@ saveModuleHeader :: ( GuiCommand t m
                  -> ModuleInfo
                  -> t (SolutionResult UserError m) ()
 saveModuleHeader pji mi = doWithEditorBuffer $ \text -> do
-    lift $ editModuleHeader pji mi $ const $ T.unpack text
+    lift $ editModuleHeader pji mi $ const text
 
 -- | Save a module header or an unparsable module from the editor buffer
 saveModule :: ( GuiCommand t m
@@ -434,7 +434,7 @@ doAddSolution = do
             lift $ load tok
             populateTree
         InitializerFailed out err -> do
-            doError $ InvalidOperation (out ++ err) ""
+            doError $ InvalidOperation (T.unpack $ out <> err) ""
     splice finalizeSolutionCreator
 
 -- | Create a new project
@@ -453,7 +453,7 @@ doAddProject = do
             lift $ addProject pji
             splice $ insertSolutionTreeNode SolutionPath (ProjectElem pji)
             lift $ finalize Nothing
-        ProjectInitializerFailed out err -> doError $ InvalidOperation (out ++ err) ""
+        ProjectInitializerFailed out err -> doError $ InvalidOperation (T.unpack $ out <> err) ""
 
 doEditProject :: ( GuiCommand t m
                 , m ~ ClassProjectInitializerMonad (t m)
@@ -508,12 +508,11 @@ doAddDeclaration pji mi di = do
     lift $ addDeclaration pji mi newdecl
     splice $ insertSolutionTreeNode (ModulePath pji mi) $ DeclElem di
     decl <- lift $ getDeclaration pji mi di
-    splice $ setEditorBufferTextHighlighted $ T.pack $ body decl
+    splice $ setEditorBufferTextHighlighted $ body decl
     lift $ lift $ setCurrentDecl pji mi di
     lift 
         $ lift 
         $ openDeclarationInHistory (DeclarationPath pji mi di)
-        $ T.pack 
         $ body decl
 
 -- | Remove a declaration from a module
@@ -591,7 +590,7 @@ doMoveDeclaration pji mi di pji' mi' = do
 doAddImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
-            -> String
+            -> Text
             -> t (SolutionResult UserError m)  (Maybe (SolutionError UserError))
 doAddImport pji mi importStr = do
     case Import.parse importStr of
@@ -621,7 +620,7 @@ doGetImport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> ImportId
-            -> t (SolutionResult UserError m)  (Maybe String)
+            -> t (SolutionResult UserError m)  (Maybe Text)
 doGetImport pji mi ii = do
     (WithBody _ b) <- lift $ getImport pji mi ii
     return $ Just b
@@ -631,7 +630,7 @@ doEditImport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
              -> ImportId
-             -> String
+             -> Text
              -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
 doEditImport pji mi ii importStr = do
     case Import.parse importStr of
@@ -652,7 +651,7 @@ doEditImport pji mi ii importStr = do
 doAddExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
-            -> String
+            -> Text
             -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
 doAddExport pji mi exportStr = do
     case Export.parse exportStr of
@@ -682,7 +681,7 @@ doGetExport :: ( GuiCommand t m )
             => ProjectInfo
             -> ModuleInfo
             -> ExportId
-            -> t (SolutionResult UserError m)  (Maybe String)
+            -> t (SolutionResult UserError m)  (Maybe Text)
 doGetExport pji mi ei = do
     (WithBody _ b) <- lift $ getExport pji mi ei
     return $ Just b
@@ -692,7 +691,7 @@ doEditExport :: ( GuiCommand t m )
              => ProjectInfo
              -> ModuleInfo
              -> ExportId
-             -> String
+             -> Text
              -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
 doEditExport pji mi ei exportStr = do
     case Export.parse exportStr of
@@ -800,7 +799,7 @@ doGotoDeclaration = do
             | firstIs isSymChar && lastIs isSymChar = isSymChar
             | otherwise = const False
         c `telem` t = isJust $ T.findIndex (==c) t
-    hits <- lift $ Solution.findSymbol $ Symbol $ T.unpack currentWord
+    hits <- lift $ Solution.findSymbol $ Symbol currentWord
     let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits
     case hits' of
         [(ProjectChild pji (ModuleChild mi di))] -> do

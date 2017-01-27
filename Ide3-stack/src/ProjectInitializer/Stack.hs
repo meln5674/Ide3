@@ -1,6 +1,11 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module ProjectInitializer.Stack where
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -8,7 +13,7 @@ import Control.Monad.Trans.Except
 import Distribution.PackageDescription
 import Distribution.Version
 import Distribution.ModuleName
-import Distribution.Text
+import Distribution.Text hiding (Text)
 
 import Ide3.Types
 
@@ -24,7 +29,7 @@ import ProjectInitializer.Stack.Types
 stackProjectInitializer :: ( MonadIO m
                            , CabalMonad m
                            )
-                        => ProjectInitializer StackProjectInitializerArgs' m
+                        => ProjectInitializer (StackProjectInitializerArgs' Text String FilePath) m
 stackProjectInitializer = ProjectInitializer $ \arg -> do
     deps <- case traverse simpleParse $ dependencies arg of
         Just deps -> return deps
@@ -38,14 +43,14 @@ stackProjectInitializer = ProjectInitializer $ \arg -> do
             _ -> ProjectInfo $ projectName arg
         newCabalProjectInfo = case arg of
             LibraryProjectArgs{} -> LibraryInfo
-            ExecutableProjectArgs{} -> ExecutableInfo $ projectName arg
-            TestSuiteProjectArgs{} -> TestSuiteInfo $ projectName arg
-            BenchmarkProjectArgs{} -> BenchmarkInfo $ projectName arg
+            ExecutableProjectArgs{ projectName } -> ExecutableInfo $ T.unpack projectName
+            TestSuiteProjectArgs{ projectName } -> TestSuiteInfo $ T.unpack projectName
+            BenchmarkProjectArgs{ projectName } -> BenchmarkInfo $ T.unpack projectName
         newProject = case arg of
             ExecutableProjectArgs{} -> ExecutableProject (ProjectInfo $ projectName arg)
                 $ emptyExecutable 
                 { buildInfo = newBuildInfo
-                , exeName = projectName arg
+                , exeName = T.unpack $ projectName arg
                 , modulePath = exeMainPath arg
                 }
             LibraryProjectArgs{} -> LibraryProject
@@ -54,7 +59,7 @@ stackProjectInitializer = ProjectInitializer $ \arg -> do
                 }
             TestSuiteProjectArgs{} -> TestSuiteProject (ProjectInfo $ projectName arg)
                 $ emptyTestSuite
-                { testName = projectName arg
+                { testName = T.unpack $ projectName arg
                 , testInterface = case testSuiteArgs arg of
                     StdioTestSuiteArgs path -> TestSuiteExeV10 (Version [1,0] []) path
                     DetailedTestSuiteArgs name -> TestSuiteLibV09 (Version [0,9] []) $ fromString name
@@ -63,7 +68,7 @@ stackProjectInitializer = ProjectInitializer $ \arg -> do
                 }
             BenchmarkProjectArgs{} -> BenchmarkProject (ProjectInfo $ projectName arg)
                 $ emptyBenchmark
-                { benchmarkName = projectName arg
+                { benchmarkName = T.unpack $ projectName arg
                 , benchmarkInterface = case benchmarkArgs arg of
                     StdioBenchmarkArgs path -> BenchmarkExeV10 (Version [1,0] []) path
                 , benchmarkBuildInfo = newBuildInfo

@@ -1,10 +1,13 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Initializer.Stack where
+
+import Data.String (IsString(..))
 
 import Initializer
 
 import System.Exit
-import System.Process
+import System.Process.Text
 
 import Control.Monad.Trans
 
@@ -19,8 +22,8 @@ type TemplateName = String
 data StackInitializerArgs = StackInitializerArgs FilePath (Maybe TemplateName)
 
 instance Args StackInitializerArgs where
-    getArgsFrom [path] = Right $ StackInitializerArgs path Nothing
-    getArgsFrom [template,path] = Right $ StackInitializerArgs path (Just template)
+    getArgsFrom [path] = Right $ StackInitializerArgs (fromString path) Nothing
+    getArgsFrom [template,path] = Right $ StackInitializerArgs (fromString path) (Just $ fromString template)
     getArgsFrom [] = Left "new expects at least a path and optionally a template name"
     getArgsFrom _ = Left "new expects only a path and optionally a template name"
 

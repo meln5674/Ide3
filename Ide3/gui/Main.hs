@@ -218,9 +218,7 @@ doMain _ initialState = do
                 case mode of
                     NewProjectDialog.CreateProject -> onNewProjectConfirmed
                     NewProjectDialog.EditProject name 
-                        -> onEditProjectConfirmed 
-                            $ ProjectInfo 
-                            $ T.unpack name
+                        -> onEditProjectConfirmed $ ProjectInfo name
                 return False
             void $ GuiT $ intercept (GI.Gdk.threadsAddIdle 200 . ($ ())) 
                                     (const $ runIdleThread >> return True)

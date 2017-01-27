@@ -20,6 +20,9 @@ This is the main module for the demo haskell IDE solution
 -}
 module Main where
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Data.Proxy
 
 import Control.Monad.Catch
@@ -93,8 +96,8 @@ repl = do
     case input of
         Nothing -> return True
         Just inputCmd -> do
-            response <- lift $ execCommand inputCmd ()
-            outputStrLn response
+            response <- lift $ execCommand (T.pack inputCmd) ()
+            outputStrLn $ T.unpack response
             lift getExitFlag
 
 -- | Run the main program loop forever until the user indicates they wish to quit
@@ -266,7 +269,8 @@ useStackInitializer s = s{appInitializer = stackInitializer}
 useStackProjectInitializer :: ( MonadIO (t m)
                               , CabalMonad (t m)
                               ) 
-                           => AppSetup a pa t fsp m -> AppSetup a StackProjectInitializerArgs' t fsp m
+                           => AppSetup a pa t fsp m 
+                           -> AppSetup a (StackProjectInitializerArgs' Text String FilePath) t fsp m
 useStackProjectInitializer s = s{appProjectInitializer = stackProjectInitializer}
 
 

@@ -11,10 +11,14 @@ Portability : POSIX
 This module provides functions for parsing declarations
 -}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Declaration.Parser where
 
 import Data.Monoid
 import Data.List
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Monad
 
@@ -110,7 +114,7 @@ unwrapTyApp = go []
 parseTypeInstanceDecl :: Decl t -> Maybe Declaration
 parseTypeInstanceDecl (TypeInsDecl _ t@TyApp{} _)
     = let (famSym, argSyms) = unwrapTyApp t
-      in  Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint t)
+      in  Just $ ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint t)
                                      (TypeFamilyInstanceDeclaration famSym argSyms)
 parseTypeInstanceDecl _ = Nothing
 
@@ -129,7 +133,7 @@ parseFuncBind _ = Nothing
 parseFixityDecl :: Decl t -> Maybe Declaration
 parseFixityDecl d@(InfixDecl _ assoc priority ops)
     -- TODO: Find a way to make a declaration info out of this
-    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint d)
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint d)
                                  (FixityDeclaration (map toSym ops)
                                                     fixity
                                  )
@@ -175,7 +179,7 @@ parseClassDecl _ = Nothing
 -- | Convert a declaration if it is an instance declaration
 parseInstanceDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseInstanceDecl (InstDecl _ _ r _)
-    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint r) 
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint r) 
            $ InstanceDeclaration cls ts []
   where
     (cls:ts) = findName r
@@ -194,7 +198,7 @@ parsePatBind _ = Nothing
 -- | Convert a declaration if it is a standalone deriving declaration
 parseDerivingDecl :: (SrcInfo t) => Decl t -> Maybe Declaration
 parseDerivingDecl (DerivDecl _ _ r)
-    = Just $ ModifierDeclaration (RawDeclarationInfo $ prettyPrint r) 
+    = Just $ ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint r) 
            $ DerivingDeclaration cls ts
   where
     (cls:ts) = findName r
@@ -203,8 +207,8 @@ parseDerivingDecl _ = Nothing
 parseQuasiQuote :: Decl t -> Maybe Declaration
 parseQuasiQuote d@(SpliceDecl _ (QuasiQuote _ name args)) = Just $ SpliceDeclaration di d'
   where
-    di = RawDeclarationInfo $ prettyPrint d
-    d' = QuasiQuoteDeclaration name args
+    di = RawDeclarationInfo $ T.pack $ prettyPrint $ d
+    d' = QuasiQuoteDeclaration (T.pack name) (T.pack args)
 parseQuasiQuote _ = Nothing
 
 --maybeFirst :: (a -> Maybe b) -> [a] -> Maybe b
@@ -234,8 +238,8 @@ tryConvert x
         ]
   
 -- | Parse a string containing 0 or more delcarations
-parseMany :: String -> Either (SolutionError u) [Declaration]
-parseMany s = case parseModule s of
+parseMany :: Text -> Either (SolutionError u) [Declaration]
+parseMany s = case parseModule (T.unpack s) of
     ParseOk (Syntax.Module _ _ _ _ ds) -> case mapM tryConvert ds of
         Just y -> Right y
         Nothing -> Left $ Unsupported ""
@@ -246,7 +250,7 @@ parseMany s = case parseModule s of
 -- | Convert a declaration and extract its body, along with the comments
 --  directly above it
 convertWithBody :: (FileSpannable l, SrcInfo l)
-                => String 
+                => Text
                 -> [Comment]
                 -> Decl l
                 -> Either (SolutionError u) (Ann SrcSpan (WithBody Declaration))
@@ -269,7 +273,7 @@ convertWithBody str cs x = case tryConvert x of
                   $ toSrcSpan 
                   $ Syntax.ann x
     Nothing -> Left $ Unsupported 
-                    $ (Syntax.ann x >< str) 
+                    $ T.unpack (Syntax.ann x >< str) 
                         ++ " " 
                         ++ show (toSrcFileSpan $ Syntax.ann x)
 
@@ -286,7 +290,7 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
         ModifierDeclaration _ (TypeSignatureDeclaration _ type_) = sig
         BindDeclaration info (LocalBindDeclaration syms _) = func
         newDecl = BindDeclaration info (LocalBindDeclaration syms (Just type_)) 
-        newBody = sb ++ "\n" ++ fb
+        newBody = sb <> "\n" <> fb
     _ -> ds
   where
     (typeSigs,notTypeSigs) = partition (isTypeSig . item . unAnn) ds
@@ -297,8 +301,8 @@ combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     isFuncBind _ = False
 
 -- | Parse a declaration
-parse :: String -> Either (SolutionError u) Declaration
-parse s = case parseDecl s of
+parse :: Text -> Either (SolutionError u) Declaration
+parse s = case parseDecl (T.unpack s) of
     ParseOk x -> case tryConvert x of
         Just y -> Right y
         Nothing -> Left $ Unsupported $ show x
@@ -306,10 +310,10 @@ parse s = case parseDecl s of
 
 
 -- |Take a string and produce the needed information for building a Module
-parseWithBody :: String 
+parseWithBody :: Text
               -> Maybe FilePath 
               -> Either (SolutionError u) [Ann SrcSpan (WithBody Declaration)]
-parseWithBody s p = case parseModuleWithComments parseMode s of
+parseWithBody s p = case parseModuleWithComments parseMode (T.unpack s) of
     ParseOk (Syntax.Module _ Nothing [] [] ds, cs)
         -> mapM (convertWithBody s cs) ds
     ParseOk (XmlPage{}, _) 

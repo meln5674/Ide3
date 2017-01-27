@@ -20,6 +20,8 @@ module ProjectInitializer
     , mapProjectInitializer
     ) where
 
+import Data.Text (Text)
+
 import Control.Monad
 import Control.Monad.Trans.Except
 
@@ -29,8 +31,8 @@ import Args
 
 -- | The result of initialization
 data ProjectInitializerResult
-    = ProjectInitializerSucceeded String String ProjectInfo
-    | ProjectInitializerFailed String String
+    = ProjectInitializerSucceeded Text Text ProjectInfo
+    | ProjectInitializerFailed Text Text
 
 -- | The initializer abstract type. Use runInitializer or runInitializerWithInput
 -- to execute the actions of an initializer

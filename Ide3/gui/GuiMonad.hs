@@ -42,7 +42,7 @@ data GuiComponents
     , editorBuffer :: TextBuffer
     , buildBuffer :: TextBuffer
     , searchBuffer :: EntryBuffer
-    , errorList :: SeqStore (Error ItemPath)
+    , errorList :: SeqStore (Error ItemPath Text)
     }
 
 
@@ -88,7 +88,7 @@ makeBuildBuffer = textBufferNew (Nothing :: Maybe TextTagTable)
 makeSearchBuffer :: MonadIO m => m EntryBuffer
 makeSearchBuffer = entryBufferNew (Nothing :: Maybe Text) 0
 
-makeErrorList :: MonadIO m => m (SeqStore (Error ItemPath))
+makeErrorList :: MonadIO m => m (SeqStore (Error ItemPath Text))
 makeErrorList = seqStoreNew []
 
 initializeComponents :: (MonadIO m)
@@ -129,7 +129,7 @@ withSearchBuffer :: GuiComponents
 withSearchBuffer comp f = f (searchBuffer comp)
 
 withErrorList :: GuiComponents
-               -> (SeqStore (Error ItemPath) -> a)
+               -> (SeqStore (Error ItemPath Text) -> a)
                -> a
 withErrorList comp f = f (errorList comp)
 

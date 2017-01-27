@@ -11,13 +11,19 @@ Portability : POSIX
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Module.Internal 
     ( module Ide3.Module.Internal
     , Parser.parseAtLocation
     ) where
 
+import Data.Monoid
+
 import Data.Maybe
 import Data.List (intercalate, find, intersperse)
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -319,27 +325,27 @@ getImportIds :: Module -> [ImportId]
 getImportIds = Map.keys . moduleImports
 
 -- | Take the strings representing an export list and format them
-makeExportList :: [String] -> String
+makeExportList :: [Text] -> Text
 makeExportList exportBodies
-    | length exportBodies < 4 = "(" ++ intercalate "," exportBodies ++ ") where"
+    | length exportBodies < 4 = "(" <> T.intercalate "," exportBodies <> ") where"
     -- If there are 1, 2 or 3 exports, just put them in parenthesis
     -- If there are 4 or more, put them on separate lines
-    | otherwise = unlines 
+    | otherwise = T.unlines 
         $ ""
-        : ( map ("    " ++)
-            $ ("( " ++ head exportBodies)
-            : (map (", " ++) $ tail exportBodies)
+        : ( map ("    " <>)
+            $ ("( " <> head exportBodies)
+            : (map (", " <>) $ tail exportBodies)
             ++ [") where"]
           )
 -- | Produce the header (module name and export list) for a module
-getHeaderText :: Module -> String
+getHeaderText :: Module -> Text
 getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
-    withNoExportList = "module " ++ name ++ " where"
+    withNoExportList = "module " <> name <> " where"
     withExportList es = "module " 
-                      ++ name 
-                      ++ (makeExportList $ bodies $ Map.elems es)
+                      <> name 
+                      <> (makeExportList $ bodies $ Map.elems es)
         
 
 -- | Take a list and a predicate over two elements at a time.
@@ -366,9 +372,9 @@ spaceImports f g is = concatMap g $ partitionedImports
         not $ Import.commonPath (item $ f i1) (item $ f i2)
 
 -- | Reconstruct the source code from a Module
-toFile :: Module -> String
+toFile :: Module -> Text
 toFile UnparsableModule { moduleContents = x } = x
-toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
+toFile m = T.unlines $ concatMap annotation $ toAnnotatedFile m
 
 
 -- | Annotates a string with the number of lines in it as well as the number of
@@ -376,54 +382,54 @@ toFile m = unlines $ concatMap annotation $ toAnnotatedFile m
 data Annotated x y = Annotated { annotated :: x, annotation :: y}
 
 -- | Possibly a module item, annotated with the lines of text that item contains
-type AnnotatedModuleItem = Annotated (Maybe ModuleItemKeyValue) [String]
+type AnnotatedModuleItem = Annotated (Maybe ModuleItemKeyValue) [Text]
 
 -- | Generate the annotated item for a module's header comment
 annotateHeaderComment :: Module -> [AnnotatedModuleItem]
 annotateHeaderComment m = [ Annotated (Just $ HeaderCommentKeyValue header) 
-                                      (lines header)
+                                      (T.lines header)
                           ] 
   where
     header = moduleHeader m
 -- | Generate the annotated items for a module's pragmas
 annotatePragmas :: Module -> [AnnotatedModuleItem]
 annotatePragmas m = flip map (modulePragmas m) 
-    $ \p -> Annotated (Just $ PragmaKeyValue p) $ lines p
+    $ \p -> Annotated (Just $ PragmaKeyValue p) $ T.lines p
 
 -- | Generate the annotated items for a module's header (module name, exports)
 annotateHeader :: Module -> [AnnotatedModuleItem]
 annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
-    withNoExportList = [Annotated Nothing ["module " ++ name ++ " where"]]
+    withNoExportList = [Annotated Nothing ["module " <> name <> " where"]]
     withExportList es = 
-        (Annotated Nothing ["module " ++ name] )
+        (Annotated Nothing ["module " <> name] )
         :
         case Map.toList es of
             [] -> [Annotated Nothing ["    () where"]]
             [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) 
-                                     ["    ( " ++ body e]
+                                     ["    ( " <> body e]
                          , Annotated Nothing ["    ) where"]
                          ]
             ((eid,e):es') -> (Annotated (Just $ ExportKeyValue eid e) 
-                                        ["    ( " ++ body e]
+                                        ["    ( " <> body e]
                              ) 
                              : flip map es'
                                 ( \(eid',e') -> 
                                     Annotated (Just $ ExportKeyValue eid' e')
-                                              ["    , " ++ body e']
+                                              ["    , " <> body e']
                                 )
                              ++ [Annotated Nothing ["    ) where"]]
 
 -- | Generate the annotated items for a modules imports
 annotateImports :: Module -> [AnnotatedModuleItem]
 annotateImports m = flip map (Map.toList $ moduleImports m)
-    $ \(iid, i) -> Annotated (Just $ ImportKeyValue iid i) $ lines $ body i
+    $ \(iid, i) -> Annotated (Just $ ImportKeyValue iid i) $ T.lines $ body i
 
 -- | Generate the annotated items for a modules declarations
 annotateDeclarations :: Module -> [AnnotatedModuleItem]
 annotateDeclarations m = flip map (OMap.toList $ moduleDeclarations m) 
-    $ \(did, d) -> Annotated (Just $ DeclarationKeyValue did d) $ lines $ body d
+    $ \(did, d) -> Annotated (Just $ DeclarationKeyValue did d) $ T.lines $ body d
 
 -- | Generate an item with n blank lines
 blankLines :: Int -> AnnotatedModuleItem

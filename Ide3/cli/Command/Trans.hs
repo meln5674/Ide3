@@ -1,4 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Command.Trans where
+
+import Data.Text (Text)
+import qualified Data.Text as T
+
+import Data.Monoid
 
 import Data.Maybe
 import Data.List
@@ -102,7 +108,7 @@ instance MonadException m => MonadException (CommandT u m) where
 
 -- | Take an input string and a user state and return either an error message
 -- or the response from the command executed in response
-execCommand :: Monad m => String -> u -> CommandT u m String
+execCommand :: Monad m => Text -> u -> CommandT u m Text
 execCommand input u = do
     r <- runExceptT $ parseInputT input u >>= lift . uncurry action
     return $ case r of
@@ -110,13 +116,13 @@ execCommand input u = do
         Left x -> x
 
 -- | Take a command and create a parser for it and its argument
-parseCommandT :: Command u m -> ParsecT String u m (Command u m,String)
+parseCommandT :: Command u m -> ParsecT Text u m (Command u m,Text)
 parseCommandT cmd = do
     arg <- parser cmd
     return (cmd,arg)
 
 -- | Parse an input string with a start state using all availible commands
-parseInputT :: Monad m => String -> u -> ExceptT String (CommandT u m) (Command u m,String)
+parseInputT :: Monad m => Text -> u -> ExceptT Text (CommandT u m) (Command u m,Text)
 parseInputT input u = do
     cmds <- lift getCommands
     let allCmdParsers = foldl (<|>) empty $ map parseCommandT cmds
@@ -127,17 +133,17 @@ parseInputT input u = do
         Right cmd -> return cmd
 
 -- | Check if a string is a prefix of any command's root
-isPrefixOfCommand :: Monad m => String -> CommandT u m [Command u m]
+isPrefixOfCommand :: Monad m => Text -> CommandT u m [Command u m]
 isPrefixOfCommand l =
     liftM (mapMaybe
-            $ \x -> if l `isPrefixOf` root x && l /= root x 
+            $ \x -> if l `T.isPrefixOf` root x && l /= root x 
                         then Just x 
                         else Nothing
           ) getCommands
       
 
 -- | Check if a command's root is a prefix of a string
-isCommandPrefixOf :: Monad m => String -> CommandT u m [(Command u m, String)]
+isCommandPrefixOf :: Monad m => Text -> CommandT u m [(Command u m, Text)]
 isCommandPrefixOf l' = 
     liftM (mapMaybe
             $ \x -> if root x == l 
@@ -145,28 +151,28 @@ isCommandPrefixOf l' =
                 else Nothing
           ) getCommands
   where
-    (l,r) = case words l' of
+    (l,r) = case T.words l' of
         [] -> ("","")
-        (x:xs) -> (x,unwords xs)
+        (x:xs) -> (x,T.unwords xs)
 
 -- | Do command completion for all availible command roots
-cmdPrefixCompletion :: Monad m => String -> CommandT u m (Maybe [Completion])
+cmdPrefixCompletion :: Monad m => Text -> CommandT u m (Maybe [Completion])
 cmdPrefixCompletion l = do
     matches <- isPrefixOfCommand l
     case matches of
           [] -> return Nothing
           xs -> liftM Just $ forM xs $ \x -> do
-            let replacement' = drop (length l) $ root x
+            let replacement' = T.drop (T.length l) $ root x
                 display' = root x
             isFinished' <- liftM null $ isPrefixOfCommand (root x)
             return   Completion
-                   { replacement=replacement'
-                   , display=display'
+                   { replacement=T.unpack replacement'
+                   , display=T.unpack display'
                    , isFinished=isFinished'
                    }
 
 -- | Check if a string represents a command which can be executed
-isCommandAllowed :: Monad m => String -> CommandT u m Bool
+isCommandAllowed :: Monad m => Text -> CommandT u m Bool
 isCommandAllowed s = do
     cmds <- getCommands
     liftMCmd or $ forM cmds $ \cmd -> liftMCmd ((root cmd == s) &&) (liftCmd $ isAllowed cmd)
@@ -177,7 +183,7 @@ cmdCompletion (l',_) = do
     matches <- cmdPrefixCompletion l
     case matches of
         Just cs -> do
-            cs' <- filterM (isCommandAllowed <=< return . (l ++) . replacement) cs
+            cs' <- filterM (isCommandAllowed <=< return . (l <>) . T.pack . replacement) cs
             return (l',cs')
         Nothing -> do
             cs <- isCommandPrefixOf l
@@ -186,12 +192,12 @@ cmdCompletion (l',_) = do
             let cs''' = concat $ catMaybes cs''
             return (l',cs''')
   where
-    l = reverse l'
+    l = T.reverse $ T.pack l'
     
 -- | Produce the help message
-printHelp :: Monad m => CommandT u m String
+printHelp :: Monad m => CommandT u m Text
 printHelp = liftM 
-    ( intercalate "\n" 
+    ( T.intercalate "\n" 
     . ("Commands:" :) 
     . ("" :) 
     . map helpLine

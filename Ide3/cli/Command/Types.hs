@@ -1,4 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Command.Types where
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Data.List
 
@@ -15,7 +19,7 @@ import System.Console.Haskeline
 type CommandT u m = ReaderT [Command u m] (StateT Bool m)
 
 -- | Type used to be able to return strings or showables
-newtype Output a = MkOutput (Either a String)
+newtype Output a = MkOutput (Either a Text)
 
 
 -- | Create an Output from a showable
@@ -27,41 +31,41 @@ asShows :: [a] -> [Output a]
 asShows = map asShow
 
 -- | Create an Output from a string
-asString :: String -> Output a
+asString :: Text -> Output a
 asString = MkOutput . Right
 
 -- | Create a list of Outputs from a list of strings
-asStrings :: [String] -> [Output a]
+asStrings :: [Text] -> [Output a]
 asStrings = map asString
 
-defaultOutput :: Output a -> Output String
+defaultOutput :: Output a -> Output Text
 defaultOutput (MkOutput (Left _)) = error "CANNOT DEFAULT"
 defaultOutput (MkOutput (Right x)) = MkOutput (Right x)
 
-defaultOutputs :: [Output a] -> [Output String]
+defaultOutputs :: [Output a] -> [Output Text]
 defaultOutputs = map defaultOutput
 
-processOutputs :: (Show a) => [Output a] -> String
-processOutputs = intercalate "\n" . map show
+processOutputs :: (Show a) => [Output a] -> Text
+processOutputs = T.intercalate "\n" . map (T.pack . show)
 
 -- | Instance of show for Output which uses the default show function if not a string
 instance Show a => Show (Output a) where
     show (MkOutput (Left a)) = show a
-    show (MkOutput (Right a)) = a
+    show (MkOutput (Right a)) = T.unpack a
 
 -- | Data type which contains everything needed to use a command
 data Command u m
     = Command
     { -- | Line to print in the help message
-      helpLine :: String
+      helpLine :: Text
       -- | The root of the command, without any arguments
-    , root :: String
+    , root :: Text
       -- | A parsec parser for the command that returns its argument
-    , parser :: ParsecT String u m String
+    , parser :: ParsecT Text u m Text
       -- | Monad action to determine if the command is allowed to run
     , isAllowed :: m Bool
       -- | Completion function
-    , completion :: String -> m (Maybe [Completion])
+    , completion :: Text -> m (Maybe [Completion])
       -- | The action to execute
-    , action :: String -> CommandT u m String
+    , action :: Text -> CommandT u m Text
     }

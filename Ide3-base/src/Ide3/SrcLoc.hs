@@ -17,11 +17,14 @@ module Ide3.SrcLoc
 
 import Prelude hiding (span)
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Ide3.SrcLoc.Types
 
 -- | Extract a substring
-(><) :: Spannable l => l -> String -> String
-x >< str = take len $ drop startIndex str
+(><) :: Spannable l => l -> Text -> Text
+x >< str = T.take len $ T.drop startIndex str
   where
     span = toSrcSpan x
     start = spanStart span
@@ -43,19 +46,20 @@ splitAndCount = go 0
 
 -- | Given a 1-based (row,column) pair, find the 0-based character index in a
 -- string
-indexIn :: SrcLoc -> String -> Maybe Int
+indexIn :: SrcLoc -> Text -> Maybe Int
 (SrcLoc (Row 1) (Column c)) `indexIn` _ = Just $ c - 1
 (SrcLoc (Row r) (Column c)) `indexIn` str = do
-    (lineLen,_) <- splitAndCount str '\n'
-    next <- (SrcLoc (Row (r-1)) (Column c)) `indexIn` drop lineLen str
+    let (line,_) = T.break (\c -> c == '\n') str
+        lineLen = 1 + T.length line
+    next <- (SrcLoc (Row (r-1)) (Column c)) `indexIn` T.drop lineLen str
     return $ lineLen + next
 
 -- | Take a string, break it into lines, and take the length of each one
-measureLines :: String -> [(String,Int)]
-measureLines = map (\l -> (l,length l + 1)) . lines
+measureLines :: Text -> [(Text,Int)]
+measureLines = map (\l -> (l,T.length l + 1)) . T.lines
 
 -- | Test if two source spans meet, i.e one ends where the other begins
-contacts :: SrcSpan -> SrcSpan -> String -> Bool
+contacts :: SrcSpan -> SrcSpan -> Text -> Bool
 contacts a b s = case (a2i,b1i) of
     (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
     _ -> False
@@ -66,7 +70,7 @@ contacts a b s = case (a2i,b1i) of
     b1i = b1 `indexIn` s
 
 -- | Test if two source spans start at the same place
-sameStart :: SrcSpan -> SrcSpan -> String -> Bool
+sameStart :: SrcSpan -> SrcSpan -> Text -> Bool
 sameStart a b s = case (a2i,b1i) of
     (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
     _ -> False
@@ -77,7 +81,7 @@ sameStart a b s = case (a2i,b1i) of
     b1i = b1 `indexIn` s
 
 -- | Test if two source spans end at the same place
-sameEnd :: SrcSpan -> SrcSpan -> String -> Bool
+sameEnd :: SrcSpan -> SrcSpan -> Text -> Bool
 sameEnd a b s = case (a2i,b1i) of
     (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
     _ -> False
@@ -96,27 +100,27 @@ a `contains` b = aStart <= b' && b' <= aEnd
     
 -- | Filter out from a list of spannables those which contact another spannable
 -- on the left side
-leftBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
+leftBoundaries :: (Spannable a, Spannable b) => Text -> b -> [a] -> [a]
 leftBoundaries s y = filter $ \x -> contacts (toSrcSpan x) (toSrcSpan y) s
 
 -- | Filter out from a list of spannables those which contact another spannable
 -- on the right side
-rightBoundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
+rightBoundaries :: (Spannable a, Spannable b) => Text -> b -> [a] -> [a]
 rightBoundaries s y = filter $ \x -> contacts (toSrcSpan y) (toSrcSpan x) s
 
 -- | Filter out from a list of spannables those which contact another spannable
-boundaries :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
+boundaries :: (Spannable a, Spannable b) => Text -> b -> [a] -> [a]
 boundaries s y = filter $ \x -> contacts (toSrcSpan x) (toSrcSpan y) s
                              || contacts (toSrcSpan y) (toSrcSpan x) s
 
 -- | Filter out from a list of spannables those which intersect another
 -- spannable
-intersectors :: (Spannable a, Spannable b) => String -> b -> [a] -> [a]
+intersectors :: (Spannable a, Spannable b) => Text -> b -> [a] -> [a]
 intersectors s y = filter $ \x -> sameEnd (toSrcSpan x) (toSrcSpan y) s
                                || sameStart (toSrcSpan x) (toSrcSpan y) s
 
 -- | Subtract the second span from the first
-subtractSrcSpan :: (Spannable a, Spannable b) => a -> b -> String -> SrcSpan
+subtractSrcSpan :: (Spannable a, Spannable b) => a -> b -> Text -> SrcSpan
 subtractSrcSpan a' b' s
   | b1i <= a1i && a1i <= b2i && b2i <= a2i = mkSrcSpan b2r b2c a2r a2c
   | a1i <= b1i && b1i <= a2i && a2i <= b2i = mkSrcSpan a1r a1c b1r b1c

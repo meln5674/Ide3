@@ -3,11 +3,13 @@
 {-# LANGUAGE LambdaCase #-}
 module ProjectRetriever.Stack where
 
+import Data.Text (Text)
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
 import Distribution.PackageDescription
-import Distribution.Text
+import Distribution.Text hiding (Text)
 
 import Ide3.Types
 
@@ -21,7 +23,7 @@ import ProjectInitializer.Stack.Types
 stackProjectRetriever :: ( MonadIO m
                          , CabalMonad m
                          )
-                      => ProjectRetriever StackProjectInitializerArgs' m
+                      => ProjectRetriever (StackProjectInitializerArgs' Text String FilePath) m
 stackProjectRetriever = ProjectRetriever $ \pji -> do
     p <- lookupCabalProject pji
     case p of

@@ -1,4 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Runner.Stack where
+
+import Data.Monoid
+import qualified Data.Text as T
 
 import Control.Exception.Base hiding (catch)
 
@@ -10,7 +14,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Catch
 
 import System.Exit
-import System.Process
+import System.Process.Text
 
 import Runner
 
@@ -27,11 +31,11 @@ stackRunner = MkRunner $ \pji -> do
         ExecutableInfo execName -> return $ Just ["exec",execName]
         BenchmarkInfo benchName -> do
             pkgDesc <- getPackageDescription
-            let benchArg = (unPackageName $ pkgName $ package pkgDesc) ++ ":" ++ benchName
+            let benchArg = (unPackageName $ pkgName $ package pkgDesc) ++ ':' : benchName
             return $ Just ["bench",benchArg]
         TestSuiteInfo testName -> do
             pkgDesc <- getPackageDescription
-            let testArg = (unPackageName $ pkgName $ package pkgDesc) ++ ":" ++ testName
+            let testArg = (unPackageName $ pkgName $ package pkgDesc) ++ ':' : testName
             return $ Just ["test",testArg]
     case maybeArgs of
         Nothing -> throwE $ InvalidOperation "Cannot run a library" ""

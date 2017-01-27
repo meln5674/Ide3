@@ -13,11 +13,17 @@ symbols specifying the heirarchy.
 -}
 
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.ModuleTree where
 
 import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
+
+import Data.Text (Text)
+import qualified Data.Text as T
+
+import Data.Monoid
 
 import Control.Monad
 
@@ -55,7 +61,7 @@ data ModuleTree
     | UnparsableModuleNode
         ModuleInfo
         [ModuleTree]
-        String
+        Text
         SrcLoc
         String
     deriving Show
@@ -74,10 +80,10 @@ makeTreeSkeleton = go ""
             rootPresent = rootInfo `elem` subModuleNames
             rootString = case rootInfo of
                 ModuleInfo (Symbol s) -> s
-                UnamedModule (Just p) -> p
+                UnamedModule (Just p) -> T.pack p
                 UnamedModule _ -> 
                     error "Cannot make a tree with a pathless unamed module"
-            newRoot = rootString ++ "."
+            newRoot = rootString <> "."
             toProcess = if rootPresent
                 then delete rootInfo subModuleNames
                 else subModuleNames
@@ -87,10 +93,10 @@ makeTreeSkeleton = go ""
         partitions = Map.toList $ partitionBy getRootName modInfos
         getRootName (ModuleInfo (Symbol s)) = ModuleInfo 
                                             $ Symbol 
-                                            $ preRoot ++ postRoot
+                                            $ preRoot <> postRoot
           where
-            preRoot = take (length knownRoot) s
-            postRoot = takeWhile ('.' /= ) $ drop (length knownRoot) s
+            preRoot = T.take (T.length knownRoot) s
+            postRoot = T.takeWhile ('.' /= ) $ T.drop (T.length knownRoot) s
         getRootName x = x
 
 -- | Take a module tree and fill each node with its declarations
@@ -158,14 +164,14 @@ makeTree pji = do
     mapM (fillTree pji) emptyTree
 
 -- | Format a module tree as plain text
-formatTree :: ModuleTree -> String
-formatTree = intercalate "\n" . go []
+formatTree :: ModuleTree -> Text
+formatTree = T.intercalate "\n" . go []
   where
     go prefixFlags tree = allLines
       where
         buildPrefix [] = ""
-        buildPrefix (True:xs)  = buildPrefix xs ++ "|   "
-        buildPrefix (False:xs) = buildPrefix xs ++ "    "
+        buildPrefix (True:xs)  = buildPrefix xs <> "|   "
+        buildPrefix (False:xs) = buildPrefix xs <> "    "
         prefix = buildPrefix prefixFlags
         headPrefix = buildPrefix (drop 1 prefixFlags)
         decls = case tree of 
@@ -181,16 +187,16 @@ formatTree = intercalate "\n" . go []
             UnparsableModuleNode n _ _ _ _ -> n
         moduleName = case moduleInfo of
             ModuleInfo (Symbol n) -> n
-            UnamedModule (Just p) -> p
+            UnamedModule (Just p) -> T.pack p
             UnamedModule _ ->
                 error "Cannot make a tree with a pathless unamed module"
         firstLine = case prefixFlags of
             [] -> moduleName
-            [_] -> "+-- " ++ moduleName
-            _ -> headPrefix ++ "+-- " ++ moduleName
+            [_] -> "+-- " <> moduleName
+            _ -> headPrefix <> "+-- " <> moduleName
         declLines = case decls of
             [] -> []
-            ds -> map ((prefix ++) . ("|- " ++) . makeLine) ds
+            ds -> map ((prefix <>) . ("|- " <>) . makeLine) ds
               where
                 makeLine (SymbolDeclarationInfo (Symbol s)) = s
                 makeLine (RawDeclarationInfo s) = s
@@ -205,12 +211,12 @@ formatTree = intercalate "\n" . go []
                 lastModuleLines = go (False:prefixFlags) lastModule
         allLines = case (declLines,subModuleLines) of
             ([],[]) -> [firstLine,prefix]
-            (ds,[]) -> firstLine : [prefix ++ "|"] ++ ds ++ [prefix]
-            ([],ms) -> firstLine : [prefix ++ "|"] ++ ms ++ [prefix]
+            (ds,[]) -> firstLine : [prefix <> "|"] ++ ds ++ [prefix]
+            ([],ms) -> firstLine : [prefix <> "|"] ++ ms ++ [prefix]
             (ds,ms) -> firstLine 
-                     : [prefix ++ "|"] 
+                     : [prefix <> "|"] 
                      ++ ds 
-                     ++ [prefix ++ "|"] 
+                     ++ [prefix <> "|"] 
                      ++ ms 
                      ++ [prefix]
 

@@ -20,36 +20,36 @@ instance Read Column where
     readsPrec i s = flip map (readsPrec i s) $ \(a,s) -> (Column a,s) 
 -}
 
-newtype ProjectName = ProjectName { getProjectName :: String } deriving (Read, Show, Eq, Ord)
-newtype ModuleName = ModuleName { getModuleName :: String } deriving (Read, Show, Eq, Ord)
+newtype ProjectName s = ProjectName { getProjectName :: s } deriving (Read, Show, Eq, Ord)
+newtype ModuleName s = ModuleName { getModuleName :: s } deriving (Read, Show, Eq, Ord)
 
-data ErrorLocation = ErrorLocation !ProjectName !ModuleName deriving (Show, Eq, Ord)
+data ErrorLocation s = ErrorLocation !(ProjectName s) !(ModuleName s) deriving (Show, Eq, Ord)
 
-data Error loc
+data Error loc s
     = Error 
     { errorLocation :: !loc
     , errorRow :: !Row
     , errorColumn :: !Column 
-    , errorMessage :: !String
+    , errorMessage :: !s
     }
     | Warning 
     { errorLocation :: !loc 
     , errorRow :: !Row 
     , errorColumn :: !Column 
-    , errorMessage :: !String
+    , errorMessage :: !s
     }
   deriving Show
 
-mapError :: (loc -> Row -> Column -> String -> (loc', Row, Column, String)) 
-         -> Error loc
-         -> Error loc'
+mapError :: (loc -> Row -> Column -> s -> (loc', Row, Column, s')) 
+         -> Error loc s
+         -> Error loc' s'
 mapError f (Warning loc r c s) = let (loc', r', c', s') = f loc r c s in Warning loc' r' c' s'
 mapError f (Error loc r c s) = let (loc', r', c', s') = f loc r c s in Error loc' r' c' s'
 
 mapErrorM :: Monad m
-          => (loc -> Row -> Column -> String -> m (loc', Row, Column, String)) 
-          -> Error loc
-          -> m (Error loc')
+          => (loc -> Row -> Column -> s -> m (loc', Row, Column, s')) 
+          -> Error loc s
+          -> m (Error loc' s')
 mapErrorM f (Warning loc r c s) = do
     (loc', r', c', s') <- f loc r c s
     return $ Warning loc' r' c' s'

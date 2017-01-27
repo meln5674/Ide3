@@ -10,9 +10,13 @@ Portability : POSIX
 -}
 
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Module.Parser where
 
 import Data.Monoid
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Monad
 
@@ -45,7 +49,7 @@ import Ide3.Utils.Parser
 data ExtractionResults l
     = Extracted 
     { extractedModuleInfo :: Ann l ModuleInfo
-    , extractedModuleHeader :: (Ann l String)
+    , extractedModuleHeader :: (Ann l Text)
     , exrtractedPragmas :: [(Ann l Pragma)]
     , extractedExports :: Maybe [Ann l (WithBody Export)]
     , extractedImports :: [Ann l (WithBody Import)]
@@ -55,7 +59,7 @@ data ExtractionResults l
     { unparsableErrorLocation :: SrcLoc
     , unparsableErrorMessage :: String
     , unparsableModuleInfo :: ModuleInfo
-    , unparsableModuleContents :: String
+    , unparsableModuleContents :: Text
     }
 
 -- | Create an annotated item by applying an annotation extration and item
@@ -72,7 +76,7 @@ extractInfo _ (Syntax.Module _ (Just mHead) _ _ _, _) = Ann mHeadAnn' mInfo
   where
     (Syntax.ModuleHead mHeadAnn mName _ _) = mHead 
     (Syntax.ModuleName _ name) = mName
-    mInfo = ModuleInfo $ Symbol name
+    mInfo = ModuleInfo $ Symbol $ T.pack name
     mHeadAnn' = toSrcFileSpan mHeadAnn
 extractInfo _ (m,_) = Ann mAnn' mInfo
   where
@@ -87,17 +91,18 @@ extractPragmas :: (FileSpannable l)
                -> [(Ann SrcFileSpan Pragma)]
 extractPragmas _ m
     | (Syntax.Module _ _ ps _ _,_) <- m 
-    = map (annotate Syntax.ann prettyPrint) ps
+    = map (annotate Syntax.ann (T.pack . prettyPrint)) ps
 extractPragmas _ _ = []
 
 -- | Extract the header from a module
 extractHeader :: (FileSpannable l) 
-              => String -> (Syntax.Module l, [Comment]) 
-              -> Ann SrcFileSpan String
+              => String 
+              -> (Syntax.Module l, [Comment]) 
+              -> Ann SrcFileSpan Text
 extractHeader s (Syntax.Module mspan maybeHeader _ _ _,comments) =
     case headerComments of
         [] -> Ann (mkSrcFileSpanFrom mspan noSpan) ""
-        _ -> Ann (mkSrcFileSpanFrom mspan headerSpan) $ headerSpan >< s
+        _ -> Ann (mkSrcFileSpanFrom mspan headerSpan) $ headerSpan >< T.pack s
   where
     headerComments = filter ((< moduleStart) . getSpanEnd . toSrcSpan) comments
     moduleStart = spanStart $ toSrcSpan $ maybe mspan Syntax.ann maybeHeader 
@@ -117,7 +122,7 @@ extractExports str m
     | (Syntax.Module _ (Just mHead) _ _ _, _)  <- m
     , (Syntax.ModuleHead _ _ _ (Just specList)) <- mHead 
     , (Syntax.ExportSpecList _ exports) <- specList 
-    = Just $ map (annotate Syntax.ann $ Export.convertWithBody str) exports 
+    = Just $ map (annotate Syntax.ann $ Export.convertWithBody $ T.pack str) exports 
   where
 extractExports _ _ = Nothing
 
@@ -128,7 +133,7 @@ extractImports :: FileSpannable l
                -> [Ann SrcFileSpan (WithBody Import)]
 extractImports str m
     | (Syntax.Module _ _ _ imports _, _) <- m
-    = map (annotate Syntax.ann $ Import.convertWithBody str) imports
+    = map (annotate Syntax.ann $ Import.convertWithBody $ T.pack str) imports
   where
 extractImports _ _ = []
 
@@ -141,7 +146,7 @@ extractDecls :: (SrcInfo l, FileSpannable l)
                        [Ann SrcFileSpan (WithBody Declaration)]
 extractDecls str (Syntax.Module mAnn _ _ _ decls, cs) = do
     converted <- forM decls $ \d -> do
-        Declaration.convertWithBody str cs d
+        Declaration.convertWithBody (T.pack str) cs d
     let pathless = Declaration.combineMany converted
     return $ map (mapAnn $ mkSrcFileSpanFrom mAnn) pathless
 extractDecls _ _ = Right []
@@ -169,10 +174,10 @@ parse s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
-            let mi = maybe (UnamedModule p) (ModuleInfo . Symbol . getModuleName) maybeName
+            let mi = maybe (UnamedModule p) (ModuleInfo . Symbol . T.pack . getModuleName) maybeName
                 getModuleName (Syntax.ModuleName _ x) = x
                 _ = l' :: SrcSpanInfo
-            return $ Unparsable (toSrcLoc l) msg mi s
+            return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
         ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
     exts = maybe [] snd $ readExtensions s
@@ -200,10 +205,10 @@ parseMain s p = case parseModuleWithComments parseMode s of
         return $ Extracted i' h ps es is ds
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
-            let mi = ModuleInfo $ Symbol $ maybe "Main" getModuleName maybeName
+            let mi = ModuleInfo $ Symbol $ T.pack $ maybe "Main" getModuleName maybeName
                 getModuleName (Syntax.ModuleName _ x) = x
                 _ = l' :: SrcSpanInfo
-            return $ Unparsable (toSrcLoc l) msg mi s
+            return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
         ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
     exts = (maybe [] snd $ readExtensions s)

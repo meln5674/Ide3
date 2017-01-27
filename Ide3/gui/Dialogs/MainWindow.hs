@@ -123,22 +123,22 @@ data MainWindow
 renderSolutionTreeElem :: (AttrSetC info o "text" Text) 
                        => SolutionTreeElem 
                        -> [AttrOp o 'AttrSet]
-renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
-renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := pack s]
+renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := n]
+renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := pack path]
 renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [#text := ("???" :: Text)]
 renderSolutionTreeElem (DeclElem (SymbolDeclarationInfo sym))
-    = [#text := pack (getSymbol sym)]
+    = [#text := getSymbol sym]
 renderSolutionTreeElem (DeclElem (RawDeclarationInfo s))
-    = [#text := pack s]
+    = [#text := s]
 renderSolutionTreeElem ImportsElem = [#text := ("Imports" :: Text)]
 renderSolutionTreeElem ExportsElem = [#text := ("Exports" :: Text)]
 renderSolutionTreeElem PragmasElem = [#text := ("Pragmas" :: Text)]
-renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [#text := pack importBody] 
-renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := pack exportBody] 
-renderSolutionTreeElem (PragmaElem p) = [#text := pack p]
+renderSolutionTreeElem (ImportElem _ (WithBody _ importBody)) = [#text := importBody] 
+renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := exportBody] 
+renderSolutionTreeElem (PragmaElem p) = [#text := p]
 renderSolutionTreeElem (UnparsableModuleElem (ModuleInfo (Symbol s)) _ _)
-    = [#text := (pack s <> " (UNPARSEABLE)" :: Text)]
+    = [#text := (s <> " (UNPARSEABLE)" :: Text)]
 renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)) _ _)
     = [#text := (pack path <> " (UNPARSEABLE)" :: Text)]
 renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing) _ _)
@@ -148,39 +148,39 @@ renderSolutionTreeElem SolutionElem = [#text := ("THIS SHOULDN'T BE SEEN" :: Tex
 
 -- | Renderer for the error list image column
 renderImageCell :: (AttrSetC info o "stockId" Text) 
-                => Error ItemPath 
+                => Error ItemPath Text
                 -> [AttrOp o 'AttrSet]
 renderImageCell (Warning _ _ _ _) = [#stockId := STOCK_DIALOG_WARNING]
 renderImageCell (Error _ _ _ _) = [#stockId := STOCK_DIALOG_ERROR]
 
 -- | Renderer for the error list project column
 renderProjectCell :: (AttrSetC info o "text" Text)
-                  => Error ItemPath 
+                  => Error ItemPath Text
                   -> [AttrOp o 'AttrSet]
-renderProjectCell e = [#text := pack (unProjectInfo pji)]
+renderProjectCell e = [#text := unProjectInfo pji]
   where
     (ProjectChild pji _) = errorLocation e
 
 -- | Renderer for the error list module column
 renderModuleCell :: (AttrSetC info o "text" Text) 
-                 => Error ItemPath 
+                 => Error ItemPath Text
                  -> [AttrOp o 'AttrSet]
-renderModuleCell e = [#text := pack (moduleInfoString mi "???")]
+renderModuleCell e = [#text := moduleInfoString mi "???"]
   where
     (ProjectChild _ (ModuleChild mi _)) = errorLocation e
 
 -- | Renderer for the error list declaration column
 renderDeclarationCell :: (AttrSetC info o "text" Text)
-              => Error ItemPath 
+              => Error ItemPath Text
               -> [AttrOp o 'AttrSet]
 renderDeclarationCell err = [#text := text]
   where
     (ProjectChild _ (ModuleChild _ x)) = errorLocation err
-    text = pack $ case x of
+    text = case x of
         Just (HeaderCommentString _) -> "[MODULE HEADER]"
-        Just (PragmaString p) -> "[PRAGMA] " ++ p
+        Just (PragmaString p) -> "[PRAGMA] " <> p
         Just (ImportString i) -> body i
-        Just (ExportString e) -> "[EXPORT] " ++ body e
+        Just (ExportString e) -> "[EXPORT] " <> body e
         Just (DeclarationString di) -> case item di of
             SymbolDeclarationInfo sym -> getSymbol sym
             RawDeclarationInfo text -> text
@@ -188,24 +188,24 @@ renderDeclarationCell err = [#text := text]
 
 -- | Renderer for the error list row column
 renderRowCell :: (AttrSetC info o "text" Text) 
-              => Error ItemPath 
+              => Error ItemPath Text
               -> [AttrOp o 'AttrSet]
 renderRowCell (Warning _ row _ _) = [#text := pack (show row)]
 renderRowCell (Error _ row _ _) = [#text := pack (show row)]
 
 -- | Renderer for the error list column column
 renderColumnCell :: (AttrSetC info o "text" Text)
-                 => Error ItemPath 
+                 => Error ItemPath Text
                  -> [AttrOp o 'AttrSet]
 renderColumnCell (Warning _ _ col _) = [#text := pack (show col)]
 renderColumnCell (Error _ _ col _) = [#text := pack (show col)]
 
 -- | Renderer for the error list message column
 renderMessageCell :: (AttrSetC info o "text" Text) 
-                  => Error ItemPath 
+                  => Error ItemPath Text
                   -> [AttrOp o 'AttrSet]
-renderMessageCell (Warning _ _ _ msg) = [#text := pack msg]
-renderMessageCell (Error _ _ _ msg) = [#text := pack msg]
+renderMessageCell (Warning _ _ _ msg) = [#text := msg]
+renderMessageCell (Error _ _ _ msg) = [#text := msg]
 
 
 

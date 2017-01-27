@@ -15,7 +15,13 @@ modules, each of which contain exports, imports, and declarations.
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Types.Internal where
+
+import Data.Monoid
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Monad.Trans.Except
 
@@ -24,15 +30,15 @@ import Text.Printf
 import Ide3.SrcLoc.Types
 
 -- |Attaches a string ("body") to another type
-data WithBody a = WithBody a String
+data WithBody a = WithBody a Text
     deriving (Show, Read, Eq)
 
 -- |Get the body attached to a value
-body :: WithBody a -> String
+body :: WithBody a -> Text
 body (WithBody _ s) = s
 
 -- |Get the bodies from a list of values
-bodies :: [WithBody a] -> [String]
+bodies :: [WithBody a] -> [Text]
 bodies = map body
 
 -- |Get the item a body is attached to
@@ -48,21 +54,21 @@ instance Functor WithBody where
     fmap f (WithBody x s) = WithBody (f x) s
     
 -- | Catch-all type for any identifier which is significant to the program
-newtype Symbol = Symbol { getSymbol :: String }
+newtype Symbol = Symbol { getSymbol :: Text }
     deriving (Show, Read, Eq, Ord)
 
 -- |Join two symbols together such that the second is qualified by the first
 joinSym :: Symbol -> Symbol -> Symbol
-joinSym (Symbol x) (Symbol y) = Symbol $ x ++ "." ++ y
+joinSym (Symbol x) (Symbol y) = Symbol $ x <> "." <> y
 
 
 -- | Information on a solution
-data SolutionInfo = SolutionInfo String
+data SolutionInfo = SolutionInfo Text
   deriving (Show, Read, Eq, Ord)
 
 
 -- |Information about a project
-data ProjectInfo = ProjectInfo { unProjectInfo :: String }
+data ProjectInfo = ProjectInfo { unProjectInfo :: Text }
     deriving (Show, Read, Eq, Ord)
 -- |Information on how to build a project
 data BuildInfo = BuildInfo
@@ -70,7 +76,7 @@ data BuildInfo = BuildInfo
 
 
 -- | A dependency for a project
-data Dependency = Dependency String
+data Dependency = Dependency Text
 
 -- | Information identifying a module
 data ModuleInfo 
@@ -82,14 +88,14 @@ data ModuleInfo
 
 -- | Produce a string representing a module's info, with a default string if it
 -- is an unnamed, pathless module
-moduleInfoString :: ModuleInfo -> String -> String
+moduleInfoString :: ModuleInfo -> Text -> Text
 moduleInfoString (ModuleInfo s) _ = getSymbol s
-moduleInfoString (UnamedModule (Just path)) _ = path
+moduleInfoString (UnamedModule (Just path)) _ = T.pack path
 moduleInfoString _ x = x
 
 -- | A key-value pair of a module item
 data ModuleItemKeyValue
-    = HeaderCommentKeyValue String
+    = HeaderCommentKeyValue Text
     | PragmaKeyValue Pragma
     | ImportKeyValue ImportId (WithBody Import)
     | ExportKeyValue ExportId (WithBody Export)
@@ -105,7 +111,7 @@ data ModuleItemKey
 
 -- | A value of a module item
 data ModuleItem
-    = HeaderCommentItem String
+    = HeaderCommentItem Text
     | PragmaItem Pragma
     | ImportItem (WithBody Import)
     | ExportItem (WithBody Export)
@@ -113,7 +119,7 @@ data ModuleItem
 
 -- | Information necessary to display a module item as a string
 data ModuleItemString
-    = HeaderCommentString String
+    = HeaderCommentString Text
     | PragmaString Pragma
     | ImportString (WithBody ImportId)
     | ExportString (WithBody ExportId)
@@ -121,7 +127,7 @@ data ModuleItemString
   deriving Show
 
 -- | A module pragma
-type Pragma = String
+type Pragma = Text
 
 -- | An external export from an external module
 data ExternExport
@@ -138,7 +144,7 @@ data ProjectChild a = ProjectChild ProjectInfo a
 
 -- | Convert the child to string, prepend the project name in parens
 instance Show a => Show (ProjectChild a) where
-    show (ProjectChild (ProjectInfo n) x) = show x ++ " ( " ++ n ++ " )"
+    show (ProjectChild (ProjectInfo n) x) = show x ++ " ( " ++ T.unpack n ++ " )"
 
 -- | Class of types which have a child
 class HasChild f where
@@ -224,7 +230,7 @@ data DeclarationInfo
         { getSymbolDeclarationInfo :: Symbol }
     -- | Cop-out for everything else
     | RawDeclarationInfo
-        { getRawDeclarationInfo :: String }
+        { getRawDeclarationInfo :: Text }
     deriving (Show, Read, Eq, Ord)
 
 
@@ -286,7 +292,7 @@ data ModifierDeclaration
     deriving (Show, Read, Eq)
 
 data SpliceDeclaration
-    = QuasiQuoteDeclaration String String
+    = QuasiQuoteDeclaration Text Text
   deriving (Show, Read, Eq)
   
 -- |The type of fixity of an operator or infix function
@@ -432,14 +438,14 @@ class Qualify a where
 -- | Prepend module name and dot to symbol name
 instance Qualify Symbol where
     qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s))
-        = Symbol $ m ++ '.' : s
+        = Symbol $ m <> "." <> s
     qual (ModuleChild (UnamedModule _) _)
         = error "Cannot qualify with an unnamed module"
 
 -- | Prepend module name and dot to declaration info
 instance Qualify DeclarationInfo where
     qual (ModuleChild (ModuleInfo (Symbol m)) (SymbolDeclarationInfo (Symbol s)))
-        = Symbol $ m ++ '.' : s
+        = Symbol $ m <> "." <> s
     qual (ModuleChild (ModuleInfo _) (RawDeclarationInfo _))
         = error "Cannot qualify a non-symbol declaration"
     qual (ModuleChild (UnamedModule _) _)

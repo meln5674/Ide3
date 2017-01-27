@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-|
 Module      : ReadOnlyFilesystemSolution
 Description : Read only persistence mechanism
@@ -23,6 +24,9 @@ module ReadOnlyFilesystemSolution
     , FileSystemSolution (Unopened)
     , runReadOnlyFilesystemSolutionT
     ) where
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import System.FilePath
 
@@ -92,8 +96,8 @@ instance MonadIO m => StatefulPersistenceClass (ReadOnlyFilesystemSolutionT m) w
     -- | Digest a project after loading the interface file
     loadState solutionPath = do
         let parts = splitPath solutionPath
-            projectName = last parts
-            solutionName = last parts
+            projectName = T.pack $ last parts
+            solutionName = T.pack $ last parts
             project = Params
                         (ProjectInfo projectName)
                         solutionPath

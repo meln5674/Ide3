@@ -93,8 +93,8 @@ type ProjectInitializerClass' m m'
 
 class Monad m => ErrorListClass m where
     clearErrorList :: m ()
-    addErrorToList :: Error ItemPath -> m ()
-    getErrorAtIndex :: Int -> m (Error ItemPath)
+    addErrorToList :: Error ItemPath Text -> m ()
+    getErrorAtIndex :: Int -> m (Error ItemPath Text)
 
 class Monad m => ErrorClass m where
     displayError :: Text -> m ()

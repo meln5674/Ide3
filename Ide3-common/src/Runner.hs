@@ -20,14 +20,16 @@ module Runner
     )
     where
 
+import Data.Text (Text)
+
 import Control.Monad.Trans.Except
 
 import Ide3.Types
 
 -- | Result of running a solution
 data RunnerResult
-    = RunFailed String String
-    | RunSucceeded String String
+    = RunFailed Text Text
+    | RunSucceeded Text Text
 
 -- | The Runner abstract type. Use runRunner to execute the actions of a runner.
 newtype Runner m = MkRunner { runRunnerInternal :: forall u . ProjectInfo -> SolutionResult u m RunnerResult }

@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module GuiClass.GuiT where
 
+import Data.Text (Text)
 import qualified Data.Text as T
 
 import System.Directory
@@ -39,7 +40,7 @@ import GuiT
 
 
 instance ( MonadIO m
-         , ProjectArgType m' ~ StackProjectInitializerArgs'
+         , ProjectArgType m' ~ StackProjectInitializerArgs' Text String FilePath
          ) => ProjectInitializerClass (GuiT m' p m) where
     type ClassProjectInitializerMonad (GuiT m' p m) = m'
     setupProjectCreator Nothing
@@ -49,7 +50,7 @@ instance ( MonadIO m
             NewProjectDialog.setVisible dialog True
             NewProjectDialog.setDialogMode dialog CreateProject
             NewProjectDialog.resetFields dialog
-    setupProjectCreator (Just arg)
+    setupProjectCreator (Just arg')
         = liftDialogs
         $ withNewProjectDialogM
         $ \dialog -> do
@@ -57,55 +58,53 @@ instance ( MonadIO m
             NewProjectDialog.resetFields dialog
             NewProjectDialog.setDialogMode dialog 
                 $ EditProject 
-                $ T.pack 
                 $ (let ProjectInfo projectName = getProjectInfo arg in projectName)
             NewProjectDialog.setPrimarySrcDir dialog 
-                $ T.pack 
                 $ primarySrcDir arg
             NewProjectDialog.setSecondarySrcDirs dialog 
                 $ T.intercalate ", " 
-                $ map T.pack 
                 $ secondarySrcDirs arg
             NewProjectDialog.setDependencies dialog 
                 $ T.intercalate ", " 
-                $ map T.pack 
                 $ dependencies arg
             case arg of
                 ExecutableProjectArgs{ projectName, exeMainPath } -> do
                     NewProjectDialog.setProjectType dialog Executable
-                    NewProjectDialog.setExecutableProjectName dialog $ T.pack projectName
-                    NewProjectDialog.setExecutableMainModule dialog $ T.pack exeMainPath
+                    NewProjectDialog.setExecutableProjectName dialog projectName
+                    NewProjectDialog.setExecutableMainModule dialog exeMainPath
                 LibraryProjectArgs{} -> NewProjectDialog.setProjectType dialog Library
                 TestSuiteProjectArgs{ projectName, testSuiteArgs } -> do
                     NewProjectDialog.setProjectType dialog TestSuite
-                    NewProjectDialog.setTestProjectName dialog $ T.pack projectName
+                    NewProjectDialog.setTestProjectName dialog projectName
                     case testSuiteArgs of
                         StdioTestSuiteArgs path -> do
                             NewProjectDialog.setTestProjectType dialog ExitCode
-                            NewProjectDialog.setTestMainModule dialog $ T.pack path
+                            NewProjectDialog.setTestMainModule dialog path
                         DetailedTestSuiteArgs name -> do
                             NewProjectDialog.setTestProjectType dialog Detailed
-                            NewProjectDialog.setTestTestModule dialog $ T.pack name
+                            NewProjectDialog.setTestTestModule dialog name
                 BenchmarkProjectArgs{ projectName, benchmarkArgs } -> do
                     NewProjectDialog.setProjectType dialog Benchmark
-                    NewProjectDialog.setBenchmarkProjectName dialog $ T.pack projectName
+                    NewProjectDialog.setBenchmarkProjectName dialog projectName
                     case benchmarkArgs of
                         StdioBenchmarkArgs path -> do
-                            NewProjectDialog.setBenchmarkMainModule dialog $ T.pack path
+                            NewProjectDialog.setBenchmarkMainModule dialog path
+      where
+        arg = mapStackArgs id T.pack T.pack arg'
             
     getProjectCreatorArg
         = liftDialogs 
         $ withNewProjectDialogM
         $ \dialog -> do
-            let fromCommaList = map (T.unpack . T.strip) . T.splitOn ","
-            primarySrcDir <- liftM T.unpack $ NewProjectDialog.getPrimarySrcDir dialog
+            let fromCommaList = map (T.strip) . T.splitOn ","
+            primarySrcDir <- NewProjectDialog.getPrimarySrcDir dialog
             secondarySrcDirs <- liftM fromCommaList $ NewProjectDialog.getSecondarySrcDirs dialog
             dependencies <- liftM fromCommaList $ NewProjectDialog.getDependencies dialog
             projectType <- NewProjectDialog.getProjectType dialog
-            case projectType of
+            arg' <- case projectType of
                 Executable -> do
-                    projectName <- liftM T.unpack $ NewProjectDialog.getExecutableProjectName dialog
-                    exeMainPath <- liftM T.unpack $ NewProjectDialog.getExecutableMainModule dialog
+                    projectName <- NewProjectDialog.getExecutableProjectName dialog
+                    exeMainPath <- NewProjectDialog.getExecutableMainModule dialog
                     return $ Right $ ExecutableProjectArgs 
                         { primarySrcDir
                         , secondarySrcDirs
@@ -120,12 +119,12 @@ instance ( MonadIO m
                         , dependencies
                         }
                 TestSuite -> do
-                    projectName <- liftM T.unpack $ NewProjectDialog.getTestProjectName dialog
+                    projectName <- NewProjectDialog.getTestProjectName dialog
                     testType <- NewProjectDialog.getTestProjectType dialog
                     testSuiteArgs <- case testType of
-                        ExitCode -> liftM (StdioTestSuiteArgs . T.unpack) 
+                        ExitCode -> liftM StdioTestSuiteArgs
                             $ NewProjectDialog.getTestMainModule dialog
-                        Detailed -> liftM (DetailedTestSuiteArgs . T.unpack)
+                        Detailed -> liftM DetailedTestSuiteArgs
                             $ NewProjectDialog.getTestTestModule dialog
                     return $ Right $ TestSuiteProjectArgs
                         { projectName
@@ -135,8 +134,8 @@ instance ( MonadIO m
                         , dependencies
                         }
                 Benchmark -> do
-                    projectName <- liftM T.unpack $ NewProjectDialog.getBenchmarkProjectName dialog
-                    benchmarkArgs <- liftM (StdioBenchmarkArgs . T.unpack)
+                    projectName <- NewProjectDialog.getBenchmarkProjectName dialog
+                    benchmarkArgs <- liftM StdioBenchmarkArgs
                         $ NewProjectDialog.getBenchmarkMainModule dialog
                     return $ Right $ BenchmarkProjectArgs 
                         { primarySrcDir
@@ -145,7 +144,7 @@ instance ( MonadIO m
                         , benchmarkArgs
                         , dependencies
                         }
-            
+            return $ fmap (mapStackArgs id T.unpack T.unpack) arg'
         
         
     finalizeProjectCreator 
@@ -166,14 +165,14 @@ getSolutionCreatorArg'
         $ withNewSolutionDialogM
         $ \dialog -> do
             maybeProjectRoot <- NewSolutionDialog.getSelectedFolder dialog
-            projectName <- liftM T.unpack $ NewSolutionDialog.getSolutionName dialog
-            templateName <- liftM (fmap T.unpack) $ NewSolutionDialog.getTemplateName dialog
+            projectName <- NewSolutionDialog.getSolutionName dialog
+            templateName <- NewSolutionDialog.getTemplateName dialog
             runExceptT $ case maybeProjectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
                     wrapIOError $ setCurrentDirectory $ projectRoot
                     --bounce $ setDirectoryToOpen $ projectRoot </> projectName
-                    return $ StackInitializerArgs projectName templateName
+                    return $ StackInitializerArgs (T.unpack projectName) (fmap T.unpack templateName)
             
 
 

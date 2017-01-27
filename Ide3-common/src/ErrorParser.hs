@@ -1,73 +1,108 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module ErrorParser 
     ( parseLog
     ) where
 
+import Prelude hiding (lines, words, unwords, unlines, null)
+import qualified Prelude
+
+import Data.String hiding (unlines, lines, null)
+
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Text.Read (readMaybe)
-import Data.List
+import Data.List hiding (unlines, lines, null)
 
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Except
 
-import Text.Parsec ((<|>), runParser, ParsecT, Stream)
+import Text.Parsec ((<|>), runParser, runParserT, ParsecT, Stream)
 import qualified Text.Parsec as P
 
 import ErrorParser.Types
 
 import Ide3.SrcLoc
 
+class IsString s => IsString' s where
+    toString :: s -> String
+    lines :: s -> [s]
+    unlines :: [s] -> s
+    words :: s -> [s]
+    unwords :: [s] -> s
+    null :: s -> Bool
+
+instance IsString' String where
+    toString = id
+    lines = Prelude.lines
+    unlines = Prelude.unlines
+    words = Prelude.words
+    unwords = Prelude.unwords
+    null = Prelude.null
+
+instance IsString' Text where
+    toString = T.unpack
+    lines = T.lines
+    unlines = T.unlines
+    words = T.words
+    unwords = T.unwords
+    null = T.null
+
 data ErrorType = IsError | IsWarning deriving (Show, Eq)
 
-data ParserMode
+data ParserMode s
     = LookingForProject
-    | LookingForModule !ProjectName
-    | LookingForError !ProjectName !ModuleName
-    | ReadingMessage !ProjectName !ModuleName !Row !Column !ErrorType
+    | LookingForModule !(ProjectName s)
+    | LookingForError !(ProjectName s) !(ModuleName s)
+    | ReadingMessage !(ProjectName s) !(ModuleName s) !Row !Column !ErrorType
     | Finished
 
-data LineType
-    = ProjectLine !ProjectName
-    | ModuleCounter !Int !Int !ModuleName
+data LineType s
+    = ProjectLine !(ProjectName s)
+    | ModuleCounter !Int !Int !(ModuleName s)
     | SourceLocation !FilePath !Row !Column !ErrorType
-    | TextLine !String
+    | TextLine !s
   deriving Show
 
 
-data ParserState
+data ParserState s
     = ParserState
-    { mode :: !ParserMode
-    , logLines :: ![String]
-    , messageBuffer :: ![String]
-    , errors :: ![Error ErrorLocation]
+    { mode :: !(ParserMode s)
+    , logLines :: ![s]
+    , messageBuffer :: ![s]
+    , errors :: ![Error (ErrorLocation s) s]
     }
 
-libraryLine :: Stream s m Char => ParsecT s u m String
+libraryLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
 libraryLine = do
     library <- P.string "library"
     void $ P.many P.anyChar
-    return library
+    return $ fromString library
 
-nonLibraryLine :: Stream s m Char => String -> ParsecT s u m String
+nonLibraryLine :: (IsString' s, Stream s m Char) => String -> ParsecT s u m s
 nonLibraryLine str = do
     void $ P.string str 
     void $ P.char ' ' 
     void $ P.char '\'' 
     projName <- P.manyTill P.anyChar (P.try $ P.char '\'') 
     void $ P.many P.anyChar 
-    return projName
+    return $ fromString projName
 
-executableLine :: Stream s m Char => ParsecT s u m String
+executableLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
 executableLine = nonLibraryLine "executable"
 
-testSuiteLine :: Stream s m Char => ParsecT s u m String
+testSuiteLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
 testSuiteLine = nonLibraryLine "test-suite"
 
-benchmarkLine :: Stream s m Char => ParsecT s u m String
+benchmarkLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
 benchmarkLine = nonLibraryLine "benchmark"
     
-projectLine :: Stream s m Char => ParsecT s u m LineType
+projectLine :: (IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 projectLine = do
     void $ P.string "Preprocessing "
     liftM (ProjectLine . ProjectName) 
@@ -76,7 +111,7 @@ projectLine = do
         <|> testSuiteLine 
         <|> benchmarkLine
 
-moduleCounter :: Stream s m Char => ParsecT s u m LineType
+moduleCounter :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 moduleCounter = do
     (currentStr, totalStr) <- P.between (P.char '[') (P.char ']') $ do
         P.skipMany P.space
@@ -88,27 +123,27 @@ moduleCounter = do
         P.skipMany P.space
         return (current, total)
     void $ P.string " Compiling "
-    name <- P.manyTill P.anyChar (P.try P.space)
+    name <- fromString <$> P.manyTill P.anyChar (P.try P.space)
     case (readMaybe currentStr, readMaybe totalStr) of
         (Just current, Just total) -> 
             return $ ModuleCounter current total (ModuleName name)
         _ -> error $ "Failed to parse module counter: " 
                    ++ show (currentStr, totalStr, name)
 
-errorType :: Stream s m Char => ParsecT s u m Bool
+errorType :: (IsString' s, Stream s m Char) => ParsecT s u m Bool
 errorType = (P.try $ P.string " warning:" *> return True) 
         <|> (P.string " error:" *> return False)
 
-counter :: Stream s m Char => ParsecT s u m String
-counter = P.many1 P.digit
+counter :: (IsString' s, Stream s m Char) => ParsecT s u m s
+counter = fromString <$> P.many1 P.digit
 
-counterSep :: Stream s m Char => ParsecT s u m ()
+counterSep :: (IsString' s, Stream s m Char) => ParsecT s u m ()
 counterSep = void $ P.char ':'
 
-lineRemainder :: Stream s m Char => ParsecT s u m ()
+lineRemainder :: (IsString' s, Stream s m Char) => ParsecT s u m ()
 lineRemainder = void $ P.manyTill P.anyChar (P.try P.eof)
 
-sourceLocationTail :: Stream s m Char => ParsecT s u m (String, String, Bool)
+sourceLocationTail :: (IsString' s, Stream s m Char) => ParsecT s u m (s, s, Bool)
 sourceLocationTail = (,,) <$> (counter   <* counterSep)
                           <*> (counter   <* counterSep)
                           <*> (errorType <* lineRemainder)
@@ -123,9 +158,9 @@ sourceLocationTail = (,,) <$> (counter   <* counterSep)
     return (row,col,flag)
     -}
 
-sourceLocation' :: Stream s m Char => ParsecT s u m ([String],(String,String,Bool))
+sourceLocation' :: (IsString' s, Stream s m Char) => ParsecT s u m ([s],(s,s,Bool))
 sourceLocation' = do
-    part <- P.manyTill P.anyChar (P.try $ P.char ':')
+    part <- fromString <$> P.manyTill P.anyChar (P.try $ P.char ':')
     --when (null part) $ unexpected ':'
     let left = do
             tailParts <- P.try sourceLocationTail
@@ -135,42 +170,43 @@ sourceLocation' = do
             return $ (part:parts,tailParts)
     P.try left <|> right
 
-sourceLocation :: Stream s m Char => ParsecT s u m LineType
+sourceLocation :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 sourceLocation = do
     (parts,(rowStr,colStr,flag)) <- sourceLocation'
-    let path = intercalate ":" parts
-    case (readMaybe rowStr, readMaybe colStr) of
+    let path = intercalate ":" $ map toString parts
+    case (readMaybe $ toString rowStr, readMaybe $ toString colStr) of
         (Just row, Just col) -> 
             return $ SourceLocation path row col (if flag then IsWarning else IsError)
         _ -> error $ "Failed to parse source location: " 
                    ++ show (parts, rowStr, colStr, flag)
 
-textLine :: Stream s m Char => ParsecT s u m LineType
-textLine = TextLine <$> P.many P.anyChar
+textLine :: (IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
+textLine = (TextLine . fromString) <$> P.many P.anyChar
 
-line :: Stream s m Char => ParsecT s u m LineType
+line :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 line =  P.try projectLine 
     <|> P.try moduleCounter 
     <|> P.try sourceLocation 
     <|> textLine
     
 
-mkError :: ErrorType 
-        -> ProjectName 
-        -> ModuleName 
+mkError :: (IsString' s)
+        => ErrorType 
+        -> (ProjectName s)
+        -> (ModuleName s)
         -> Row 
         -> Column 
-        -> [String]
-        -> Error ErrorLocation
+        -> [s]
+        -> Error (ErrorLocation s) s
 mkError IsWarning projName modName row col parts 
     = Warning (ErrorLocation projName modName) row col $ unlines $ reverse parts
 mkError IsError projName modName row col parts 
     = Error (ErrorLocation projName modName) row col $ unlines $ reverse parts
 
-addError :: MonadState ParserState m
+addError :: (IsString' s, MonadState (ParserState s) m)
          => ErrorType 
-         -> ProjectName 
-         -> ModuleName 
+         -> (ProjectName s)
+         -> (ModuleName s)
          -> Row 
          -> Column
          -> m ()
@@ -181,20 +217,20 @@ addError etype projName modName row col = do
         }
     clearBuffer         
 
-addErrorLine :: MonadState ParserState m
-             => String
+addErrorLine :: MonadState (ParserState s) m
+             => s
              -> m ()
 addErrorLine errorLine = modify
     $ \s -> s { messageBuffer = errorLine : messageBuffer s
               }
 
-setMode :: MonadState ParserState m
-        => ParserMode
+setMode :: MonadState (ParserState s) m
+        => ParserMode s
         -> m ()
 setMode mode' = modify $ \s -> s{ mode = mode' }
 
-popLine :: MonadState ParserState m
-        => m (Maybe String)
+popLine :: MonadState (ParserState s) m
+        => m (Maybe s)
 popLine = do
     result <- gets logLines
     case result of
@@ -203,17 +239,72 @@ popLine = do
             modify $ \s -> s{ logLines = xs }
             return $ Just x
 
-clearBuffer :: MonadState ParserState m => m ()
+clearBuffer :: MonadState (ParserState s) m => m ()
 clearBuffer = modify $ \s -> s{ messageBuffer = [] }
 
-ifNotFinished :: MonadState ParserState m => (ParserMode -> m ()) -> m ()
+ifNotFinished :: (IsString' s, MonadState (ParserState s) m) => (ParserMode s -> m ()) -> m ()
 ifNotFinished f = do
     pmode <- gets mode
     case pmode of
         Finished -> return ()
         _ -> f pmode
 
-parseLine :: MonadState ParserState m => ExceptT P.ParseError m ()
+processLine :: ( Show s
+               , IsString' s
+               , MonadState (ParserState s) m
+               , Stream s m Char
+               )
+            => s
+            -> ParserMode s
+            -> ExceptT P.ParseError m ()
+processLine nextLine pmode = do
+    parseResult <- ExceptT $ runParserT line () "" nextLine
+    lift $ case pmode of
+        LookingForProject -> case parseResult of
+            ProjectLine projName -> do
+                setMode $ LookingForModule projName
+            _ -> return ()
+        
+        LookingForModule projName -> case parseResult of
+            ProjectLine projName' -> do
+                setMode $ LookingForModule projName'
+            ModuleCounter _ _ modName -> do
+                setMode $ LookingForError projName modName
+            _ -> return ()
+        
+        LookingForError projName modName -> case parseResult of
+            ProjectLine projName' -> do
+                setMode $ LookingForModule projName'
+            ModuleCounter _ _ modName' -> do
+                setMode $ LookingForError projName modName'
+            SourceLocation _ row col etype -> do
+                setMode $ ReadingMessage projName modName row col etype
+            _ -> return ()
+        
+        ReadingMessage projName modName row col etype -> case parseResult of
+            ProjectLine projName' -> do
+                addError etype projName modName row col
+                setMode $ LookingForModule projName'
+            ModuleCounter _ _ modName' -> do
+                addError etype projName modName row col
+                setMode $ LookingForError projName modName'
+            SourceLocation _ row' col' etype' -> do
+                addError etype projName modName row col
+                setMode $ ReadingMessage projName modName row' col' etype'
+            TextLine text
+                | null text -> do
+                    addError etype projName modName row col
+                    setMode $ LookingForError projName modName
+                | otherwise -> do
+                    addErrorLine text
+        Finished -> undefined
+
+parseLine :: ( Show s
+             , IsString' s
+             , MonadState (ParserState s) m
+             , Stream s m Char
+             )
+          => ExceptT P.ParseError m ()
 parseLine = ifNotFinished $ \pmode -> do
     result <- lift popLine
     case result of
@@ -223,55 +314,21 @@ parseLine = ifNotFinished $ \pmode -> do
                     -> lift $ addError etype projName modName row col
                 _ -> return ()
             lift $ setMode Finished
-        Just nextLine -> do
-            parseResult <- case runParser line () "" nextLine of
-                Right x -> return x
-                Left err -> throwE err
-            lift $ case pmode of
-                LookingForProject -> case parseResult of
-                    ProjectLine projName -> do
-                        setMode $ LookingForModule projName
-                    _ -> return ()
-                
-                LookingForModule projName -> case parseResult of
-                    ProjectLine projName' -> do
-                        setMode $ LookingForModule projName'
-                    ModuleCounter _ _ modName -> do
-                        setMode $ LookingForError projName modName
-                    _ -> return ()
-                
-                LookingForError projName modName -> case parseResult of
-                    ProjectLine projName' -> do
-                        setMode $ LookingForModule projName'
-                    ModuleCounter _ _ modName' -> do
-                        setMode $ LookingForError projName modName'
-                    SourceLocation _ row col etype -> do
-                        setMode $ ReadingMessage projName modName row col etype
-                    _ -> return ()
-                
-                ReadingMessage projName modName row col etype -> case parseResult of
-                    ProjectLine projName' -> do
-                        addError etype projName modName row col
-                        setMode $ LookingForModule projName'
-                    ModuleCounter _ _ modName' -> do
-                        addError etype projName modName row col
-                        setMode $ LookingForError projName modName'
-                    SourceLocation _ row' col' etype' -> do
-                        addError etype projName modName row col
-                        setMode $ ReadingMessage projName modName row' col' etype'
-                    TextLine "" -> do
-                        addError etype projName modName row col
-                        setMode $ LookingForError projName modName
-                    TextLine text -> do
-                        addErrorLine text
-                Finished -> undefined
+        Just nextLine -> processLine nextLine pmode
+            
                                         
-parseLog :: String -> Maybe [Error ErrorLocation]
+parseLog :: ( Show s
+            , IsString' s
+            , Monad m
+            , Stream s (StateT (ParserState s) m) Char
+            )
+         => s 
+         -> m (Maybe [Error (ErrorLocation s) s])
 parseLog logContents = do
     result <- evalStateT (runExceptT $ loop >> finalize) emptyState
     case result of
-        Right errs -> Just errs
-        Left _ -> Nothing
+        Right errs -> return $ Just errs
+        Left _ -> return Nothing
   where
     emptyState = ParserState
                { mode = LookingForProject

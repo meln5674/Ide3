@@ -17,6 +17,8 @@ on specific parts of a haskell project.
 {-# LANGUAGE TypeFamilies #-}
 module Ide3.NewMonad where
 
+import Data.Text (Text)
+
 import Ide3.Types
 
 -- | Class of monads which can create, save, and load haskell solutions
@@ -71,17 +73,17 @@ class Monad m => ProjectModuleClass m where
     -- | Get the header of a module
     getModuleHeader :: ProjectInfo
                     -> ModuleInfo
-                    -> SolutionResult u m String
+                    -> SolutionResult u m Text
     -- | Edit the header of a module
     editModuleHeader :: ProjectInfo
                      -> ModuleInfo
-                     -> (String -> String)
+                     -> (Text -> Text)
                      -> SolutionResult u m ()
     -- | Set a module as unparsable, and provide the contents, as well as the location
     -- and message of the error
     setModuleUnparsable :: ProjectInfo
                         -> ModuleInfo
-                        -> String
+                        -> Text
                         -> SrcLoc
                         -> String
                         -> SolutionResult u m ()
@@ -89,7 +91,7 @@ class Monad m => ProjectModuleClass m where
     -- location and message of the error, otherwise return nothing
     getUnparsableModule :: ProjectInfo
                         -> ModuleInfo
-                        -> SolutionResult u m (Maybe (String, SrcLoc, String))
+                        -> SolutionResult u m (Maybe (Text, SrcLoc, String))
     -- | Set a module as parsable and empty, the module must already exist.
     setModuleParsable :: ProjectInfo
                       -> ModuleInfo
@@ -236,7 +238,7 @@ class Monad m => ExternModuleExportClass m where
 
 -- | Class of monads which can convert modules to a string
 class Monad m => ModuleFileClass m where
-    toFile :: ProjectInfo -> ModuleInfo -> SolutionResult u m String
+    toFile :: ProjectInfo -> ModuleInfo -> SolutionResult u m Text
 
 -- | Class of monads which can retrieve items at locations within a module 
 class ( Monad m )

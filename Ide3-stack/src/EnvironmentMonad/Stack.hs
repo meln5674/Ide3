@@ -9,6 +9,8 @@ module EnvironmentMonad.Stack
     , module ProjectInitializer.Stack
     ) where
 
+import Data.Text (Text)
+
 import Control.Monad.Catch
 
 import Control.Monad.Trans
@@ -63,7 +65,7 @@ instance ( MonadIO m ) => InitializerMonad (CabalSolution m) where
 
 instance ( MonadIO m ) 
         => ProjectInitializerMonad (CabalSolution m) where
-    type ProjectArgType (CabalSolution m) = StackProjectInitializerArgs'
+    type ProjectArgType (CabalSolution m) = (StackProjectInitializerArgs' Text String FilePath)
     getProjectInitializer = return stackProjectInitializer
     getProjectEditor = return stackProjectEditor
     getProjectRetriever = return stackProjectRetriever

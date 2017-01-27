@@ -9,7 +9,12 @@ Stability   : experimental
 Portability : POSIX
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Types.Exts where
+
+import Data.Monoid
+
+import qualified Data.Text as T
 
 import Language.Haskell.Exts.Syntax hiding (Symbol, Module, Type)
 import qualified Language.Haskell.Exts.Syntax as Syntax
@@ -21,8 +26,8 @@ import Ide3.Types.Internal
 
 -- | Convert identifiers and symbols
 instance ToSym (Name a) where
-    toSym (Ident _ n)         = Symbol n
-    toSym (Syntax.Symbol _ n) = Symbol n
+    toSym (Ident _ n)         = Symbol $ T.pack n
+    toSym (Syntax.Symbol _ n) = Symbol $ T.pack n
 
 -- | Extract name
 instance ToSym (CName a) where
@@ -31,15 +36,15 @@ instance ToSym (CName a) where
 
 -- | Extract module name
 instance ToSym (ModuleName a) where
-    toSym (ModuleName _ n) = Symbol n
+    toSym (ModuleName _ n) = Symbol $ T.pack n
 
 -- | Extract syntatic constructors
 instance ToSym (SpecialCon a) where
     toSym (UnitCon _)   = Symbol "()"
     toSym (ListCon _)   = Symbol "[]"
     toSym (FunCon _)    = Symbol "->"
-    toSym (TupleCon _ Unboxed n) = Symbol $ "(" ++ replicate n ',' ++ ")"
-    toSym (TupleCon _ Boxed n) = Symbol $ "(#" ++ replicate n ',' ++ "#)"
+    toSym (TupleCon _ Unboxed n) = Symbol $ "(" <> T.replicate n "," <> ")"
+    toSym (TupleCon _ Boxed n) = Symbol $ "(#" <> T.replicate n "," <> "#)"
     toSym (Cons _) = Symbol ":"
     toSym (UnboxedSingleCon _) = Symbol "(# #)"
 
@@ -51,7 +56,7 @@ instance ToSym (QName a) where
 
 -- | Convert to symbol using the pretty printer
 instance ToSym (Syntax.Type a) where
-    toSym = Symbol . prettyPrint
+    toSym = Symbol . T.pack . prettyPrint
 
 -- | Extract recursively until the head is reached
 instance ToSym (DeclHead a) where

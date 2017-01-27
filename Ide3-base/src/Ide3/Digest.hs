@@ -20,6 +20,9 @@ module Ide3.Digest
     , ProjectDigestParams (..)
     ) where
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Data.List
 
 import Control.Monad
@@ -108,13 +111,13 @@ digestInterfaceM pji iface = do
     createExternModule pji newInfo
     forM_ exports $ addExternExport pji newInfo
   where
-    newInfo = ModuleInfo $ Symbol $ Iface.modName iface
+    newInfo = ModuleInfo $ Symbol $ T.pack $ Iface.modName iface
     exports = case Iface.exports iface of
         Nothing -> []
         Just es -> flip map es $ \case
-            Iface.SingleExport s -> SingleExternExport $ Symbol s
+            Iface.SingleExport s -> SingleExternExport $ Symbol $ T.pack s
             Iface.MultiExport s ss
-                -> MultiExternExport (Symbol s) $ map Symbol ss
+                -> MultiExternExport (Symbol $ T.pack s) $ map (Symbol . T.pack) ss
 
 -- | Digest a project from a directory structure, optionally providing a path to
 -- an interface file for external modules

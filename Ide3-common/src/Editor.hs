@@ -20,6 +20,10 @@ module Editor
     , EditorResult (..)
     ) where
 
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+
 import Control.Exception.Base hiding (catch)
 
 import Control.Monad.Trans
@@ -35,17 +39,17 @@ import Ide3.Types
 -- | The result from running an editor
 data EditorResult
     -- | The text should be replaced with contained string
-    = EditConfirmed String
+    = EditConfirmed Text
     -- | The text should be deleted
     | DeleteConfirmed
     -- | The text should be left alone
     | EditCanceled
 
 -- | Abstract type for editors
-newtype Editor m = MkEditor { runEditorInternal :: forall u . String -> SolutionResult u m EditorResult }
+newtype Editor m = MkEditor { runEditorInternal :: forall u . Text -> SolutionResult u m EditorResult }
 
 -- | Run an editor on a given string
-runEditor :: Editor m -> String -> SolutionResult u m EditorResult
+runEditor :: Editor m -> Text -> SolutionResult u m EditorResult
 runEditor = runEditorInternal
 
 -- | An editor which represents no editing capability and will always result in an error
@@ -57,9 +61,9 @@ nanoEditor :: (MonadIO m, MonadMask m) => Editor m
 nanoEditor = MkEditor $ \toEdit -> ExceptT $ flip catch handleException $
     withSystemTempFile ".hs" $ \path h -> liftIO $ do
         hClose h
-        writeFile path toEdit
+        T.writeFile path toEdit
         callCommand $ "nano " ++ path
-        contents <- liftIO $ readFile path
+        contents <- liftIO $ T.readFile path
         return $ Right $ EditConfirmed contents
   where
     handleException e = return $ Left $ InvalidOperation (show (e :: IOException)) ""

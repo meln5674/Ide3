@@ -16,6 +16,8 @@ module Ide3.Env.Project where
 
 import qualified Data.Map as Map
 
+import Data.Text (Text)
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
@@ -91,12 +93,12 @@ editModule = descend1 $ do
 
 -- | Get the header from a module
 getModuleHeader :: Monad m
-                => DescentChain2 Project ModuleInfo m u String
+                => DescentChain2 Project ModuleInfo m u Text
 getModuleHeader = descend0 $ gets moduleHeader
 
 -- | Edit the header of a module
 editModuleHeader :: Monad m
-                 => DescentChain3 Project ModuleInfo (String -> String) m u ()
+                 => DescentChain3 Project ModuleInfo (Text -> Text) m u ()
 editModuleHeader = descend1 $ do
     f <- lift ask
     modify $ \m -> m { moduleHeader = f $ moduleHeader m }
@@ -104,7 +106,7 @@ editModuleHeader = descend1 $ do
 setModuleUnparsable :: Monad m
                      => DescentChain3 Project
                                       ModuleInfo
-                                      (String, SrcLoc, String)
+                                      (Text, SrcLoc, String)
                         m u ()
 setModuleUnparsable = descend1 $ do
     m <- get
@@ -122,7 +124,7 @@ setModuleParsable = descend0 $ do
 getUnparsableModule :: Monad m
                      => DescentChain2 Project
                                       ModuleInfo
-                        m u (Maybe (String, SrcLoc, String))
+                        m u (Maybe (Text, SrcLoc, String))
 getUnparsableModule = descend0 $ do
     m <- get
     case m of

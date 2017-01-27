@@ -19,11 +19,16 @@ single file using the Read/Show instances for the Solution type.
 
 -}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 module SimpleFilesystemSolution
     ( SimpleFilesystemSolutionT (SimpleFilesystemSolutionT)
     , FileSystemSolution (Unopened)
     , runSimpleFilesystemSolutionT
     ) where
+
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Data.List
 import Data.Maybe
@@ -156,8 +161,8 @@ instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) whe
                 Left err -> throwE $ InvalidOperation ("Error on opening file: " ++ show err) ""
         SolutionDirPath solutionPath -> do
             let parts = splitPath solutionPath
-                projectName = last parts
-                solutionName = last parts
+                projectName = T.pack $ last parts
+                solutionName = T.pack $ last parts
                 project = Params
                           ( ProjectInfo projectName )
                             solutionPath
@@ -193,14 +198,14 @@ moduleNamePath (x:xs) = x : moduleNamePath xs
 
 -- | Get the path for a module info
 modulePath :: ModuleInfo -> Maybe FilePath
-modulePath (ModuleInfo (Symbol s)) = Just $ "src/" ++ moduleNamePath s ++ ".hs"
+modulePath (ModuleInfo (Symbol s)) = Just $ "src/" ++ moduleNamePath (T.unpack s) ++ ".hs"
 modulePath (UnamedModule path) = path
 
 -- | A pair of filename and file contents to write to disc
 data OutputPair
     = OutputPair
     { filePath :: FilePath
-    , fileContents :: String
+    , fileContents :: Text
     }
 
 -- | A list of directories to create and files to write
@@ -256,7 +261,7 @@ makeFileListing pji = do
         ds <- forM dis $ getDeclaration pji mi
         case modulePath mi of
             Nothing -> return Nothing 
-            Just p -> return $ Just $ OutputPair p $ intercalate "\n" $ map body ds
+            Just p -> return $ Just $ OutputPair p $ T.intercalate "\n" $ map body ds
     let decls = catMaybes declGroups
     return FileListing
            { directoriesNeeded = dirs'
@@ -265,7 +270,7 @@ makeFileListing pji = do
 
 -- | Write an output pair to disc
 writeOutputPair :: (MonadIO m) => OutputPair -> SolutionResult u m ()
-writeOutputPair pair = wrapIOError $ writeFile (filePath pair) (fileContents pair)
+writeOutputPair pair = wrapIOError $ T.writeFile (filePath pair) (fileContents pair)
 
 -- | Create the directories needed and write the files to be written
 executeFileListing :: (MonadIO m) => FileListing -> SolutionResult u m ()

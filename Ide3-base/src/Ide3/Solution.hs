@@ -10,6 +10,7 @@ Portability : POSIX
 
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Solution 
     ( module Ide3.Solution
     , module Ide3.Solution.Query

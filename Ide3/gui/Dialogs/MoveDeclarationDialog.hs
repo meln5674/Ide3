@@ -31,8 +31,8 @@ import GuiHelpers
 
 renderSolutionTreeElem :: (AttrSetC info o "text" Text) 
                        => SolutionTreeElem -> [AttrOp o 'AttrSet]
-renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := pack n]
-renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := pack s]
+renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := n]
+renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := s]
 renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := pack path]
 renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [#text := ("???" :: Text)]
 renderSolutionTreeElem _ = [#text := ("THIS SHOULDN'T BE HERE" :: Text)]

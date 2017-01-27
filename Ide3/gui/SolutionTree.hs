@@ -2,6 +2,9 @@
 {-# LANGUAGE LambdaCase #-}
 module SolutionTree where
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Data.Monoid
 
 import Data.Tree
@@ -228,14 +231,14 @@ searchTreeForModulePart (ModuleInfo (Symbol s)) = searchTree''' moduleNameIsPref
         | (ModuleElem mi _) <- mElem
         , (ModuleInfo sym) <- mi
         , (Symbol s') <- sym
-        = s' `isPrefixOf` s && case drop (length s') s of
+        = s' `T.isPrefixOf` s && case T.unpack $ T.drop (T.length s') s of
             [] -> True
             ('.':_) -> True
             _ -> False
         | (UnparsableModuleElem mi _ _) <- mElem
         , (ModuleInfo sym) <- mi
         , (Symbol s') <- sym
-        = s' `isPrefixOf` s && case drop (length s') s of
+        = s' `T.isPrefixOf` s && case T.unpack $ T.drop (T.length s') s of
             [] -> True
             ('.':_) -> True
             _ -> False

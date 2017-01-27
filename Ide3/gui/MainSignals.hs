@@ -228,16 +228,16 @@ onDeleteProjectClicked pji = undefined
 onNewModuleClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
-              -> Maybe String
+              -> Maybe Text
               -> t m Bool
 onNewModuleClicked pji modName = do
-    NewModuleDialog.make (fmap pack modName) $ \dialog -> do
+    NewModuleDialog.make modName $ \dialog -> do
         dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \event -> do
             moduleName <- NewModuleDialog.getModuleName dialog
             case moduleName of
                 "" -> doError $ InvalidOperation "Please enter a module name" ""
                 name -> do
-                    doAddModule pji (ModuleInfo (Symbol $ unpack moduleName))
+                    doAddModule pji (ModuleInfo (Symbol moduleName))
                     NewModuleDialog.close dialog
             return False
         dialog `on` NewModuleDialog.cancelClickedEvent $ Func1 $ \event -> do
@@ -257,7 +257,7 @@ onNewImportClicked pji mi = do
             case import_ of
                 "" -> doError $ InvalidOperation "Please enter an import" ""
                 import_ -> do
-                    maybeError <- doAddImport pji mi $ unpack import_
+                    maybeError <- doAddImport pji mi import_
                     case maybeError of
                         Just err -> doError err
                         Nothing -> NewImportDialog.close dialog
@@ -279,13 +279,13 @@ onEditImportClicked pji mi ii = do
     case getResult of
         Nothing -> return False
         Just importStr -> do
-            NewImportDialog.makeEdit (pack importStr) $ \dialog -> do
+            NewImportDialog.makeEdit importStr $ \dialog -> do
                 dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \event -> do
                     import_ <- NewImportDialog.getImport dialog
                     case import_ of
                         "" -> doError $ InvalidOperation "Please enter an import" ""
                         import_ -> do
-                            maybeError <- doEditImport pji mi ii $ unpack import_
+                            maybeError <- doEditImport pji mi ii import_
                             case maybeError of
                                 Just err -> doError err
                                 Nothing -> NewImportDialog.close dialog
@@ -307,7 +307,7 @@ onNewExportClicked pji mi = do
             case export_ of
                 "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- doAddExport pji mi $ unpack export_
+                    maybeError <- doAddExport pji mi export_
                     case maybeError of
                         Just err -> id $ doError err
                         Nothing -> NewExportDialog.close dialog
@@ -338,13 +338,13 @@ onEditExportClicked pji mi ii = do
     case getResult of
         Nothing -> return False
         Just exportStr -> do
-            NewExportDialog.makeEdit (pack exportStr) $ \dialog -> do
+            NewExportDialog.makeEdit exportStr $ \dialog -> do
                 dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
                     export_ <- NewExportDialog.getExport dialog
                     case export_ of
                         "" -> doError $ InvalidOperation "Please enter an export" ""
                         export_ -> do
-                            maybeError <- doEditExport pji mi ii $ unpack export_
+                            maybeError <- doEditExport pji mi ii export_
                             case maybeError of
                                 Just err -> doError err
                                 Nothing -> NewExportDialog.close dialog
@@ -361,13 +361,13 @@ onExportDeclarationClicked :: forall t {-proxy-} m' p m
               -> DeclarationInfo
               -> t m Bool
 onExportDeclarationClicked pji mi (SymbolDeclarationInfo (Symbol declStr)) = do
-    NewExportDialog.makeEdit (pack declStr) $ \dialog -> do
+    NewExportDialog.makeEdit declStr $ \dialog -> do
         dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \event -> do
             export_ <- NewExportDialog.getExport dialog
             case export_ of
                 "" -> doError $ InvalidOperation "Please enter an export" ""
                 export_ -> do
-                    maybeError <- doAddExport pji mi $ unpack export_
+                    maybeError <- doAddExport pji mi export_
                     case maybeError of
                         Just err -> doError err
                         Nothing -> NewExportDialog.close dialog

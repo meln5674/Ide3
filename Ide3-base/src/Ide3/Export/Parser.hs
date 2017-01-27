@@ -9,7 +9,13 @@ Stability   : experimental
 Portability : POSIX
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Export.Parser (parse, convertWithBody) where
+
+import Data.Monoid
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Language.Haskell.Exts.Parser hiding (parse)
 import qualified Language.Haskell.Exts.Parser as Parser
@@ -37,11 +43,11 @@ convert export = case export of
     EModuleContents _ n -> ModuleExport (toSym n)
 
 -- | Convert from the third party export and extract the body
-convertWithBody :: Spannable a => String -> ExportSpec a -> WithBody Export
+convertWithBody :: Spannable a => Text -> ExportSpec a -> WithBody Export
 convertWithBody str export = WithBody (convert export) (ann export >< str)
 
 -- | Parse an export
-parse :: String -> Either (SolutionError u) Export
+parse :: Text -> Either (SolutionError u) Export
 parse s = case result of
     ParseOk ok
         | headAndImports <- unNonGreedy ok
@@ -64,6 +70,6 @@ parse s = case result of
   where
     -- Parsing an export is done by putting in a mock export list, parsing that
     -- "module", and then pulling out the singleton list of exports
-    dummyHeader = "module DUMMY (" ++ s ++ ") where"
+    dummyHeader = "module DUMMY (" <> s <> ") where"
     result :: (ParseResult (NonGreedy (ModuleHeadAndImports SrcSpanInfo)))
-    result = Parser.parse dummyHeader
+    result = Parser.parse (T.unpack dummyHeader)

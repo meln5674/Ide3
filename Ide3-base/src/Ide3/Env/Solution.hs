@@ -12,6 +12,8 @@ Portability : POSIX
 
 module Ide3.Env.Solution where
 
+import Data.Text (Text)
+
 import qualified Data.Map as Map
 
 import Control.Monad.Trans
@@ -94,14 +96,14 @@ editModule = descend2 Project.editModule
 
 -- | Get the header from a module
 getModuleHeader :: Monad m
-                => DescentChain3 Solution ProjectInfo ModuleInfo m u String
+                => DescentChain3 Solution ProjectInfo ModuleInfo m u Text
 getModuleHeader = descend1 $ Project.getModuleHeader
     
 -- | Edit the header of a module
 editModuleHeader :: Monad m
                  => DescentChain4 Solution 
                                   ProjectInfo 
-                                  ModuleInfo (String -> String) 
+                                  ModuleInfo (Text -> Text) 
                                   m u ()
 editModuleHeader = descend2 $ Project.editModuleHeader
 
@@ -109,7 +111,7 @@ setModuleUnparsable :: Monad m
                      => DescentChain4 Solution
                                       ProjectInfo
                                       ModuleInfo
-                                      (String, SrcLoc, String)
+                                      (Text, SrcLoc, String)
                         m u ()
 setModuleUnparsable = descend2 $ Project.setModuleUnparsable
 
@@ -124,7 +126,7 @@ getUnparsableModule :: Monad m
                      => DescentChain3 Solution
                                       ProjectInfo
                                       ModuleInfo
-                        m u (Maybe (String, SrcLoc, String))
+                        m u (Maybe (Text, SrcLoc, String))
 getUnparsableModule = descend1 $ Project.getUnparsableModule
 
 -- | Add an external module to a project

@@ -11,6 +11,8 @@ Portability : POSIX
 -}
 module Ide3.Refactor where
 
+import qualified Data.Text as T
+
 import Control.Monad
 import Control.Monad.Trans.Except
 
@@ -33,7 +35,7 @@ renameSymbols :: (SolutionMonad m)
              -> SolutionResult u m DeclarationInfo
 renameSymbols pji mi di pairs = do
     let edit str = foldr replace' str pairs
-        replace' (Symbol src, Symbol dest) str' = replace src dest str'
+        replace' (Symbol src, Symbol dest) str' = T.replace src dest str'
     editDeclaration pji mi di $ \d -> do
         let str = body d
             str' = edit str

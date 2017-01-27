@@ -1,5 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 module CabalMonad where
+
+import Data.Text (Text)
 
 import Distribution.PackageDescription
 

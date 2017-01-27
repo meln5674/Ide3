@@ -1,4 +1,5 @@
 {-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Tests.Utils where
 
 import GHC.Stack
@@ -92,9 +93,9 @@ newProjectInfo2 = ProjectInfo "untitled project 2"
 nonExistentModuleInfo = ModuleInfo $ Symbol "Non.Existent.Module"
 newModuleInfo = ModuleInfo $ Symbol "New.Module"
 newModuleInfo2 = ModuleInfo $ Symbol "New.Module2"
-newDeclarationInfo = DeclarationInfo newDeclarationSymbol
+newDeclarationInfo = SymbolDeclarationInfo newDeclarationSymbol
 newDeclarationSymbol = Symbol "TestType"
-newDeclarationInfo2 = DeclarationInfo newDeclarationSymbol2
+newDeclarationInfo2 = SymbolDeclarationInfo newDeclarationSymbol2
 newDeclarationSymbol2 = Symbol "TestType2"
 newDeclaration = WithBody
     (TypeDeclaration newDeclarationInfo
@@ -112,7 +113,7 @@ newDeclarationExport = WithBody (SingleExport newDeclarationSymbol) "TestType"
 newDeclarationImport = WithBody (WhitelistImport (Symbol "New.Module2") False Nothing [NameImport newDeclarationSymbol]) "import New.Module2 (TestType)"
 
 
-nonExistentDeclarationInfo = DeclarationInfo $ Symbol "NonExistentType"
+nonExistentDeclarationInfo = SymbolDeclarationInfo $ Symbol "NonExistentType"
 nonExistentDeclaration = WithBody
     (TypeDeclaration nonExistentDeclarationInfo
                     $ TypeSynonym (Symbol "NonExistentType")
@@ -130,7 +131,7 @@ nonExistentDeclarationExport = WithBody (SingleExport (Symbol "NonExistentType")
 
 newCompoundDeclarationSymbols = map Symbol ["TestData", "TestCon1", "TestCon2"]
 newCompoundDeclarationSymbol = head newCompoundDeclarationSymbols
-newCompoundDeclarationInfo = DeclarationInfo newCompoundDeclarationSymbol
+newCompoundDeclarationInfo = SymbolDeclarationInfo newCompoundDeclarationSymbol
 newCompoundDeclarationConstructors = map (\s -> PrefixConstructor s []) $ tail newCompoundDeclarationSymbols
 newCompoundDeclaration = WithBody (TypeDeclaration newCompoundDeclarationInfo $ DataDeclaration newCompoundDeclarationSymbol newCompoundDeclarationConstructors) "data TestData = TestCon1 | TestCon2"
 

@@ -12,6 +12,7 @@ Portability : POSIX
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Project.Internal where
 
 import qualified Data.Map as Map

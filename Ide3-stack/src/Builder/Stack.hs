@@ -1,4 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Builder.Stack where
+
+import Data.Monoid
+
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Data.List
 
@@ -11,7 +17,7 @@ import Control.Exception.Base hiding (catch)
 import System.FilePath
 import System.Directory
 import System.Exit
-import System.Process
+import System.Process.Text
 
 import Distribution.PackageDescription hiding (description)
 import Distribution.Version
@@ -35,16 +41,16 @@ stackBuilder = MkBuilder $ flip catch handleException $ do
             ++ "-" 
             ++ (intercalate "." $ map show $ versionBranch $ pkgVersion $ package pkg)
         description = pkgString desc
-    rootDir <- liftIO $ readProcess "stack" ["path", "--project-root"] ""
-    let logPath = init rootDir </> ".stack-work" </> "logs" </> description <.> "log"
+    (_, rootDir, _) <- liftIO $ readProcessWithExitCode "stack" ["path", "--project-root"] ""
+    let logPath = init (T.unpack rootDir) </> ".stack-work" </> "logs" </> description <.> "log"
     logExists <- liftIO $ doesFileExist logPath
     --liftIO $ putStrLn logPath
     buildLog <- do
         logContents <- if logExists
-            then liftIO $ readFile logPath
+            then liftIO $ T.readFile logPath
             else return "" --return "I COULDN'T FIND THE LOG FILE\n"
-        return $ err ++ logContents 
-    let errorList = parseLog $ buildLog
+        return $ err <> logContents 
+    errorList <- parseLog buildLog
     case errorList of
         Nothing -> do
             throwE $ InternalError "Could not parse build log" ""

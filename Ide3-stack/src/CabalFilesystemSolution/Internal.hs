@@ -5,7 +5,11 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 module CabalFilesystemSolution.Internal where
+
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Data.List
 import Data.Map (Map)
@@ -215,11 +219,11 @@ getProject pji = do
 -}
 
 toModuleName :: ModuleInfo -> ModuleName.ModuleName
-toModuleName (ModuleInfo (Symbol s)) = ModuleName.fromString s
+toModuleName (ModuleInfo (Symbol s)) = ModuleName.fromString $ T.unpack s
 toModuleName (UnamedModule _) = error "Unamed module"
 
 toModuleInfo :: ModuleName.ModuleName -> ModuleInfo
-toModuleInfo mn = ModuleInfo $ Symbol $ intercalate "." $ ModuleName.components mn
+toModuleInfo mn = ModuleInfo $ Symbol $ T.intercalate "." $ map T.pack $ ModuleName.components mn
 
 locateModule :: (MonadIO m) => [FilePath] -> ModuleName.ModuleName -> m (Maybe FilePath)
 locateModule paths mn = do
@@ -422,6 +426,7 @@ getCabalConfigPath = liftM snd . getCabalDirectoryAndConfigPath
 makeSolutionInfo :: FilePath -> CabalConfiguration -> SolutionInfo
 makeSolutionInfo _ (CabalConfiguration d) 
     = SolutionInfo 
+    $ T.pack
     $ unPackageName 
     $ pkgName 
     $ package 
@@ -528,7 +533,7 @@ writeModule pji mi = withOpenedSolution $ \info -> do
     let moduleDir = takeDirectory modulePath
     wrapIOError $ do
         createDirectoryIfMissing True moduleDir
-        writeFile modulePath text
+        T.writeFile modulePath text
 
 -- | Add a module to a solution's list of modules
 addModuleToConfig :: (Monad m) 
@@ -538,7 +543,7 @@ addModuleToConfig :: (Monad m)
 addModuleToConfig pji mi = do
     setCabalFileDirty
     moduleName <- case mi of
-        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
+        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString $ T.unpack name
         _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
     p <- lookupCabalProject pji
     p' <- case p of
@@ -561,7 +566,7 @@ removeModuleFromConfig :: (Monad m)
 removeModuleFromConfig pji mi = do
     setCabalFileDirty
     moduleName <- case mi of
-        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString name
+        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString $ T.unpack name
         _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
     pji' <- getCabalProjectInfo pji
     p <- getCabalProject pji'
@@ -876,14 +881,20 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                         Just lib -> return $ LibraryProject $ condTreeData lib
                         Nothing -> throwE $ ProjectNotFound libraryInfo ""
                     ExecutableInfo s -> case Map.lookup s exes of
-                        Just exe -> return $ ExecutableProject (ProjectInfo s) $ condTreeData exe
-                        Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                        Just exe -> return $ ExecutableProject pji $ condTreeData exe
+                        Nothing -> throwE $ ProjectNotFound pji ""
+                      where
+                        pji = ProjectInfo $ T.pack s
                     TestSuiteInfo s -> case Map.lookup s tests of
-                        Just test -> return $ TestSuiteProject (ProjectInfo s) $ condTreeData test
-                        Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                        Just test -> return $ TestSuiteProject pji $ condTreeData test
+                        Nothing -> throwE $ ProjectNotFound pji ""
+                      where
+                        pji = ProjectInfo $ T.pack s
                     BenchmarkInfo s -> case Map.lookup s benches of
-                        Just bench -> return $ BenchmarkProject (ProjectInfo s) $ condTreeData bench
-                        Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                        Just bench -> return $ BenchmarkProject pji $ condTreeData bench
+                        Nothing -> throwE $ ProjectNotFound pji ""
+                      where
+                        pji = ProjectInfo $ T.pack s
             _ -> throwE $ InvalidOperation "No solution opened" ""
     addCabalProject i p = withOpenedSolution $ \info -> do
         let (CabalConfiguration conf) = cabalConfig info
@@ -901,7 +912,7 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                             }}
             (ExecutableInfo s, ExecutableProject _ exe) -> do
                 case Map.lookup s exes of
-                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Just _ -> throwE $ DuplicateProject pji ""
                     Nothing -> do
                         let exe' = CondNode{ condTreeData = exe
                                            , condTreeConstraints = []
@@ -909,9 +920,11 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                                            }
                             exes' = Map.toList $ Map.insert s exe' exes
                         return conf{condExecutables = exes'}
+              where
+                pji = ProjectInfo $ T.pack s
             (TestSuiteInfo s, TestSuiteProject _ test) -> do
                 case Map.lookup s tests of
-                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Just _ -> throwE $ DuplicateProject pji ""
                     Nothing -> do
                         let test' = CondNode{ condTreeData = test
                                            , condTreeConstraints = []
@@ -919,9 +932,11 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                                            }
                             tests' = Map.toList $ Map.insert s test' tests
                         return conf{ condTestSuites = tests' }
+              where
+                pji = ProjectInfo $ T.pack s
             (BenchmarkInfo s, BenchmarkProject _ bench) -> do
                 case Map.lookup s benches of
-                    Just _ -> throwE $ DuplicateProject (ProjectInfo s) ""
+                    Just _ -> throwE $ DuplicateProject pji ""
                     Nothing -> do
                         let bench' = CondNode{ condTreeData = bench
                                              , condTreeConstraints = []
@@ -929,6 +944,8 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                                              }
                             benches' = Map.toList $ Map.insert s bench' benches
                         return $ conf{condBenchmarks = benches'}
+              where
+                pji = ProjectInfo $ T.pack s
             (_, _) -> throwE $ InternalError "Mismatched project info and contents" ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
         setCabalFileDirty
@@ -937,9 +954,9 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
             exes = Map.fromList $ condExecutables conf
             tests = Map.fromList $ condTestSuites conf
             benches = Map.fromList $ condBenchmarks conf
-            exe = Map.lookup s exes
-            test = Map.lookup s tests
-            bench = Map.lookup s benches
+            exe = Map.lookup (T.unpack s) exes
+            test = Map.lookup (T.unpack s) tests
+            bench = Map.lookup (T.unpack s) benches
             lib = condLibrary conf
         if i == libraryInfo
             then case lib of
@@ -970,26 +987,34 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                         let exe' = node{ condTreeData = exe }
                             exes' = Map.toList $ Map.insert s exe' exes
                         return conf{ condExecutables = exes' }
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
+              where
+                pji = ProjectInfo $ T.pack s
             (TestSuiteInfo s, TestSuiteProject _ test) -> do
                 case Map.lookup s tests of
                     Just node -> do
                         let test' = node{ condTreeData = test }
                             tests' = Map.toList $ Map.insert s test' tests
                         return $ conf{ condTestSuites = tests' }
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
+              where
+                pji = ProjectInfo $ T.pack s
             (BenchmarkInfo s, BenchmarkProject _ bench) -> do
                 case Map.lookup s benches of
                     Just node -> do
                         let bench' = node{ condTreeData = bench }
                             benches' = Map.toList $ Map.insert s bench' benches
                         return $ conf{ condBenchmarks = benches' }
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
+              where
+                pji = ProjectInfo $ T.pack s
             _ -> throwE $ InternalError "Mismatched project info and type" ""
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
         setCabalFileDirty
-    getCabalProjectInfo i@(ProjectInfo s) = withOpenedSolution $ \info -> do
-        let (CabalConfiguration conf) = cabalConfig info
+    getCabalProjectInfo pji = withOpenedSolution $ \info -> do
+        let t = unProjectInfo pji
+            s = T.unpack t
+            (CabalConfiguration conf) = cabalConfig info
             exes = Map.fromList $ condExecutables conf
             tests = Map.fromList $ condTestSuites conf
             benches = Map.fromList $ condBenchmarks conf
@@ -997,17 +1022,17 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
             test = Map.lookup s tests
             bench = Map.lookup s benches
             lib = condLibrary conf
-        if i == libraryInfo
+        if pji == libraryInfo
             then case lib of
                 Just _ -> return $ LibraryInfo
-                Nothing -> throwE $ ProjectNotFound i ""
+                Nothing -> throwE $ ProjectNotFound pji ""
             else case exe of
                 Just _ -> return $ ExecutableInfo s
                 Nothing -> case test of
                     Just _ -> return $ TestSuiteInfo s
                     Nothing -> case bench of
                         Just _ -> return $ BenchmarkInfo s
-                        Nothing -> throwE $ ProjectNotFound i ""
+                        Nothing -> throwE $ ProjectNotFound pji ""
     removeCabalProject i = withOpenedSolution $ \info -> do
         let (CabalConfiguration conf) = cabalConfig info
             exes = Map.fromList $ condExecutables conf
@@ -1020,22 +1045,28 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
                     _ -> return conf{ condLibrary = Nothing }
             (ExecutableInfo s) -> do
                 case Map.lookup s exes of
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
                     _ -> do
                         let exes' = Map.toList $ Map.delete s exes
                         return conf{ condExecutables = exes' }
+              where
+                pji = ProjectInfo $ T.pack s
             (TestSuiteInfo s) -> do
                 case Map.lookup s tests of
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
                     _ -> do
                         let tests' = Map.toList $ Map.delete s tests
                         return $ conf{ condTestSuites = tests' }
+              where
+                pji = ProjectInfo $ T.pack s
             (BenchmarkInfo s) -> do
                 case Map.lookup s benches of
-                    Nothing -> throwE $ ProjectNotFound (ProjectInfo s) ""
+                    Nothing -> throwE $ ProjectNotFound pji ""
                     _ -> do
                         let benches' = Map.toList $ Map.delete s benches
                         return $ conf{ condBenchmarks = benches' }
+              where
+                pji = ProjectInfo $ T.pack s
         lift $ putFsp $ Opened $ Just $ info{ cabalConfig = CabalConfiguration conf' }
         setCabalFileDirty
     getPackageDescription = withOpenedSolution $ \info -> do

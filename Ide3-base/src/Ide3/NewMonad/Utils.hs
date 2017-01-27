@@ -17,6 +17,8 @@ module Ide3.NewMonad.Utils
     ( module Ide3.NewMonad.Utils
     ) where
 
+import Data.Text (Text)
+
 import qualified Data.Map as Map
 import qualified Ide3.OrderedMap as OMap
 
@@ -37,7 +39,8 @@ import Ide3.NewMonad
 addRawImport :: (ModuleImportClass m)
              => ProjectInfo 
              -> ModuleInfo 
-             -> String -> SolutionResult u m ImportId
+             -> Text
+             -> SolutionResult u m ImportId
 addRawImport pji mi str = case Import.parse str of
     Right i -> addImport pji mi $ WithBody i str
     Left err -> throwE err 
@@ -46,7 +49,8 @@ addRawImport pji mi str = case Import.parse str of
 addRawExport :: (ModuleExportClass m)
              => ProjectInfo 
              -> ModuleInfo 
-             -> String -> SolutionResult u m ExportId
+             -> Text
+             -> SolutionResult u m ExportId
 addRawExport pji mi str = case Export.parse str of
     Right e -> addExport pji mi $ WithBody e str
     Left err -> throwE err
@@ -55,7 +59,7 @@ addRawExport pji mi str = case Export.parse str of
 addRawDeclaration :: (ModuleDeclarationClass m)
                   => ProjectInfo 
                   -> ModuleInfo 
-                  -> String 
+                  -> Text
                   -> SolutionResult u m ()
 addRawDeclaration pji mi str = case Declaration.parse str of
     Right d -> addDeclaration pji mi $ WithBody d str
@@ -69,7 +73,7 @@ addRawModule :: ( ProjectModuleClass m
                 , ModulePragmaClass m
                 ) 
              => ProjectInfo 
-             -> String 
+             -> String
              -> Maybe FilePath 
              -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
 addRawModule pji str p = case Module.parse str p of

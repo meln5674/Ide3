@@ -21,6 +21,8 @@ module Builder
     )
     where
 
+import Data.Text (Text)
+
 import Control.Monad.Trans.Except
 
 import Ide3.Types
@@ -29,8 +31,8 @@ import ErrorParser.Types
 
 -- | The result of a build operation
 data BuilderResult
-    = BuildFailed String [Error ErrorLocation] -- ^ Build failed, accompanied by log and errors/warnings
-    | BuildSucceeded String [Error ErrorLocation] -- ^ Build succeeded, accompanied by log and warnings
+    = BuildFailed Text [Error (ErrorLocation Text) Text] -- ^ Build failed, accompanied by log and errors/warnings
+    | BuildSucceeded Text [Error (ErrorLocation Text) Text] -- ^ Build succeeded, accompanied by log and warnings
 
 -- | The builder abstract type. Use runBuilder to execute the actions of a Builder.
 -- A build can failed in one of two ways. A ExceptT Left value indicates that

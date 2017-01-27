@@ -12,11 +12,17 @@ The SolutionPath constructors contain all information neccessary to look up a
 solution element.
 -}
 
+{-# LANGUAGE OverloadedStrings #-}
 module DeclarationPath 
     ( SolutionPath (..)
     , ItemPath
     , parse
     ) where
+
+import Data.Monoid
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Control.Monad
 
@@ -59,25 +65,25 @@ instance Show SolutionPath where
     show SolutionPath 
         = ""
     show (ProjectPath (ProjectInfo a)) 
-        = a ++ "/"
+        = T.unpack $ a <> "/"
     show (ModulePath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = a ++ "/" ++ b
+        = T.unpack $ a <> "/" <> b
     show (PragmasPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = a ++ "/" ++ b ++ ":[PRAGMAS]"
+        = T.unpack $ a <> "/" <> b <> ":[PRAGMAS]"
     show (PragmaPath (ProjectInfo a) (ModuleInfo (Symbol b)) p) 
-        = a ++ "/" ++ b ++ ":[PRAGMA " ++ p ++ "]"
+        = T.unpack $ a <> "/" <> b <> ":[PRAGMA " <> p <> "]"
     show (ExportsPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = a ++ "/" ++ b ++ ":[EXPORTS]"
+        = T.unpack $ a <> "/" <> b <> ":[EXPORTS]"
     show (ExportPath (ProjectInfo a) (ModuleInfo (Symbol b)) ei) 
-        = a ++ "/" ++ b ++ ":[EXPORT ID=" ++ show ei ++ "]"
+        = T.unpack $ a <> "/" <> b <> ":[EXPORT ID=" <> T.pack (show ei) <> "]"
     show (ImportsPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = a ++ "/" ++ b ++ ":[IMPORTS]"
+        = T.unpack $ a <> "/" <> b <> ":[IMPORTS]"
     show (ImportPath (ProjectInfo a) (ModuleInfo (Symbol b)) ii) 
-        = a ++ "/" ++ b ++ ":[IMPORT ID=" ++ show ii ++ "]"
+        = T.unpack $ a <> "/" <> b <> ":[IMPORT ID=" <> T.pack (show ii) <> "]"
     show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (SymbolDeclarationInfo (Symbol c)))
-        = a ++ "/" ++ b ++ ":" ++ c
+        = T.unpack $ a <> "/" <> b <> ":" <> c
     show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (RawDeclarationInfo c))
-        = a ++ "/" ++ b ++ ":" ++ c
+        = T.unpack $ a <> "/" <> b <> ":" <> c
 
 -- | Parser for the terminator between project and module names
 projectTerminator :: Parsec String () ()
@@ -89,15 +95,15 @@ moduleTerminator = void $ char ':'
 
 -- | Parser for a project name
 projectName :: Parsec String () ProjectInfo
-projectName = ProjectInfo <$> (many $ notFollowedBy projectTerminator *> anyToken)
+projectName = (ProjectInfo . T.pack) <$> (many $ notFollowedBy projectTerminator *> anyToken)
 
 -- | Parser for a module name
 moduleName:: Parsec String () ModuleInfo
-moduleName = (ModuleInfo . Symbol) <$> (many $ notFollowedBy moduleTerminator  *> anyToken)
+moduleName = (ModuleInfo . Symbol . T.pack) <$> (many $ notFollowedBy moduleTerminator  *> anyToken)
 
 -- | Parser for a declaration info
 declarationInfo :: Parsec String () DeclarationInfo 
-declarationInfo = (SymbolDeclarationInfo . Symbol) <$> many anyToken
+declarationInfo = (SymbolDeclarationInfo . Symbol . T.pack) <$> many anyToken
 
 -- | Parser for a declaration path
 declarationPath :: Parsec String () SolutionPath

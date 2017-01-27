@@ -11,6 +11,9 @@ Portability : POSIX
 
 module Ide3.Import.Parser where
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import Language.Haskell.Exts.Parser hiding (parse)
 import Language.Haskell.Exts.Syntax hiding (Symbol, Module)
 
@@ -31,22 +34,22 @@ convert x = case importSpecs x of
         -> WhitelistImport sym isQualified rename (map getSpec ss)
   where
     ModuleName _ n = importModule x
-    sym = Symbol n
+    sym = Symbol $ T.pack n
     rename = case importAs x of
-        Just (ModuleName _ n') -> Just (Symbol n')
+        Just (ModuleName _ n') -> Just $ Symbol $ T.pack n'
         Nothing -> Nothing
     isQualified = importQualified x
 
 -- | Convert from the third part import type and extract the body as well
-convertWithBody :: (Spannable a) => String -> ImportDecl a -> WithBody Import
+convertWithBody :: (Spannable a) => Text -> ImportDecl a -> WithBody Import
 convertWithBody str x = WithBody import_ body
   where
     body = ann x >< str
     import_ = convert x
 
 -- | Parse an import statement
-parse :: String -> Either (SolutionError u) Import
-parse s = case parseImportDecl s of
+parse :: Text -> Either (SolutionError u) Import
+parse s = case parseImportDecl (T.unpack s) of
     ParseOk x -> Right $ convert x
     ParseFailed l msg -> Left $ ParseError (toSrcFileLoc l) msg ""
 

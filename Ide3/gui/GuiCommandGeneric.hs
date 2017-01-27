@@ -3,6 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module GuiCommandGeneric where
 
+import Data.Text (Text)
+
 import Control.Monad.Catch
 
 import Control.Concurrent
@@ -185,7 +187,7 @@ doMoveDeclaration pji mi di pji' mi' = dialogOnError () $ Internal.doMoveDeclara
 doAddImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo
-            -> String
+            -> Text
             -> t m (Maybe (SolutionError UserError))
 doAddImport pji mi importStr = dialogOnError Nothing $ Internal.doAddImport pji mi importStr
 
@@ -200,14 +202,14 @@ doGetImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo
             -> ImportId
-            -> t m (Maybe String)
+            -> t m (Maybe Text)
 doGetImport pji mi ii = dialogOnError Nothing $ Internal.doGetImport pji mi ii
 
 doEditImport :: ( GuiCommand2 t m' m )
              => ProjectInfo
              -> ModuleInfo
              -> ImportId
-             -> String
+             -> Text
              -> t m (Maybe (SolutionError UserError))
 doEditImport pji mi ii importStr = dialogOnError Nothing $ Internal.doEditImport pji mi ii importStr
 
@@ -215,7 +217,7 @@ doAddExport :: ( GuiCommand2 t m' m
                )
             => ProjectInfo
             -> ModuleInfo
-            -> String
+            -> Text
             -> t m (Maybe (SolutionError UserError))
 doAddExport pji mi exportStr = dialogOnError Nothing $ Internal.doAddExport pji mi exportStr
 
@@ -233,7 +235,7 @@ doGetExport :: ( GuiCommand2 t m' m
             => ProjectInfo
             -> ModuleInfo
             -> ExportId
-            -> t m (Maybe String)
+            -> t m (Maybe Text)
 doGetExport pji mi ei = dialogOnError Nothing $ Internal.doGetExport pji mi ei
 
 doEditExport :: ( GuiCommand2 t m' m
@@ -241,7 +243,7 @@ doEditExport :: ( GuiCommand2 t m' m
              => ProjectInfo
              -> ModuleInfo
              -> ExportId
-             -> String
+             -> Text
              -> t m (Maybe (SolutionError UserError))
 doEditExport pji mi ei importStr = dialogOnError Nothing $ Internal.doEditExport pji mi ei importStr
 

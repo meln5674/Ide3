@@ -16,6 +16,9 @@ module Ide3.Declaration
 
 import Data.List
 
+import Data.Text (Text)
+import qualified Data.Text as T
+
 import qualified Ide3.OrderedMap as OMap
 
 import Ide3.Types.Internal
@@ -32,7 +35,7 @@ import Ide3.Utils.Parser
 
 -- | Parse a string containing either a single declaration or multiple
 -- declarations which can be combined into a single declaration
-parseAndCombine :: String 
+parseAndCombine :: Text
                 -> Maybe FilePath 
                 -> Either (SolutionError u) (WithBody Declaration)
 parseAndCombine s fp = do 
@@ -47,12 +50,12 @@ parseAndCombine s fp = do
     
 -- | Parse a declaration, but if it fails, return an unparseable declaration
 -- along with the error
-parseAndCombineLenient :: String -> Maybe FilePath -> DeclarationInfo 
+parseAndCombineLenient :: Text -> Maybe FilePath -> DeclarationInfo 
              -> Either (WithBody Declaration, SolutionError u) 
                        (WithBody Declaration)
 parseAndCombineLenient s p di = case parseAndCombine s p of
     Right decl -> Right decl
-    Left err -> Left (WithBody (UnparseableDeclaration di) s, err)    
+    Left err -> Left (WithBody (UnparseableDeclaration di) s, err)
 
 -- | Find declarations that can be merged and merge them
 combineMany :: [Ann SrcSpan (WithBody Declaration)] 

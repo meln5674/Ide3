@@ -5,6 +5,7 @@
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-|
 Module      : Command
 Description : Commands for the demo project
@@ -22,6 +23,11 @@ This module also provides a data type which represents said commands, and a set
 of default commands.
 -}
 module Command where
+
+import Data.Monoid
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Data.Maybe
 import Data.List
@@ -91,18 +97,20 @@ type ViewerAction m =
     )
 type ViewerIOAction m = (ViewerAction m, MonadIO m)
 
+type TextFilePath = Text
+
 -- | Run a project command, and return either the message or error it produced
 printOnError :: ( ViewerAction m
                 )
-             => SolutionResult UserError (ViewerStateT m) String 
-             -> ViewerStateT m String
-printOnError f = liftM (either show id) $ runExceptT f
+             => SolutionResult UserError (ViewerStateT m) Text
+             -> ViewerStateT m Text
+printOnError f = liftM (either (T.pack . show) id) $ runExceptT f
 
 -- | Perform an action only if there is an selected project, otherwise return
 -- an error
 withSelectedProject :: (Show a, ViewerAction m)
                     => (ProjectInfo -> SolutionResult UserError (ViewerStateT m) [Output a])
-                    -> ViewerStateT m String
+                    -> ViewerStateT m Text
 withSelectedProject f = printOnError $ do
     maybeProjectInfo <- lift $ getCurrentProject
     case maybeProjectInfo of
@@ -113,8 +121,9 @@ withSelectedProject f = printOnError $ do
 withSelectedModuleInfo :: ( Show a
                           , ViewerAction m
                           )
-                       => (ProjectInfo -> ModuleInfo -> SolutionResult UserError (ViewerStateT m) [Output a])
-                       -> ViewerStateT m String
+                       => (ProjectInfo -> ModuleInfo 
+                                       -> SolutionResult UserError (ViewerStateT m) [Output a])
+                       -> ViewerStateT m Text
 withSelectedModuleInfo f = printOnError $ do
     maybeModuleInfo <- lift $ getCurrentModule
     case maybeModuleInfo of
@@ -123,51 +132,54 @@ withSelectedModuleInfo f = printOnError $ do
 
 
 -- | Action for the help command
-doHelp :: ViewerAction m => CommandT u' (ViewerStateT m) String
+doHelp :: ViewerAction m => CommandT u' (ViewerStateT m) Text
 doHelp = printHelp
 
 -- | Action for the shell command
-doShell :: ViewerIOAction m => String -> ViewerStateT m String
+doShell :: ViewerIOAction m => Text -> ViewerStateT m Text
 doShell cmd = printOnError $ do
-    let p = shell cmd
+    let p = shell $ T.unpack cmd
     (_, out, err) <- liftIO $ readCreateProcessWithExitCode p ""
-    return $ out ++ err
+    return $ T.pack $ out ++ err
 
 -- | Action for the cd command
-doCd :: ViewerIOAction m => FilePath -> ViewerStateT m String
+doCd :: ViewerIOAction m => TextFilePath -> ViewerStateT m Text
 doCd path = printOnError $ do
-    liftIO $ setCurrentDirectory path
+    liftIO $ setCurrentDirectory $ T.unpack $ path
     return ""
 
 -- | Action for the new command
-doNew :: (ViewerAction m, PersistenceClass m, Args a) => Initializer a m -> String -> ViewerStateT m String
+doNew :: (ViewerAction m, PersistenceClass m, Args a) 
+      => Initializer a m 
+      -> Text
+      -> ViewerStateT m Text
 doNew initializer arg = printOnError $ do
-    case runInitializerWithInput initializer =<< (parseArityN arg) of
-        Left msg -> return msg
+    case runInitializerWithInput initializer =<< (map T.unpack <$> parseArityN arg) of
+        Left msg -> return $ T.pack msg
         Right initializerAction -> do
             r <- ExceptT $ lift $ runExceptT $ initializerAction
             case r of
                 InitializerSucceeded out err tok -> do
                     load tok
-                    return $ out ++ err
-                InitializerFailed out err -> return $ out ++ err
+                    return $ out <> err
+                InitializerFailed out err -> return $ out <> err
 
 -- | Action for the open command
 doOpen :: forall m
         . ( ViewerIOAction m
           , PersistenceClass m
           ) 
-       => FilePath 
-       -> ViewerStateT m String
+       => TextFilePath 
+       -> ViewerStateT m Text
 doOpen path = printOnError $ do
-    openSolution path -- 1:: SolutionResult (ViewerStateT m 
+    openSolution $ T.unpack path
     return "Loaded"
 
 -- | Action for the save command
 doSave :: ( ViewerIOAction m
           , PersistenceClass m
           ) 
-       => ViewerStateT m String
+       => ViewerStateT m Text
 doSave = printOnError $ do
     saveSolution Nothing
     return "Saved"
@@ -176,23 +188,23 @@ doSave = printOnError $ do
 doSaveAs :: ( ViewerIOAction m
             , PersistenceClass m
             ) 
-         => FilePath 
-         -> ViewerStateT m String
+         => TextFilePath 
+         -> ViewerStateT m Text
 doSaveAs p = printOnError $ do
-    saveSolution $ Just p
+    saveSolution $ Just $ T.unpack p
     return "Saved"
 
 -- | Action for the projects command
 doProjects :: ( ViewerAction m
               ) 
-           => ViewerStateT m String
-doProjects = printOnError $ liftM (intercalate "\n" . map show) $ bounce getProjects
+           => ViewerStateT m Text
+doProjects = printOnError $ liftM (T.intercalate "\n" . map (T.pack . show)) $ bounce getProjects
 
 -- | Action for the project command
 doProject :: ( ViewerAction m
              ) 
-          => String 
-          -> ViewerStateT m String
+          => Text
+          -> ViewerStateT m Text
 doProject n = printOnError $ do
     lift $ setCurrentProject (ProjectInfo n)
     return ""
@@ -202,22 +214,22 @@ doAddProject :: ( ViewerAction m
                 , Args a
                 )
              => ProjectInitializer a m
-             -> String 
-             -> ViewerStateT m String
+             -> Text
+             -> ViewerStateT m Text
 doAddProject projectInitializer arg = printOnError $ do
-    case runProjectInitializerWithInput projectInitializer =<< parseArityN arg of
-        Left msg -> return msg
+    case runProjectInitializerWithInput projectInitializer =<< (map T.unpack <$> parseArityN arg) of
+        Left msg -> return $ T.pack msg
         Right initializerAction -> do
             r <- ExceptT $ lift $ runExceptT $ initializerAction
             case r of
-                ProjectInitializerSucceeded out err _ -> return $ out ++ err
-                ProjectInitializerFailed out err -> return $ out ++ err
+                ProjectInitializerSucceeded out err _ -> return $ out <> err
+                ProjectInitializerFailed out err -> return $ out <> err
 
 -- | Action for the remove project command
 doRemoveProject :: ( ViewerAction m
                    ) 
-                => String 
-                -> ViewerStateT m String
+                => Text
+                -> ViewerStateT m Text
 doRemoveProject n = printOnError $ do
     bounce $ removeProject (ProjectInfo n)
     return "Removed"
@@ -226,16 +238,16 @@ doRemoveProject n = printOnError $ do
 -- | Action for the modules command
 doModules :: ( ViewerAction m
              )
-          => ViewerStateT m String
+          => ViewerStateT m Text
 doModules = withSelectedProject $ liftM asShows . bounce . getModules
 
 -- | Action for the module command
 doModule :: ( ViewerAction m 
             )
-         => String 
-         -> ViewerStateT m String
+         => Text
+         -> ViewerStateT m Text
 doModule name = withSelectedProject $ \pji -> do
-    let info = (ModuleInfo (Symbol name))
+    let info = ModuleInfo $ Symbol name
     -- _ <- bounce $ getModule pji info
     lift $ setCurrentModule pji info
     return $ defaultOutputs []
@@ -243,7 +255,7 @@ doModule name = withSelectedProject $ \pji -> do
 -- | Action for the declarations command
 doDeclarations :: ( ViewerAction m 
                   )
-               => ViewerStateT m String
+               => ViewerStateT m Text
 doDeclarations = withSelectedModuleInfo $ \pji mi -> do
     ds <- bounce $ getDeclarations pji mi >>= mapM (getDeclaration pji mi)
     return $ asShows $ map (Declaration.info . item) ds
@@ -251,7 +263,7 @@ doDeclarations = withSelectedModuleInfo $ \pji mi -> do
 -- | Action for the imports command
 doImports :: ( ViewerAction m 
              )
-          => ViewerStateT m String
+          => ViewerStateT m Text
 doImports = withSelectedModuleInfo $ \pji mi -> do
     is <- bounce $ getImports pji mi >>= mapM (getImport pji mi)
     return $ asShows is
@@ -259,7 +271,7 @@ doImports = withSelectedModuleInfo $ \pji mi -> do
 -- | Action for the imported command
 doImported :: ( ViewerAction m 
               )
-           => ViewerStateT m String
+           => ViewerStateT m Text
 doImported = withSelectedModuleInfo $ \pji mi -> 
       liftM asShows 
     $ bounce
@@ -268,7 +280,7 @@ doImported = withSelectedModuleInfo $ \pji mi ->
 -- | Action for the exports command
 doExports :: ( ViewerAction m 
              )
-          => ViewerStateT m String
+          => ViewerStateT m Text
 doExports = withSelectedModuleInfo $ \pji mi -> bounce $ do
     result <- getExports pji mi
     case result of
@@ -278,7 +290,7 @@ doExports = withSelectedModuleInfo $ \pji mi -> bounce $ do
 -- | Action for the exported command
 doExported :: ( ViewerAction m 
               )
-           => ViewerStateT m String
+           => ViewerStateT m Text
 doExported = withSelectedModuleInfo $ \pji mi -> 
       liftM (asShows . map getChild)
     $ bounce 
@@ -287,41 +299,41 @@ doExported = withSelectedModuleInfo $ \pji mi ->
 -- | Action for the visible command
 doVisible :: ( ViewerAction m 
              )
-          => ViewerStateT m String
+          => ViewerStateT m Text
 doVisible = withSelectedModuleInfo $ \pji mi -> liftM asShows $ bounce $ Module.internalSymbols' pji mi
 
 -- | Action for the cat command
 doCat :: ( ViewerAction m 
          )
-      => String 
-      -> ViewerStateT m String
+      => Text 
+      -> ViewerStateT m Text
 doCat sym = withSelectedModuleInfo $ \pji mi -> do
     decl <- bounce $ getDeclaration pji mi $ SymbolDeclarationInfo $ Symbol sym
-    return $ defaultOutputs . asStrings . lines . body $ decl
+    return $ defaultOutputs . asStrings . T.lines . body $ decl
 
 -- | Action for the add module command
 doAddModule :: ( ViewerAction m 
                )
-            => String 
-            -> ViewerStateT m String
+            => Text 
+            -> ViewerStateT m Text
 doAddModule moduleName = withSelectedProject $ \pji -> do
-    bounce $ createModule pji (ModuleInfo (Symbol moduleName))
+    bounce $ createModule pji $ ModuleInfo $ Symbol moduleName
     return $ defaultOutputs [asString "Added"]
 
 -- | Action for the remove module command
 doRemoveModule :: ( ViewerAction m 
                   )
-               => String 
-               -> ViewerStateT m String
+               => Text 
+               -> ViewerStateT m Text
 doRemoveModule moduleName = withSelectedProject $ \pji -> do
-    bounce $ removeModule pji (ModuleInfo (Symbol moduleName))
+    bounce $ removeModule pji $ ModuleInfo $ Symbol moduleName
     return $ defaultOutputs $ [asString "Removed"]
 
 -- | Action for the add export command
 doAddExport :: ( ViewerAction m 
                )
-            => String 
-            -> ViewerStateT m String
+            => Text 
+            -> ViewerStateT m Text
 doAddExport export = withSelectedModuleInfo $ \pji mi -> do
     _ <- bounce $ addRawExport pji mi export
     return [asString "Added" :: Output Bool]
@@ -329,31 +341,31 @@ doAddExport export = withSelectedModuleInfo $ \pji mi -> do
 -- | Action for the remove export command
 doRemoveExport :: ( ViewerAction m 
                   )
-               => String 
-               -> ViewerStateT m String
+               => Text 
+               -> ViewerStateT m Text
 doRemoveExport = undefined
 
 -- | Action for the add import command
 doAddImport :: ( ViewerAction m 
                )
-            => String 
-            -> ViewerStateT m String
+            => Text 
+            -> ViewerStateT m Text
 doAddImport import_ = withSelectedModuleInfo $ \pji mi -> do
-    _ <- bounce $ addRawImport pji mi $ "import " ++ import_
+    _ <- bounce $ addRawImport pji mi $ "import " <> import_
     return [asString "Added" :: Output Bool]
 
 -- | Action for the remove import command
 doRemoveImport :: ( ViewerAction m 
                   ) 
-               => String 
-               -> ViewerStateT m String
+               => Text 
+               -> ViewerStateT m Text
 doRemoveImport = undefined
 
 -- | Action for the add decl command
 doAddDeclaration :: ( ViewerAction m
                     ) 
                  => Editor m
-                 -> ViewerStateT m String
+                 -> ViewerStateT m Text
 doAddDeclaration editor = withSelectedModuleInfo $ \pji mi -> do
     newDecl <- ExceptT $ lift $ runExceptT $ runEditor editor ""
     case newDecl of
@@ -367,8 +379,8 @@ doAddDeclaration editor = withSelectedModuleInfo $ \pji mi -> do
 -- | Action for the remove decl command
 doRemoveDeclaration :: ( ViewerAction m 
                        )
-                    => String 
-                    -> ViewerStateT m String
+                    => Text 
+                    -> ViewerStateT m Text
 doRemoveDeclaration sym = withSelectedModuleInfo $ \pji mi -> do
     bounce $ removeDeclaration pji mi $ SymbolDeclarationInfo $ Symbol sym
     return [asString "Removed" :: Output Bool]
@@ -378,10 +390,10 @@ doEdit :: forall m
         . ( ViewerAction m
           ) 
        => Editor m
-       -> String 
-       -> ViewerStateT m String
+       -> Text 
+       -> ViewerStateT m Text
 doEdit editor sym = withSelectedModuleInfo $ \pji mi -> do
-    let declInfo = SymbolDeclarationInfo (Symbol sym)
+    let declInfo = SymbolDeclarationInfo $ Symbol sym
     decl <- bounce $ getDeclaration pji mi declInfo
     let declBody = body decl
     newDeclBody <- ExceptT $ lift $ runExceptT $ runEditor editor declBody
@@ -410,7 +422,7 @@ doEdit editor sym = withSelectedModuleInfo $ \pji mi -> do
 doBuild :: ( ViewerIOAction m
            ) 
         => Builder m
-        -> ViewerStateT m String
+        -> ViewerStateT m Text
 doBuild builder = printOnError $ do
     bounce prepareBuild
     r <- ExceptT $ lift $ runExceptT $ runBuilder builder
@@ -422,7 +434,7 @@ doBuild builder = printOnError $ do
 doRun :: ( ViewerIOAction m
          ) 
       => Runner m
-      -> ViewerStateT m String
+      -> ViewerStateT m Text
 doRun runner = printOnError $ do
     maybePji <- lift $ getCurrentProject
     case maybePji of
@@ -430,13 +442,13 @@ doRun runner = printOnError $ do
         Just pji -> do
             r <- ExceptT $ lift $ runExceptT $ runRunner runner pji
             case r of
-                RunSucceeded out err -> return $ out ++ err
-                RunFailed out err -> return $ out ++ err
+                RunSucceeded out err -> return $ out <> err
+                RunFailed out err -> return $ out <> err
     
 -- | Action for the tree command
 doTree :: ( ViewerAction m 
           )
-       => ViewerStateT m String
+       => ViewerStateT m Text
 doTree = withSelectedProject $ \pji -> do
     trees <- bounce $ makeTree pji
     return $ defaultOutputs $ map (asString . formatTree) trees
@@ -445,24 +457,24 @@ doTree = withSelectedProject $ \pji -> do
 -- | Action for the search command
 doSearch :: ( ViewerAction m 
             )
-         => String 
-         -> ViewerStateT m String
+         => Text 
+         -> ViewerStateT m Text
 doSearch sym = printOnError $ do
     projects <- bounce getProjects
     modules <- liftM concat
         $ forM projects $ \pji -> liftM (map (\mi -> (pji,mi))) $ bounce $ getModules pji
     let matchingDeclsFrom pji mi = do
             decls <- lift $ bounce $ getDeclarations pji mi
-            let isMatch (SymbolDeclarationInfo (Symbol sym')) = sym `isInfixOf` sym'
-                isMatch (RawDeclarationInfo text) = sym `isInfixOf` text
+            let isMatch (SymbolDeclarationInfo (Symbol sym')) = sym `T.isInfixOf` sym'
+                isMatch (RawDeclarationInfo text) = sym `T.isInfixOf` text
                 matches = filter isMatch decls
                 taggedMatches = map (ProjectChild pji . ModuleChild mi) matches
             tell taggedMatches
     matchingDecls <- execWriterT $ forM modules $ uncurry matchingDeclsFrom
-    return $ intercalate "\n" $ map (show . fmap qual) matchingDecls
+    return $ T.intercalate "\n" $ map (T.pack . show . fmap qual) matchingDecls
 
 -- | Action for the quit command
-doQuit :: ViewerAction m => CommandT u' (ViewerStateT m) String
+doQuit :: ViewerAction m => CommandT u' (ViewerStateT m) Text
 doQuit = do
     setExitFlag
     return "Exiting..."
@@ -471,26 +483,26 @@ doQuit = do
 -- directory
 fileNameCompletion :: ( ViewerIOAction m 
                       )
-                   => String 
+                   => Text 
                    -> (ViewerStateT m) (Maybe [Completion])
 fileNameCompletion s = do
-    comps <- listFiles s
-    return $ Just $ flip map comps $ \comp -> comp{replacement = drop (length s) $ replacement comp }
+    comps <- listFiles $ T.unpack s
+    return $ Just $ flip map comps $ \comp -> comp{ replacement = drop (T.length s) $ replacement comp }
 
 -- | Do completion with the names of the projects loaded
 projectNameCompletion :: ( ViewerAction m 
                          )
-                      => String 
+                      => Text 
                       -> (ViewerStateT m) (Maybe [Completion])
 projectNameCompletion s = do
     r <- runExceptT $ do
         pjis <- bounce getProjects
         let projectNames = flip map pjis $ \(ProjectInfo n) -> n
-            matchingNames = filter (s `isPrefixOf`) projectNames
+            matchingNames = filter (s `T.isPrefixOf`) projectNames
         return $ Just $ flip map matchingNames $ \n -> 
-            Completion{ replacement = drop (length s) n
-                      , display = n
-                      , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingNames
+            Completion{ replacement = T.unpack $ T.drop (T.length s) n
+                      , display = T.unpack n
+                      , isFinished = not $ any (\n' -> n `T.isPrefixOf` n' && n /= n') matchingNames
                       }
     return $ case r of
         Right x -> x
@@ -500,7 +512,7 @@ projectNameCompletion s = do
 -- | Do completion with the names of the modules in the currently selected project
 moduleNameCompletion :: ( ViewerAction m 
                         )
-                     => String 
+                     => Text 
                      -> (ViewerStateT m) (Maybe [Completion])
 moduleNameCompletion s = do
     result <- getCurrentProject
@@ -512,11 +524,11 @@ moduleNameCompletion s = do
                 let modNames = catMaybes $ for mods  $ \case
                         (ModuleInfo (Symbol sym)) -> Just sym
                         _ -> Nothing
-                let matchingNames = filter (s `isPrefixOf`) modNames
+                let matchingNames = filter (s `T.isPrefixOf`) modNames
                 return $ Just $ for matchingNames $ \n ->
-                    Completion{ replacement = drop (length s) n
-                              , display = n
-                              , isFinished = not $ any (\n' -> n `isPrefixOf` n' && n /= n') matchingNames
+                    Completion{ replacement = T.unpack $ T.drop (T.length s) n
+                              , display = T.unpack n
+                              , isFinished = not $ any (\n' -> n `T.isPrefixOf` n' && n /= n') matchingNames
                               }
             return $ case r of
                 Right x -> x
@@ -525,7 +537,7 @@ moduleNameCompletion s = do
 -- | Do completion for the declarations in the currently selected module
 declarationNameCompletion :: ( ViewerAction m 
                              )
-                          => String 
+                          => Text 
                           -> (ViewerStateT m) (Maybe [Completion])
 declarationNameCompletion s = do
     result <- getCurrentModule
@@ -536,11 +548,11 @@ declarationNameCompletion s = do
                 let getDeclText (SymbolDeclarationInfo (Symbol sym)) = sym
                     getDeclText (RawDeclarationInfo text) = text
                     syms = map getDeclText infos
-                    matchingSyms = filter (s `isPrefixOf`) syms
+                    matchingSyms = filter (s `T.isPrefixOf`) syms
                 return $ Just $ for matchingSyms $ \sym -> 
-                    Completion{ replacement = drop (length s) sym
-                              , display = sym
-                              , isFinished = not $ any (\sym' -> sym `isPrefixOf` sym' && sym /= sym') matchingSyms
+                    Completion{ replacement = T.unpack $ T.drop (T.length s) sym
+                              , display = T.unpack sym
+                              , isFinished = not $ any (\sym' -> sym `T.isPrefixOf` sym' && sym /= sym') matchingSyms
                               }    
             return $ case r of
                 Right x -> x
