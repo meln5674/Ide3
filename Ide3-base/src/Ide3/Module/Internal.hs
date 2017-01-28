@@ -20,7 +20,7 @@ module Ide3.Module.Internal
 import Data.Monoid
 
 import Data.Maybe
-import Data.List (intercalate, find, intersperse)
+import Data.List (find, intersperse)
 
 import Data.Text (Text)
 import qualified Data.Text as T

@@ -25,7 +25,6 @@ import Data.List
 
 import qualified Data.Text as T
 
-import Ide3.Utils
 import Ide3.Types.Internal
 
 -- | Get the name of the module being imported, pre-rename
@@ -60,13 +59,6 @@ importedModuleName i = fromMaybe name rename
   where
     name = moduleName i
     rename = renamed i        
-
-
-splitByDots :: String -> [String]
-splitByDots s = go s []
-  where
-    go [] ys = reverse ys
-    go xs ys = go (drop 1 $ dropWhile (/='.') xs) (takeWhile (/='.') xs : ys)
 
 -- | Test if two imports have a common module path, i.e. Data.List and Data.Map
 commonPath :: Import -> Import -> Bool

@@ -169,7 +169,7 @@ doNew maybeSolutionRoot projectName templateName = do
                     doError $ InvalidOperation (T.unpack $ out <> err) ""
 
 -- | Open a solution
-doOpen :: ( GuiCommand t m, MonadIO m )
+doOpen :: ( GuiCommand t m )
        => FilePath
        -> t (SolutionResult UserError m)  ()
 doOpen path = do
@@ -194,7 +194,7 @@ openItem (ModulePath pji mi) = do
     lift $ lift $ setCurrentModule pji mi
     return $ header
 openItem (UnparsableModulePath pji mi) = do
-    Just (contents, loc, msg) <- lift $ getUnparsableModule pji mi
+    Just (contents, _, _) <- lift $ getUnparsableModule pji mi
     splice $ setEditorBufferTextHighlighted contents
     lift $ lift $ setCurrentModule pji mi
     return contents
@@ -560,7 +560,7 @@ doUnExportDeclaration pji mi (SymbolDeclarationInfo sym) = do
                                ++ "please remove export manually"
         _ -> doError $ Unsupported 
                        "Multiple exports found, please remove exports manually"
-doUnExportDeclaration pji mi _ = doError $ InvalidOperation "This declaration is not exportable" ""
+doUnExportDeclaration _ _ _ = doError $ InvalidOperation "This declaration is not exportable" ""
 
 
 doMoveDeclaration :: ( GuiCommand t m )

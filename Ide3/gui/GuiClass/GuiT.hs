@@ -9,7 +9,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 
 import System.Directory
-import System.FilePath
 
 import Control.Monad
 import Control.Monad.Trans
@@ -156,7 +155,6 @@ instance ( MonadIO m
 
 getSolutionCreatorArg' :: forall m' p m u
                         . ( MonadIO m
-                          , ViewerMonad m
                           , m ~ m'
                           )
                        => GuiT m' p m (Either (SolutionError u) StackInitializerArgs)

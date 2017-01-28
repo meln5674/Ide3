@@ -23,7 +23,6 @@ import qualified Ide3.Module as Module
 import qualified Ide3.Declaration as Declaration
 
 import Ide3.NewMonad
-import Ide3.Utils
 
 
 -- | Rename a list of symbols in a declaration

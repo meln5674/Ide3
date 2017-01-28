@@ -4,8 +4,6 @@ module Command.Types where
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Data.List
-
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Reader
 

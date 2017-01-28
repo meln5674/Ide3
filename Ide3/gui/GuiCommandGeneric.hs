@@ -108,7 +108,6 @@ doSave = dialogOnError () $ Internal.doSave
                 
 
 doSaveSolution :: ( GuiCommand2 t m' m
-                  , MonadMask m'
                   )
               => Maybe FilePath
               -> t m ()

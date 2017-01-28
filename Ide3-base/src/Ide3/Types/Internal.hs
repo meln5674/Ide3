@@ -289,7 +289,19 @@ data ModifierDeclaration
     -- | A standalone deriving declaration
     | DerivingDeclaration Symbol [Symbol]
     | TypeFamilyInstanceDeclaration Symbol [Symbol]
+    | DepricatedDeclaration [Symbol]
+    | WarningDeclaration [Symbol]
+    | InlineDeclaration Symbol InlineType
+    | SpecialiseDeclaration Symbol SpecialiseType
+    | MinimalDeclaration [Symbol]
+    | RoleDeclaration Symbol
     deriving (Show, Read, Eq)
+
+data InlineType = Inline | InlineConlike
+  deriving (Show, Read, Eq)
+
+data SpecialiseType = Specialise | SpecialiseInline
+  deriving (Show, Read, Eq)
 
 data SpliceDeclaration
     = QuasiQuoteDeclaration Text Text

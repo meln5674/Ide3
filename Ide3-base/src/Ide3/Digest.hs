@@ -20,7 +20,6 @@ module Ide3.Digest
     , ProjectDigestParams (..)
     ) where
 
-import Data.Text (Text)
 import qualified Data.Text as T
 
 import Data.List

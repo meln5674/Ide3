@@ -2,13 +2,11 @@
 {-# LANGUAGE LambdaCase #-}
 module SolutionTree where
 
-import Data.Text (Text)
 import qualified Data.Text as T
 
 import Data.Monoid
 
 import Data.Tree
-import Data.List hiding (elem)
 
 import Control.Monad
 import Control.Monad.Trans
@@ -31,7 +29,7 @@ data TreeSearchResult
     | DeclResult ProjectInfo ModuleInfo DeclarationInfo
     | ImportsResult ProjectInfo ModuleInfo
     | ExportsResult ProjectInfo ModuleInfo
-    | PramgasResult ProjectInfo ModuleInfo
+    | PragmasResult ProjectInfo ModuleInfo
     | ImportResult ProjectInfo ModuleInfo ImportId
     | ExportResult ProjectInfo ModuleInfo ExportId
     | PragmaResult ProjectInfo ModuleInfo Pragma

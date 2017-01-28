@@ -7,7 +7,6 @@ import qualified Data.Text as T
 import Data.Monoid
 
 import Data.Maybe
-import Data.List
 
 import Control.Applicative hiding ((<|>))
 

@@ -101,3 +101,8 @@ instance HasNames (PatField l) where
     findName (PFieldPun _ n) = [toSym n]
     findName _ = [] -- TODO: rest
 
+instance HasNames (BooleanFormula l) where
+    findName (VarFormula _ n) = [toSym n]
+    findName (AndFormula _ fs) = concatMap findName fs
+    findName (OrFormula _ fs) = concatMap findName fs
+    findName (ParenFormula _ fs) = findName fs

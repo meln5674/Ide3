@@ -5,8 +5,6 @@ module CmdParser where
 
 import Data.Monoid
 
-import Data.String (IsString(..))
-
 import Data.Text (Text)
 import qualified Data.Text as T
 

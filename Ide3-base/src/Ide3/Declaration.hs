@@ -17,7 +17,6 @@ module Ide3.Declaration
 import Data.List
 
 import Data.Text (Text)
-import qualified Data.Text as T
 
 import qualified Ide3.OrderedMap as OMap
 

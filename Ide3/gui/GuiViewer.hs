@@ -7,13 +7,11 @@ module GuiViewer
 
 import Control.Monad.Trans
 
-import Ide3.Types
 import Ide3.Utils
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.Lift.TH
 
 import Viewer
-import ViewerMonad
 
 import GuiViewer.Internal
 

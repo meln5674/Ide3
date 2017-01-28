@@ -450,7 +450,7 @@ makeProjView :: ( MonadIO m
 makeProjView renderer container renderFunc = makeScrolledWindowWith container $ \scrollWindow -> do
     treeViewColumn <- treeViewColumnNew
     projView <- withGuiComponents $ flip withSolutionTree treeViewNewWithModel
-    index <- treeViewAppendColumn projView treeViewColumn
+    _ <- treeViewAppendColumn projView treeViewColumn
     cellLayoutPackStart treeViewColumn renderer False
     withGuiComponents $ flip withSolutionTree $ \treeStore -> 
         cellLayoutSetAttributes treeViewColumn renderer treeStore renderFunc

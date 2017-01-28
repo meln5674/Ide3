@@ -1,7 +1,5 @@
 module SyntaxHighlighter2 where
 
-import Data.List
-
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -48,6 +46,7 @@ classifyToken Lex.VarId{}               = VarId
 classifyToken Lex.QVarId{}              = VarId
 classifyToken Lex.IDupVarId{}           = VarId
 classifyToken Lex.ILinVarId{}           = VarId
+classifyToken Lex.LabelVarId{}          = VarId
 classifyToken Lex.QConId{}              = ConId
 classifyToken Lex.ConId{}               = ConId
 classifyToken Lex.DVarId{}              = VarId
@@ -143,6 +142,7 @@ classifyToken Lex.MINIMAL{}             = Pragma
 classifyToken Lex.NO_OVERLAP{}          = Pragma
 classifyToken Lex.OVERLAP{}             = Pragma
 classifyToken Lex.INCOHERENT{}          = Pragma
+classifyToken Lex.NOUNPACK              = Pragma
 classifyToken Lex.KW_As{}               = Keyword
 classifyToken Lex.KW_By{}               = Keyword
 classifyToken Lex.KW_Case{}             = Keyword
@@ -191,6 +191,7 @@ classifyToken Lex.KW_Jvm{}              = Keyword
 classifyToken Lex.KW_Js{}               = Keyword
 classifyToken Lex.KW_JavaScript{}       = Keyword
 classifyToken Lex.KW_CApi{}             = Keyword
+classifyToken Lex.TApp                  = Syntax
 classifyToken Lex.EOF{}                 = Syntax
 
 

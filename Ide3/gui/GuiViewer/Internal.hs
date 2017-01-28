@@ -16,12 +16,9 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 
 import Ide3.Utils
-import Ide3.NewMonad
-import Ide3.NewMonad.Instances.Lift
-import Ide3.NewMonad.Instances.Lift.TH
+import Ide3.NewMonad.Instances.Lift()
 
-
-import Viewer
+import Viewer()
 
 import PseudoState
 

@@ -376,15 +376,6 @@ instance SignalInterceptClass (ReaderT r) where
 instance SignalInterceptClass IdentityT where
     intercept add handler = lift $ add $ \x -> runIdentityT $ handler x
         
--- | 3-arity version of curry
-curry3 :: ((a,b,c) -> d) -> a -> b -> c -> d
-curry3 f a b c = f (a,b,c)
-
--- | 3-arity version of uncurry
-uncurry3 :: (a -> b -> c -> d) -> (a,b,c) -> d
-uncurry3 f (a,b,c) = f a b c
-
-
 newtype Func0 a = Func0 { unFunc0 :: a }
 newtype Func1 a b = Func1 { unFunc1 :: a -> b }
 newtype Func2 a b c = Func2 { unFunc2 :: a -> b -> c }
@@ -447,6 +438,18 @@ instance FuncClass (Func4 a b c d) where
     curry' f = (Func4 $ \a b c d -> f (a,b,c,d))
     mkFunc = Func4
     unmkFunc = unFunc4
+
+instance FuncClass (Func5 a b c d e) where
+    uncurry' (Func5 f) = \(a,b,c,d,e) -> f a b c d e
+    curry' f = (Func5 $ \a b c d e -> f (a,b,c,d,e))
+    mkFunc = Func5
+    unmkFunc = unFunc5
+
+instance FuncClass (Func6 a b c d e f) where
+    uncurry' (Func6 g) = \(a,b,c,d,e,f) -> g a b c d e f
+    curry' g = (Func6 $ \a b c d e f -> g (a,b,c,d,e,f))
+    mkFunc = Func6
+    unmkFunc = unFunc6
 
 
 {-
