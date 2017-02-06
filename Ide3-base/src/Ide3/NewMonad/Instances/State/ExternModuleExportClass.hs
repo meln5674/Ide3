@@ -18,7 +18,7 @@ import Ide3.NewMonad.Instances.State.Class
 
 import Ide3.Env
 import qualified Ide3.Env.Solution as Solution
-
+--import qualified Ide3.Solution.Lens as Solution
 
 -- | Access external exports statefully
 instance StatefulSolutionClass m 
@@ -32,3 +32,11 @@ instance StatefulSolutionClass m
     getExternExports = 
         modifySolutionER .-.. runDescent3 Solution.getExternExports
 
+{-
+instance StatefulSolutionClass m 
+      => ExternModuleExportClass (StatefulWrapper m) where
+    addExternExport pji mi e = do
+        case Solution.checkModule pji mi of
+            Just err -> throwE err
+            Nothing -> do
+-}

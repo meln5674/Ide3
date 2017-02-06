@@ -17,7 +17,12 @@ import Ide3.NewMonad
 import Ide3.NewMonad.Instances.State.Class
 
 import Ide3.Env
-import qualified Ide3.Env.Solution as Solution
+--import qualified Ide3.Env.Solution as Solution
+
+import qualified Ide3.Solution.Lens as Solution
+import qualified Ide3.Project.Lens as Project
+import qualified Ide3.Module.Lens as Module
+
 
 -- | Access exports statefully
 instance StatefulSolutionClass m => ModuleExportClass (StatefulWrapper m) where

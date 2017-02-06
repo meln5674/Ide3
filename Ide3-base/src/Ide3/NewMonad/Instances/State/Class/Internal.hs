@@ -13,8 +13,14 @@ Portability : POSIX
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RankNTypes #-}
 module Ide3.NewMonad.Instances.State.Class.Internal where
 
+import Data.Monoid
+
+import Control.Lens
+
+import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
@@ -35,6 +41,9 @@ class Monad m => StatefulSolutionClass m where
         let s' = f s
         putSolution s'
     {-# MINIMAL (getSolution, putSolution) | (getSolution, modifySolution) #-}
+
+getsSolution :: StatefulSolutionClass m => (Solution -> a) -> SolutionResult u m a
+getsSolution f = liftM f getSolution 
 
 -- | Class of monad which can create, load, and save solutions in some manner
 class Monad m => StatefulPersistenceClass m where
@@ -77,4 +86,35 @@ modifySolutionER f = do
     (x,s') <- f s
     putSolution s'
     return x
+
+checkThenGet :: StatefulSolutionClass m
+             => Getter Solution (Maybe (SolutionError u))
+             -> Getting (Endo a) Solution a
+             -> SolutionResult u m a
+checkThenGet check selector = do
+    result <- getsSolution $ view check
+    case result of
+        Just err -> throwE err
+        Nothing -> getsSolution $ (^?! selector)
+
+checkThenDo :: StatefulSolutionClass m
+            => (Getter Solution (Maybe (SolutionError u)))
+            -> (Solution -> Solution)
+            -> SolutionResult u m ()
+checkThenDo check updater = do
+    result <- getsSolution $ view check
+    case result of
+        Just err -> throwE err
+        Nothing -> modifySolution updater
+
+
+checkThenDoM :: StatefulSolutionClass m
+             => (Getter Solution (Maybe (SolutionError u)))
+             -> SolutionResult u m a
+             -> SolutionResult u m a
+checkThenDoM check f = do
+    result <- getsSolution $ view check
+    case result of
+        Just err -> throwE err
+        Nothing -> f
 

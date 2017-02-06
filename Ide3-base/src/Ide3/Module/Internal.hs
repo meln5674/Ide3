@@ -98,6 +98,14 @@ new i = Module
       , moduleDeclarations = OMap.empty
       }
 
+newUnparsable :: ModuleInfo -> Module
+newUnparsable i = UnparsableModule
+                { moduleInfo = i
+                , moduleContents = ""
+                , moduleErrorLoc = SrcLoc 0 0
+                , moduleErrorMsg = ""
+                }
+
 -- | Add a declaration to a module
 addDeclaration :: Monad m 
                => DeclarationInfo
