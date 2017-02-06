@@ -37,7 +37,7 @@ stackProjectRemover = ProjectRemover $ \arg -> do
             TestSuiteProjectArgs{} -> TestSuiteInfo $ T.unpack $ projectName arg
             BenchmarkProjectArgs{} -> BenchmarkInfo $ T.unpack $ projectName arg
     removeCabalProject cabalProjectInfo
-    result <- liftIO $ tryIOError $ removeDirectory $ primarySrcDir arg
+    result <- liftIO $ tryIOError $ removeDirectoryRecursive $ primarySrcDir arg
     return $ case result of
         Left err -> ProjectRemoverFailed "" (show err)
         Right _ -> ProjectRemoverSucceeded "" ""
