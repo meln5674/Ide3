@@ -10,6 +10,7 @@ module EnvironmentMonad
     , module ProjectInitializer
     , module ProjectEditor
     , module ProjectRetriever
+    , module ProjectRemover
     , module Args
     ) where
 
@@ -21,6 +22,7 @@ import Initializer
 import ProjectInitializer
 import ProjectRetriever
 import ProjectEditor
+import ProjectRemover
 
 class Monad m => BuilderMonad m where
     getBuilder :: m (Builder m)
@@ -37,6 +39,7 @@ class Monad m => ProjectInitializerMonad m where
     getProjectInitializer :: Args (ProjectArgType m) => m (ProjectInitializer (ProjectArgType m) m)
     getProjectEditor :: Args (ProjectArgType m) => m (ProjectEditor (ProjectArgType m) m)
     getProjectRetriever :: Args (ProjectArgType m) => m (ProjectRetriever (ProjectArgType m) m)
+    getProjectRemover :: Args (ProjectArgType m) => m (ProjectRemover (ProjectArgType m) m)
 
 type EnvironmentMonad m = 
     ( BuilderMonad m

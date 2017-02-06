@@ -217,11 +217,27 @@ onEditProjectClicked :: forall t {-proxy-} m' p m
               -> t m ()
 onEditProjectClicked = doEditProjectStart
 
+data DeleteProjectResponse
+    = DeleteProjectAndFiles
+    | DeleteProjectNotFiles
+    | CancelDeleteProject
+  deriving (Eq, Ord, Enum)
+
 onDeleteProjectClicked :: forall t {-proxy-} m' p m 
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> t m Bool
-onDeleteProjectClicked pji = undefined
+onDeleteProjectClicked pji = do
+    dialog <- Gtk.new Gtk.Dialog []
+    Gtk.dialogAddButton dialog "Yes" $ fromIntegral $ fromEnum DeleteProjectAndFiles
+    Gtk.dialogAddButton dialog "No" $ fromIntegral $ fromEnum DeleteProjectNotFiles
+    Gtk.dialogAddButton dialog "Cancel" $ fromIntegral $ fromEnum CancelDeleteProject
+    result <- liftM (toEnum . fromIntegral) $ dialogRun dialog
+    case result of
+        DeleteProjectAndFiles -> doDeleteProject pji True
+        DeleteProjectNotFiles -> doDeleteProject pji False
+        CancelDeleteProject -> return ()
+    return False
 
 onNewModuleClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )

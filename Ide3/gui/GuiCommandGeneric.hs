@@ -135,6 +135,16 @@ doEditProject :: ( GuiCommand2 t m' m
               -> t m ()
 doEditProject = dialogOnError () . Internal.doEditProject
 
+doDeleteProject :: ( GuiCommand2 t m' m
+                   , m' ~ ClassProjectInitializerMonad (t m')
+                   , Args (ProjectArgType m')
+                   )
+                => ProjectInfo
+                -> Bool
+                -> t m ()
+doDeleteProject pji = dialogOnError () . Internal.doDeleteProject pji
+
+
 
 doAddModule :: ( GuiCommand2 t m' m)
             => ProjectInfo

@@ -23,6 +23,7 @@ import Initializer.Stack
 import ProjectInitializer.Stack
 import ProjectEditor.Stack
 import ProjectRetriever.Stack
+import ProjectRemover.Stack
 import ProjectInitializer.Stack.Types
 
 import CabalFilesystemSolution
@@ -69,3 +70,4 @@ instance ( MonadIO m )
     getProjectInitializer = return stackProjectInitializer
     getProjectEditor = return stackProjectEditor
     getProjectRetriever = return stackProjectRetriever
+    getProjectRemover = return stackProjectRemover

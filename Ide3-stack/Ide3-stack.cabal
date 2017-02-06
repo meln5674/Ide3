@@ -22,6 +22,7 @@ library
                      , ProjectInitializer.Stack.Types
                      , ProjectEditor.Stack
                      , ProjectRetriever.Stack
+                     , ProjectRemover.Stack
                      , CabalFilesystemSolution
                      , CabalMonad
                      , EnvironmentMonad.Stack

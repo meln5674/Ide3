@@ -137,6 +137,23 @@ doEditProjectStart pji = do
     p <- lift $ runProjectRetriever retriever pji
     splice $ setupProjectCreator (Just p)
 
+
+doDeleteProject :: ( GuiCommand t m
+                   , m ~ ClassProjectInitializerMonad (t m)
+                   , Args (ProjectArgType m)
+                   )
+                => ProjectInfo
+                -> Bool
+                -> t (SolutionResult UserError m) ()
+doDeleteProject pji deleteCompletely = do
+    when deleteCompletely $ do
+        remover <- lift $ lift getProjectRemover
+        retriever <- lift $ lift getProjectRetriever
+        args <- lift $ runProjectRetriever retriever pji
+        void $ lift $ runProjectRemover remover args
+    lift $ removeProject pji
+    
+
 -- | Complete the process of creating a new project
 doNew :: ( GuiCommand t m
          , MonadIO m
@@ -472,7 +489,7 @@ doEditProject pji = do
             splice $ updateSolutionTreeNode (ProjectPath pji) (const $ ProjectElem pji')
             lift $ finalize Nothing
         ProjectEditorFailed out err -> doError $ InvalidOperation (out ++ err) ""
-
+    
 -- | Add a module to a project
 doAddModule :: ( GuiCommand t m )
             => ProjectInfo

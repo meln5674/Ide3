@@ -20,6 +20,7 @@ library
                      , ProjectInitializer
                      , ProjectEditor
                      , ProjectRetriever
+                     , ProjectRemover
                      , Editor
                      , Viewer
                      , ViewerMonad
