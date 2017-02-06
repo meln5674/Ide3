@@ -675,28 +675,44 @@ declBufferEdited comp = withEditorBuffer comp $ \buffer -> (buffer, #endUserActi
 
 setupSignals :: ( MainGuiClassIO t m' p m ) => MainWindow -> t m ()
 setupSignals gui = do
-    void $ gui `on` MainWindow.newClickedEvent $ Func0 $ onNewClicked
-    void $ gui `on` MainWindow.openClickedEvent $ Func0 $ onOpenClicked
-    void $ gui `on` MainWindow.digestClickedEvent $ Func0 $ onDigestClicked
-    void $ gui `on` MainWindow.saveClickedEvent $ Func0 $ onSaveClicked
+    void $ gui `on` MainWindow.newClickedEvent $ 
+        Func0 $ onNewClicked
+    void $ gui `on` MainWindow.openClickedEvent $ 
+        Func0 $ onOpenClicked
+    void $ gui `on` MainWindow.digestClickedEvent $ 
+        Func0 $ onDigestClicked
+    void $ gui `on` MainWindow.saveClickedEvent $ 
+        Func0 $ onSaveClicked
     void $ gui `on` MainWindow.saveSolutionClickedEvent $
         Func0 $ onSaveSolutionClicked
-    void $ gui `on` MainWindow.declClickedEvent $ Func2 $ onDeclClicked
+    void $ gui `on` MainWindow.declClickedEvent $ 
+        Func2 $ onDeclClicked
     void $ gui `on` MainWindow.projectViewClickedEvent $
         Func1 $ onSolutionViewClicked gui
-    void $ gui `on` MainWindow.buildClickedEvent $ Func0 $ onBuildClicked
-    void $ gui `on` MainWindow.runClickedEvent $ Func0 $ onRunClicked
-    --gui `on_` MainWindow.findClickedEvent $ Func0 $ onFindClicked gui
-    --gui `on_` MainWindow.navigateClickedEvent $ Func0 $ onNavigateClicked gui
-    --gui `on_` MainWindow.searchClickedEvent $ Func0 $ onSearchClicked
+    void $ gui `on` MainWindow.buildClickedEvent $ 
+        Func0 $ onBuildClicked
+    void $ gui `on` MainWindow.runClickedEvent $ 
+        Func0 $ onRunClicked
+    --gui `on_` MainWindow.findClickedEvent $ 
+        --Func0 $ onFindClicked gui
+    --gui `on_` MainWindow.navigateClickedEvent $
+        --Func0 $ onNavigateClicked gui
+    --gui `on_` MainWindow.searchClickedEvent $ 
+        --Func0 $ onSearchClicked
     void $ gui `on` MainWindow.gotoDeclarationClickedEvent $ 
         Func0 $ onGotoDeclarationClicked
-    void $ gui `on` MainWindow.backClickedEvent $ Func0 $ onBackClicked
-    void $ gui `on` MainWindow.forwardClickedEvent $ Func0 $ onForwardClicked
-    void $ gui `on` MainWindow.declarationEditedEvent $ Func0 $ onDeclEdited
-    void $ gui `on` MainWindow.errorClickedEvent $ Func2 $ onErrorClicked gui
-    void $ gui `on` MainWindow.windowClosedEvent $ Func0 $ liftIO exitSuccess
-    void $ gui `on` MainWindow.solutionTreeQueryTooltipEvent $ Func4 $ onSolutionTreeTooltipQuery gui
+    void $ gui `on` MainWindow.backClickedEvent $ 
+        Func0 $ onBackClicked
+    void $ gui `on` MainWindow.forwardClickedEvent $ 
+        Func0 $ onForwardClicked
+    void $ gui `on` MainWindow.declarationEditedEvent $ 
+        Func0 $ onDeclEdited
+    void $ gui `on` MainWindow.errorClickedEvent $ 
+        Func2 $ onErrorClicked gui
+    void $ gui `on` MainWindow.windowClosedEvent $ 
+        Func0 $ liftIO exitSuccess
+    void $ gui `on` MainWindow.solutionTreeQueryTooltipEvent $ 
+        Func4 $ onSolutionTreeTooltipQuery gui
     return ()
 
 
