@@ -24,7 +24,6 @@ import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
 import Dialogs.NewProjectDialog (NewProjectDialog)
 import Dialogs.NewModuleDialog (NewModuleDialog)
---import Dialogs.NewPragmaDialog (NewPragmaDialog)
 import Dialogs.NewExportDialog (NewExportDialog)
 import Dialogs.NewImportDialog (NewImportDialog)
 
@@ -32,10 +31,6 @@ data Dialogs = Dialogs
     { mainWindow :: MainWindow
     , newSolutionDialog :: NewSolutionDialog
     , newProjectDialog :: NewProjectDialog
-    , newModuleDialog :: NewModuleDialog
-    -- , newPragmaDialog :: NewPragmaDialog
-    , newExportDialog :: NewExportDialog
-    , newImportDialog :: NewImportDialog
     }
 
 newtype DialogsT m a = DialogsT { runDialogsTInternal :: ReaderT Dialogs m a }
@@ -61,6 +56,3 @@ instance (Monad m) => DialogsClass (DialogsT m) where
     withMainWindow f = DialogsT $ asks (f . mainWindow)
     withNewSolutionDialog f = DialogsT $ asks (f . newSolutionDialog)
     withNewProjectDialog f = DialogsT $ asks (f . newProjectDialog)
-    withNewModuleDialog = undefined
-    withNewExportDialog = undefined
-    withNewImportDialog = undefined

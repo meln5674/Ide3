@@ -37,7 +37,9 @@ function.
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 module GuiHelpers 
-    ( makeMenuWith
+    ( 
+    -- * Gui Construction
+      makeMenuWith
     , makeMenuButton
     , makeButton
     , makeLabel
@@ -52,13 +54,22 @@ module GuiHelpers
     , makeScrolledWindowWith
     , makeLabelEntryPairWith
     , makeLabelComboBoxPairWith
+    , addAccel
+    -- * Tree Path's
     , withTreePath
     , withGtkTreePath
-    , SignalInterceptClass (..)
+    -- * Signals for widgets inside data structures
     , onSub
     , afterSub
     , SubSignalProxy
     , ownSignal
+    -- * Signal handlers which require context
+    , on
+--    , on_
+    , after
+--    , after_
+    , SignalInterceptClass (..)
+    -- ** Function Wrappers
     , FuncClass (..)
     , Func0 (Func0)
     , Func1 (Func1)
@@ -67,15 +78,11 @@ module GuiHelpers
     , Func4 (Func4)
     , Func5 (Func5)
     , Func6 (Func6)
-    , on
---    , on_
-    , after
---    , after_
+    -- * Attributes for widgets inside data structures
     , SubAttrLabelProxy
     , SubAttrOp
     , getSub
     , setSub
-    , addAccel
     ) where
 
 import GHC.TypeLits
@@ -375,154 +382,98 @@ instance SignalInterceptClass (ReaderT r) where
 -- | Intercept signals and provide no context
 instance SignalInterceptClass IdentityT where
     intercept add handler = lift $ add $ \x -> runIdentityT $ handler x
-        
+
+-- | Wrapper for arity-0 functions        
 newtype Func0 a = Func0 { unFunc0 :: a }
+
+-- | Wrapper for arity-1 functions        
 newtype Func1 a b = Func1 { unFunc1 :: a -> b }
+
+-- | Wrapper for arity-2 functions        
 newtype Func2 a b c = Func2 { unFunc2 :: a -> b -> c }
+
+-- | Wrapper for arity-3 functions        
 newtype Func3 a b c d = Func3 { unFunc3 :: a -> b -> c -> d }
+
+-- | Wrapper for arity-4 functions        
 newtype Func4 a b c d e = Func4 { unFunc4 :: a -> b -> c -> d -> e}
+
+-- | Wrapper for arity-5 functions        
 newtype Func5 a b c d e f = Func5 { unFunc5 :: a -> b -> c -> d -> e -> f}
+
+-- | Wrapper for arity-6 functions        
 newtype Func6 a b c d e f g =  Func6 { unFunc6 :: a -> b -> c -> d -> e -> f -> g}
 
-type family FuncArgType x = arg where
-    FuncArgType Func0 = ()
-    FuncArgType (Func1 a) = a
-    FuncArgType (Func2 a b) = (a, b)
-    FuncArgType (Func3 a b c) = (a, b, c)
-    FuncArgType (Func4 a b c d) = (a, b, c, d)
-    FuncArgType (Func5 a b c d e) = (a, b, c, d, e)
-    FuncArgType (Func6 a b c d e f) = (a, b, c, d, e, f)
-
-type family FuncType x z = f where
-    FuncType Func0 z = z
-    FuncType (Func1 a) z = a -> z
-    FuncType (Func2 a b) z = a -> b -> z
-    FuncType (Func3 a b c) z = a -> b -> c -> z
-    FuncType (Func4 a b c d) z = a -> b -> c -> d -> z
-    FuncType (Func5 a b c d e) z = a -> b -> c -> d -> e -> z
-    FuncType (Func6 a b c d e f) z = a -> b -> c -> d -> e -> f -> z
-
+-- | Types that wrap functions
 class FuncClass x where
+    -- | Curried arguments for the wrapped function
+    type FuncArgType x
+    -- | Type of a wrapped function returning z
+    type FuncType x z
+    -- | Produce an uncurried function
     uncurry' :: x a -> (FuncArgType x -> a)
+    -- | Produce a wrapper from an uncurried function
     curry' :: (FuncArgType x -> a) -> x a
-    mkFunc :: FuncType x a -> x a
+    -- | Produce a function from the wrapper
     unmkFunc :: x a -> FuncType x a
 
 instance FuncClass Func0 where
+    type FuncArgType Func0 = ()
+    type FuncType Func0 z = z
     uncurry' (Func0 x) = \() -> x
     curry' f = Func0 (f ())
-    mkFunc = Func0
     unmkFunc = unFunc0
 
 
 instance FuncClass (Func1 a) where
+    type FuncArgType (Func1 a) = a
+    type FuncType (Func1 a) z = a -> z
     uncurry' (Func1 f) = \a -> f a
     curry' f = Func1 $ \a -> f a
-    mkFunc = Func1
     unmkFunc = unFunc1
 
 instance FuncClass (Func2 a b) where
+    type FuncArgType (Func2 a b) = (a, b)
+    type FuncType (Func2 a b) z = a -> b -> z
     uncurry' (Func2 f) = \(a,b) -> f a b
     curry' f = (Func2 $ \a b -> f (a,b))
-    mkFunc = Func2
     unmkFunc = unFunc2
 
 instance FuncClass (Func3 a b c) where
+    type FuncArgType (Func3 a b c) = (a, b, c)
+    type FuncType (Func3 a b c) z = a -> b -> c -> z
     uncurry' (Func3 f) = \(a,b,c) -> f a b c
     curry' f = (Func3 $ \a b c -> f (a,b,c))
-    mkFunc = Func3
     unmkFunc = unFunc3
 
 instance FuncClass (Func4 a b c d) where
+    type FuncArgType (Func4 a b c d) = (a, b, c, d)
+    type FuncType (Func4 a b c d) z = a -> b -> c -> d -> z
     uncurry' (Func4 f) = \(a,b,c,d) -> f a b c d
     curry' f = (Func4 $ \a b c d -> f (a,b,c,d))
-    mkFunc = Func4
     unmkFunc = unFunc4
 
 instance FuncClass (Func5 a b c d e) where
+    type FuncArgType (Func5 a b c d e) = (a, b, c, d, e)
+    type FuncType (Func5 a b c d e) z = a -> b -> c -> d -> e -> z
     uncurry' (Func5 f) = \(a,b,c,d,e) -> f a b c d e
     curry' f = (Func5 $ \a b c d e -> f (a,b,c,d,e))
-    mkFunc = Func5
     unmkFunc = unFunc5
 
 instance FuncClass (Func6 a b c d e f) where
+    type FuncArgType (Func6 a b c d e f) = (a, b, c, d, e, f)
+    type FuncType (Func6 a b c d e f) z = a -> b -> c -> d -> e -> f -> z
     uncurry' (Func6 g) = \(a,b,c,d,e,f) -> g a b c d e f
     curry' g = (Func6 $ \a b c d e f -> g (a,b,c,d,e,f))
-    mkFunc = Func6
     unmkFunc = unFunc6
 
-
-{-
-newtype Func0 m a = Func0 { unFunc0 :: m a }
-newtype Func1 a m b = Func1 { unFunc1 :: a -> m b }
-newtype Func2 a b m c = Func2 { unFunc2 :: a -> b -> m c }
-newtype Func3 a b c m d = Func3 { unFunc3 :: a -> b -> c -> m d }
-newtype Func4 a b c d m e = Func4 { unFunc4 :: a -> b -> c -> d -> m e}
-newtype Func5 a b c d e m f = Func5 { unFunc5 :: a -> b -> c -> d -> e -> m f}
-newtype Func6 a b c d e f m g =  Func6 { unFunc6 :: a -> b -> c -> d -> e -> f -> m g}
-
-type family FuncArgType x = arg where
-    FuncArgType Func0 = ()
-    FuncArgType (Func1 a) = a
-    FuncArgType (Func2 a b) = (a, b)
-
-type family FuncType x m z = f | f -> x m z where
-    FuncType Func0 m z = m z
-    FuncType (Func1 a) m z = a -> m z
-    FuncType (Func2 a b) m z = a -> b -> m z
-
-class FuncClass x where
-    uncurry' :: x m a -> (FuncArgType x -> m a)
-    curry' :: (FuncArgType x -> m a) -> x m a
-    mkFunc :: FuncType x m a -> x m a
-    unmkFunc :: x m a -> FuncType x m a
-
-instance FuncClass Func0 where
-    uncurry' = const . unFunc0 
-    curry' = Func0 . ($())
-    mkFunc = Func0
-    unmkFunc = unFunc0
-
-
-instance FuncClass (Func1 a) where
-    uncurry' = unFunc1
-    curry' = Func1
-    mkFunc = Func1
-    unmkFunc = unFunc1
-
-instance FuncClass (Func2 a b) where
-    uncurry' = uncurry . unFunc2
-    curry' = Func2 . curry
-    mkFunc = Func2
-    unmkFunc = unFunc2
--}
-
-{-
-instance FuncClass (Func3 a b c) where
-    --type FuncArgType (Func3 a b c) = (a, b, c)
-    --type FuncType (Func3 a b c) d = a -> b -> c -> d
-    uncurry' (Func3 f) = \(a, b, c) -> f a b c
-    curry' f = Func3 $ \a b c -> f (a, b, c)
-
-instance FuncClass (Func4 a b c d) where
-    --type FuncArgType (Func4 a b c d) = (a, b, c, d)
-    --type FuncType (Func4 a b c d) e = a -> b -> c -> d -> e
-    uncurry' (Func4 f) = \(a, b, c, d) -> f a b c d
-    curry' f = Func4 $ \a b c d -> f (a, b, c, d)
-
-instance FuncClass (Func5 a b c d e) where
-    --type FuncArgType (Func5 a b c d e) = (a, b, c, d, e)
-    --type FuncType (Func5 a b c d e) f = a -> b -> c -> d -> e -> f
-    uncurry' (Func5 f) = \(a, b, c, d, e) -> f a b c d e
-    curry' f = Func5 $ \a b c d e -> f (a, b, c, d, e)
-
-instance FuncClass (Func6 a b c d e f') where
-    --type FuncArgType (Func6 a b c d e f') = (a, b, c, d, e, f')
-    --type FuncType (Func6 a b c d e f) g = a -> b -> c -> d -> e -> f -> g
-    uncurry' (Func6 f) = \(a, b, c, d, e, f') -> f a b c d e f'
-    curry' f = Func6 $ \a b c d e f' -> f (a, b, c, d, e, f')
--}
-
+-- | Connect a handler with context to a signal of a widget inside of a data
+-- structure to fire before the default handler.
+--
+-- To be able to handle multiple function arities, functions should be wrapped
+-- in the appropriate FuncX wrapper
+-- 
+-- obj `on` sig $ Func2 $ \x y -> ...
 on :: forall object subObject info handler m t m' b
     . ( GObject subObject
       , Monad m'
@@ -564,6 +515,13 @@ on_ obj event handler = void $ (on :: object
         -> t m SignalHandlerId) obj event handler
 -}
 
+-- | Connect a handler with context to a signal of a widget inside of a data
+-- structure to fire after the default handler.
+--
+-- To be able to handle multiple function arities, functions should be wrapped
+-- in the appropriate FuncX wrapper
+-- 
+-- obj `after` sig $ Func2 $ \x y -> ...
 after :: forall object subObject info handler m t m' b
        . ( GObject subObject
          , Monad m'
@@ -600,144 +558,6 @@ after_ :: ( GObject subObject
        -> t m ()
 after_ obj event handler = void $ after obj event handler
 -}
-
-{-
--- | Attach a handler requring context and no arguments
-on :: ( GObject subObject
-      , Monad m'
-      , MonadIO m
-      , SignalInterceptClass t
-      , SignalInfo info
-      , HaskellCallbackType info ~ m' b
-      )
-   => object
-   -> SubSignalProxy object subObject info
-   -> t m' b
-   -> t m SignalHandlerId
-on obj event handler =
-    (onSub obj event . ($())) `intercept` const handler
-
-
-on_ obj event handler = void $ on obj event handler
-
--- | Attach a handler requring context and 1 argument
-on1 :: ( GObject subObject
-       , Monad m'
-       , MonadIO m
-       , SignalInterceptClass t
-       , SignalInfo info
-       , HaskellCallbackType info ~ (a -> m' b)
-       )
-    => object
-    -> SubSignalProxy object subObject info
-    -> (a -> t m' b)
-    -> t m SignalHandlerId
-on1 obj event handler = do
-    onSub obj event `intercept` handler
-
-on1_ obj event handler = void $ on1 obj event handler
-
--- | Attach a handler requring context and 2 arguments
-on2 :: ( GObject subObject
-       , Monad m'
-       , MonadIO m
-       , SignalInterceptClass t
-       , SignalInfo info
-       , HaskellCallbackType info ~ (a -> b -> m' c)
-       )
-    => object
-    -> SubSignalProxy object subObject info
-    -> (a -> b -> t m' c)
-    -> t m SignalHandlerId
-on2 obj event handler = (onSub obj event . curry) `intercept` uncurry handler
-
-on2_ obj event handler = void $ on2 obj event handler
-
--- | Attach a handler requring context and 3 arguments
-on3 :: ( GObject subObject
-       , Monad m'
-       , MonadIO m
-       , SignalInterceptClass t
-       , SignalInfo info
-       , HaskellCallbackType info ~ (a -> b -> c -> m' d)
-       )
-    => object
-    -> SubSignalProxy object subObject info
-    -> (a -> b -> c -> t m' d)
-    -> t m SignalHandlerId
-on3 obj event handler = (onSub obj event . curry3) `intercept` uncurry3 handler
-
-on3_ obj event handler = void $ on3 obj event handler
-
-
--- | Same as 'on', except the handler fires after the default one
-after :: ( GObject subObject
-         , Monad m'
-         , MonadIO m
-         , SignalInterceptClass t
-         , SignalInfo info
-         , HaskellCallbackType info ~ m' b
-         )
-      => object
-      -> SubSignalProxy object subObject info
-      -> t m' b
-      -> t m SignalHandlerId
-after obj event handler =
-    (afterSub obj event . ($())) `intercept` const handler
-
-after_ obj event handler = void $ after obj event handler
-
--- | Same as 'on1', except the handler fires after the default one
-after1 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> m' b)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> t m' b)
-       -> t m SignalHandlerId
-after1 obj event handler = do
-    afterSub obj event `intercept` handler
-
-after1_ obj event handler = void $ after1 obj event handler
-
--- | Same as 'on2', except the handler fires after the default one
-after2 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> b -> m' c)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> b -> t m' c)
-       -> t m SignalHandlerId
-after2 obj event handler =
-    (afterSub obj event . curry) `intercept` uncurry handler
-
-after2_ obj event handler = void $ after2 obj event handler
-
--- | Same as 'on3', except the handler fires after the default one
-after3 :: ( GObject subObject
-          , Monad m'
-          , MonadIO m
-          , SignalInterceptClass t
-          , SignalInfo info
-          , HaskellCallbackType info ~ (a -> b -> c -> m' d)
-          )
-       => object
-       -> SubSignalProxy object subObject info
-       -> (a -> b -> c -> t m' d)
-       -> t m SignalHandlerId
-after3 obj event handler = (afterSub obj event . curry3) `intercept` uncurry3 handler
-
-after3_ obj event handler = void $ after3 obj event handler
--}
-
 
 -- | Attributes for widgets inside of data structures.
 -- These attributes are represented as functions mapping the data structure to

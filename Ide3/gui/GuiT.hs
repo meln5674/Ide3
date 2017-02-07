@@ -27,6 +27,7 @@ import GuiClass.GuiEnv()
 import GuiEnv hiding (addIdleTask)
 import qualified GuiEnv (addIdleTask)
 import Dialogs
+import Dialogs.Class
 import GenericGuiEnv
 
 newtype GuiT m' p m a = GuiT { runGuiTInternal :: GuiEnvT m' p (DialogsT m) a }
@@ -59,24 +60,6 @@ instance SignalInterceptClass (GuiT m' p) where
         env <- liftEnv getEnv
         dialogs <- liftDialogs getDialogs
         lift $ add $ \x -> runGuiT (handler x) env dialogs
-
---instance DialogsClass (GuiT m' p) where
---    withMainWindow = liftDialogs . withMainWindow
-
-{-
-instance ( Monad m
-         , SolutionInitializerClass' (GuiEnvT m' p (DialogsT m)) m
-         , ArgType (ClassSolutionInitializerMonad (GuiEnvT m' p (DialogsT m))) 
-            ~ ArgType m'
-         )
-        => SolutionInitializerClass (GuiT m' p m) where
-    type ClassSolutionInitializerMonad (GuiT m' p m) 
---        = ClassSolutionInitializerMonad (GuiEnvT m' p (DialogsT m))
-        = m'
-    setupSolutionCreator = GuiT setupSolutionCreator
-    getSolutionCreatorArg = GuiT getSolutionCreatorArg
-    finalizeSolutionCreator = GuiT finalizeSolutionCreator
--}
     
 liftEnv :: Monad m => GuiEnvT m' p m a -> GuiT m' p m a
 liftEnv f = GuiT $ mkGuiEnvT $ \env -> lift $ runGuiEnvT f env
@@ -89,8 +72,6 @@ runGuiT f env dialogs = runDialogsT (runGuiEnvT (runGuiTInternal f) env) dialogs
 
 mkGuiT :: (GuiEnv m' p -> Dialogs -> m a) -> GuiT m' p m a
 mkGuiT f = GuiT $ mkGuiEnvT $ \env -> mkDialogsT (f env)
-
-
 
 type ThisMonadConstraint m' p m =
         ( ViewerMonad m'
@@ -126,3 +107,8 @@ instance GenericGuiEnv (GuiT m' p) where
                     Left e -> do
                         displayError $ pack $ show $ e
     addIdleTask t = GuiT $ GuiEnv.addIdleTask t
+
+instance (Monad m) => DialogsClass (GuiT m' p m) where
+    withMainWindow = liftDialogs . withMainWindow
+    withNewSolutionDialog = liftDialogs . withNewSolutionDialog
+    withNewProjectDialog = liftDialogs . withNewProjectDialog

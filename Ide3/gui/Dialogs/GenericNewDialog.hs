@@ -14,7 +14,7 @@ and methods for quickly creating variations on this base.
 
 -}
 
-{-# LANGUAGE NamedFieldPuns, PolyKinds #-}
+{-# LANGUAGE NamedFieldPuns, PolyKinds, DataKinds #-}
 {-# LANGUAGE OverloadedLabels, OverloadedStrings #-}
 module Dialogs.GenericNewDialog 
     ( GenericNewDialog
@@ -23,6 +23,8 @@ module Dialogs.GenericNewDialog
     , close
     , GenericNewDialogSignal
     , getEnteredText
+    , setEnteredText
+    , setVisible
     , confirmClickedEvent
     , cancelClickedEvent
     ) where
@@ -34,6 +36,7 @@ import Data.Text
 import Control.Monad.Trans
 
 import GI.Gtk
+import Data.GI.Base.Attributes
 
 import GuiHelpers
 
@@ -103,9 +106,15 @@ make makeDialog title initial f = makeWindowWith
 close :: (MonadIO m, NewDialog dialog) => dialog -> m ()
 close = widgetDestroy . window . getGenericDialog
 
+setVisible :: (MonadIO m, NewDialog dialog) => dialog -> Bool -> m ()
+setVisible dialog v = set (window $ getGenericDialog dialog) [widgetVisible := v]
+
 -- | Get the input text from the dialog
 getEnteredText :: (MonadIO m, NewDialog dialog) => dialog -> m Text
 getEnteredText = flip get entryBufferText . textEntryBuffer . getGenericDialog
+
+setEnteredText :: (MonadIO m, NewDialog dialog) => dialog -> Text -> m ()
+setEnteredText = setEntryBufferText . textEntryBuffer . getGenericDialog
 
 -- | Signals from the a wrapper dialog
 type GenericNewDialogSignal dialog subObject info = SubSignalProxy dialog subObject info

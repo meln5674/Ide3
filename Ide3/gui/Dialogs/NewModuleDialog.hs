@@ -6,6 +6,7 @@ module Dialogs.NewModuleDialog
     , close
     , NewModuleDialogSignal
     , getModuleName
+    , setVisible
     , confirmClickedEvent
     , cancelClickedEvent
     ) where
@@ -14,7 +15,10 @@ import Data.Text
 
 import Control.Monad.Trans
 
+
 import GI.Gtk
+
+import GuiHelpers
 
 import Dialogs.GenericNewDialog ( GenericNewDialog, GenericNewDialogSignal, NewDialog )
 import qualified Dialogs.GenericNewDialog as Generic
@@ -40,6 +44,9 @@ confirmClickedEvent = Generic.confirmClickedEvent
 
 cancelClickedEvent :: NewModuleDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent
+
+setVisible :: (MonadIO m) => NewModuleDialog -> Bool -> m ()
+setVisible = Generic.setVisible
 
 {-
 data NewModuleDialog

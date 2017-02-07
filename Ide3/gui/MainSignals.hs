@@ -239,6 +239,13 @@ onDeleteProjectClicked pji = do
         CancelDeleteProject -> return ()
     return False
 
+{-
+onNewModuleConfirmed :: forall t m' p m
+                      . ( MainGuiClass t m' p m )
+                     => t m Bool
+onNewModuleConfirmed 
+-}
+
 onNewModuleClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
@@ -689,8 +696,8 @@ declBufferEdited = mkGuiEnvSignal (flip withEditorBuffer id) endUserAction
 declBufferEdited :: SubSignalProxy GuiComponents TextBuffer TextBufferEndUserActionSignalInfo
 declBufferEdited comp = withEditorBuffer comp $ \buffer -> (buffer, #endUserAction)
 
-setupSignals :: ( MainGuiClassIO t m' p m ) => MainWindow -> t m ()
-setupSignals gui = do
+setupMainSignals :: ( MainGuiClassIO t m' p m ) => MainWindow -> t m ()
+setupMainSignals gui = do
     void $ gui `on` MainWindow.newClickedEvent $ 
         Func0 $ onNewClicked
     void $ gui `on` MainWindow.openClickedEvent $ 

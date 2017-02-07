@@ -89,8 +89,6 @@ type ProjectInitializerClass' m m'
       , Args (ProjectArgType m')
       )
 
-    
-
 class Monad m => ErrorListClass m where
     clearErrorList :: m ()
     addErrorToList :: Error ItemPath Text -> m ()
