@@ -464,7 +464,7 @@ setupUnparsableModuleContextMenu :: forall t m' p m
 setupUnparsableModuleContextMenu gui pji mi loc = do
     menu <- SolutionContextMenu.makeUnparsableModuleMenu pji mi
     void $ menu `on` SolutionContextMenu.gotoErrorClickedEvent $ Func1 $ \_ -> do
-        doGetItem $ UnparsableModulePath pji mi
+        doOpenItem $ UnparsableModulePath pji mi
         MainWindow.setFocus FocusEditor gui
         doGotoSrcLoc loc
         addIdleTask $ IdleThreadTask $ MainWindow.scrollEditorCursorIntoView gui

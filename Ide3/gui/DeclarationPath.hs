@@ -57,7 +57,7 @@ data SolutionPath
     | ProjectPath ProjectInfo
     -- | Lookup information for a solution
     | SolutionPath
-  deriving Eq
+  deriving (Eq, Ord)
 
 
 instance Show SolutionPath where

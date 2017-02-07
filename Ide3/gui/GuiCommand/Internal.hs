@@ -193,57 +193,86 @@ doOpen path = do
     lift $ openSolution path
     populateTree
 
+setPathAsCurrent :: ( GuiCommand t m )
+                 => SolutionPath
+                 -> t (SolutionResult UserError m) ()
+setPathAsCurrent (DeclarationPath pji mi di) = lift $ lift $ setCurrentDecl pji mi di
+setPathAsCurrent (ModulePath pji mi) = lift $ lift $ setCurrentModule pji mi
+setPathAsCurrent (UnparsableModulePath pji mi) = lift $ lift $ setCurrentModule pji mi
+setPathAsCurent _ = return ()
+
 -- | Retrieve a declaration, module header, or unparsable module contents
 openItem 
     :: ( GuiCommand t m
        )
     => SolutionPath
     -> t (SolutionResult UserError m) Text
-openItem (DeclarationPath pji mi di) = do
+openItem path@(DeclarationPath pji mi di) = do
     decl <- lift $ getDeclaration pji mi di
     splice $ setEditorBufferTextHighlighted $ body decl
     --lift $ liftIO $ print $ body decl
-    lift $ lift $ setCurrentDecl pji mi di
+    setPathAsCurrent path
     return $ body decl
-openItem (ModulePath pji mi) = do
+openItem path@(ModulePath pji mi) = do
     header <- lift $ getModuleHeader pji mi
     splice $ setEditorBufferTextHighlighted header
-    lift $ lift $ setCurrentModule pji mi
+    setPathAsCurrent path
     return $ header
-openItem (UnparsableModulePath pji mi) = do
+openItem path@(UnparsableModulePath pji mi) = do
     Just (contents, _, _) <- lift $ getUnparsableModule pji mi
     splice $ setEditorBufferTextHighlighted contents
-    lift $ lift $ setCurrentModule pji mi
+    setPathAsCurrent path
     return contents
 openItem _ = do
     splice $ setEditorBufferText ""
     return ""
 
+-- | If there is an item open, save it into the history
+saveCurrentHistory :: ( GuiCommand t m )
+                   => t (SolutionResult UserError m) ()
+saveCurrentHistory = do
+    result <- lift $ lift $ getCurrentProject
+    case result of
+        Just _ -> splice (getEditorBufferText Nothing Nothing) >>= lift . lift . replaceHistoryText
+        Nothing -> return ()
+        
 -- | Open a declaration or module header
 doGetDecl :: ( GuiCommand t m )
           => TreePath
           -> t (SolutionResult UserError m)  ()
 doGetDecl path = do
     index <- splice $ findAtPath path
-    case index of
-        DeclResult pji mi di -> do
-            text <- openItem $ DeclarationPath pji mi di
-            lift $ lift $ openDeclarationInHistory (DeclarationPath pji mi di) 
-                                                   text
-        ModuleResult pji mi True -> do
-            text <- openItem $ ModulePath pji mi
-            lift $ lift $ openDeclarationInHistory (ModulePath pji mi) text
-        UnparsableModuleResult pji mi _ _ -> do
-            text <- openItem $ UnparsableModulePath pji mi
-            lift $ lift $ openDeclarationInHistory (UnparsableModulePath pji mi) text
-        _ -> return ()
+    let maybePath = case index of
+            DeclResult pji mi di -> Just $ DeclarationPath pji mi di
+            ModuleResult pji mi di -> Just $ ModulePath pji mi
+            UnparsableModuleResult pji mi _ _ -> Just $ UnparsableModulePath pji mi
+    case maybePath of
+        Just path -> doOpenItem path 
+        
+        Nothing -> return ()
 
-doGetItem :: ( GuiCommand t m )
+doOpenItem :: ( GuiCommand t m )
           => SolutionPath
           -> t (SolutionResult UserError m) ()
-doGetItem path = do
-    text <- openItem path
-    lift $ lift $ openDeclarationInHistory path text
+doOpenItem path = do
+    maybeHistoryCurrent <- lift $ lift $ getCurrentHistory
+    case maybeHistoryCurrent of
+        -- If the item to open is the current item, do nothing
+        Just (oldPath, oldText)
+            | path == oldPath -> return ()
+        _ -> do
+            saveCurrentHistory
+            maybeHistoryText <- lift $ lift $ getOpenDeclaration path
+            text <- case maybeHistoryText of
+                -- If the item to open is in the history, use that instead of
+                -- looking it up
+                Just oldText -> do
+                    splice $ setEditorBufferTextHighlighted $ oldText
+                    setPathAsCurrent path
+                    return oldText
+                Nothing -> do
+                    openItem path
+            lift $ lift $ openDeclaration path text
 
 doGotoSrcLoc :: ( GuiCommand t m )
              => SrcLoc
@@ -529,7 +558,7 @@ doAddDeclaration pji mi di = do
     lift $ lift $ setCurrentDecl pji mi di
     lift 
         $ lift 
-        $ openDeclarationInHistory (DeclarationPath pji mi di)
+        $ openDeclaration (DeclarationPath pji mi di)
         $ body decl
 
 -- | Remove a declaration from a module
@@ -768,9 +797,7 @@ doSearch = do
         Navigate -> do
             case DeclarationPath.parse (T.unpack s) of
                 Nothing -> doError $ UserError $ TempError "Not Found"
-                Just dpath -> do
-                    text <- openItem dpath
-                    lift $ lift $ openDeclarationInHistory dpath text
+                Just dpath -> doOpenItem dpath
                             
 -- | Set the mode of the search component
 doSetSearchMode 
@@ -820,10 +847,7 @@ doGotoDeclaration = do
     let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits
     case hits' of
         [(ProjectChild pji (ModuleChild mi di))] -> do
-            declText <- openItem $ DeclarationPath pji mi di
-            lift 
-                $ lift 
-                $ openDeclarationInHistory (DeclarationPath pji mi di) declText
+            doOpenItem $ DeclarationPath pji mi di
         _ -> return ()
 
 -- | Go to the previous declaration in history
@@ -878,10 +902,7 @@ doJumpToErrorLocation [ix] = do
     case maybeItem of
         Just (DeclarationString di') -> do
             let di = item di'
-            text <- openItem $ DeclarationPath pji mi di
-            lift 
-                $ lift 
-                $ openDeclarationInHistory (DeclarationPath pji mi di) text
+            doOpenItem $ DeclarationPath pji mi di
             splice $ selectEditorBufferText (row, col - 1) (row, col - 1)
             return True
         _ -> return False

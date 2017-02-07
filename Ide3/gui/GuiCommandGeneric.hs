@@ -80,10 +80,10 @@ doGetDecl :: ( GuiCommand2 t m' m )
           -> t m ()
 doGetDecl path = dialogOnError () $ Internal.doGetDecl path
 
-doGetItem :: ( GuiCommand2 t m' m )
+doOpenItem :: ( GuiCommand2 t m' m )
           => SolutionPath
           -> t m ()
-doGetItem path = dialogOnError () $ Internal.doGetItem path
+doOpenItem path = dialogOnError () $ Internal.doOpenItem path
 
 doGotoSrcLoc :: ( GuiCommand2 t m' m )
              => SrcLoc

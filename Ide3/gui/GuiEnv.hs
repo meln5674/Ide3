@@ -71,11 +71,9 @@ newtype GuiEnvT (m' :: * -> *) p m a
 instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT m' p m) where
     setSearchMode = lift . setSearchMode
     getSearchMode = lift getSearchMode
-    openDeclaration = lift . openDeclaration
-    closeDeclaration = lift . closeDeclaration
+    openDeclaration = lift .-.. openDeclaration
     getOpenDeclarations = lift getOpenDeclarations
-    declarationIsOpen = lift . declarationIsOpen
-    openDeclarationInHistory = lift .-.. openDeclarationInHistory
+    getOpenDeclaration = lift . getOpenDeclaration
     replaceHistoryPath = lift . replaceHistoryPath
     replaceHistoryText = lift . replaceHistoryText
     navigateHistoryBack = lift navigateHistoryBack
