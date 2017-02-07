@@ -30,6 +30,8 @@ module Dialogs.MainWindow
     , setSearchBarVisible
     , setSearchMode
     , scrollEditorCursorIntoView
+    , setDeclViewEnabled
+    , setBuildButtonEnabled
     
     , addAccelGroup
 
@@ -465,7 +467,9 @@ makeDeclView :: ( MonadIO m
              => self -> GuiEnvT {-proxy-} m' p  m BetterTextView
 makeDeclView container = makeScrolledWindowWith container $ \scrollWindow -> do
     declView <- withGuiComponents $ flip withEditorBuffer $ betterTextViewNewWithBuffer
-    setSub declView [ mkBTVAttr (#monospace := True) ]
+    setSub declView $ map mkBTVAttr [ #monospace := True
+                                    , #editable := False
+                                    ]
     scrollWindow `containerAdd` declView
     return declView
 
@@ -482,6 +486,7 @@ makeBuildViewer :: ( MonadIO m
 makeBuildViewer container = do
     makeNotebookWith container $ \notebook -> do
         buildView <- makeNotebookPageWith notebook "Log" makeBuildView
+        set buildView [#editable := False]
         errorView <- makeNotebookPageWith notebook "Errors" makeErrorView
         return BuildViewer
              { buildView
@@ -720,6 +725,12 @@ scrollEditorCursorIntoView window = do
     lineOffset <- textIterGetLineOffset start
     liftIO $ print (line, lineOffset)
     textViewScrollToMark textView startMark 0 True 0.5 0.5
+
+setDeclViewEnabled :: (MonadIO m) => MainWindow -> Bool -> m ()
+setDeclViewEnabled window enabled = setSub (declView $ solutionViewer window) [mkBTVAttr (#editable := enabled)]
+
+setBuildButtonEnabled :: ( MonadIO m ) => MainWindow -> Bool -> m ()
+setBuildButtonEnabled window enabled = set (buildButton $ solutionMenu window) [#sensitive := enabled]
 
 addAccelGroup :: (MonadIO m) => MainWindow -> AccelGroup -> m ()
 addAccelGroup w g = liftIO $ window w `windowAddAccelGroup` g

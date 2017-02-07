@@ -84,7 +84,7 @@ instance GenericGuiEnv (GuiT m' p) where
     type MonadConstraint (GuiT m' p) m = ThisMonadConstraint m' p m
     type NewMonadConstraint (GuiT m' p) m = (MonadIO m)
     type MonadType (GuiT m' p) = m'
-    dialogOnError default_ f = do
+    dialogOnError onError f = do
         env <- liftEnv $ getEnv
         dialogs <- liftDialogs $ getDialogs
         liftEnv $  withSolutionMVar $ \var -> liftIO $ do
@@ -94,9 +94,9 @@ instance GenericGuiEnv (GuiT m' p) where
                     Right x -> return x
                     Left e -> do
                         displayError $ pack $ show e
-                        return default_
+                        runGuiT onError env dialogs
 
-    dialogOnErrorConc f = do
+    dialogOnErrorConc onError f = do
         env <- liftEnv $ getEnv
         dialogs <- liftDialogs $ getDialogs
         liftEnv $ withSolutionMVar $ \var -> liftIO $ forkIO $ do
@@ -106,6 +106,7 @@ instance GenericGuiEnv (GuiT m' p) where
                     Right () -> return ()
                     Left e -> do
                         displayError $ pack $ show $ e
+                        runGuiT onError env dialogs
     addIdleTask t = GuiT $ GuiEnv.addIdleTask t
 
 instance (Monad m) => DialogsClass (GuiT m' p m) where

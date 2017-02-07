@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, ConstraintKinds, KindSignatures, ConstrainedClassMethods #-}
+{-# LANGUAGE TypeFamilies, ConstraintKinds, KindSignatures, ConstrainedClassMethods, FlexibleContexts #-}
 module GenericGuiEnv where
 
 import GHC.Exts
@@ -19,12 +19,33 @@ class (MonadTrans t) => GenericGuiEnv t where
     type NewMonadConstraint t (m :: * -> *) :: Constraint
     type MonadType t :: (* -> *)
     dialogOnError :: (NewMonadConstraint t m, MonadConstraint t (MonadType t)) 
-                  => a 
+                  => t (MonadType t) a
                   -> t (SolutionResult UserError (MonadType t)) a
                   -> t m a
     dialogOnErrorConc :: (NewMonadConstraint t m, MonadConstraint t (MonadType t)) 
-                  => t (SolutionResult UserError (MonadType t)) ()
+                  => t (MonadType t) ()
+                  -> t (SolutionResult UserError (MonadType t)) ()
                   -> t m ThreadId
     addIdleTask :: (NewMonadConstraint t m, MonadConstraint t (MonadType t))
                 => IdleThreadTask
                 -> t m ()
+
+
+dialogOnError' :: ( Monad (t (MonadType t))
+                  , GenericGuiEnv t
+                  , NewMonadConstraint t m
+                  , MonadConstraint t (MonadType t)
+                  ) 
+               => a
+               -> t (SolutionResult UserError (MonadType t)) a
+               -> t m a
+dialogOnError' default_ m = dialogOnError (return default_) m
+
+dialogOnErrorConc' :: ( Monad (t (MonadType t))
+                      , GenericGuiEnv t
+                      , NewMonadConstraint t m
+                      , MonadConstraint t (MonadType t)
+                      ) 
+                   => t (SolutionResult UserError (MonadType t)) ()
+                   -> t m ThreadId
+dialogOnErrorConc' m = dialogOnErrorConc (return ()) m

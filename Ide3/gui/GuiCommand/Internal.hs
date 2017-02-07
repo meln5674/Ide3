@@ -98,6 +98,8 @@ type GuiCommand t m =
     , BuildBufferClass (t m)
     , SearchBarClass (t m)
     , ErrorListClass (t m)
+    , EditorControlClass (t m)
+    , BuildControlClass (t m)
     , Monad (t (SolutionResult UserError m))
     , ViewerStateClass m
     , ModuleLocationClass m
@@ -273,6 +275,7 @@ doOpenItem path = do
                 Nothing -> do
                     openItem path
             lift $ lift $ openDeclaration path text
+            splice $ setEditorEnabled True
 
 doGotoSrcLoc :: ( GuiCommand t m )
              => SrcLoc
@@ -286,8 +289,10 @@ doBuild :: ( GuiCommand t m
            )
         => t (SolutionResult UserError m) ()
 doBuild = do
+    splice $ setBuildEnabled False
     splice $ setBuildBufferText ""
     splice $ clearErrorList
+    
     
     lift $ prepareBuild
     builder <- lift $ lift $ getBuilder
@@ -326,6 +331,7 @@ doBuild = do
     -- Add the whole text to the log tab and populate the error tab
     splice $ setBuildBufferText text
     splice $ mapM_ addErrorToList errors'
+    splice $ setBuildEnabled True
 
 -- | Run the current project
 doRun :: ( GuiCommand t m

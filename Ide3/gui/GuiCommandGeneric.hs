@@ -39,15 +39,15 @@ type GuiCommand2 t m' m =
 doError :: ( GuiCommand2 t m' m )
         => SolutionError UserError
         -> t m ()
-doError e = dialogOnError () $ Internal.doError e
+doError e = dialogOnError' () $ Internal.doError e
 
 doNewStart :: ( GuiCommand2 t m' m)
            => t m ()
-doNewStart = dialogOnError () $ Internal.doNewStart
+doNewStart = dialogOnError' () $ Internal.doNewStart
 
 doNewProjectStart :: ( GuiCommand2 t m' m )
            => t m ()
-doNewProjectStart = dialogOnError () $ Internal.doNewProjectStart
+doNewProjectStart = dialogOnError' () $ Internal.doNewProjectStart
 
 doEditProjectStart :: ( GuiCommand2 t m' m 
                       , m' ~ ClassProjectInitializerMonad (t m')
@@ -55,7 +55,7 @@ doEditProjectStart :: ( GuiCommand2 t m' m
                       )
                    => ProjectInfo
                    -> t m ()
-doEditProjectStart = dialogOnError () . Internal.doEditProjectStart
+doEditProjectStart = dialogOnError' () . Internal.doEditProjectStart
 
 doNew :: ( GuiCommand2 t m' m
          , Args (ArgType m')
@@ -66,66 +66,66 @@ doNew :: ( GuiCommand2 t m' m
       -> Maybe String
       -> t m ()
 doNew maybeSolutionRoot projectName templateName 
-    = dialogOnError () $ Internal.doNew maybeSolutionRoot projectName templateName 
+    = dialogOnError' () $ Internal.doNew maybeSolutionRoot projectName templateName 
 
 doOpen :: ( GuiCommand2 t m' m 
           , MonadIO m'
           )
        => FilePath
        -> t m ()
-doOpen path = dialogOnError () $ Internal.doOpen path
+doOpen path = dialogOnError' () $ Internal.doOpen path
 
 doGetDecl :: ( GuiCommand2 t m' m )
           => TreePath
           -> t m ()
-doGetDecl path = dialogOnError () $ Internal.doGetDecl path
+doGetDecl path = dialogOnError' () $ Internal.doGetDecl path
 
 doOpenItem :: ( GuiCommand2 t m' m )
           => SolutionPath
           -> t m ()
-doOpenItem path = dialogOnError () $ Internal.doOpenItem path
+doOpenItem path = dialogOnError' () $ Internal.doOpenItem path
 
 doGotoSrcLoc :: ( GuiCommand2 t m' m )
              => SrcLoc
              -> t m ()
-doGotoSrcLoc = dialogOnError () . Internal.doGotoSrcLoc
+doGotoSrcLoc = dialogOnError' () . Internal.doGotoSrcLoc
 
 doBuild :: ( GuiCommand2 t m' m
            )
         => t m ThreadId
-doBuild = dialogOnErrorConc $ Internal.doBuild
+doBuild = dialogOnErrorConc (setBuildEnabled True) $ Internal.doBuild
 
 doRun :: ( GuiCommand2 t m' m
          )
       => t m ()
-doRun = dialogOnError () $ Internal.doRun
+doRun = dialogOnError' () $ Internal.doRun
 
 
 doSave :: ( GuiCommand2 t m' m
           )
         => t m ()
-doSave = dialogOnError () $ Internal.doSave
+doSave = dialogOnError' () $ Internal.doSave
                 
 
 doSaveSolution :: ( GuiCommand2 t m' m
                   )
               => Maybe FilePath
               -> t m ()
-doSaveSolution path = dialogOnError () $ Internal.doSaveSolution path
+doSaveSolution path = dialogOnError' () $ Internal.doSaveSolution path
 
 doAddSolution :: ( GuiCommand2 t m' m
                  , m' ~ ClassSolutionInitializerMonad (t m')
                  , Args (ArgType m')
                  )
               => t m ()
-doAddSolution = dialogOnError () $ Internal.doAddSolution 
+doAddSolution = dialogOnError' () $ Internal.doAddSolution 
 
 doAddProject :: ( GuiCommand2 t m' m
                  , m' ~ ClassProjectInitializerMonad (t m')
                  , Args (ProjectArgType m')
                  )
               => t m ()
-doAddProject = dialogOnError () $ Internal.doAddProject
+doAddProject = dialogOnError' () $ Internal.doAddProject
 
 doEditProject :: ( GuiCommand2 t m' m
                  , m' ~ ClassProjectInitializerMonad (t m')
@@ -133,7 +133,7 @@ doEditProject :: ( GuiCommand2 t m' m
                  )
               => ProjectInfo
               -> t m ()
-doEditProject = dialogOnError () . Internal.doEditProject
+doEditProject = dialogOnError' () . Internal.doEditProject
 
 doDeleteProject :: ( GuiCommand2 t m' m
                    , m' ~ ClassProjectInitializerMonad (t m')
@@ -142,7 +142,7 @@ doDeleteProject :: ( GuiCommand2 t m' m
                 => ProjectInfo
                 -> Bool
                 -> t m ()
-doDeleteProject pji = dialogOnError () . Internal.doDeleteProject pji
+doDeleteProject pji = dialogOnError' () . Internal.doDeleteProject pji
 
 
 
@@ -150,13 +150,13 @@ doAddModule :: ( GuiCommand2 t m' m)
             => ProjectInfo
             -> ModuleInfo
             -> t m ()
-doAddModule pji mi = dialogOnError () $ Internal.doAddModule pji mi
+doAddModule pji mi = dialogOnError' () $ Internal.doAddModule pji mi
 
 doRemoveModule :: ( GuiCommand2 t m' m )
                => ProjectInfo
                -> ModuleInfo
                -> t m ()
-doRemoveModule pji mi = dialogOnError () $ Internal.doRemoveModule pji mi
+doRemoveModule pji mi = dialogOnError' () $ Internal.doRemoveModule pji mi
 
 
 doAddDeclaration :: ( GuiCommand2 t m' m
@@ -165,7 +165,7 @@ doAddDeclaration :: ( GuiCommand2 t m' m
                  -> ModuleInfo
                  -> DeclarationInfo
                  -> t m ()
-doAddDeclaration pji mi di = dialogOnError () $ Internal.doAddDeclaration pji mi di
+doAddDeclaration pji mi di = dialogOnError' () $ Internal.doAddDeclaration pji mi di
 
 doRemoveDeclaration :: ( GuiCommand2 t m' m
                        )
@@ -173,7 +173,7 @@ doRemoveDeclaration :: ( GuiCommand2 t m' m
                     -> ModuleInfo
                     -> DeclarationInfo
                     -> t m ()
-doRemoveDeclaration pji mi di = dialogOnError () $ Internal.doRemoveDeclaration pji mi di
+doRemoveDeclaration pji mi di = dialogOnError' () $ Internal.doRemoveDeclaration pji mi di
 
 doUnExportDeclaration :: ( GuiCommand2 t m' m
                          )
@@ -181,7 +181,7 @@ doUnExportDeclaration :: ( GuiCommand2 t m' m
                       -> ModuleInfo
                       -> DeclarationInfo
                       -> t m ()
-doUnExportDeclaration pji mi di = dialogOnError () $ Internal.doUnExportDeclaration pji mi di
+doUnExportDeclaration pji mi di = dialogOnError' () $ Internal.doUnExportDeclaration pji mi di
 
 doMoveDeclaration :: ( GuiCommand2 t m' m 
                      )
@@ -191,28 +191,28 @@ doMoveDeclaration :: ( GuiCommand2 t m' m
                   -> ProjectInfo
                   -> ModuleInfo
                   -> t m ()
-doMoveDeclaration pji mi di pji' mi' = dialogOnError () $ Internal.doMoveDeclaration pji mi di pji' mi'
+doMoveDeclaration pji mi di pji' mi' = dialogOnError' () $ Internal.doMoveDeclaration pji mi di pji' mi'
 
 doAddImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo
             -> Text
             -> t m (Maybe (SolutionError UserError))
-doAddImport pji mi importStr = dialogOnError Nothing $ Internal.doAddImport pji mi importStr
+doAddImport pji mi importStr = dialogOnError' Nothing $ Internal.doAddImport pji mi importStr
 
 doRemoveImport :: ( GuiCommand2 t m' m )
                => ProjectInfo
                -> ModuleInfo
                -> ImportId
                -> t m ()
-doRemoveImport pji mi ii = dialogOnError () $ Internal.doRemoveImport pji mi ii
+doRemoveImport pji mi ii = dialogOnError' () $ Internal.doRemoveImport pji mi ii
 
 doGetImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo
             -> ImportId
             -> t m (Maybe Text)
-doGetImport pji mi ii = dialogOnError Nothing $ Internal.doGetImport pji mi ii
+doGetImport pji mi ii = dialogOnError' Nothing $ Internal.doGetImport pji mi ii
 
 doEditImport :: ( GuiCommand2 t m' m )
              => ProjectInfo
@@ -220,7 +220,7 @@ doEditImport :: ( GuiCommand2 t m' m )
              -> ImportId
              -> Text
              -> t m (Maybe (SolutionError UserError))
-doEditImport pji mi ii importStr = dialogOnError Nothing $ Internal.doEditImport pji mi ii importStr
+doEditImport pji mi ii importStr = dialogOnError' Nothing $ Internal.doEditImport pji mi ii importStr
 
 doAddExport :: ( GuiCommand2 t m' m
                )
@@ -228,7 +228,7 @@ doAddExport :: ( GuiCommand2 t m' m
             -> ModuleInfo
             -> Text
             -> t m (Maybe (SolutionError UserError))
-doAddExport pji mi exportStr = dialogOnError Nothing $ Internal.doAddExport pji mi exportStr
+doAddExport pji mi exportStr = dialogOnError' Nothing $ Internal.doAddExport pji mi exportStr
 
 doRemoveExport :: ( GuiCommand2 t m' m
                   )
@@ -236,7 +236,7 @@ doRemoveExport :: ( GuiCommand2 t m' m
                -> ModuleInfo
                -> ExportId
                -> t m ()
-doRemoveExport pji mi ei = dialogOnError () $ Internal.doRemoveExport pji mi ei
+doRemoveExport pji mi ei = dialogOnError' () $ Internal.doRemoveExport pji mi ei
 
 
 doGetExport :: ( GuiCommand2 t m' m
@@ -245,7 +245,7 @@ doGetExport :: ( GuiCommand2 t m' m
             -> ModuleInfo
             -> ExportId
             -> t m (Maybe Text)
-doGetExport pji mi ei = dialogOnError Nothing $ Internal.doGetExport pji mi ei
+doGetExport pji mi ei = dialogOnError' Nothing $ Internal.doGetExport pji mi ei
 
 doEditExport :: ( GuiCommand2 t m' m
                 )
@@ -254,48 +254,48 @@ doEditExport :: ( GuiCommand2 t m' m
              -> ExportId
              -> Text
              -> t m (Maybe (SolutionError UserError))
-doEditExport pji mi ei importStr = dialogOnError Nothing $ Internal.doEditExport pji mi ei importStr
+doEditExport pji mi ei importStr = dialogOnError' Nothing $ Internal.doEditExport pji mi ei importStr
 
 doExportAll :: ( GuiCommand2 t m' m
                )
             => ProjectInfo
             -> ModuleInfo
             -> t m ()
-doExportAll pji mi = dialogOnError () $ Internal.doExportAll pji mi
+doExportAll pji mi = dialogOnError' () $ Internal.doExportAll pji mi
 
 doSearch :: ( GuiCommand2 t m' m
             )
          => t m ()
-doSearch = dialogOnError () $ Internal.doSearch
+doSearch = dialogOnError' () $ Internal.doSearch
 
 doSetSearchMode :: ( GuiCommand2 t m' m
                    )
                 => SearchMode
                 -> t m ()
-doSetSearchMode mode = dialogOnError () $ Internal.doSetSearchMode mode
+doSetSearchMode mode = dialogOnError' () $ Internal.doSetSearchMode mode
 
 doGotoDeclaration
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doGotoDeclaration = dialogOnError () $ Internal.doGotoDeclaration
+doGotoDeclaration = dialogOnError' () $ Internal.doGotoDeclaration
 
 doBackHistory
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doBackHistory = dialogOnError () $ Internal.doBackHistory
+doBackHistory = dialogOnError' () $ Internal.doBackHistory
 
 doForwardHistory
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doForwardHistory = dialogOnError () $ Internal.doForwardHistory
+doForwardHistory = dialogOnError' () $ Internal.doForwardHistory
 
 doJumpToErrorLocation
     :: ( GuiCommand2 t m' m
        )
     => TreePath
     -> t m Bool
-doJumpToErrorLocation = dialogOnError False . Internal.doJumpToErrorLocation
+doJumpToErrorLocation = dialogOnError' False . Internal.doJumpToErrorLocation
 

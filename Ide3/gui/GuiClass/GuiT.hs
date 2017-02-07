@@ -31,6 +31,7 @@ import GuiClass
 
 import Dialogs.Class
 
+import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
 import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..), DialogMode(..))
@@ -193,4 +194,8 @@ instance ( MonadIO m
         $ \dialog -> NewSolutionDialog.setVisible dialog False
 
 
+instance ( MonadIO m ) => EditorControlClass (GuiT m' p m) where
+    setEditorEnabled enabled = withMainWindowM $ lift . flip MainWindow.setDeclViewEnabled enabled
 
+instance ( MonadIO m ) => BuildControlClass (GuiT m' p m) where
+    setBuildEnabled enabled = withMainWindowM $ lift . flip MainWindow.setBuildButtonEnabled enabled

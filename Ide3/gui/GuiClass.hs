@@ -36,12 +36,17 @@ class Monad m => EditorBufferClass m where
     insertTextAtEditorBufferPosition ::  CursorPosition -> Text -> m ()
     applySyntaxHighlighting :: [HighlightInst] -> m ()
 
+class Monad m => EditorControlClass m where
+    setEditorEnabled :: Bool -> m ()
+
 class Monad m => BuildBufferClass m where
     setBuildBufferText :: Text -> m ()
     getBuildBufferText :: Maybe CursorPosition -> Maybe CursorPosition -> m Text
     getBuildBufferCursor :: m (CursorPosition, CursorPosition)
     selectBuildBufferText :: CursorPosition -> CursorPosition -> m ()
-    
+
+class Monad m => BuildControlClass m where
+    setBuildEnabled :: Bool -> m ()
         
 class Monad m => SearchBarClass m where
     getSearchBarText :: m Text
