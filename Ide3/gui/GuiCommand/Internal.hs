@@ -105,7 +105,7 @@ type GuiCommand t m =
     , ModuleLocationClass m
     , SolutionInitializerClass (t m)
     , ProjectInitializerClass (t m)
-    , EnvironmentMonad m
+    , EnvironmentMonad (t m)
     , PersistToken m ~ ViewerPersistToken m
     )
 
@@ -135,7 +135,7 @@ doEditProjectStart :: ( GuiCommand t m
                    => ProjectInfo
                    -> t (SolutionResult UserError m) ()
 doEditProjectStart pji = do
-    retriever <- lift $ lift getProjectRetriever
+    retriever <- splice getProjectRetriever
     p <- lift $ runProjectRetriever retriever pji
     splice $ setupProjectCreator (Just p)
 
@@ -149,7 +149,7 @@ doDeleteProject :: ( GuiCommand t m
                 -> t (SolutionResult UserError m) ()
 doDeleteProject pji deleteCompletely = do
     when deleteCompletely $ do
-        remover <- lift $ lift getProjectRemover
+        remover <- lift getProjectRemover
         retriever <- lift $ lift getProjectRetriever
         args <- lift $ runProjectRetriever retriever pji
         void $ lift $ runProjectRemover remover args
@@ -171,7 +171,7 @@ doNew maybeSolutionRoot projectName templateName = do
         Just projectRoot -> do
             lift $ wrapIOError $ setCurrentDirectory projectRoot
             --lift $ setDirectoryToOpen $ projectRoot </> projectName
-            initializer <- lift $ lift $ getInitializer
+            initializer <- lift $ getInitializer
             let args = projectName : maybe [] (:[]) templateName
             r <- case runInitializerWithInput initializer args of
                 Right x -> lift x
@@ -296,10 +296,10 @@ doBuild = do
     
     lift $ prepareBuild
     builder <- lift $ lift $ getBuilder
-    result <- lift $ runBuilder builder
-    let (text,errors) = case result of
-            BuildSucceeded logText buildWarnings -> (logText, buildWarnings)
-            BuildFailed logText buildErrors -> (logText, buildErrors)
+    result <- lift $ runBuilder builder undefined undefined
+    let (text,errors) = undefined --case result of
+--            BuildSucceeded logText buildWarnings -> (logText, buildWarnings)
+--            BuildFailed logText buildErrors -> (logText, buildErrors)
 
     --   Group the errors into lists that have the same module, then batch fetch
     -- each group's offsets. 
@@ -338,7 +338,7 @@ doRun :: ( GuiCommand t m
          )
       => t (SolutionResult UserError m) ()
 doRun = do
-    runner <- lift $ lift $ getRunner
+    runner <- lift $ getRunner
     maybePji <- lift $ lift $ getCurrentProject
     case maybePji of
         Nothing -> doError $ InvalidOperation "No project selected" ""
@@ -479,7 +479,7 @@ doAddSolution :: ( GuiCommand t m
               => t (SolutionResult UserError m) ()
 doAddSolution = do
     args <- unsplice $ getSolutionCreatorArg
-    initializer <- lift $ lift $ getInitializer
+    initializer <- lift $ getInitializer
     r <- lift $ runInitializer initializer args
     case r of
         InitializerSucceeded _ _ tok -> do
@@ -497,7 +497,7 @@ doAddProject :: ( GuiCommand t m
              => t (SolutionResult UserError m) ()
 doAddProject = do
     arg <- unsplice $ getProjectCreatorArg
-    initializer <- lift $ lift getProjectInitializer
+    initializer <- lift getProjectInitializer
     result <- lift $ runProjectInitializer initializer arg
     case result of
         ProjectInitializerSucceeded _ _ pji -> do
@@ -515,7 +515,7 @@ doEditProject :: ( GuiCommand t m
              -> t (SolutionResult UserError m) ()
 doEditProject pji = do
     arg <- unsplice $ getProjectCreatorArg
-    editor <- lift $ lift getProjectEditor
+    editor <- lift getProjectEditor
     result <- lift $ runProjectEditor editor pji arg
     case result of
         ProjectEditorSucceeded _ _ pji' -> do

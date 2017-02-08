@@ -14,6 +14,7 @@ import Data.Text (Text)
 import Control.Monad.Catch
 
 import Control.Monad.Trans
+import Control.Monad.Trans.Resource
 
 import EnvironmentMonad
 
@@ -54,7 +55,7 @@ newtype StackEnvironment m a = StackEnvironment
            )
 -}
 
-instance (MonadIO m, MonadMask m) => BuilderMonad (CabalSolution m) where
+instance (MonadResource m, MonadMask m) => BuilderMonad (CabalSolution m) where
     getBuilder = return stackBuilder
 
 instance (MonadIO m, MonadMask m) => RunnerMonad (CabalSolution m) where

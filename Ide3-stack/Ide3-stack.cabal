@@ -43,5 +43,10 @@ library
                      , parsec
                      , containers
                      , text
+                     , conduit
+                     , conduit-extra
+                     , attoparsec
+                     , resourcet
+                     , transformers-base
   default-language:    Haskell2010
 

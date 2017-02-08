@@ -35,6 +35,7 @@ import System.Process
 import System.Directory
 
 import Control.Monad
+import Control.Monad.State.Strict
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Writer
@@ -424,10 +425,12 @@ doBuild :: ( ViewerIOAction m
         -> ViewerStateT m Text
 doBuild builder = printOnError $ do
     bounce prepareBuild
-    r <- ExceptT $ lift $ runExceptT $ runBuilder builder
+    let foo (Left x, y) = Left (x, y)
+        foo (Right x, y) = Right (x, y)
+    (r, errs)  <- ExceptT $ fmap foo $ ViewerStateT $ StateT $ \s -> flip runStateT [] $ flip runStateT s $ runViewerStateTInternal $ runExceptT $ runBuilder builder (\x -> modify (x:)) (const $ return ())
     case r of
-        BuildSucceeded contents _ -> return $ contents
-        BuildFailed contents _ -> return $ contents
+        BuildSucceeded -> return "" -- $ T.unlines errs
+        BuildFailed -> return "" -- $ T.unlines errs
 
 -- | Action for the run command
 doRun :: ( ViewerIOAction m

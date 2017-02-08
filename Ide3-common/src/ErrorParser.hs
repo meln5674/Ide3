@@ -3,11 +3,16 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module ErrorParser 
-    ( parseLog
+    ( ParseToken
+    , startParseLog
+    , parseNextLogLine
+    , log
+    , project
     ) where
 
-import Prelude hiding (lines, words, unwords, unlines, null)
+import Prelude hiding (lines, words, unwords, unlines, null, log)
 import qualified Prelude
 
 import Data.String hiding (unlines, lines, null)
@@ -15,15 +20,16 @@ import Data.String hiding (unlines, lines, null)
 import Data.Text (Text)
 import qualified Data.Text as T
 
+import Data.Attoparsec.Text (Parser, (<?>))
+import qualified Data.Attoparsec.Combinator as P
+import qualified Data.Attoparsec.Text as P
+
 import Text.Read (readMaybe)
 import Data.List hiding (unlines, lines, null)
 
 import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Except
-
-import Text.Parsec ((<|>), runParser, runParserT, ParsecT, Stream)
-import qualified Text.Parsec as P
 
 import ErrorParser.Types
 
@@ -78,72 +84,79 @@ data ParserState s
     , errors :: ![Error (ErrorLocation s) s]
     }
 
-libraryLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
+type StateParser s = StateT (ParserState s) Parser
+
+libraryLine :: Parser Text
 libraryLine = do
     library <- P.string "library"
-    void $ P.many P.anyChar
-    return $ fromString library
+    void $ P.manyTill' P.anyChar P.endOfLine
+    return library
 
-nonLibraryLine :: (IsString' s, Stream s m Char) => String -> ParsecT s u m s
+nonLibraryLine :: Text -> Parser Text
 nonLibraryLine str = do
     void $ P.string str 
     void $ P.char ' ' 
     void $ P.char '\'' 
     projName <- P.manyTill P.anyChar (P.try $ P.char '\'') 
-    void $ P.many P.anyChar 
+    void $ P.manyTill' P.anyChar P.endOfLine
     return $ fromString projName
 
-executableLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
+executableLine :: Parser Text
 executableLine = nonLibraryLine "executable"
 
-testSuiteLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
+testSuiteLine :: Parser Text
 testSuiteLine = nonLibraryLine "test-suite"
 
-benchmarkLine :: (IsString' s, Stream s m Char) => ParsecT s u m s
+benchmarkLine :: Parser Text
 benchmarkLine = nonLibraryLine "benchmark"
     
-projectLine :: (IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
+projectLine :: Parser (LineType Text)
 projectLine = do
     void $ P.string "Preprocessing "
     liftM (ProjectLine . ProjectName) 
-        $   libraryLine 
-        <|> executableLine 
-        <|> testSuiteLine 
-        <|> benchmarkLine
+        $   P.choice
+                [ libraryLine 
+                , executableLine 
+                , testSuiteLine 
+                , benchmarkLine
+                ]
 
-moduleCounter :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
+moduleCounter :: Parser (LineType Text)
 moduleCounter = do
-    (currentStr, totalStr) <- P.between (P.char '[') (P.char ']') $ do
-        P.skipMany P.space
-        current <- P.many1 P.digit
-        P.skipMany P.space
-        void $ P.string "of"
-        P.skipMany P.space
-        total <- P.many1 P.digit
-        P.skipMany P.space
-        return (current, total)
+    P.char '['
+    P.skipMany P.space
+    currentStr <- P.many1 P.digit
+    P.skipMany P.space
+    void $ P.string "of"
+    P.skipMany P.space
+    totalStr <- P.many1 P.digit
+    P.skipMany P.space
+    P.char ']'
     void $ P.string " Compiling "
     name <- fromString <$> P.manyTill P.anyChar (P.try P.space)
     case (readMaybe currentStr, readMaybe totalStr) of
-        (Just current, Just total) -> 
+        (Just current, Just total) -> do
+            lineRemainder
             return $ ModuleCounter current total (ModuleName name)
         _ -> error $ "Failed to parse module counter: " 
                    ++ show (currentStr, totalStr, name)
 
-errorType :: (IsString' s, Stream s m Char) => ParsecT s u m Bool
-errorType = (P.try $ P.string " warning:" *> return True) 
-        <|> (P.string " error:" *> return False)
+errorType :: Parser Bool
+errorType = P.choice
+    [ (P.try $ P.string " warning:" *> return True) 
+    , (P.string " error:" *> return False)
+    ]
 
-counter :: (IsString' s, Stream s m Char) => ParsecT s u m s
-counter = fromString <$> P.many1 P.digit
+counter :: Parser Text
+counter = fst <$> P.match P.decimal
 
-counterSep :: (IsString' s, Stream s m Char) => ParsecT s u m ()
+counterSep :: Parser ()
 counterSep = void $ P.char ':'
 
-lineRemainder :: (IsString' s, Stream s m Char) => ParsecT s u m ()
-lineRemainder = void $ P.manyTill P.anyChar (P.try P.eof)
+lineRemainder :: Parser ()
+lineRemainder = void $ P.manyTill P.anyChar P.endOfLine
 
-sourceLocationTail :: (IsString' s, Stream s m Char) => ParsecT s u m (s, s, Bool)
+sourceLocationTail :: Parser (Text, Text, Bool)
 sourceLocationTail = (,,) <$> (counter   <* counterSep)
                           <*> (counter   <* counterSep)
                           <*> (errorType <* lineRemainder)
@@ -158,9 +171,9 @@ sourceLocationTail = (,,) <$> (counter   <* counterSep)
     return (row,col,flag)
     -}
 
-sourceLocation' :: (IsString' s, Stream s m Char) => ParsecT s u m ([s],(s,s,Bool))
+sourceLocation' :: Parser ([Text],(Text,Text,Bool))
 sourceLocation' = do
-    part <- fromString <$> P.manyTill P.anyChar (P.try $ P.char ':')
+    part <- fromString <$> P.manyTill (P.satisfy $ not . P.isEndOfLine) (P.try $ P.char ':')
     --when (null part) $ unexpected ':'
     let left = do
             tailParts <- P.try sourceLocationTail
@@ -168,9 +181,9 @@ sourceLocation' = do
         right = do
             (parts,tailParts) <- sourceLocation'
             return $ (part:parts,tailParts)
-    P.try left <|> right
+    P.try $ P.choice [left, right]
 
-sourceLocation :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
+sourceLocation :: Parser (LineType Text)
 sourceLocation = do
     (parts,(rowStr,colStr,flag)) <- sourceLocation'
     let path = intercalate ":" $ map toString parts
@@ -180,33 +193,34 @@ sourceLocation = do
         _ -> error $ "Failed to parse source location: " 
                    ++ show (parts, rowStr, colStr, flag)
 
-textLine :: (IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
-textLine = (TextLine . fromString) <$> P.many P.anyChar
+textLine :: Parser (LineType Text)
+textLine = (TextLine . fromString) <$> P.manyTill' P.anyChar P.endOfLine
 
-line :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
-line =  P.try projectLine 
-    <|> P.try moduleCounter 
-    <|> P.try sourceLocation 
-    <|> textLine
+line :: Parser (LineType Text)
+line =  P.choice
+    [ P.try projectLine 
+    , P.try moduleCounter 
+    , P.try sourceLocation 
+    , textLine
+    ]
     
 
-mkError :: (IsString' s)
-        => ErrorType 
-        -> (ProjectName s)
-        -> (ModuleName s)
+mkError :: ErrorType 
+        -> (ProjectName Text)
+        -> (ModuleName Text)
         -> Row 
         -> Column 
-        -> [s]
-        -> Error (ErrorLocation s) s
+        -> [Text]
+        -> Error (ErrorLocation Text) Text
 mkError IsWarning projName modName row col parts 
     = Warning (ErrorLocation projName modName) row col $ unlines $ reverse parts
 mkError IsError projName modName row col parts 
     = Error (ErrorLocation projName modName) row col $ unlines $ reverse parts
 
-addError :: (IsString' s, MonadState (ParserState s) m)
+addError :: (MonadState (ParserState Text) m)
          => ErrorType 
-         -> (ProjectName s)
-         -> (ModuleName s)
+         -> (ProjectName Text)
+         -> (ModuleName Text)
          -> Row 
          -> Column
          -> m ()
@@ -249,16 +263,16 @@ ifNotFinished f = do
         Finished -> return ()
         _ -> f pmode
 
+type ParseError = String
+
+{-
 processLine :: ( Show s
                , IsString' s
-               , MonadState (ParserState s) m
-               , Stream s m Char
                )
-            => s
-            -> ParserMode s
-            -> ExceptT P.ParseError m ()
-processLine nextLine pmode = do
-    parseResult <- ExceptT $ runParserT line () "" nextLine
+            => ParserMode s
+            -> StateParser s ()
+processLine pmode = do
+    parseResult <- line
     lift $ case pmode of
         LookingForProject -> case parseResult of
             ProjectLine projName -> do
@@ -298,13 +312,63 @@ processLine nextLine pmode = do
                 | otherwise -> do
                     addErrorLine text
         Finished -> undefined
+-}
 
+
+don'tParse p = P.option Nothing (Just <$> p) >>= \case
+    Nothing -> pure ()
+    Just _ -> fail "don'tParse"
+
+
+log :: Parser [Error (ErrorLocation Text) Text]
+log = concat <$> P.many' project <* P.endOfInput
+
+projectHeader :: Parser (LineType Text)
+projectHeader = P.many' (don'tParse projectLine *> line) *> projectLine
+
+project :: Parser [Error (ErrorLocation Text) Text]
+project = f <$> projectHeader <*>  P.many' module_
+  where
+    f (ProjectLine pji) modules = x pji
+      where
+        x :: ProjectName Text -> [Error (ErrorLocation Text) Text]
+        x = fmap concat $ sequenceA modules
+
+module_ :: Parser (ProjectName Text -> [Error (ErrorLocation Text) Text])
+module_ = 
+    f <$> moduleCounter <*> P.many' errorBlock
+  where
+    f :: LineType Text -> [ProjectName Text -> ModuleName Text -> Error (ErrorLocation Text) Text] -> ProjectName Text -> [Error (ErrorLocation Text) Text]
+    f (ModuleCounter _ _ mi) blocks pji = x pji mi
+      where
+        x :: ProjectName Text -> ModuleName Text -> [Error (ErrorLocation Text) Text]
+        x = fmap sequenceA $ sequenceA blocks
+  
+    
+unimportantLine :: Parser (LineType Text)
+unimportantLine = (don'tParse $ P.choice [P.try projectLine, P.try moduleCounter, P.try sourceLocation]) 
+    *> line
+
+blockGap :: Parser ()
+blockGap = P.many' unimportantLine *> pure ()
+
+errorBlock :: Parser (ProjectName Text -> ModuleName Text -> Error (ErrorLocation Text) Text)
+errorBlock = 
+    blockGap
+    *> (f <$> sourceLocation <*> P.many' unimportantLine)
+  where
+    f :: LineType Text -> [LineType Text] -> ProjectName Text -> ModuleName Text -> Error (ErrorLocation Text) Text
+    f (SourceLocation path row col IsError) lines pji mi = Error (ErrorLocation pji mi) row col $ T.unlines $ map (\(TextLine l) -> l) lines
+    f (SourceLocation path row col IsWarning) lines pji mi = Warning (ErrorLocation pji mi) row col $ T.unlines $ map (\(TextLine l) -> l) lines
+--errorLine = don'tParse (P.choice [P.try projectLine, P.try moduleCounter, P.try sourceLocation]) *> textLine
+
+
+{-
 parseLine :: ( Show s
              , IsString' s
              , MonadState (ParserState s) m
-             , Stream s m Char
              )
-          => ExceptT P.ParseError m ()
+          => ExceptT ParseError m ()
 parseLine = ifNotFinished $ \pmode -> do
     result <- lift popLine
     case result of
@@ -320,7 +384,6 @@ parseLine = ifNotFinished $ \pmode -> do
 parseLog :: ( Show s
             , IsString' s
             , Monad m
-            , Stream s (StateT (ParserState s) m) Char
             )
          => s 
          -> m (Maybe [Error (ErrorLocation s) s])
@@ -345,3 +408,12 @@ parseLog logContents = do
     finalize = do
         errorList <- gets errors
         return $ reverse errorList
+-}
+
+newtype ParseToken = MkParseToken { unmkParseToken :: P.Result [Error (ErrorLocation Text) Text] }
+
+startParseLog :: ParseToken
+startParseLog = MkParseToken $ P.parse log ""
+
+parseNextLogLine :: Text -> ParseToken -> ParseToken
+parseNextLogLine t tok = MkParseToken $ P.feed (unmkParseToken tok) t

@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -6,6 +7,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 module CabalFilesystemSolution.Internal where
 
 import qualified Data.Text as T
@@ -24,9 +26,11 @@ import System.FilePath
 import Control.Monad.Catch
 
 import Control.Monad
+import Control.Monad.Base
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.State.Strict
+import Control.Monad.Trans.Resource
 
 import qualified Distribution.ModuleName as ModuleName
 import Distribution.Package
@@ -1077,3 +1081,9 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
 instance Monad m => DirtyModuleClass (CabalSolution m) where
     isModuleDirty = CabalFilesystemSolution.Internal.isModuleDirty
 
+instance (MonadBase IO m, MonadResource m) => MonadResource (CabalSolution m) where
+    liftResourceT = lift . liftResourceT
+
+instance (MonadBase b m) => MonadBase b (CabalSolution m) where
+    liftBase = lift . liftBase
+    
