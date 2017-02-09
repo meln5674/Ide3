@@ -16,6 +16,7 @@ modules, each of which contain exports, imports, and declarations.
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ide3.Types.Internal where
 
 import Data.Monoid
@@ -198,7 +199,14 @@ data Import
     deriving (Show, Read, Eq)
 
 -- |Identifier for an import statement
-type ImportId = Int
+newtype ImportId = ImportId { unImportId :: Int }
+  deriving (Eq, Ord, Num, Enum)
+
+instance Show ImportId where
+    show = show . unImportId
+
+instance Read ImportId where
+    readsPrec = fmap (fmap (fmap (\(a,b) -> (ImportId a,b)))) readsPrec
 
 -- |A specification from an import list
 data ImportKind
@@ -221,7 +229,15 @@ data Export
     deriving (Show, Read, Eq)
 
 -- |Identifier for an export statement
-type ExportId = Int
+newtype ExportId = ExportId { unExportId :: Int }
+  deriving (Eq, Ord, Num, Enum)
+
+instance Show ExportId where
+    show = show . unExportId
+
+instance Read ExportId where
+    readsPrec = fmap (fmap (fmap (\(a,b) -> (ExportId a,b)))) readsPrec
+
 
 -- |Information identifying a declaration
 data DeclarationInfo

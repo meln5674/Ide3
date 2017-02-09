@@ -286,9 +286,9 @@ parseUsing parser s p = case parser s p of
             x -> x
         header' = unAnn header
         pragmas' = map unAnn pragmas
-        eids = maybe [] (enumFromTo 0 . length) exports
+        eids = maybe [] (map ExportId . enumFromTo 0 . length) exports
         exports' = fmap (Map.fromList . zip eids . map unAnn) exports 
-        iids = [0..length imports]
+        iids = map ImportId [0..length imports]
         imports' = Map.fromList $ zip iids $ map unAnn imports
         declInfoAndItem d = (Declaration.info $ item $ unAnn d, unAnn d)
         decls' = OMap.fromList $ map declInfoAndItem decls
