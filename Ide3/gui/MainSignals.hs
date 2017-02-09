@@ -21,6 +21,7 @@ import System.FilePath
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
+import Control.Monad.Except
 
 import GI.Gtk hiding (TreePath, on, after)
 import qualified GI.Gtk as Gtk
@@ -246,12 +247,55 @@ onNewModuleConfirmed :: forall t m' p m
 onNewModuleConfirmed 
 -}
 
+onNewModuleClickedGeneric :: forall t m' p m
+                        . ( MainGuiClass t m' p m )
+                       => t (SolutionResult UserError m') (Maybe (ProjectInfo, (Maybe Text)))
+                       -> t m Bool
+onNewModuleClickedGeneric getArgs = do
+    maybeArgs <- dialogOnError' Nothing getArgs
+    case maybeArgs of
+        Just (pji, modName) -> do
+            NewModuleDialog.make modName $ \dialog -> do
+                void $ dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \_ -> do
+                    moduleName <- NewModuleDialog.getModuleName dialog
+                    case moduleName of
+                        "" -> doError $ InvalidOperation "Please enter a module name" ""
+                        _ -> do
+                            doAddModule pji (ModuleInfo (Symbol moduleName))
+                            NewModuleDialog.close dialog
+                    return False
+                void $ dialog `on` NewModuleDialog.cancelClickedEvent $ Func1 $ \_ -> do
+                    NewModuleDialog.close dialog
+                    return False
+        Nothing -> return ()
+    return False
+
 onNewModuleClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => ProjectInfo
               -> Maybe Text
               -> t m Bool
-onNewModuleClicked pji modName = do
+onNewModuleClicked pji modName = onNewModuleClickedGeneric (return $ Just (pji, modName))
+
+onNewModuleClickedMenu :: forall t {-proxy-} m' p m
+               . ( MainGuiClass t m' p m )
+              => t m Bool
+onNewModuleClickedMenu = onNewModuleClickedGeneric $ do
+    maybePji <- lift $ lift getCurrentProject
+    case maybePji of
+        Nothing -> lift $ throwError $ InvalidOperation "No current project" ""
+        Just pji -> return $ Just (pji, Nothing)
+
+onNewSubModuleClickedMenu :: forall t {-proxy-} m' p m
+               . ( MainGuiClass t m' p m )
+              => t m Bool 
+onNewSubModuleClickedMenu = onNewModuleClickedGeneric $ do
+    maybePjiMi <- lift $ lift getCurrentModule
+    case maybePjiMi of
+        Nothing -> lift $ throwError $ InvalidOperation "No current module" ""
+        Just (pji, ModuleInfo (Symbol t)) -> return $ Just (pji, Just t)
+
+{-do
     NewModuleDialog.make modName $ \dialog -> do
         void $ dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \_ -> do
             moduleName <- NewModuleDialog.getModuleName dialog
@@ -265,6 +309,7 @@ onNewModuleClicked pji modName = do
             NewModuleDialog.close dialog
             return False
     return False
+-}
 
 onNewImportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
@@ -730,6 +775,10 @@ setupMainSignals gui = do
         Func0 $ onForwardClicked
     void $ gui `on` MainWindow.declarationEditedEvent $ 
         Func0 $ onDeclEdited
+    void $ gui `on` MainWindow.newModuleClickedEvent $
+        Func0 $ void $ onNewModuleClickedMenu
+    void $ gui `on` MainWindow.newSubModuleClickedEvent $
+        Func0 $ void $ onNewSubModuleClickedMenu
     void $ gui `on` MainWindow.errorClickedEvent $ 
         Func2 $ onErrorClicked gui
     void $ gui `on` MainWindow.windowClosedEvent $ 

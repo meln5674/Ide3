@@ -40,6 +40,16 @@ executable Ide3-GUI
                      , Dialogs
                      , Dialogs.Class
                      , Dialogs.MainWindow
+                     , Dialogs.MainWindow.Menus
+                     , Dialogs.MainWindow.Accelerators
+                     , Dialogs.MainWindow.Components
+                     , Dialogs.MainWindow.Components.Signals
+                     , Dialogs.MainWindow.Components.Types
+                     , Dialogs.MainWindow.Menus.Accelerators
+                     , Dialogs.MainWindow.Menus.Signals
+                     , Dialogs.MainWindow.Menus.Types
+                     , Dialogs.MainWindow.Signals
+                     , Dialogs.MainWindow.Types
                      , Dialogs.NewSolutionDialog
                      , Dialogs.NewSolutionDialog.Types
                      , Dialogs.NewProjectDialog

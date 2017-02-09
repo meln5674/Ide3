@@ -54,6 +54,9 @@ module GuiHelpers
     , makeScrolledWindowWith
     , makeLabelEntryPairWith
     , makeLabelComboBoxPairWith
+    , makeHPanedWith
+    , makeVPanedWith
+    , makeSoloBox
     , addAccel
     -- * Tree Path's
     , withTreePath
@@ -190,6 +193,11 @@ makeHBoxWith window f = do
     liftIO $ window `containerAdd` hbox
     f hbox
 
+makeSoloBox :: (MonadIO m)
+            => m VBox
+makeSoloBox = vBoxNew False 0
+
+
 -- | Add a GTK notebook to a container, then apply an action to it
 makeNotebookWith :: ( MonadIO m
                     , IsContainer self
@@ -307,6 +315,26 @@ makeComboBox self = liftIO $ do
     box <- comboBoxNewWithModel model
     self `containerAdd` box
     return (box, model)
+
+makeVPanedWith :: (MonadIO m, IsContainer self) 
+               => self 
+               -> (VPaned -> m b) 
+               -> m b
+makeVPanedWith container f = do
+    vbox <- vPanedNew
+    container `containerAdd` vbox
+    f vbox
+
+makeHPanedWith :: (MonadIO m, IsContainer self) 
+               => self 
+               -> (HPaned -> m b)
+               -> m b
+makeHPanedWith container f = do
+    hbox <- hPanedNew
+    container `containerAdd` hbox
+    f hbox
+
+
 
 -- | Add an accelerator (keyboard shortcut) to a widget
 addAccel :: ( IsWidget subObject
