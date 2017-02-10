@@ -129,7 +129,7 @@ getSpanEnd = spanEnd . toSrcSpan
 -- | Make a source span by taking the difference of the rows of two source
 -- spans, and the column of the first
 diffRows :: SrcLoc -> SrcLoc -> SrcLoc
-diffRows (SrcLoc r1 c1) (SrcLoc r2 _) = (SrcLoc (r1-r2) c1)
+diffRows (SrcLoc r1 c1) (SrcLoc r2 _) = SrcLoc (r1-r2) c1
 
 -- | Identity
 instance Loccable SrcLoc where

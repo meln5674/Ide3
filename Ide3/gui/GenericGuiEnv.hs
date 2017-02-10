@@ -39,7 +39,7 @@ dialogOnError' :: ( Monad (t (MonadType t))
                => a
                -> t (SolutionResult UserError (MonadType t)) a
                -> t m a
-dialogOnError' default_ m = dialogOnError (return default_) m
+dialogOnError' = dialogOnError . return
 
 dialogOnErrorConc' :: ( Monad (t (MonadType t))
                       , GenericGuiEnv t
@@ -48,4 +48,4 @@ dialogOnErrorConc' :: ( Monad (t (MonadType t))
                       ) 
                    => t (SolutionResult UserError (MonadType t)) ()
                    -> t m ThreadId
-dialogOnErrorConc' m = dialogOnErrorConc (return ()) m
+dialogOnErrorConc' = dialogOnErrorConc (return ())

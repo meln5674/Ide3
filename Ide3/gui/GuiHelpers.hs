@@ -177,7 +177,9 @@ makeVBoxWith :: ( MonadIO m
              -> (VBox -> m b) 
              -> m b
 makeVBoxWith container f = do
-    vbox <- liftIO $ vBoxNew False 0
+    --vbox <- liftIO $ boxNew OrientationVertical 0
+    --setBoxHomogeneous vbox False
+    vbox <- vBoxNew False 0
     liftIO $ container `containerAdd` vbox
     f vbox
 
@@ -186,16 +188,22 @@ makeHBoxWith :: ( MonadIO m
                 , IsContainer self
                 )
              => self 
-             -> (HBox -> m b) 
+             -> (Box -> m b) 
              -> m b
 makeHBoxWith window f = do
-    hbox <- liftIO $ hBoxNew False 0
+    hbox <- liftIO $ boxNew OrientationHorizontal 0
+    setBoxHomogeneous hbox False
     liftIO $ window `containerAdd` hbox
     f hbox
 
 makeSoloBox :: (MonadIO m)
             => m VBox
-makeSoloBox = vBoxNew False 0
+makeSoloBox = do
+    --box <- boxNew OrientationVertical 0
+    --setBoxHomogeneous box False
+    box <- vBoxNew False 0
+    return box
+    
 
 
 -- | Add a GTK notebook to a container, then apply an action to it
@@ -217,10 +225,10 @@ makeNotebookPageWith :: ( MonadIO m )
                      -> (forall self . IsContainer self => self -> m b)
                      -> m b
 makeNotebookPageWith notebook name f = do
-    vbox <- liftIO $ vBoxNew False 0
-    void $ notebookAppendPage notebook vbox noLabel
-    notebookSetTabLabelText notebook vbox name
-    f vbox
+    box <- makeSoloBox
+    void $ notebookAppendPage notebook box noLabel
+    notebookSetTabLabelText notebook box name
+    f box
 
 -- | Add a GTK stack to a container, then apply an action to it
 makeStackWith :: ( MonadIO m

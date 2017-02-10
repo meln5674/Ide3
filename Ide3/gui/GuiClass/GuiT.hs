@@ -58,7 +58,7 @@ instance ( MonadIO m
             NewProjectDialog.resetFields dialog
             NewProjectDialog.setDialogMode dialog 
                 $ EditProject 
-                $ (let ProjectInfo projectName = getProjectInfo arg in projectName)
+                (let ProjectInfo projectName = getProjectInfo arg in projectName)
             NewProjectDialog.setPrimarySrcDir dialog 
                 $ primarySrcDir arg
             NewProjectDialog.setSecondarySrcDirs dialog 
@@ -87,7 +87,7 @@ instance ( MonadIO m
                     NewProjectDialog.setProjectType dialog Benchmark
                     NewProjectDialog.setBenchmarkProjectName dialog projectName
                     case benchmarkArgs of
-                        StdioBenchmarkArgs path -> do
+                        StdioBenchmarkArgs path -> 
                             NewProjectDialog.setBenchmarkMainModule dialog path
       where
         arg = mapStackArgs id T.pack T.pack arg'
@@ -96,24 +96,24 @@ instance ( MonadIO m
         = liftDialogs 
         $ withNewProjectDialogM
         $ \dialog -> do
-            let fromCommaList = map (T.strip) . T.splitOn ","
+            let fromCommaList = map T.strip . T.splitOn ","
             primarySrcDir <- NewProjectDialog.getPrimarySrcDir dialog
-            secondarySrcDirs <- liftM fromCommaList $ NewProjectDialog.getSecondarySrcDirs dialog
-            dependencies <- liftM fromCommaList $ NewProjectDialog.getDependencies dialog
+            secondarySrcDirs <- fromCommaList <$> NewProjectDialog.getSecondarySrcDirs dialog
+            dependencies <- fromCommaList <$> NewProjectDialog.getDependencies dialog
             projectType <- NewProjectDialog.getProjectType dialog
             arg' <- case projectType of
                 Executable -> do
                     projectName <- NewProjectDialog.getExecutableProjectName dialog
                     exeMainPath <- NewProjectDialog.getExecutableMainModule dialog
-                    return $ Right $ ExecutableProjectArgs 
+                    return $ Right ExecutableProjectArgs 
                         { primarySrcDir
                         , secondarySrcDirs
                         , projectName
                         , exeMainPath
                         , dependencies
                         }
-                Library -> do
-                    return $ Right $ LibraryProjectArgs
+                Library -> 
+                    return $ Right LibraryProjectArgs
                         { primarySrcDir
                         , secondarySrcDirs
                         , dependencies
@@ -122,11 +122,11 @@ instance ( MonadIO m
                     projectName <- NewProjectDialog.getTestProjectName dialog
                     testType <- NewProjectDialog.getTestProjectType dialog
                     testSuiteArgs <- case testType of
-                        ExitCode -> liftM StdioTestSuiteArgs
-                            $ NewProjectDialog.getTestMainModule dialog
-                        Detailed -> liftM DetailedTestSuiteArgs
-                            $ NewProjectDialog.getTestTestModule dialog
-                    return $ Right $ TestSuiteProjectArgs
+                        ExitCode -> StdioTestSuiteArgs
+                            <$> NewProjectDialog.getTestMainModule dialog
+                        Detailed -> DetailedTestSuiteArgs
+                            <$> NewProjectDialog.getTestTestModule dialog
+                    return $ Right TestSuiteProjectArgs
                         { projectName
                         , primarySrcDir
                         , secondarySrcDirs
@@ -135,9 +135,9 @@ instance ( MonadIO m
                         }
                 Benchmark -> do
                     projectName <- NewProjectDialog.getBenchmarkProjectName dialog
-                    benchmarkArgs <- liftM StdioBenchmarkArgs
-                        $ NewProjectDialog.getBenchmarkMainModule dialog
-                    return $ Right $ BenchmarkProjectArgs 
+                    benchmarkArgs <- StdioBenchmarkArgs
+                        <$> NewProjectDialog.getBenchmarkMainModule dialog
+                    return $ Right BenchmarkProjectArgs 
                         { primarySrcDir
                         , secondarySrcDirs
                         , projectName
@@ -169,7 +169,7 @@ getSolutionCreatorArg'
             runExceptT $ case maybeProjectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
-                    wrapIOError $ setCurrentDirectory $ projectRoot
+                    wrapIOError $ setCurrentDirectory projectRoot
                     --bounce $ setDirectoryToOpen $ projectRoot </> projectName
                     return $ StackInitializerArgs (T.unpack projectName) (fmap T.unpack templateName)
             

@@ -44,7 +44,7 @@ newtype DialogsT m a = DialogsT { runDialogsTInternal :: ReaderT Dialogs m a }
     )
 
 runDialogsT :: DialogsT m a -> Dialogs -> m a
-runDialogsT f dialogs = runReaderT (runDialogsTInternal f) dialogs
+runDialogsT = runReaderT . runDialogsTInternal
 
 mkDialogsT :: (Dialogs -> m a) -> DialogsT m a
 mkDialogsT = DialogsT . ReaderT

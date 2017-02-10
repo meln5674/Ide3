@@ -59,4 +59,4 @@ getSpec (IVar _ n) = NameImport (toSym n)
 getSpec (IAbs _ (NoNamespace _) n) = NameImport (toSym n)
 getSpec (IThingAll _ n) = AggregateImport (toSym n) Nothing
 getSpec (IThingWith _ n ns) = AggregateImport (toSym n) $ Just $ map toSym ns
-getSpec _ = error $ "Invalid import"
+getSpec _ = error "Invalid import"

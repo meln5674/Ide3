@@ -92,35 +92,35 @@ instance ErrorClass (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (S
     displayError msg = lift $ lift $ lift $ lift $ lift $ displayError msg
 
 instance BuilderMonad m => BuilderMonad (ViewerStateT m) where
-    getBuilder = liftM (mapBuilder lift) $ lift getBuilder
+    getBuilder = mapBuilder lift <$> lift getBuilder
 
 instance BuilderMonad m => BuilderMonad (GuiViewerT m) where
-    getBuilder = liftM (mapBuilder lift) $ lift getBuilder
+    getBuilder = mapBuilder lift <$> lift getBuilder
     
 instance RunnerMonad m => RunnerMonad (ViewerStateT m) where
-    getRunner = liftM (mapRunner lift) $ lift getRunner
+    getRunner = mapRunner lift <$> lift getRunner
 
 instance RunnerMonad m => RunnerMonad (GuiViewerT m) where
-    getRunner = liftM (mapRunner lift) $ lift getRunner
+    getRunner = mapRunner lift <$> lift getRunner
 
 instance InitializerMonad m => InitializerMonad (ViewerStateT m) where
-    getInitializer = liftM (mapInitializer lift) $ lift getInitializer
+    getInitializer = mapInitializer lift <$> lift getInitializer
     type ArgType (ViewerStateT m) = ArgType m
 
 instance InitializerMonad m => InitializerMonad (GuiViewerT m) where
-    getInitializer = liftM (mapInitializer lift) $ lift getInitializer
+    getInitializer = mapInitializer lift <$> lift getInitializer
     type ArgType (GuiViewerT m) = ArgType m
 
 instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) where
-    getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
-    getProjectEditor = liftM (mapProjectEditor lift) $ lift getProjectEditor
-    getProjectRetriever = liftM (mapProjectRetriever lift) $ lift getProjectRetriever
+    getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
+    getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
+    getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
     type ProjectArgType (ViewerStateT m) = ProjectArgType m
 
 instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) where
-    getProjectInitializer = liftM (mapProjectInitializer lift) $ lift getProjectInitializer
-    getProjectEditor = liftM (mapProjectEditor lift) $ lift getProjectEditor
-    getProjectRetriever = liftM (mapProjectRetriever lift) $ lift getProjectRetriever
+    getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
+    getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
+    getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
     type ProjectArgType (GuiViewerT m) = ProjectArgType m
 
 type MonadStack = GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))
@@ -130,13 +130,14 @@ makeDialogs :: Monad m' => AccelGroup -> GuiEnv m' p -> IO Dialogs
 makeDialogs group = runGuiEnvT $ do
     withGuiComponents $ applyDeclBufferAttrs defaultTextAttrs
     newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do
-        void $ runIdentityT $ dialog `on` NewSolutionDialog.cancelClicked $ Func1 $ \_ -> lift $ do
-            NewSolutionDialog.setVisible dialog False
-            return False
+        void $ runIdentityT $
+            dialog `on` NewSolutionDialog.cancelClicked $ Func1 $ \_ -> lift $ do
+                NewSolutionDialog.setVisible dialog False
+                return False
         return dialog
     newProjectDialog <- NewProjectDialog.make $ \dialog -> do
-        runIdentityT $ do
-            void $ dialog `on` NewProjectDialog.cancelClicked $ Func1 $ \_ -> lift $ do
+        runIdentityT $ void $
+            dialog `on` NewProjectDialog.cancelClicked $ Func1 $ \_ -> lift $ do
                 NewProjectDialog.setVisible dialog False
                 return False
         return dialog
@@ -152,14 +153,14 @@ makeDialogs group = runGuiEnvT $ do
         }
 
 setupNewSolutionDialogSignals :: NewSolutionDialog.NewSolutionDialog -> GuiT MonadStack GuiState IO ()
-setupNewSolutionDialogSignals newSolutionDialog = do
-    void $ newSolutionDialog `on` NewSolutionDialog.confirmClicked $ Func1 $ \_ -> do
+setupNewSolutionDialogSignals newSolutionDialog = void $ 
+    newSolutionDialog `on` NewSolutionDialog.confirmClicked $ Func1 $ \_ -> do
         onNewSolutionConfirmed
         return False
 
 setupNewProjectDialogSignals :: NewProjectDialog.NewProjectDialog -> GuiT MonadStack GuiState IO ()
-setupNewProjectDialogSignals newProjectDialog = do
-    void $ newProjectDialog `on` NewProjectDialog.confirmClicked $ Func1 $ \_ -> do
+setupNewProjectDialogSignals newProjectDialog = void $
+    newProjectDialog `on` NewProjectDialog.confirmClicked $ Func1 $ \_ -> do
         mode <- NewProjectDialog.getDialogMode newProjectDialog
         case mode of
             NewProjectDialog.CreateProject -> onNewProjectConfirmed

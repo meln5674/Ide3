@@ -78,7 +78,7 @@ removeExport ei m = case Map.lookup ei $ externModuleExports m of
 getExport :: Monad m
           => ExportId
           -> ExternModule
-          -> SolutionResult u m (ExternExport)
+          -> SolutionResult u m ExternExport
 getExport ei m = case Map.lookup ei $ externModuleExports m of
     Nothing -> throwE $ InvalidExportId (info m) ei "ExternModule.getExport"
     Just e -> return e

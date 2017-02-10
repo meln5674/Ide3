@@ -48,7 +48,7 @@ runInitializerWithInput :: (Args a)
                => Initializer a m
                -> [String]
                -> Either String (SolutionResult u m (InitializerResult m) )
-runInitializerWithInput initializer = liftM (runInitializerInternal initializer) . getArgsFrom
+runInitializerWithInput initializer = fmap (runInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
 runInitializer :: Initializer a m
@@ -68,7 +68,7 @@ mapInitializer :: ( PersistToken m ~ PersistToken m'
                => (forall b . m b -> m' b) 
                -> Initializer a m 
                -> Initializer a m'
-mapInitializer f (Initializer b) = Initializer $ \x -> mapExceptT f $ fmap repack $ b x
+mapInitializer f (Initializer b) = Initializer $ mapExceptT f . fmap repack . b
     
   where
     repack (InitializerSucceeded out err tok) = InitializerSucceeded out err tok

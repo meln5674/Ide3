@@ -11,6 +11,22 @@ import GI.Gtk
 import GuiHelpers
 
 import Dialogs.MainWindow.Types
+import Dialogs.MainWindow.Accelerators
+
+addMenusAccelerator :: ( MonadIO m
+                          , IsAccelGroup group
+                          , Integral key
+                          , IsWidget subObject
+                          )
+                       => (Menus -> subObject)
+                       -> Text
+                       -> MainWindow
+                       -> group
+                       -> key
+                       -> [ModifierType] 
+                       -> [AccelFlags]
+                       -> m ()
+addMenusAccelerator f = addMainWindowAccelerator (f . menus)
 
 addFileMenuAccelerator :: ( MonadIO m
                           , IsAccelGroup group
@@ -25,7 +41,7 @@ addFileMenuAccelerator :: ( MonadIO m
                        -> [ModifierType] 
                        -> [AccelFlags]
                        -> m ()
-addFileMenuAccelerator f e = (f . fileMenu) `addAccel` e
+addFileMenuAccelerator f = addMenusAccelerator (f . fileMenu)
 
 addSolutionMenuAccelerator :: ( MonadIO m
                               , IsAccelGroup group
@@ -40,7 +56,7 @@ addSolutionMenuAccelerator :: ( MonadIO m
                        -> [ModifierType] 
                        -> [AccelFlags]
                        -> m ()
-addSolutionMenuAccelerator f e = (f . solutionMenu) `addAccel` e
+addSolutionMenuAccelerator f = addMenusAccelerator (f . solutionMenu)
 
 addSearchMenuAccelerator :: ( MonadIO m
                             , IsAccelGroup group
@@ -55,7 +71,7 @@ addSearchMenuAccelerator :: ( MonadIO m
                        -> [ModifierType] 
                        -> [AccelFlags]
                        -> m ()
-addSearchMenuAccelerator f e = (f . searchMenu) `addAccel` e
+addSearchMenuAccelerator f = addMenusAccelerator (f . searchMenu)
 
 addNavigationMenuAccelerator :: ( MonadIO m
                                 , IsAccelGroup group
@@ -70,7 +86,7 @@ addNavigationMenuAccelerator :: ( MonadIO m
                        -> [ModifierType] 
                        -> [AccelFlags]
                        -> m ()
-addNavigationMenuAccelerator f e = (f . navigationMenu) `addAccel` e
+addNavigationMenuAccelerator f = addMenusAccelerator (f . navigationMenu)
 
 addNewClickedEventAccelerator :: ( MonadIO m
                                  , IsAccelGroup group

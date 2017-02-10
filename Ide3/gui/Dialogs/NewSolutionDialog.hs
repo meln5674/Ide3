@@ -72,13 +72,13 @@ makeHBoxWith vbox f = do
     f hbox
 -}
 
-makeSolutionBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
+makeSolutionBoxWith :: (MonadIO m, IsContainer self) => self -> (Box -> m b) -> m b    
 makeSolutionBoxWith = makeHBoxWith
 
-makeTemplateBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
+makeTemplateBoxWith :: (MonadIO m, IsContainer self) => self -> (Box -> m b) -> m b    
 makeTemplateBoxWith = makeHBoxWith
 
-makeButtonBoxWith :: (MonadIO m, IsContainer self) => self -> (HBox -> m b) -> m b    
+makeButtonBoxWith :: (MonadIO m, IsContainer self) => self -> (Box -> m b) -> m b    
 makeButtonBoxWith = makeHBoxWith
 
 makeSolutionNameLabel :: (MonadIO m, IsBox self) => self -> m Label

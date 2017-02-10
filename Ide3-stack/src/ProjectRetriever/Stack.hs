@@ -32,20 +32,20 @@ stackProjectRetriever = ProjectRetriever $ \pji -> do
                 (primarySrcDir : secondarySrcDirs) = hsSourceDirs buildInfo'
                 dependencies = map display $ targetBuildDepends buildInfo'
                 exeMainPath = modulePath exe
-            return $ ExecutableProjectArgs { projectName
-                                           , primarySrcDir
-                                           , secondarySrcDirs
-                                           , dependencies
-                                           , exeMainPath
-                                           }
+            return ExecutableProjectArgs { projectName
+                                         , primarySrcDir
+                                         , secondarySrcDirs
+                                         , dependencies
+                                         , exeMainPath
+                                         }
         LibraryProject lib -> do
             let buildInfo = libBuildInfo lib
                 (primarySrcDir : secondarySrcDirs) = hsSourceDirs buildInfo
                 dependencies = map display $ targetBuildDepends buildInfo
-            return $ LibraryProjectArgs { primarySrcDir
-                                        , secondarySrcDirs
-                                        , dependencies
-                                        }
+            return LibraryProjectArgs { primarySrcDir
+                                      , secondarySrcDirs
+                                      , dependencies
+                                      }
         TestSuiteProject (ProjectInfo projectName) test -> do
             let buildInfo = testBuildInfo test
                 (primarySrcDir : secondarySrcDirs) = hsSourceDirs buildInfo
@@ -54,12 +54,12 @@ stackProjectRetriever = ProjectRetriever $ \pji -> do
                 TestSuiteExeV10 _ path -> return $ StdioTestSuiteArgs path
                 TestSuiteLibV09 _ name -> return $ DetailedTestSuiteArgs $ display name
                 TestSuiteUnsupported _ -> throwE $ InvalidOperation "Unsupported test suite" ""
-            return $ TestSuiteProjectArgs { projectName
-                                          , primarySrcDir
-                                          , secondarySrcDirs
-                                          , dependencies
-                                          , testSuiteArgs
-                                          }
+            return TestSuiteProjectArgs { projectName
+                                        , primarySrcDir
+                                        , secondarySrcDirs
+                                        , dependencies
+                                        , testSuiteArgs
+                                        }
         BenchmarkProject (ProjectInfo projectName) bench -> do
             let buildInfo = benchmarkBuildInfo bench
                 (primarySrcDir : secondarySrcDirs) = hsSourceDirs buildInfo
@@ -67,9 +67,9 @@ stackProjectRetriever = ProjectRetriever $ \pji -> do
             benchmarkArgs <- case benchmarkInterface bench of
                     BenchmarkExeV10 _ path -> return $ StdioBenchmarkArgs path
                     BenchmarkUnsupported _ -> throwE $ InvalidOperation "Unsupported benchmark" ""
-            return $ BenchmarkProjectArgs { projectName
-                                          , primarySrcDir
-                                          , secondarySrcDirs
-                                          , dependencies
-                                          , benchmarkArgs
-                                          }
+            return  BenchmarkProjectArgs { projectName
+                                         , primarySrcDir
+                                         , secondarySrcDirs
+                                         , dependencies
+                                         , benchmarkArgs
+                                         }

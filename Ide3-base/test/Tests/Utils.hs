@@ -120,10 +120,10 @@ nonExistentDeclaration = WithBody
                                   (Symbol "String"))
     "type TestType = String" 
 newExport = WithBody (SingleExport (Symbol "testSymbol")) "testSymbol"
-nonExistentExportId = -1 :: Int
+nonExistentExportId = -1 :: ExportId
 
 newImport = WithBody (ModuleImport (Symbol "Test.Module") False Nothing) "import Test.Module"
-nonExistentImportId = -1 :: Int
+nonExistentImportId = -1 :: ImportId
 
 newModule2Import = WithBody (ModuleImport (Symbol "New.Module2") False Nothing) "import New.Module2"
 nonExistentDeclarationExport = WithBody (SingleExport (Symbol "NonExistentType")) "NonExistentType"

@@ -105,11 +105,12 @@ benchmarkLine = nonLibraryLine "benchmark"
 projectLine :: (IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 projectLine = do
     void $ P.string "Preprocessing "
-    liftM (ProjectLine . ProjectName) 
-        $   libraryLine 
-        <|> executableLine 
-        <|> testSuiteLine 
-        <|> benchmarkLine
+    (ProjectLine . ProjectName) <$> P.choice 
+        [ libraryLine 
+        , executableLine 
+        , testSuiteLine 
+        , benchmarkLine
+        ]
 
 moduleCounter :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
 moduleCounter = do
@@ -131,7 +132,7 @@ moduleCounter = do
                    ++ show (currentStr, totalStr, name)
 
 errorType :: (IsString' s, Stream s m Char) => ParsecT s u m Bool
-errorType = (P.try $ P.string " warning:" *> return True) 
+errorType = P.try (P.string " warning:" *> return True) 
         <|> (P.string " error:" *> return False)
 
 counter :: (IsString' s, Stream s m Char) => ParsecT s u m s
@@ -167,7 +168,7 @@ sourceLocation' = do
             return ([part],tailParts)
         right = do
             (parts,tailParts) <- sourceLocation'
-            return $ (part:parts,tailParts)
+            return (part:parts, tailParts)
     P.try left <|> right
 
 sourceLocation :: (Show s, IsString' s, Stream s m Char) => ParsecT s u m (LineType s)
@@ -192,8 +193,8 @@ line =  P.try projectLine
 
 mkError :: (IsString' s)
         => ErrorType 
-        -> (ProjectName s)
-        -> (ModuleName s)
+        -> ProjectName s
+        -> ModuleName s
         -> Row 
         -> Column 
         -> [s]
@@ -205,8 +206,8 @@ mkError IsError projName modName row col parts
 
 addError :: (IsString' s, MonadState (ParserState s) m)
          => ErrorType 
-         -> (ProjectName s)
-         -> (ModuleName s)
+         -> ProjectName s
+         -> ModuleName s
          -> Row 
          -> Column
          -> m ()
@@ -261,23 +262,23 @@ processLine nextLine pmode = do
     parseResult <- ExceptT $ runParserT line () "" nextLine
     lift $ case pmode of
         LookingForProject -> case parseResult of
-            ProjectLine projName -> do
+            ProjectLine projName -> 
                 setMode $ LookingForModule projName
             _ -> return ()
         
         LookingForModule projName -> case parseResult of
-            ProjectLine projName' -> do
+            ProjectLine projName' -> 
                 setMode $ LookingForModule projName'
-            ModuleCounter _ _ modName -> do
+            ModuleCounter _ _ modName -> 
                 setMode $ LookingForError projName modName
             _ -> return ()
         
         LookingForError projName modName -> case parseResult of
-            ProjectLine projName' -> do
+            ProjectLine projName' -> 
                 setMode $ LookingForModule projName'
-            ModuleCounter _ _ modName' -> do
+            ModuleCounter _ _ modName' -> 
                 setMode $ LookingForError projName modName'
-            SourceLocation _ row col etype -> do
+            SourceLocation _ row col etype -> 
                 setMode $ ReadingMessage projName modName row col etype
             _ -> return ()
         
@@ -295,8 +296,7 @@ processLine nextLine pmode = do
                 | null text -> do
                     addError etype projName modName row col
                     setMode $ LookingForError projName modName
-                | otherwise -> do
-                    addErrorLine text
+                | otherwise -> addErrorLine text
         Finished -> undefined
 
 parseLine :: ( Show s

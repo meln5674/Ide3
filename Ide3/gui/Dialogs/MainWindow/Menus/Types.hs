@@ -45,4 +45,12 @@ data ModuleMenu
     , newDeclarationButton :: MenuItem
     }
 
-
+data Menus
+    = Menus
+    { fileMenu :: FileMenu
+    , solutionMenu :: SolutionMenu
+    , searchMenu :: SearchMenu
+    , navigationMenu :: NavigationMenu
+    , projectMenu :: ProjectMenu
+    , moduleMenu :: ModuleMenu
+    }

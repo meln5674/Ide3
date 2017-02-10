@@ -34,12 +34,12 @@ instance ( MonadIO m
         = withNewSolutionDialog
         $ \dialog -> do
             projectRoot <- NewSolutionDialog.getSelectedFolder dialog
-            projectName <- liftM unpack $ NewSolutionDialog.getSolutionName dialog
-            templateName <- liftM (fmap unpack) $ NewSolutionDialog.getTemplateName dialog
+            projectName <- unpack <$> NewSolutionDialog.getSolutionName dialog
+            templateName <- fmap unpack <$> NewSolutionDialog.getTemplateName dialog
             runExceptT $ case projectRoot of
                 Nothing -> throwE $ InvalidOperation "Please choose a directory" ""
                 Just projectRoot -> do
-                    wrapIOError $ setCurrentDirectory $ projectRoot
+                    wrapIOError $ setCurrentDirectory projectRoot
                     bounce $ setDirectoryToOpen $ projectRoot </> projectName
                     return $ StackInitializerArgs projectName templateName
         

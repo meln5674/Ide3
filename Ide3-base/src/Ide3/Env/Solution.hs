@@ -97,7 +97,7 @@ editModule = descend2 Project.editModule
 -- | Get the header from a module
 getModuleHeader :: Monad m
                 => DescentChain3 Solution ProjectInfo ModuleInfo m u Text
-getModuleHeader = descend1 $ Project.getModuleHeader
+getModuleHeader = descend1 Project.getModuleHeader
     
 -- | Edit the header of a module
 editModuleHeader :: Monad m
@@ -105,7 +105,7 @@ editModuleHeader :: Monad m
                                   ProjectInfo 
                                   ModuleInfo (Text -> Text) 
                                   m u ()
-editModuleHeader = descend2 $ Project.editModuleHeader
+editModuleHeader = descend2 Project.editModuleHeader
 
 setModuleUnparsable :: Monad m
                      => DescentChain4 Solution
@@ -113,21 +113,21 @@ setModuleUnparsable :: Monad m
                                       ModuleInfo
                                       (Text, SrcLoc, String)
                         m u ()
-setModuleUnparsable = descend2 $ Project.setModuleUnparsable
+setModuleUnparsable = descend2 Project.setModuleUnparsable
 
 setModuleParsable :: Monad m
                    => DescentChain3 Solution
                                     ProjectInfo
                                     ModuleInfo
                       m u ()
-setModuleParsable = descend1 $ Project.setModuleParsable
+setModuleParsable = descend1 Project.setModuleParsable
 
 getUnparsableModule :: Monad m
                      => DescentChain3 Solution
                                       ProjectInfo
                                       ModuleInfo
                         m u (Maybe (Text, SrcLoc, String))
-getUnparsableModule = descend1 $ Project.getUnparsableModule
+getUnparsableModule = descend1 Project.getUnparsableModule
 
 -- | Add an external module to a project
 addExternModule :: Monad m 
@@ -295,7 +295,7 @@ addExternExport :: Monad m
                                  ModuleInfo 
                                  ExternExport 
                                  m u ExportId
-addExternExport = descend2 $ Project.addExternExport
+addExternExport = descend2 Project.addExternExport
 
 -- | Remove an export by id
 removeExternExport :: Monad m 
@@ -304,7 +304,7 @@ removeExternExport :: Monad m
                                     ModuleInfo 
                                     ExportId 
                                     m u ()
-removeExternExport = descend2 $ Project.removeExternExport
+removeExternExport = descend2 Project.removeExternExport
 
 -- | Get an export by id
 getExternExport :: Monad m 
@@ -313,7 +313,7 @@ getExternExport :: Monad m
                                  ModuleInfo 
                                  ExportId 
                                  m u ExternExport
-getExternExport = descend2 $ Project.getExternExport
+getExternExport = descend2 Project.getExternExport
 
 -- | Get the ids of all exports, or signify that all symbols are exported
 getExternExports :: Monad m 
@@ -321,4 +321,4 @@ getExternExports :: Monad m
                                   ProjectInfo 
                                   ModuleInfo 
                                   m u [ExportId]
-getExternExports = descend1 $ Project.getExternExports
+getExternExports = descend1 Project.getExternExports

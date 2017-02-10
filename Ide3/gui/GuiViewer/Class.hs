@@ -1,11 +1,8 @@
 module GuiViewer.Class where
 
 import Data.Set (Set)
-import qualified Data.Set as S
 
 import Data.Text
-
-import Control.Monad
 
 import SearchMode
 import DeclarationPath

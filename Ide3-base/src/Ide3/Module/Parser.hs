@@ -22,13 +22,6 @@ import Control.Monad
 
 import Language.Haskell.Exts.Parser
 import Language.Haskell.Exts.Pretty
-import Language.Haskell.Exts.Parser
-    ( ParseResult(..)
-    , defaultParseMode
-    , parseFilename
-    , extensions
-    , fixities
-    )
 import Language.Haskell.Exts (readExtensions)
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc (SrcInfo, SrcSpanInfo)
@@ -49,8 +42,8 @@ import Ide3.Utils.Parser
 data ExtractionResults l
     = Extracted 
     { extractedModuleInfo :: Ann l ModuleInfo
-    , extractedModuleHeader :: (Ann l Text)
-    , exrtractedPragmas :: [(Ann l Pragma)]
+    , extractedModuleHeader :: Ann l Text
+    , exrtractedPragmas :: [Ann l Pragma]
     , extractedExports :: Maybe [Ann l (WithBody Export)]
     , extractedImports :: [Ann l (WithBody Import)]
     , extractedDeclarations :: [Ann l (WithBody Declaration)]
@@ -88,7 +81,7 @@ extractInfo _ (m,_) = Ann mAnn' mInfo
 extractPragmas :: (FileSpannable l)
                => String 
                -> (Syntax.Module l, [Comment]) 
-               -> [(Ann SrcFileSpan Pragma)]
+               -> [Ann SrcFileSpan Pragma]
 extractPragmas _ m
     | (Syntax.Module _ _ ps _ _,_) <- m 
     = map (annotate Syntax.ann (T.pack . prettyPrint)) ps
@@ -123,7 +116,6 @@ extractExports str m
     , (Syntax.ModuleHead _ _ _ (Just specList)) <- mHead 
     , (Syntax.ExportSpecList _ exports) <- specList 
     = Just $ map (annotate Syntax.ann $ Export.convertWithBody $ T.pack str) exports 
-  where
 extractExports _ _ = Nothing
 
 -- | Extract the imports from a module
@@ -134,7 +126,6 @@ extractImports :: FileSpannable l
 extractImports str m
     | (Syntax.Module _ _ _ imports _, _) <- m
     = map (annotate Syntax.ann $ Import.convertWithBody $ T.pack str) imports
-  where
 extractImports _ _ = []
 
 
@@ -145,8 +136,7 @@ extractDecls :: (SrcInfo l, FileSpannable l)
              -> Either (SolutionError u) 
                        [Ann SrcFileSpan (WithBody Declaration)]
 extractDecls str (Syntax.Module mAnn _ _ _ decls, cs) = do
-    converted <- forM decls $ \d -> do
-        Declaration.convertWithBody (T.pack str) cs d
+    converted <- forM decls $ Declaration.convertWithBody (T.pack str) cs
     let pathless = Declaration.combineMany converted
     return $ map (mapAnn $ mkSrcFileSpanFrom mAnn) pathless
 extractDecls _ _ = Right []
@@ -211,7 +201,7 @@ parseMain s p = case parseModuleWithComments parseMode s of
             return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
         ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
-    exts = (maybe [] snd $ readExtensions s)
+    exts = maybe [] snd $ readExtensions s
     parseMode = case p of
         Just fn -> defaultParseMode
                  { parseFilename=fn

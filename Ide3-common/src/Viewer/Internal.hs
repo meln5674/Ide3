@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-|
 Module      : Viewer
@@ -40,7 +39,6 @@ import Ide3.Types
 --import qualified Ide3.NewMonad as M
 import Ide3.NewMonad
 import Ide3.NewMonad.Instances.Lift.TH
-import Ide3.Types (SolutionError (..), DeclarationInfo(..), ModuleInfo(..))
 
 import ViewerMonad
 
@@ -128,13 +126,13 @@ resumeViewerState f runFSPT (Resume viewer fsp proj) = do
 -}
 
 hasCurrentProject :: (ViewerStateClass m) => m Bool
-hasCurrentProject = liftM isJust getCurrentProject
+hasCurrentProject = isJust <$> getCurrentProject
 
 -- | Check if the program currently has a module open
 hasCurrentModule :: (ViewerStateClass m) => m Bool
-hasCurrentModule = liftM isJust getCurrentModule
+hasCurrentModule = isJust <$> getCurrentModule
 
 
 hasCurrentDeclaration :: (ViewerStateClass m) => m Bool
-hasCurrentDeclaration = liftM isJust getCurrentDeclaration
+hasCurrentDeclaration = isJust <$> getCurrentDeclaration
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE QuasiQuotes #-}
 module Ide3.NewMonad.Instances.Lift.TH where
 
 import Data.Map (Map)
@@ -34,11 +33,9 @@ data Betterderiving
     }
 
 head2Pred :: BetterderivingHead -> TH.Pred
-head2Pred (BetterderivingHead cname args) = go (TH.ConT cname) args
+head2Pred (BetterderivingHead cname args) = foldl app (TH.ConT cname) args
   where
-    go t [] = t
-    go t (x:xs) = go (TH.AppT t (TH.VarT x)) xs
-  
+    app t x = TH.AppT t $ TH.VarT x
 
 commaWithSpaces :: ParsecT String u TH.Q ()
 commaWithSpaces = spaces *> char ',' *> spaces
@@ -100,7 +97,9 @@ localVar = TH.mkName
 
 
 mkOverrideMap :: [BetterderivingOverride] -> Map TH.Name TH.Name
-mkOverrideMap = M.fromList . (map $ \(BetterderivingOverride methodName liftFunc) -> (methodName, liftFunc))
+mkOverrideMap = M.fromList . map toPair
+ where
+   toPair (BetterderivingOverride methodName liftFunc) = (methodName, liftFunc)
 
 betterderivingHead :: ParsecT String u TH.Q BetterderivingHead
 betterderivingHead = BetterderivingHead <$> tyCon 
@@ -130,10 +129,10 @@ parseBetterderiving (file, line, col) s = do
     --p :: ParsecT s u TH.Q Betterderiving
     p = do
         pos <- getPosition
-        setPosition $ (flip setSourceName) file
-                    $ (flip setSourceLine) line
-                    $ (flip setSourceColumn) col
-                    $ pos
+        setPosition $ flip setSourceName file
+                    $ flip setSourceLine line
+                    $ flip setSourceColumn col
+                      pos
         spaces
         b <- betterderivingBody
         spaces
@@ -149,15 +148,11 @@ quoteBetterderivingDec s = do
               )
     Betterderiving defaultLiftFunc supers classNames (BetterderivingHead conName conArgs) overrideMap <- parseBetterderiving pos s
     let getLiftFunc methodName = maybe defaultLiftFunc id (M.lookup methodName overrideMap)
-    instDecs <- forM classNames $ \className -> do
+    forM classNames $ \className ->
         mkSpliceInstance getLiftFunc (map head2Pred supers) className conName conArgs
-    return instDecs
         
 mkConApp :: TH.Name -> [TH.Type] -> TH.Type
-mkConApp n = go (TH.ConT n)
-  where
-    go t [] = t
-    go t (x:xs) = go (TH.AppT t x) xs
+mkConApp n = foldl TH.AppT (TH.ConT n)
 
 modifyLast :: (a -> a) -> [a] -> [a]
 modifyLast _ [] = error "Empty list"
@@ -173,12 +168,12 @@ funcArgCount = go 0
     go x _ = x
 
 appArgs :: TH.Exp -> [TH.Name] -> TH.Exp
-appArgs t [] = t
-appArgs t (x:xs) = appArgs (TH.AppE t (TH.VarE x)) xs
+appArgs = foldl app
+  where
+    app t x = TH.AppE t $ TH.VarE x
 
 appTArgs :: TH.Type -> [TH.Type] -> TH.Type
-appTArgs t [] = t
-appTArgs t (x:xs) = appTArgs (TH.AppT t x) xs
+appTArgs = foldl TH.AppT
 
 mkSpliceInstanceMethod' :: TH.Name -> TH.Name -> TH.Type -> TH.Q TH.Dec
 mkSpliceInstanceMethod' liftFunc methodName methodType = do
@@ -222,7 +217,7 @@ getBndrName (TH.PlainTV n) = n
 getBndrName (TH.KindedTV n _) = n
 
 spliceConName :: TH.Name -> [TH.Name] -> [TH.Type] -> [TH.Type]
-spliceConName conName conVars varTypes = modifyLast (\v -> mkConApp conName $ map TH.VarT conVars ++ [v]) varTypes
+spliceConName conName conVars = modifyLast (\v -> mkConApp conName $ map TH.VarT conVars ++ [v])
 
 mkSpliceInstance :: (TH.Name -> TH.Name) -> TH.Cxt -> TH.Name -> TH.Name -> [TH.Name] -> TH.Q TH.Dec
 mkSpliceInstance getLiftFunc conCxt className conName conVars = do

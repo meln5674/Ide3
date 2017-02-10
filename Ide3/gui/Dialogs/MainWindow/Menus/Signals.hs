@@ -11,24 +11,26 @@ import Dialogs.MainWindow.Signals
 
 import Dialogs.MainWindow.Types
 
+mkMenuSignal :: (Menus -> object) -> SignalProxy object info -> MainWindowSignal object info
+mkMenuSignal getter = mkMainWindowSignal (getter . menus)
 
 mkFileMenuSignal :: (FileMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkFileMenuSignal getter signal window = (getter $ fileMenu window, signal)
+mkFileMenuSignal getter = mkMenuSignal (getter . fileMenu) 
 
 mkSolutionMenuSignal :: (SolutionMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkSolutionMenuSignal getter signal window = (getter $ solutionMenu window, signal)
+mkSolutionMenuSignal getter = mkMenuSignal (getter . solutionMenu)
 
 mkSearchMenuSignal :: (SearchMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkSearchMenuSignal getter signal window = (getter $ searchMenu window, signal)
+mkSearchMenuSignal getter = mkMenuSignal (getter . searchMenu)
 
 mkNavigationMenuSignal :: (NavigationMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkNavigationMenuSignal getter signal window = (getter $ navigationMenu window, signal)
+mkNavigationMenuSignal getter = mkMenuSignal (getter . navigationMenu)
 
 mkProjectMenuSignal :: (ProjectMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkProjectMenuSignal getter signal window = (getter $ projectMenu window, signal)
+mkProjectMenuSignal getter = mkMenuSignal (getter . projectMenu)
 
 mkModuleMenuSignal :: (ModuleMenu -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkModuleMenuSignal getter signal window = (getter $ moduleMenu window, signal)
+mkModuleMenuSignal getter = mkMenuSignal (getter . moduleMenu)
 
 newClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
 newClickedEvent = newButton `mkFileMenuSignal` #activate

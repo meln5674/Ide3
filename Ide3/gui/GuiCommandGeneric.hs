@@ -1,4 +1,4 @@
-{-# LANGUAGE PolyKinds, ConstraintKinds, FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds, ConstraintKinds, FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module GuiCommandGeneric where
@@ -39,15 +39,15 @@ type GuiCommand2 t m' m =
 doError :: ( GuiCommand2 t m' m )
         => SolutionError UserError
         -> t m ()
-doError e = dialogOnError' () $ Internal.doError e
+doError = dialogOnError' () . Internal.doError
 
 doNewStart :: ( GuiCommand2 t m' m)
            => t m ()
-doNewStart = dialogOnError' () $ Internal.doNewStart
+doNewStart = dialogOnError' () Internal.doNewStart
 
 doNewProjectStart :: ( GuiCommand2 t m' m )
            => t m ()
-doNewProjectStart = dialogOnError' () $ Internal.doNewProjectStart
+doNewProjectStart = dialogOnError' () Internal.doNewProjectStart
 
 doEditProjectStart :: ( GuiCommand2 t m' m 
                       , m' ~ ClassProjectInitializerMonad (t m')
@@ -65,25 +65,25 @@ doNew :: ( GuiCommand2 t m' m
       -> String
       -> Maybe String
       -> t m ()
-doNew maybeSolutionRoot projectName templateName 
-    = dialogOnError' () $ Internal.doNew maybeSolutionRoot projectName templateName 
+doNew maybeSolutionRoot projectName
+    = dialogOnError' () . Internal.doNew maybeSolutionRoot projectName
 
 doOpen :: ( GuiCommand2 t m' m 
           , MonadIO m'
           )
        => FilePath
        -> t m ()
-doOpen path = dialogOnError' () $ Internal.doOpen path
+doOpen = dialogOnError' () . Internal.doOpen
 
 doGetDecl :: ( GuiCommand2 t m' m )
           => TreePath
           -> t m ()
-doGetDecl path = dialogOnError' () $ Internal.doGetDecl path
+doGetDecl = dialogOnError' () . Internal.doGetDecl
 
 doOpenItem :: ( GuiCommand2 t m' m )
           => SolutionPath
           -> t m ()
-doOpenItem path = dialogOnError' () $ Internal.doOpenItem path
+doOpenItem = dialogOnError' () . Internal.doOpenItem
 
 doGotoSrcLoc :: ( GuiCommand2 t m' m )
              => SrcLoc
@@ -93,39 +93,39 @@ doGotoSrcLoc = dialogOnError' () . Internal.doGotoSrcLoc
 doBuild :: ( GuiCommand2 t m' m
            )
         => t m ThreadId
-doBuild = dialogOnErrorConc (setBuildEnabled True) $ Internal.doBuild
+doBuild = dialogOnErrorConc (setBuildEnabled True) Internal.doBuild
 
 doRun :: ( GuiCommand2 t m' m
          )
       => t m ()
-doRun = dialogOnError' () $ Internal.doRun
+doRun = dialogOnError' () Internal.doRun
 
 
 doSave :: ( GuiCommand2 t m' m
           )
         => t m ()
-doSave = dialogOnError' () $ Internal.doSave
+doSave = dialogOnError' () Internal.doSave
                 
 
 doSaveSolution :: ( GuiCommand2 t m' m
                   )
               => Maybe FilePath
               -> t m ()
-doSaveSolution path = dialogOnError' () $ Internal.doSaveSolution path
+doSaveSolution = dialogOnError' () . Internal.doSaveSolution
 
 doAddSolution :: ( GuiCommand2 t m' m
                  , m' ~ ClassSolutionInitializerMonad (t m')
                  , Args (ArgType m')
                  )
               => t m ()
-doAddSolution = dialogOnError' () $ Internal.doAddSolution 
+doAddSolution = dialogOnError' () Internal.doAddSolution 
 
 doAddProject :: ( GuiCommand2 t m' m
                  , m' ~ ClassProjectInitializerMonad (t m')
                  , Args (ProjectArgType m')
                  )
               => t m ()
-doAddProject = dialogOnError' () $ Internal.doAddProject
+doAddProject = dialogOnError' () Internal.doAddProject
 
 doEditProject :: ( GuiCommand2 t m' m
                  , m' ~ ClassProjectInitializerMonad (t m')
@@ -266,31 +266,31 @@ doExportAll pji mi = dialogOnError' () $ Internal.doExportAll pji mi
 doSearch :: ( GuiCommand2 t m' m
             )
          => t m ()
-doSearch = dialogOnError' () $ Internal.doSearch
+doSearch = dialogOnError' () Internal.doSearch
 
 doSetSearchMode :: ( GuiCommand2 t m' m
                    )
                 => SearchMode
                 -> t m ()
-doSetSearchMode mode = dialogOnError' () $ Internal.doSetSearchMode mode
+doSetSearchMode = dialogOnError' () . Internal.doSetSearchMode
 
 doGotoDeclaration
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doGotoDeclaration = dialogOnError' () $ Internal.doGotoDeclaration
+doGotoDeclaration = dialogOnError' () Internal.doGotoDeclaration
 
 doBackHistory
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doBackHistory = dialogOnError' () $ Internal.doBackHistory
+doBackHistory = dialogOnError' () Internal.doBackHistory
 
 doForwardHistory
     :: ( GuiCommand2 t m' m
        )
     => t m ()
-doForwardHistory = dialogOnError' () $ Internal.doForwardHistory
+doForwardHistory = dialogOnError' () Internal.doForwardHistory
 
 doJumpToErrorLocation
     :: ( GuiCommand2 t m' m

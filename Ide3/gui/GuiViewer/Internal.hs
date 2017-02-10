@@ -2,7 +2,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
 module GuiViewer.Internal where
 
 import Data.Map (Map)
@@ -12,9 +11,6 @@ import qualified Data.Set as S
 
 import Data.Text (Text)
 
-import Data.List (delete)
-
-import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
@@ -64,7 +60,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
             addToHistory s = s { declarationHistory = History.insertBack di $ History.abandonFuture $ declarationHistory s }
         modify $ addToHistory . addDecl
     getOpenDeclarations = GuiViewer $ gets $ S.fromList . M.keys . openDeclarations
-    getOpenDeclaration di = GuiViewer $ gets $ (M.lookup di) . openDeclarations
+    getOpenDeclaration di = GuiViewer $ gets $ M.lookup di . openDeclarations
     
     getCurrentHistory = GuiViewer $ do
         history <- gets declarationHistory
@@ -72,7 +68,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
         return $ do
             di <- History.present history
             text <- M.lookup di decls
-            return $ (di, text)
+            return (di, text)
         
     replaceHistoryPath di' = GuiViewer $ do
         history <- gets declarationHistory
@@ -80,7 +76,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
             Nothing -> return ()
             Just di -> 
                 case History.replace di' history of
-                    Just history' -> do
+                    Just history' -> 
                         modify $ \s -> s{ declarationHistory = history' }
                     Nothing -> return ()
     replaceHistoryText text' = GuiViewer $ do
@@ -121,7 +117,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
             Nothing -> return Nothing
 
 instance PseudoStateT GuiViewerT GuiViewerState where
-    runPseudoStateT f s = runStateT (runGuiViewer f) s
+    runPseudoStateT = runStateT . runGuiViewer
 
 instance MonadBounce GuiViewerT where
     bounce = ExceptT . lift . runExceptT

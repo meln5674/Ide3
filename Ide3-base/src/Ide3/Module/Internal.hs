@@ -79,7 +79,7 @@ info = moduleInfo
 -- | Create an empty module
 empty :: Module
 empty = Module
-      { moduleInfo = (UnamedModule Nothing) 
+      { moduleInfo = UnamedModule Nothing
       , moduleHeader = ""
       , modulePragmas = []
       , moduleImports = Map.empty 
@@ -318,7 +318,7 @@ getExports = moduleExports
 -- | Get the ids of all exports in a module structure, or signal that the module
 --  exports everything
 getExportIds :: Module -> Maybe [ExportId]
-getExportIds = liftM Map.keys . moduleExports
+getExportIds = fmap Map.keys . moduleExports
 
 -- | Get the ids of all imports in a module structure
 getImportIds :: Module -> [ImportId]
@@ -327,26 +327,43 @@ getImportIds = Map.keys . moduleImports
 -- | Take the strings representing an export list and format them
 makeExportList :: [Text] -> Text
 makeExportList exportBodies
-    | length exportBodies < 4 = "(" <> T.intercalate "," exportBodies <> ") where"
+    | length exportBodies < 4 = listStart <> T.intercalate listSep exportBodies <> listEnd
     -- If there are 1, 2 or 3 exports, just put them in parenthesis
     -- If there are 4 or more, put them on separate lines
     | otherwise = T.unlines 
-        $ ""
-        : ( map ("    " <>)
-            $ ("( " <> head exportBodies)
-            : (map (", " <>) $ tail exportBodies)
-            ++ [") where"]
-          )
+        $ blankLine
+        : map indent ( (listStart <> head exportBodies)
+                       : map addListSep (tail exportBodies)
+                       ++ [listEnd] :: [Text]
+                     )
+  where
+    blankLine :: Text
+    blankLine = ""
+    indent :: Text -> Text
+    indent = ("    " <>)
+    listStart :: Text
+    listStart = "( "
+    listSep :: Text
+    listSep = ", "
+    addListSep :: Text -> Text
+    addListSep = (listSep <>)
+    listEnd :: Text
+    listEnd = ")"
+    
+
 -- | Produce the header (module name and export list) for a module
 getHeaderText :: Module -> Text
 getHeaderText m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
-    withNoExportList = "module " <> name <> " where"
-    withExportList es = "module " 
+    withNoExportList = headerStart <> name <> headerEnd
+    withExportList es = headerStart
                       <> name 
-                      <> (makeExportList $ bodies $ Map.elems es)
+                      <> makeExportList (bodies $ Map.elems es)
+                      <> headerEnd
         
+    headerStart = "module "
+    headerEnd = " where"
 
 -- | Take a list and a predicate over two elements at a time.
 -- Split the list into a list of lists at the points where the predicate returns
@@ -366,7 +383,7 @@ splitOver f xs' = go xs' [] []
 -- list into sub lists which have common module prefixes, apply a transformation
 -- to each sublist, then concatenate them into a single list
 spaceImports :: (a -> WithBody Import) -> ([a] -> [a]) -> [a] -> [a]
-spaceImports f g is = concatMap g $ partitionedImports
+spaceImports f g is = concatMap g partitionedImports
   where
     partitionedImports = flip splitOver is $ \i1 i2 -> 
         not $ Import.commonPath (item $ f i1) (item $ f i2)
@@ -403,23 +420,29 @@ annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
     ModuleInfo (Symbol name) = info m
     withNoExportList = [Annotated Nothing ["module " <> name <> " where"]]
     withExportList es = 
-        (Annotated Nothing ["module " <> name] )
-        :
-        case Map.toList es of
-            [] -> [Annotated Nothing ["    () where"]]
+        Annotated Nothing ["module " <> name]
+        : case Map.toList es of
+            [] -> [Annotated Nothing [indent $ exportListStart <> exportListEnd <> headerEnd]]
             [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) 
-                                     ["    ( " <> body e]
-                         , Annotated Nothing ["    ) where"]
+                                     [indent $ exportListStart <> body e]
+                         , Annotated Nothing [indent $ exportListEnd <> headerEnd]
                          ]
-            ((eid,e):es') -> (Annotated (Just $ ExportKeyValue eid e) 
-                                        ["    ( " <> body e]
-                             ) 
-                             : flip map es'
-                                ( \(eid',e') -> 
-                                    Annotated (Just $ ExportKeyValue eid' e')
-                                              ["    , " <> body e']
-                                )
-                             ++ [Annotated Nothing ["    ) where"]]
+            ((eid,e):es') -> Annotated (Just $ ExportKeyValue eid e) 
+                                       [indent $ exportListStart <> body e]
+                             
+                             : map (uncurry annExport) es'
+                             ++ [Annotated Nothing [indent $ exportListEnd <> headerEnd]]
+    
+    annExport eid' e' = Annotated (Just $ ExportKeyValue eid' e')
+                                  [indent $ addExportListSep $ body e']
+    headerStart = "module "
+    headerEnd = " where"
+    indent = ("    " <>)
+    exportListStart = "( "
+    exportListEnd = ")"
+    exportListSep = ", "
+    addExportListSep = (exportListSep <>)
+
 
 -- | Generate the annotated items for a modules imports
 annotateImports :: Module -> [AnnotatedModuleItem]

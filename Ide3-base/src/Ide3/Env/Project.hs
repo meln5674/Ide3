@@ -260,19 +260,19 @@ getPragmas = descend0 Module.getPragmas
 -- | Add an external export and return the id assigned to it
 addExternExport :: Monad m 
                 => DescentChain3 Project ModuleInfo ExternExport m u ExportId
-addExternExport = descend1 $ ExternModule.addExternExport
+addExternExport = descend1 ExternModule.addExternExport
 
 -- | Remove an external export by id
 removeExternExport :: Monad m 
                    => DescentChain3 Project ModuleInfo ExportId m u ()
-removeExternExport = descend1 $ ExternModule.removeExternExport
+removeExternExport = descend1 ExternModule.removeExternExport
 
 -- | Get an external export by id
 getExternExport :: Monad m 
                 => DescentChain3 Project ModuleInfo ExportId m u ExternExport
-getExternExport = descend1 $ ExternModule.getExternExport
+getExternExport = descend1 ExternModule.getExternExport
 
 -- | Get the ids of all external exports, or signify that all symbols are 
 -- exported
 getExternExports :: Monad m => DescentChain2 Project ModuleInfo m u [ExportId]
-getExternExports = descend0 $ ExternModule.getExternExports
+getExternExports = descend0 ExternModule.getExternExports

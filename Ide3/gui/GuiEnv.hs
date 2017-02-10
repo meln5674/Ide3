@@ -87,9 +87,9 @@ mkGuiEnvT :: (GuiEnv  m' p  -> m a) -> GuiEnvT m' p m a
 mkGuiEnvT = GuiEnvT . ReaderT
 
 getEnv :: (Monad m) => GuiEnvT m' p m (GuiEnv  m' p )
-getEnv = GuiEnvT $ ask
+getEnv = GuiEnvT ask
 
 mapGuiEnv :: (m1 a -> m2 b) 
           -> GuiEnvT m' p m1 a 
           -> GuiEnvT m' p m2 b
-mapGuiEnv f m = GuiEnvT $ mapReaderT f $ runGuiEnvTInternal m 
+mapGuiEnv f = GuiEnvT . mapReaderT f . runGuiEnvTInternal

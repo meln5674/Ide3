@@ -70,7 +70,7 @@ openSolution :: ( ViewerStateClass m
             -> SolutionResult u m ()
 openSolution path = do
     tok <- lift $ preparePathToken path
-    lift $ setNoCurrentDecl
+    lift setNoCurrentDecl
     load tok
 --        Nothing -> throwE $ InvalidOperation (path ++ " does not exist") ""
 {-

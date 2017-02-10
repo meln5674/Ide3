@@ -28,13 +28,6 @@ import qualified Language.Haskell.Exts.Syntax as Syntax
 import Language.Haskell.Exts.SrcLoc (SrcInfo)
 import Language.Haskell.Exts.Comments
 import Language.Haskell.Exts.Pretty
-import Language.Haskell.Exts.Parser
-    ( ParseResult(..)
-    , defaultParseMode
-    , parseFilename
-    , extensions
-    , fixities
-    )
 import Language.Haskell.Exts.Extension
 
 import Ide3.Utils.Parser
@@ -123,8 +116,7 @@ parseTypeInstanceDecl _ = Nothing
 -- | Convert a declaration if it is a class declaration
 parseClassDecl :: (Spannable t, SrcInfo t) => Decl t -> Maybe Declaration
 parseClassDecl (ClassDecl _ _ h _ ds)
-    = liftM mkTopDecl
-    $ ds >>= mapM parseSubDecl
+    = mkTopDecl <$> (ds >>= mapM parseSubDecl)
   where
     parseSubDecl (ClsDecl _ d) = tryConvert d
     parseSubDecl (ClsTyFam _ dHead _ _) 
@@ -175,7 +167,7 @@ parseFixityDecl _ = Nothing
 parseQuasiQuote :: Decl t -> Maybe Declaration
 parseQuasiQuote d@(SpliceDecl _ (QuasiQuote _ name args)) = Just $ SpliceDeclaration di d'
   where
-    di = RawDeclarationInfo $ T.pack $ prettyPrint $ d
+    di = RawDeclarationInfo $ T.pack $ prettyPrint d
     d' = QuasiQuoteDeclaration (T.pack name) (T.pack args)
 parseQuasiQuote _ = Nothing
 
@@ -228,7 +220,7 @@ parseDepricatedPragma d@(DeprPragmaDecl _ parts) = Just $
     ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint d) 
                         (DepricatedDeclaration $ map toSym names)
   where
-    names = concatMap (\(ns,_) -> ns) parts
+    names = concatMap fst parts
 parseDepricatedPragma _ = Nothing
 
 parseWarningPragma :: Decl t -> Maybe Declaration
@@ -236,7 +228,7 @@ parseWarningPragma d@(DeprPragmaDecl _ parts) = Just $
     ModifierDeclaration (RawDeclarationInfo $ T.pack $ prettyPrint d) 
                         (WarningDeclaration $ map toSym names)
   where
-    names = concatMap (\(ns,_) -> ns) parts
+    names = concatMap fst parts
 parseWarningPragma _ = Nothing
 
 parseInlinePragma :: Decl t -> Maybe Declaration
@@ -349,7 +341,7 @@ combineFuncAndTypeSig :: [Ann SrcSpan (WithBody Declaration)]
                       -> [Ann SrcSpan (WithBody Declaration)]
 combineFuncAndTypeSig ds = case (typeSigs,funcBinds) of
     (Ann l (WithBody sig sb) : _, Ann l' (WithBody func fb) : _) 
-        -> (Ann (l `mergeSrcSpan` l') $ WithBody newDecl newBody) : notFuncBinds
+        -> Ann (l `mergeSrcSpan` l') (WithBody newDecl newBody) : notFuncBinds
       where
         ModifierDeclaration _ (TypeSignatureDeclaration _ type_) = sig
         BindDeclaration info (LocalBindDeclaration syms _) = func

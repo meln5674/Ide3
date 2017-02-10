@@ -44,7 +44,7 @@ runProjectEditorWithInput :: (Args a)
                           -> [String]
                           -> Either String 
                             (SolutionResult u m ProjectEditorResult)
-runProjectEditorWithInput editor pji = liftM (runProjectEditorInternal editor pji) . getArgsFrom
+runProjectEditorWithInput editor pji = fmap (runProjectEditorInternal editor pji) . getArgsFrom
 
 -- | Run an Editor with its arguments
 runProjectEditor :: ProjectEditor a m

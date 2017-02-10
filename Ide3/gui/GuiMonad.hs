@@ -1,8 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module GuiMonad 
     ( GuiComponents
     , withSolutionTree

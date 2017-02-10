@@ -37,9 +37,9 @@ stackBuilder = MkBuilder $ flip catch handleException $ do
     (ec, _, err) <- liftIO $ readProcessWithExitCode "stack" ["build"] ""
     desc <- getPackageDescription
     let pkgString pkg = 
-            (unPackageName $ pkgName $ package pkg) 
+            unPackageName (pkgName $ package pkg) 
             ++ "-" 
-            ++ (intercalate "." $ map show $ versionBranch $ pkgVersion $ package pkg)
+            ++ intercalate "." (map show $ versionBranch $ pkgVersion $ package pkg)
         description = pkgString desc
     (_, rootDir, _) <- liftIO $ readProcessWithExitCode "stack" ["path", "--project-root"] ""
     let logPath = init (T.unpack rootDir) </> ".stack-work" </> "logs" </> description <.> "log"
@@ -52,8 +52,7 @@ stackBuilder = MkBuilder $ flip catch handleException $ do
         return $ err <> logContents 
     errorList <- parseLog buildLog
     case errorList of
-        Nothing -> do
-            throwE $ InternalError "Could not parse build log" ""
+        Nothing -> throwE $ InternalError "Could not parse build log" ""
         Just errors -> case ec of
             ExitSuccess -> return $ BuildSucceeded buildLog errors
             ExitFailure _ -> return $ BuildFailed buildLog errors

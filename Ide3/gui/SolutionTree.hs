@@ -187,7 +187,7 @@ searchTree' SolutionPath = return []
 newtype MultiState s a = MultiState { runMultiState :: s -> [(a,s)] }
 
 instance Functor (MultiState s) where
-    fmap f g = MultiState $ \s -> map (\(x,s') -> (f x,s')) $ runMultiState g s
+    fmap f g = MultiState $ map (\(x,s') -> (f x,s')) . runMultiState g
 
 instance Monad (MultiState s) where
     return x = MultiState $ \s -> [(x,s)]
@@ -287,7 +287,7 @@ searchTreeForDeclaration di = searchTree''' matchesDeclaration
 -}
 
 searchTreeForDeclaration :: DeclarationInfo -> MultiState (Tree SolutionTreeElem) TreePath
-searchTreeForDeclaration di = searchTree''' ((DeclElem di) ==)
+searchTreeForDeclaration di = searchTree''' (DeclElem di ==)
 
 {-
 searchTreeForImport :: ImportId -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
@@ -355,7 +355,7 @@ searchTreeForPragma p = searchTree''' matchesPragma
 -}
 
 searchTreeForPragma :: Pragma -> MultiState (Tree SolutionTreeElem) TreePath
-searchTreeForPragma p = searchTree''' ((PragmaElem p) ==)
+searchTreeForPragma p = searchTree''' (PragmaElem p ==)
 
 {-
 searchTreeForProject :: ProjectInfo -> Tree SolutionTreeElem -> [(Int, Tree SolutionTreeElem)]
@@ -365,7 +365,7 @@ searchTreeForProject pji = searchTree''' matchesProject
 -}
 
 searchTreeForProject :: ProjectInfo -> MultiState (Tree SolutionTreeElem) TreePath
-searchTreeForProject pji = searchTree''' ((ProjectElem pji) ==)
+searchTreeForProject pji = searchTree''' (ProjectElem pji ==)
 
 
 {-
@@ -383,8 +383,8 @@ searchStep f g = do
 (>->) = searchStep
 
 searchTree''' :: (SolutionTreeElem -> Bool) -> MultiState (Tree SolutionTreeElem) TreePath
-searchTree''' f = liftM (:[]) $ MultiState $ \tree -> 
-    filter (f . rootLabel . snd) $ zip [0..] $ subForest tree
+searchTree''' f = (:[]) <$> MultiState  
+    (filter (f . rootLabel . snd) . zip [0..] . subForest)
 
 populateTree :: ( MonadTrans t
                 , MonadSplice t
@@ -414,16 +414,16 @@ findAtPath :: ( SolutionViewClass m
               ) => TreePath -> m TreeSearchResult
 findAtPath path = do
     node <- case path of
-        (_:_) -> liftM Just $ getElemAtSolutionTreePath path
+        (_:_) -> Just <$> getElemAtSolutionTreePath path
         [] -> return Nothing
     parentNode <- case path of
-        (_:_:_) -> liftM Just $ getElemAtSolutionTreePath $ init path
+        (_:_:_) -> Just <$> getElemAtSolutionTreePath (init path)
         _ -> return Nothing
     grandparentNode <- case path of
-        (_:_:_:_) -> liftM Just $ getElemAtSolutionTreePath $ init $ init path
+        (_:_:_:_) -> Just <$> getElemAtSolutionTreePath (init $ init path)
         _ -> return Nothing
     ancestorNode <- case path of
-        (ancestor:_) -> liftM Just $ getElemAtSolutionTreePath [ancestor]
+        (ancestor:_) -> Just <$> getElemAtSolutionTreePath [ancestor]
         _ -> return Nothing
     case (node,parentNode,grandparentNode,ancestorNode) of
         (Just (ProjectElem pji), _, _, _) 
@@ -521,16 +521,16 @@ removeSolutionTreeNode spath = do
 updateSolutionTreeTree :: SolutionViewClass m => SolutionPath -> (Tree SolutionTreeElem -> Tree SolutionTreeElem) -> m ()
 updateSolutionTreeTree spath f = do
     [tpath] <- searchTree spath
-    tree <- getTreeAtSolutionTreePath tpath
-    let tree' = f tree
+    tree <- f <$> getTreeAtSolutionTreePath tpath
     removeSolutionTreePathNode tpath
-    insertSolutionTreePathTree (init tpath) (Just $ last tpath) tree'
+    insertSolutionTreePathTree (init tpath) (Just $ last tpath) tree
 
 hasSubModules' :: SolutionViewClass m => SolutionPath -> m Bool
-hasSubModules' path = flip any <$> getTreeAtSolutionPath path <*> ( pure $ \case
-        (ModuleElem _ _) -> True
-        (UnparsableModuleElem _ _ _) -> True
-        _ -> False)
+hasSubModules' path = flip any <$> getTreeAtSolutionPath path <*> pure pred
+  where
+    pred ModuleElem{} = True
+    pred UnparsableModuleElem{} = True
+    pred _ = False
 
 hasSubModules :: SolutionViewClass m => SolutionPath -> m Bool
 hasSubModules path@(ModulePath _ _) = hasSubModules' path
@@ -572,7 +572,7 @@ removeModuleFromTree = go True
                             Node ModuleElem{} _ -> True
                             Node UnparsableModuleElem{} _ -> True
                             _ -> False
-                        Node (UnparsableModuleElem _ _ _) ts -> Node (ModuleElem mi True) ts
+                        Node UnparsableModuleElem{} ts -> Node (ModuleElem mi True) ts
                         _ -> error "Solution Tree Integrity Lost"
                     -- If the current node is a parent of the deleted node, leave
                     -- it as is, then halt the walk
@@ -617,7 +617,7 @@ addModuleToTree pji mi = loop Nothing
                 _ -> error "Solution Tree Integrity Lost"
             oldPath = case item of
                 ModuleElem _ _ -> ModulePath pji mi
-                UnparsableModuleElem _ _ _ -> UnparsableModulePath pji mi
+                UnparsableModuleElem{} -> UnparsableModulePath pji mi
                 _ -> error "Solution Tree Integrity Lost"
         case (result, trees') of
             -- If the path isn't there, this is the root of the new part

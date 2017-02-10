@@ -55,10 +55,10 @@ data OrderedMap k v = OrderedMap
   deriving (Eq)
 
 instance (Show k, Show v, Ord k) => Show (OrderedMap k v) where
-    show m = "fromList " ++ (show $ toList m)
+    show m = "fromList " ++ show (toList m)
 
 instance (Read k, Read v, Ord k) => Read (OrderedMap k v) where
-    readsPrec i = \s -> Prelude.map (firstElem fromList) $ readsPrec i s
+    readsPrec i = Prelude.map (firstElem fromList) . readsPrec i
       where
         firstElem f (a,b) = (f a,b)
 
@@ -101,7 +101,7 @@ delete k m = m
 
 -- | Check if a map contains a key
 lookup :: Ord k => k -> OrderedMap k v -> Maybe v
-lookup k = liftM fst . Map.lookup k . itemMap
+lookup k = fmap fst . Map.lookup k . itemMap
 
 -- | Retrieve the keys of a map, in the order they were inserted
 keys :: OrderedMap k v -> [k]
@@ -158,7 +158,7 @@ mapWithKeyM :: ( Monad m
                , Ord k
                ) 
             => (k -> v -> m v') -> OrderedMap k v -> m (OrderedMap k v')
-mapWithKeyM f m = liftM fromList $ forM (toList m) $ \(k,v) -> do
+mapWithKeyM f m = fmap fromList $ forM (toList m) $ \(k,v) -> do
     v' <- f k v
     return (k,v')
 
@@ -192,4 +192,4 @@ instance Ord k => Traversable (OrderedMap k) where
         return m{ itemMap = itemMap' }
     traverse f m 
         =   pure (\itemMap' -> m{itemMap=itemMap'}) 
-        <*> (traverse (\(v,o) -> pure (\v' -> (v',o)) <*> f v) $ itemMap m)
+        <*> traverse (\(v,o) -> pure (\v' -> (v',o)) <*> f v) (itemMap m)

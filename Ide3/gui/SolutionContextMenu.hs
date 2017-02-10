@@ -231,10 +231,11 @@ makeNewProjectButton = makeMenuButton "New Project"
 
 showMenu :: MonadIO m => ContextMenu -> EventButton -> m ()
 showMenu (ContextMenu menu _) event = do
-    button <- get event #button
-    time <- get event #time
+    --button <- get event #button
+    --time <- get event #time
     widgetShowAll menu
-    menuPopup menu noMenuShell noMenuItem noMenuPositionFunc button time
+    --menuPopup menu noMenuShell noMenuItem noMenuPositionFunc button time
+    menuPopupAtPointer menu Nothing
 
 {-
 type ContextMenuSignal proxy m' p  m object m'' a

@@ -146,6 +146,14 @@ setChild :: ParamEnvClass parentEnv childParam childEnv e
          -> Either e parentEnv
 setChild k k' v t = runIdentity $ runExceptT $ setChildT k k' v t
 
+getChildEnv :: ( ParamEnvClass parentEnv childParam childEnv e
+               , Monad m
+               )
+            => StateT parentEnv (ReaderT childParam (ExceptT e m)) childEnv
+getChildEnv = do
+    parentEnv <- get
+    childParam <- lift ask
+    lift $ lift $ getChildT childParam parentEnv
 
 -- | Take an environment operation over a child value type and turn it into a
 -- stateful operation over its parent type with the child key type as an
@@ -157,11 +165,7 @@ descendRO :: ( ParamEnvClass parentEnv childParam childEnv e
              )
           => ReaderT childEnv (ExceptT e m) a
           -> StateT parentEnv (ReaderT childParam (ExceptT e m)) a
-descendRO f = do
-    parentEnv <- get
-    childParam <- lift ask
-    childEnv <- lift $ lift $ getChildT childParam parentEnv
-    lift $ lift $ runReaderT f childEnv
+descendRO f = getChildEnv >>= lift . lift . runReaderT f
 
 -- | Take a stateful operation over a child value type and turn it into a
 -- stateful operation over its parent type with the child key type as an
@@ -178,7 +182,7 @@ descend0 :: ( EnvParamClass childEnv childParam
 descend0 f = do
     parentEnv <- get
     childParam <- lift ask
-    childEnv <- lift $ lift $ getChildT childParam parentEnv
+    childEnv <- getChildEnv
     (result,childEnv') <- lift $ lift $ runStateT f childEnv
     let childParam' = getParam childEnv'
     parentEnv' <- lift 

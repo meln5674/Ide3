@@ -44,7 +44,7 @@ runProjectInitializerWithInput :: (Args a)
                => ProjectInitializer a m
                -> [String]
                -> Either String (SolutionResult u m ProjectInitializerResult)
-runProjectInitializerWithInput initializer = liftM (runProjectInitializerInternal initializer) . getArgsFrom
+runProjectInitializerWithInput initializer = fmap (runProjectInitializerInternal initializer) . getArgsFrom
 
 -- | Run an initializer with its arguments
 runProjectInitializer :: ProjectInitializer a m

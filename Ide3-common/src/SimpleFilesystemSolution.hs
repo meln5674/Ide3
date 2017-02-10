@@ -128,7 +128,7 @@ runSimpleFilesystemSolutionT
 -- | Get the project state from the outer type
 getFsp :: (Monad m) => SimpleFilesystemSolutionT m FileSystemSolution
 --getFsp = SimpleFilesystemSolutionT $ lift $ getFsp'
-getFsp = SimpleFilesystemSolutionT $ get
+getFsp = SimpleFilesystemSolutionT get
 
 -- | Set the project state from the outer type
 putFsp :: (Monad m) => FileSystemSolution -> SimpleFilesystemSolutionT m ()
@@ -238,7 +238,7 @@ makeFileListing pji = do
         nodeDecls _ = Nothing
         
         dirs node = do
-            dir <- liftM takeDirectory $ modulePath $ nodeInfo node
+            dir <- takeDirectory <$> modulePath (nodeInfo node)
             let subDirs = concat $ mapMaybe dirs $ subModules node
             return $ dir : subDirs
         {-
@@ -269,14 +269,14 @@ makeFileListing pji = do
            }
 
 -- | Write an output pair to disc
-writeOutputPair :: (MonadIO m) => OutputPair -> SolutionResult u m ()
-writeOutputPair pair = wrapIOError $ T.writeFile (filePath pair) (fileContents pair)
+writeOutputPair :: (MonadIO m) => OutputPair -> m ()
+writeOutputPair pair = liftIO $ T.writeFile (filePath pair) (fileContents pair)
 
 -- | Create the directories needed and write the files to be written
 executeFileListing :: (MonadIO m) => FileListing -> SolutionResult u m ()
-executeFileListing listing = do
-    wrapIOError $ forM_ (directoriesNeeded listing) $ createDirectoryIfMissing True
-    forM_ (outputs listing) $ writeOutputPair
+executeFileListing listing = wrapIOError $ do
+    mapM_ (createDirectoryIfMissing True) $ directoriesNeeded listing
+    mapM_ writeOutputPair $ outputs listing
 
 instance ( MonadIO m
          , SolutionClass m

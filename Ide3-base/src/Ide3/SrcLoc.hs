@@ -49,47 +49,36 @@ splitAndCount = go 0
 indexIn :: SrcLoc -> Text -> Maybe Int
 (SrcLoc (Row 1) (Column c)) `indexIn` _ = Just $ c - 1
 (SrcLoc (Row r) (Column c)) `indexIn` str = do
-    let (line,_) = T.break (\c -> c == '\n') str
+    let (line,_) = T.break (== '\n') str
         lineLen = 1 + T.length line
-    next <- (SrcLoc (Row (r-1)) (Column c)) `indexIn` T.drop lineLen str
+    next <- SrcLoc (Row (r-1)) (Column c) `indexIn` T.drop lineLen str
     return $ lineLen + next
 
 -- | Take a string, break it into lines, and take the length of each one
 measureLines :: Text -> [(Text,Int)]
 measureLines = map (\l -> (l,T.length l + 1)) . T.lines
 
--- | Test if two source spans meet, i.e one ends where the other begins
-contacts :: SrcSpan -> SrcSpan -> Text -> Bool
-contacts a b s = case (a2i,b1i) of
-    (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
-    _ -> False
+indicesContact :: Maybe Int -> Maybe Int -> Bool
+indicesContact (Just i1) (Just i2) = 0 <= i2-i1 && i2-i1 <= 1
+indicesContact _ _ = False
+
+srcLocsContact :: SrcLoc -> SrcLoc -> Text -> Bool
+srcLocsContact a2 b1 s = indicesContact a2i b1i
   where
-    a2 = spanEnd a
-    b1 = spanStart b
     a2i = a2 `indexIn` s
     b1i = b1 `indexIn` s
+
+-- | Test if two source spans meet, i.e one ends where the other begins
+contacts :: SrcSpan -> SrcSpan -> Text -> Bool
+contacts a b = srcLocsContact (spanEnd a) (spanStart b)
 
 -- | Test if two source spans start at the same place
 sameStart :: SrcSpan -> SrcSpan -> Text -> Bool
-sameStart a b s = case (a2i,b1i) of
-    (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
-    _ -> False
-  where
-    a2 = spanStart a
-    b1 = spanStart b
-    a2i = a2 `indexIn` s
-    b1i = b1 `indexIn` s
+sameStart a b = srcLocsContact (spanStart a) (spanStart b)
 
 -- | Test if two source spans end at the same place
 sameEnd :: SrcSpan -> SrcSpan -> Text -> Bool
-sameEnd a b s = case (a2i,b1i) of
-    (Just i1,Just i2) -> 0 <= i2-i1 && i2-i1 <= 1
-    _ -> False
-  where
-    a2 = spanEnd a
-    b1 = spanEnd b
-    a2i = a2 `indexIn` s
-    b1i = b1 `indexIn` s
+sameEnd a b = srcLocsContact (spanEnd a) (spanEnd b)
 
 -- | Test if a src 
 contains :: (Spannable s, Loccable l) => s -> l -> Bool

@@ -13,8 +13,7 @@ Portability : POSIX
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeFamilies #-}
 module Ide3.NewMonad.Instances.State.Class 
-    ( module Ide3.NewMonad.Instances.State.Class
-    , module Ide3.NewMonad.Instances.State.Class.Internal
+    ( module Ide3.NewMonad.Instances.State.Class.Internal
     ) where
 
 import Ide3.NewMonad.Instances.Lift.TH

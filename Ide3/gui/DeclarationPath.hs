@@ -21,6 +21,7 @@ module DeclarationPath
 
 import Data.Monoid
 
+import Data.Text (Text)
 import qualified Data.Text as T
 
 import Control.Monad
@@ -60,29 +61,58 @@ data SolutionPath
   deriving (Eq, Ord)
 
 
+class ToSolutionPath a where
+    toSolutionPath :: a -> Text
+
+
+instance ToSolutionPath ProjectInfo where
+    toSolutionPath (ProjectInfo x) = x <> "/"
+instance ToSolutionPath ModuleInfo where
+    toSolutionPath (ModuleInfo (Symbol x)) = x <> ":"
+    toSolutionPath (UnamedModule (Just path)) = T.pack path <> ":"
+    toSolutionPath (UnamedModule Nothing) = "??????" <> ":"
+instance ToSolutionPath DeclarationInfo where
+    toSolutionPath (SymbolDeclarationInfo (Symbol x)) = x
+    toSolutionPath (RawDeclarationInfo x) = x
+instance ToSolutionPath ImportId where
+    toSolutionPath ii = "[IMPORT ID=" <> T.pack (show ii) <> "]"
+instance ToSolutionPath ExportId where
+    toSolutionPath ei = "[EXPORT ID=" <> T.pack (show ei) <> "]"
+
 instance Show SolutionPath where
     show SolutionPath 
         = ""
-    show (ProjectPath (ProjectInfo a)) 
-        = T.unpack $ a <> "/"
-    show (ModulePath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = T.unpack $ a <> "/" <> b
-    show (PragmasPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = T.unpack $ a <> "/" <> b <> ":[PRAGMAS]"
-    show (PragmaPath (ProjectInfo a) (ModuleInfo (Symbol b)) p) 
-        = T.unpack $ a <> "/" <> b <> ":[PRAGMA " <> p <> "]"
-    show (ExportsPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = T.unpack $ a <> "/" <> b <> ":[EXPORTS]"
-    show (ExportPath (ProjectInfo a) (ModuleInfo (Symbol b)) ei) 
-        = T.unpack $ a <> "/" <> b <> ":[EXPORT ID=" <> T.pack (show ei) <> "]"
-    show (ImportsPath (ProjectInfo a) (ModuleInfo (Symbol b))) 
-        = T.unpack $ a <> "/" <> b <> ":[IMPORTS]"
-    show (ImportPath (ProjectInfo a) (ModuleInfo (Symbol b)) ii) 
-        = T.unpack $ a <> "/" <> b <> ":[IMPORT ID=" <> T.pack (show ii) <> "]"
-    show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (SymbolDeclarationInfo (Symbol c)))
-        = T.unpack $ a <> "/" <> b <> ":" <> c
-    show (DeclarationPath (ProjectInfo a) (ModuleInfo (Symbol b)) (RawDeclarationInfo c))
-        = T.unpack $ a <> "/" <> b <> ":" <> c
+    show (ProjectPath pji) 
+        = T.unpack $ toSolutionPath pji
+
+    show (ModulePath pji mi)
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi
+
+    show (UnparsableModulePath pji mi)
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi
+
+    show (PragmasPath pji mi)
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> "[PRAGMAS]"
+        
+    show (PragmaPath pji mi p) 
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> "[PRAGMA " <> p <> "]"
+
+    show (ExportsPath pji mi) 
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> "[EXPORTS]"
+
+    show (ExportPath pji mi ei) 
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> toSolutionPath ei
+
+    show (ImportsPath pji mi)
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> "[IMPORTS]"
+
+    show (ImportPath pji mi ii) 
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> toSolutionPath ii
+
+    show (DeclarationPath pji mi di)
+        = T.unpack $ toSolutionPath pji <> toSolutionPath mi <> toSolutionPath di
+    
+
 
 -- | Parser for the terminator between project and module names
 projectTerminator :: Parsec String () ()
@@ -94,11 +124,11 @@ moduleTerminator = void $ char ':'
 
 -- | Parser for a project name
 projectName :: Parsec String () ProjectInfo
-projectName = (ProjectInfo . T.pack) <$> (many $ notFollowedBy projectTerminator *> anyToken)
+projectName = (ProjectInfo . T.pack) <$> many (notFollowedBy projectTerminator *> anyToken)
 
 -- | Parser for a module name
 moduleName:: Parsec String () ModuleInfo
-moduleName = (ModuleInfo . Symbol . T.pack) <$> (many $ notFollowedBy moduleTerminator  *> anyToken)
+moduleName = (ModuleInfo . Symbol . T.pack) <$> many (notFollowedBy moduleTerminator  *> anyToken)
 
 -- | Parser for a declaration info
 declarationInfo :: Parsec String () DeclarationInfo 

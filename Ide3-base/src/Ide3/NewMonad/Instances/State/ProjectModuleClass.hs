@@ -31,4 +31,4 @@ instance StatefulSolutionClass m => ProjectModuleClass (StatefulWrapper m) where
         = modifySolutionER $ runDescent4 Solution.setModuleUnparsable pji mi (contents, loc, msg)
     setModuleParsable = modifySolutionER .-.. runDescent3 Solution.setModuleParsable
     getUnparsableModule = modifySolutionER .-.. runDescent3 Solution.getUnparsableModule
-    refreshModule _ mi = return mi
+    refreshModule _ = return

@@ -31,19 +31,18 @@ stackRunner = MkRunner $ \pji -> do
         ExecutableInfo execName -> return $ Just ["exec",execName]
         BenchmarkInfo benchName -> do
             pkgDesc <- getPackageDescription
-            let benchArg = (unPackageName $ pkgName $ package pkgDesc) ++ ':' : benchName
+            let benchArg = unPackageName (pkgName $ package pkgDesc) ++ ':' : benchName
             return $ Just ["bench",benchArg]
         TestSuiteInfo testName -> do
             pkgDesc <- getPackageDescription
-            let testArg = (unPackageName $ pkgName $ package pkgDesc) ++ ':' : testName
+            let testArg = unPackageName (pkgName $ package pkgDesc) ++ ':' : testName
             return $ Just ["test",testArg]
     case maybeArgs of
         Nothing -> throwE $ InvalidOperation "Cannot run a library" ""
-        Just args -> do
-            ExceptT $ flip catch handleException $ do 
-                (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" args ""
-                case ec of
-                    ExitSuccess -> return $ Right $ RunSucceeded out err
-                    ExitFailure _ -> return $ Right $ RunFailed out err
+        Just args -> ExceptT $ flip catch handleException $ do 
+            (ec, out, err) <- liftIO $ readProcessWithExitCode "stack" args ""
+            case ec of
+                ExitSuccess -> return $ Right $ RunSucceeded out err
+                ExitFailure _ -> return $ Right $ RunFailed out err
   where
     handleException e = return $ Left $ InvalidOperation (show (e :: IOException)) ""

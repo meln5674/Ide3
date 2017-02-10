@@ -46,16 +46,6 @@ wrapReadFile path = wrapIOErrorWithMsg errMsg $ readFile path
   where
     errMsg = "When reading " ++ path
 
--- | Replace all instances of one string with another in a third string
-replace :: String -> String -> String -> String
-replace toReplace replacement str = go str
-  where
-    go [] = []
-    go y@(x:xs)
-        | toReplace `isPrefixOf` y = replacement 
-                                  ++ go (drop (length toReplace) y)
-        | otherwise = x : go xs
-
 -- | Class of transformers whch can insert themselves underneath
 -- ExceptT in a monad transformer stack
 class MonadBounce t where
@@ -65,11 +55,11 @@ class MonadBounce t where
 
 -- | Allow state to fail
 instance MonadBounce (StateT s) where
-    bounce f = ExceptT $ StateT $ \s -> fmap (\a -> (a,s)) $ runExceptT f
+    bounce f = ExceptT $ StateT $ \s -> flip (,) s <$> runExceptT f
 
 -- | Allow reader to fail
 instance MonadBounce (ReaderT r) where
-    bounce f = ExceptT $ ReaderT $ const $ runExceptT f
+    bounce = ExceptT . ReaderT . const . runExceptT
 
 -- | Class of transformers which can insert a dummy ExceptT layer underneath
 -- themselves
@@ -78,11 +68,11 @@ class MonadSplice t where
 
 -- | Allow underlying monad to fail
 instance MonadSplice (StateT s) where
-    splice f = StateT $ \s -> ExceptT $ liftM Right $  runStateT f s
+    splice f = StateT $ \s -> ExceptT $ Right <$> runStateT f s
 
 -- | Allow underlying monad to fail
 instance MonadSplice (ReaderT r) where
-    splice f = ReaderT $ \r -> ExceptT $ liftM Right $ runReaderT f r
+    splice f = ReaderT $ \r -> ExceptT $ Right <$> runReaderT f r
 
 -- | Class of transformers which can change an Either value into an ExceptT
 -- layer underneath themsevles

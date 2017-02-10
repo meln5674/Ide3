@@ -1,7 +1,6 @@
-{-# LANGUAGE TypeFamilies, ConstraintKinds, KindSignatures, ConstrainedClassMethods #-}
+{-# LANGUAGE TypeFamilies, ConstraintKinds, ConstrainedClassMethods #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module GuiT where
@@ -68,7 +67,7 @@ liftDialogs :: DialogsT m a -> GuiT m' p m a
 liftDialogs f = GuiT $ GuiEnvT $ ReaderT $ const f
 
 runGuiT :: GuiT m' p m a -> GuiEnv m' p -> Dialogs -> m a
-runGuiT f env dialogs = runDialogsT (runGuiEnvT (runGuiTInternal f) env) dialogs
+runGuiT f = runDialogsT . runGuiEnvT (runGuiTInternal f)
 
 mkGuiT :: (GuiEnv m' p -> Dialogs -> m a) -> GuiT m' p m a
 mkGuiT f = GuiT $ mkGuiEnvT $ \env -> mkDialogsT (f env)
@@ -85,27 +84,25 @@ instance GenericGuiEnv (GuiT m' p) where
     type NewMonadConstraint (GuiT m' p) m = (MonadIO m)
     type MonadType (GuiT m' p) = m'
     dialogOnError onError f = do
-        env <- liftEnv $ getEnv
-        dialogs <- liftDialogs $ getDialogs
-        liftEnv $  withSolutionMVar $ \var -> liftIO $ do
-            interupt1 var $ do
-                r <- runExceptT $ runGuiT f env dialogs
-                case r of
-                    Right x -> return x
-                    Left e -> do
-                        displayError $ pack $ show e
-                        runGuiT onError env dialogs
+        env <- liftEnv getEnv
+        dialogs <- liftDialogs getDialogs
+        liftEnv $ withSolutionMVar $ \var -> liftIO $ interupt1 var $ do
+            r <- runExceptT $ runGuiT f env dialogs
+            case r of
+                Right x -> return x
+                Left e -> do
+                    displayError $ pack $ show e
+                    runGuiT onError env dialogs
 
     dialogOnErrorConc onError f = do
-        env <- liftEnv $ getEnv
-        dialogs <- liftDialogs $ getDialogs
-        liftEnv $ withSolutionMVar $ \var -> liftIO $ forkIO $ do
-            interupt1 var $ do
+        env <- liftEnv getEnv
+        dialogs <- liftDialogs getDialogs
+        liftEnv $ withSolutionMVar $ \var -> liftIO $ forkIO $ interupt1 var $ do
                 r <- runExceptT $ runGuiT f env dialogs
                 case r of
                     Right () -> return ()
                     Left e -> do
-                        displayError $ pack $ show $ e
+                        displayError $ pack $ show e
                         runGuiT onError env dialogs
     addIdleTask t = GuiT $ GuiEnv.addIdleTask t
 

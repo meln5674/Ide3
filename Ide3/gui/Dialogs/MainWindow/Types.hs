@@ -17,12 +17,7 @@ import Dialogs.MainWindow.Components.Types
 data MainWindow
     = MainWindow
     { window :: Window
-    , fileMenu :: FileMenu
-    , solutionMenu :: SolutionMenu
-    , searchMenu :: SearchMenu
-    , navigationMenu :: NavigationMenu
-    , projectMenu :: ProjectMenu
-    , moduleMenu :: ModuleMenu
+    , menus :: Menus
     , solutionViewer :: SolutionViewer
     , buildViewer :: BuildViewer
     , searchBar :: SearchBar

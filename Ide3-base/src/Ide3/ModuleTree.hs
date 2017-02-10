@@ -123,11 +123,11 @@ fillTree pji (ModuleNode i ts _ _ _ _) = do
             ds <- getDeclarations pji i
             iids <- getImports pji i
             eids <- getExports pji i
-            is <- forM iids $ \iid -> liftM ((,) iid) $ getImport pji i iid
+            is <- forM iids $ \iid -> (,) iid <$> getImport pji i iid
             es <- case eids of
                 Nothing -> return Nothing
                 Just eids' -> do
-                    x <- forM eids' $ \eid -> liftM ((,) eid) $ getExport pji i eid
+                    x <- forM eids' $ \eid -> (,) eid <$> getExport pji i eid
                     return $ Just x
             ts' <- mapM (fillTree pji) ts
             return $ ModuleNode i ts' ps ds is es

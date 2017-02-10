@@ -120,6 +120,30 @@ import Dialogs.MainWindow.Components
 import Dialogs.MainWindow.Signals
 import Dialogs.MainWindow.Accelerators
 
+
+{-
+Overlay
+|
++-- Grid
+|   |
+|   +-- MenuBar
+|   |
+|   +-- VPaned
+|       |
+|       +-- HPaned
+|       |   |
+|       |   +-- TreeView 
+|       |   |
+|       |   +-- BetterTextView
+|       |
+|       +-- Notebook
+|
++-- Grid
+    |
+    +-- SearchBar
+
+-}
+
 -- | Create the main application window
 make :: (MonadIO m)
      => (MainWindow -> GuiEnvT {-proxy-} m' p  m a) 
@@ -128,40 +152,38 @@ make f = makeMainWindowWith $ \window -> do
     renderer <- makeRenderer
     makeOverlayWith window $ \overlay -> do
         searchBarBox <- vBoxNew False 0
+        set overlay [ #expand := True ]
         --overlay `overlayAddOverlay` searchBarBox
         --overlay `containerAdd` searchBarBox
-        overlaySetOverlayPassThrough overlay searchBarBox True
+        --overlaySetOverlayPassThrough overlay searchBarBox True
         searchBar <- SearchBar.make searchBarBox
         SearchBar.setVisible searchBar False
-        makeVBoxWith overlay $ \container -> do
-            menuBar <- makeMainMenuBar container
-            fileMenu <- makeFileMenu menuBar
-            solutionMenu <- makeSolutionMenu menuBar
-            searchMenu <- makeSearchMenu menuBar
-            navigationMenu <- makeNavigationMenu menuBar
-            projectMenu <- makeProjectMenu menuBar
-            moduleMenu <- makeModuleMenu menuBar
-            makeVPanedWith container $ \vbox -> do
-                solutionViewerBox <- makeSoloBox
-                buildViewerBox <- makeSoloBox
-                vbox `panedAdd1` solutionViewerBox
-                vbox `panedAdd2` buildViewerBox
-                solutionViewer <- makeSolutionViewer renderer 
-                                                   renderSolutionTreeElem
-                                                   solutionViewerBox
-                buildViewer <- makeBuildViewer buildViewerBox
-                f MainWindow
-                  { window
-                  , fileMenu
-                  , solutionMenu
-                  , searchMenu
-                  , solutionViewer
-                  , navigationMenu
-                  , buildViewer
-                  , projectMenu
-                  , moduleMenu
-                  , searchBar
-                  }
+        container <- new Grid [#orientation := OrientationVertical]
+        set container [ #expand := True ]
+        overlay `containerAdd` container
+        menuBar <- new MenuBar []
+        set menuBar [ #hexpand := True ]
+        menus <- makeMenus menuBar
+        gridAttach container menuBar 0 0 1 1
+        --containerAdd container menuBar
+        
+        makeVPanedWith container $ \vbox -> do
+            set vbox [ #vexpand := True ]
+            solutionViewerBox <- makeSoloBox
+            buildViewerBox <- makeSoloBox
+            vbox `panedAdd1` solutionViewerBox
+            vbox `panedAdd2` buildViewerBox
+            solutionViewer <- makeSolutionViewer renderer 
+                                               renderSolutionTreeElem
+                                               solutionViewerBox
+            buildViewer <- makeBuildViewer buildViewerBox
+            f MainWindow
+              { window
+              , menus
+              , solutionViewer
+              , buildViewer
+              , searchBar
+              }
 
 makeRenderer :: (MonadIO m) => GuiEnvT {-proxy-} m' p  m CellRendererText
 makeRenderer = cellRendererTextNew
@@ -243,6 +265,6 @@ setDeclViewEnabled :: (MonadIO m) => MainWindow -> Bool -> m ()
 setDeclViewEnabled window enabled = setSub (declView $ solutionViewer window) [mkBTVAttr (#editable := enabled)]
 
 setBuildButtonEnabled :: ( MonadIO m ) => MainWindow -> Bool -> m ()
-setBuildButtonEnabled window enabled = set (buildButton $ solutionMenu window) [#sensitive := enabled]
+setBuildButtonEnabled window enabled = set (buildButton $ solutionMenu $ menus window) [#sensitive := enabled]
 
 

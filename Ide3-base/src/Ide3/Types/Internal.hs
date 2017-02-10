@@ -170,7 +170,7 @@ instance Foldable ModuleChild where
 
 -- | Apply function to child
 instance Traversable ModuleChild where
-    sequenceA (ModuleChild mi x) = (ModuleChild mi) <$> x
+    sequenceA (ModuleChild mi x) = ModuleChild mi <$> x
 
 -- | Apply function to child
 instance Functor ProjectChild where

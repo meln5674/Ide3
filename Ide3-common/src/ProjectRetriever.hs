@@ -47,4 +47,4 @@ noProjectRetriever = ProjectRetriever $ \_ -> throwE $ Unsupported "No project R
 mapProjectRetriever :: (forall b . m b -> m' b) 
                     -> ProjectRetriever a m 
                     -> ProjectRetriever a m'
-mapProjectRetriever f (ProjectRetriever b) = ProjectRetriever (\x -> mapExceptT f $ b x) 
+mapProjectRetriever f (ProjectRetriever b) = ProjectRetriever (mapExceptT f . b) 

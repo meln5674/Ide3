@@ -442,7 +442,7 @@ makePrimarySrcDirBoxWith :: ( MonadIO m
                             , IsContainer self
                             )
                          => self
-                         -> ( HBox -> m b )
+                         -> ( Box -> m b )
                          -> m b
 makePrimarySrcDirBoxWith = makeHBoxWith
     
@@ -450,7 +450,7 @@ makeSecondarySrcDirsBoxWith :: ( MonadIO m
                                , IsContainer self
                                )
                             => self
-                            -> ( HBox -> m b )
+                            -> ( Box -> m b )
                             -> m b
 makeSecondarySrcDirsBoxWith = makeHBoxWith
 
@@ -458,7 +458,7 @@ makeDependenciesBoxWith :: ( MonadIO m
                                , IsContainer self
                                )
                             => self
-                            -> ( HBox -> m b )
+                            -> ( Box -> m b )
                             -> m b
 makeDependenciesBoxWith = makeHBoxWith
 
@@ -468,7 +468,7 @@ makeProjectTypeBoxWith :: ( MonadIO m
                           , IsContainer self
                           )
                        => self
-                       -> ( HBox -> m b )
+                       -> ( Box -> m b )
                        -> m b
 makeProjectTypeBoxWith = makeHBoxWith
 

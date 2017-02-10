@@ -12,9 +12,6 @@ Portability : POSIX
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -165,27 +162,26 @@ doNew :: ( GuiCommand t m
       -> String
       -> Maybe String
       -> t (SolutionResult UserError m) ()
-doNew maybeSolutionRoot projectName templateName = do
-    case maybeSolutionRoot of
-        Nothing -> doError $ InvalidOperation "Please choose a directory" ""
-        Just projectRoot -> do
-            lift $ wrapIOError $ setCurrentDirectory projectRoot
-            --lift $ setDirectoryToOpen $ projectRoot </> projectName
-            initializer <- lift $ lift $ getInitializer
-            let args = projectName : maybe [] (:[]) templateName
-            r <- case runInitializerWithInput initializer args of
-                Right x -> lift x
-                Left err -> doError $ 
-                    InternalError "Failed to parse initialization arguments" 
-                                  err 
-            case r of
-                InitializerSucceeded _ _ tok -> do
-                    --tok <- lift $ lift $ prepareDirectoryPathToken $ projectRoot </> projectName
-                    lift $ load tok
-                    populateTree
-                    lift $ saveSolution $ Just $ projectRoot </> projectName
-                InitializerFailed out err -> 
-                    doError $ InvalidOperation (T.unpack $ out <> err) ""
+doNew maybeSolutionRoot projectName templateName = case maybeSolutionRoot of
+    Nothing -> doError $ InvalidOperation "Please choose a directory" ""
+    Just projectRoot -> do
+        lift $ wrapIOError $ setCurrentDirectory projectRoot
+        --lift $ setDirectoryToOpen $ projectRoot </> projectName
+        initializer <- lift $ lift getInitializer
+        let args = projectName : maybeToList templateName
+        r <- case runInitializerWithInput initializer args of
+            Right x -> lift x
+            Left err -> doError $ 
+                InternalError "Failed to parse initialization arguments" 
+                              err 
+        case r of
+            InitializerSucceeded _ _ tok -> do
+                --tok <- lift $ lift $ prepareDirectoryPathToken $ projectRoot </> projectName
+                lift $ load tok
+                populateTree
+                lift $ saveSolution $ Just $ projectRoot </> projectName
+            InitializerFailed out err -> 
+                doError $ InvalidOperation (T.unpack $ out <> err) ""
 
 -- | Open a solution
 doOpen :: ( GuiCommand t m )
@@ -219,7 +215,7 @@ openItem path@(ModulePath pji mi) = do
     header <- lift $ getModuleHeader pji mi
     splice $ setEditorBufferTextHighlighted header
     setPathAsCurrent path
-    return $ header
+    return header
 openItem path@(UnparsableModulePath pji mi) = do
     Just (contents, _, _) <- lift $ getUnparsableModule pji mi
     splice $ setEditorBufferTextHighlighted contents
@@ -233,7 +229,7 @@ openItem _ = do
 saveCurrentHistory :: ( GuiCommand t m )
                    => t (SolutionResult UserError m) ()
 saveCurrentHistory = do
-    result <- lift $ lift $ getCurrentProject
+    result <- lift $ lift getCurrentProject
     case result of
         Just _ -> splice (getEditorBufferText Nothing Nothing) >>= lift . lift . replaceHistoryText
         Nothing -> return ()
@@ -257,7 +253,7 @@ doOpenItem :: ( GuiCommand t m )
           => SolutionPath
           -> t (SolutionResult UserError m) ()
 doOpenItem path = do
-    maybeHistoryCurrent <- lift $ lift $ getCurrentHistory
+    maybeHistoryCurrent <- lift $ lift getCurrentHistory
     case maybeHistoryCurrent of
         -- If the item to open is the current item, do nothing
         Just (oldPath, oldText)
@@ -269,11 +265,10 @@ doOpenItem path = do
                 -- If the item to open is in the history, use that instead of
                 -- looking it up
                 Just oldText -> do
-                    splice $ setEditorBufferTextHighlighted $ oldText
+                    splice $ setEditorBufferTextHighlighted oldText
                     setPathAsCurrent path
                     return oldText
-                Nothing -> do
-                    openItem path
+                Nothing -> openItem path
             lift $ lift $ openDeclaration path text
             splice $ setEditorEnabled True
 
@@ -291,11 +286,11 @@ doBuild :: ( GuiCommand t m
 doBuild = do
     splice $ setBuildEnabled False
     splice $ setBuildBufferText ""
-    splice $ clearErrorList
+    splice clearErrorList
     
     
-    lift $ prepareBuild
-    builder <- lift $ lift $ getBuilder
+    lift prepareBuild
+    builder <- lift $ lift getBuilder
     result <- lift $ runBuilder builder
     let (text,errors) = case result of
             BuildSucceeded logText buildWarnings -> (logText, buildWarnings)
@@ -324,9 +319,9 @@ doBuild = do
                            )
             let locs = map errorSrcLoc es 
             locs' <- lift $ getModuleItemAtLocation pji mi locs
-            return $ map (uncurry fixLocation) (zip es locs') 
-    errors' <- liftM (concat . OMap.elems) 
-             $ OMap.mapWithKeyM fetchErrorLocations sortedErrors
+            return $ zipWith fixLocation es locs'
+    errors' <- (concat . OMap.elems) 
+               <$> OMap.mapWithKeyM fetchErrorLocations sortedErrors
 
     -- Add the whole text to the log tab and populate the error tab
     splice $ setBuildBufferText text
@@ -338,8 +333,8 @@ doRun :: ( GuiCommand t m
          )
       => t (SolutionResult UserError m) ()
 doRun = do
-    runner <- lift $ lift $ getRunner
-    maybePji <- lift $ lift $ getCurrentProject
+    runner <- lift $ lift getRunner
+    maybePji <- lift $ lift getCurrentProject
     case maybePji of
         Nothing -> doError $ InvalidOperation "No project selected" ""
         Just pji -> do
@@ -373,11 +368,10 @@ saveDeclaration :: ( GuiCommand t m
 saveDeclaration pji mi di = do
     -- Take the editor buffer contents, parse it into a declaration, and
     -- update it in the backing
-    di' <- doWithEditorBuffer $ \text -> do
-        lift 
-            $ editDeclaration pji mi di 
-            $ const 
-            $ Declaration.parseAndCombine text Nothing
+    di' <- doWithEditorBuffer $ \text -> lift 
+        $ editDeclaration pji mi di 
+        $ const 
+        $ Declaration.parseAndCombine text Nothing
     -- If the declaration's name has changed, update the tree with the
     -- new name, and replace the path in the history
     when (di /= di') $ do
@@ -398,8 +392,7 @@ saveUnparsableModule pji mi = do
     -- Update the text from the buffer, still marked as
     -- unparsable
     Just (_, loc, msg) <- lift $ getUnparsableModule pji mi
-    doWithEditorBuffer $ \t -> do
-        lift $ setModuleUnparsable pji mi t loc msg
+    doWithEditorBuffer $ \t -> lift $ setModuleUnparsable pji mi t loc msg
     mi' <- lift $ refreshModule pji mi
     result' <- lift $ getUnparsableModule pji mi'
     case result' of
@@ -428,8 +421,8 @@ saveModuleHeader :: ( GuiCommand t m
                  => ProjectInfo
                  -> ModuleInfo
                  -> t (SolutionResult UserError m) ()
-saveModuleHeader pji mi = doWithEditorBuffer $ \text -> do
-    lift $ editModuleHeader pji mi $ const text
+saveModuleHeader pji mi = doWithEditorBuffer $
+    lift . editModuleHeader pji mi . const
 
 -- | Save a module header or an unparsable module from the editor buffer
 saveModule :: ( GuiCommand t m
@@ -452,8 +445,8 @@ doSave :: forall t m
           )
        => t (SolutionResult UserError m) ()
 doSave = do 
-    declResult <- lift $ lift $ getCurrentDeclaration
-    modResult <- lift $ lift $ getCurrentModule
+    declResult <- lift $ lift getCurrentDeclaration
+    modResult <- lift $ lift getCurrentModule
     case (declResult,modResult) of
         -- If we're editing a declaration
         (Just (pji, mi, di),_) -> saveDeclaration pji mi di
@@ -478,14 +471,14 @@ doAddSolution :: ( GuiCommand t m
                  )
               => t (SolutionResult UserError m) ()
 doAddSolution = do
-    args <- unsplice $ getSolutionCreatorArg
-    initializer <- lift $ lift $ getInitializer
+    args <- unsplice getSolutionCreatorArg
+    initializer <- lift $ lift getInitializer
     r <- lift $ runInitializer initializer args
     case r of
         InitializerSucceeded _ _ tok -> do
             lift $ load tok
             populateTree
-        InitializerFailed out err -> do
+        InitializerFailed out err -> 
             doError $ InvalidOperation (T.unpack $ out <> err) ""
     splice finalizeSolutionCreator
 
@@ -496,7 +489,7 @@ doAddProject :: ( GuiCommand t m
                 )
              => t (SolutionResult UserError m) ()
 doAddProject = do
-    arg <- unsplice $ getProjectCreatorArg
+    arg <- unsplice getProjectCreatorArg
     initializer <- lift $ lift getProjectInitializer
     result <- lift $ runProjectInitializer initializer arg
     case result of
@@ -514,7 +507,7 @@ doEditProject :: ( GuiCommand t m
              => ProjectInfo
              -> t (SolutionResult UserError m) ()
 doEditProject pji = do
-    arg <- unsplice $ getProjectCreatorArg
+    arg <- unsplice getProjectCreatorArg
     editor <- lift $ lift getProjectEditor
     result <- lift $ runProjectEditor editor pji arg
     case result of
@@ -600,16 +593,15 @@ doUnExportDeclaration pji mi (SymbolDeclarationInfo sym) = do
         return $ flip filter es $ \(_,syms) -> sym `elem` syms
     case matches of
         [] -> doError $ SymbolNotExported mi sym ""
-        [(ei,syms)] -> do
-            case syms of
-                [] -> doError $ InvalidOperation "Internal Error" 
-                                                 "doUnExportDeclaration"
-                [_] -> do
-                    lift $ removeExport pji mi ei
-                    splice $ removeSolutionTreeNode $ ExportPath pji mi ei
-                _ -> doError $ Unsupported 
-                             $ "Symbol is exported with other symbols, "
-                               ++ "please remove export manually"
+        [(ei,syms)] -> case syms of
+            [] -> doError $ InvalidOperation "Internal Error" 
+                                             "doUnExportDeclaration"
+            [_] -> do
+                lift $ removeExport pji mi ei
+                splice $ removeSolutionTreeNode $ ExportPath pji mi ei
+            _ -> doError $ Unsupported 
+                         $ "Symbol is exported with other symbols, "
+                           ++ "please remove export manually"
         _ -> doError $ Unsupported 
                        "Multiple exports found, please remove exports manually"
 doUnExportDeclaration _ _ _ = doError $ InvalidOperation "This declaration is not exportable" ""
@@ -634,7 +626,7 @@ doMoveDeclaration pji mi di pji' mi' = do
         updateHistoryPath (DeclarationPath pji mi di) 
                           (DeclarationPath pji' mi' di)
         cdi <- getCurrentDeclaration
-        when (cdi == Just (pji, mi, di)) $ do
+        when (cdi == Just (pji, mi, di)) $
             setCurrentDecl pji' mi' di
             
 
@@ -644,18 +636,17 @@ doAddImport :: ( GuiCommand t m )
             -> ModuleInfo
             -> Text
             -> t (SolutionResult UserError m)  (Maybe (SolutionError UserError))
-doAddImport pji mi importStr = do
-    case Import.parse importStr of
-        Right newImport -> do
-            let i = WithBody newImport importStr
-            ii <- lift $ addImport pji mi i
-            splice
-                $ insertSolutionTreeNode (ImportsPath pji mi) 
-                $ ImportElem ii i
-            return Nothing
-        Left parseError -> case parseError of
-            err@ParseError{} -> return $ Just err
-            err -> doError err
+doAddImport pji mi importStr = case Import.parse importStr of
+    Right newImport -> do
+        let i = WithBody newImport importStr
+        ii <- lift $ addImport pji mi i
+        splice
+            $ insertSolutionTreeNode (ImportsPath pji mi) 
+            $ ImportElem ii i
+        return Nothing
+    Left parseError -> case parseError of
+        err@ParseError{} -> return $ Just err
+        err -> doError err
 
 -- | Remove an import from a module
 doRemoveImport :: ( GuiCommand t m )
@@ -684,20 +675,19 @@ doEditImport :: ( GuiCommand t m )
              -> ImportId
              -> Text
              -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
-doEditImport pji mi ii importStr = do
-    case Import.parse importStr of
-        Right newImport -> do
-            lift $ removeImport pji mi ii
-            let i' = WithBody newImport importStr
-            ii' <- lift $ addImport pji mi i'
-            splice 
-                $ updateSolutionTreeNode (ImportPath pji mi ii) 
-                $ const 
-                $ ImportElem ii' i'
-            return Nothing
-        Left parseError -> case parseError of
-            err@ParseError{} -> return $ Just err
-            err -> doError err
+doEditImport pji mi ii importStr = case Import.parse importStr of
+    Right newImport -> do
+        lift $ removeImport pji mi ii
+        let i' = WithBody newImport importStr
+        ii' <- lift $ addImport pji mi i'
+        splice 
+            $ updateSolutionTreeNode (ImportPath pji mi ii) 
+            $ const 
+            $ ImportElem ii' i'
+        return Nothing
+    Left parseError -> case parseError of
+        err@ParseError{} -> return $ Just err
+        err -> doError err
 
 -- | Add an export to a module
 doAddExport :: ( GuiCommand t m )
@@ -705,18 +695,17 @@ doAddExport :: ( GuiCommand t m )
             -> ModuleInfo
             -> Text
             -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
-doAddExport pji mi exportStr = do
-    case Export.parse exportStr of
-        Right newExport -> do
-            let e = WithBody newExport exportStr
-            ei <- lift $ addExport pji mi e
-            splice 
-                $ insertSolutionTreeNode (ExportsPath pji mi) 
-                $ ExportElem ei e
-            return Nothing
-        Left parseError -> case parseError of
-            err@ParseError{} -> return $ Just err
-            err -> doError err
+doAddExport pji mi exportStr = case Export.parse exportStr of
+    Right newExport -> do
+        let e = WithBody newExport exportStr
+        ei <- lift $ addExport pji mi e
+        splice 
+            $ insertSolutionTreeNode (ExportsPath pji mi) 
+            $ ExportElem ei e
+        return Nothing
+    Left parseError -> case parseError of
+        err@ParseError{} -> return $ Just err
+        err -> doError err
 
 -- | Remove an export from a module
 doRemoveExport :: ( GuiCommand t m )
@@ -745,20 +734,19 @@ doEditExport :: ( GuiCommand t m )
              -> ExportId
              -> Text
              -> t (SolutionResult UserError m) (Maybe (SolutionError UserError))
-doEditExport pji mi ei exportStr = do
-    case Export.parse exportStr of
-        Right newExport -> do
-            lift $ removeExport pji mi ei
-            let e' = WithBody newExport exportStr
-            ei' <- lift $ addExport pji mi e'
-            splice 
-                $ updateSolutionTreeNode (ExportPath pji mi ei) 
-                $ const 
-                $ ExportElem ei' e'
-            return Nothing
-        Left parseError -> case parseError of
-            err@ParseError{} -> return $ Just err
-            err -> doError err
+doEditExport pji mi ei exportStr = case Export.parse exportStr of
+    Right newExport -> do
+        lift $ removeExport pji mi ei
+        let e' = WithBody newExport exportStr
+        ei' <- lift $ addExport pji mi e'
+        splice 
+            $ updateSolutionTreeNode (ExportPath pji mi ei) 
+            $ const 
+            $ ExportElem ei' e'
+        return Nothing
+    Left parseError -> case parseError of
+        err@ParseError{} -> return $ Just err
+        err -> doError err
 
 -- | Set a module to export everything
 doExportAll :: ( GuiCommand t m )
@@ -767,8 +755,8 @@ doExportAll :: ( GuiCommand t m )
             -> t (SolutionResult UserError m)  ()
 doExportAll pji mi = do
     eis <- lift $ getExports pji mi
-    splice $ forM_ (maybe [] id eis) $ \ei -> do
-        removeSolutionTreeNode $ ExportPath pji mi ei
+    splice $ forM_ (fromMaybe [] eis) $ 
+        removeSolutionTreeNode . ExportPath pji mi
     lift $ exportAll pji mi
     
 -- | Perform a text search or a declaration navigation depending on the state
@@ -777,7 +765,7 @@ doSearch :: ( GuiCommand t m
             )
          => t (SolutionResult UserError m) ()
 doSearch = do
-    mode <- lift $ lift $ getSearchMode
+    mode <- lift $ lift getSearchMode
     s <- splice getSearchBarText
     case mode of
         Find -> do 
@@ -787,10 +775,10 @@ doSearch = do
             let search substr supstr = case T.splitOn supstr substr of
                     [] -> Nothing
                     (t:_) -> Just $ T.length t
-            result <- return $ case (search s textAfter, search s textBefore) of
-                (Just offset,_) -> Just offset
-                (_,Just offset) -> Just offset
-                _ -> Nothing
+                result = case (search s textAfter, search s textBefore) of
+                    (Just offset,_) -> Just offset
+                    (_,Just offset) -> Just offset
+                    _ -> Nothing
             case result of
                 Just offset -> do
                     highlightStart <- splice 
@@ -800,10 +788,9 @@ doSearch = do
                         $ offset + T.length s
                     splice $ selectEditorBufferText highlightStart highlightEnd
                 _ -> doError $ UserError $ TempError "Not Found"
-        Navigate -> do
-            case DeclarationPath.parse (T.unpack s) of
-                Nothing -> doError $ UserError $ TempError "Not Found"
-                Just dpath -> doOpenItem dpath
+        Navigate -> case DeclarationPath.parse (T.unpack s) of
+            Nothing -> doError $ UserError $ TempError "Not Found"
+            Just dpath -> doOpenItem dpath
                             
 -- | Set the mode of the search component
 doSetSearchMode 
@@ -824,7 +811,7 @@ getCurrentWord text startOffset endOffset isChar =
     postEnd = T.drop endOffset text
     between = T.take (endOffset - startOffset) $ T.drop startOffset text
     nextPreStart = T.reverse $ T.takeWhile isChar $ T.reverse preStart
-    nextPostEnd = T.takeWhile isChar $ postEnd
+    nextPostEnd = T.takeWhile isChar postEnd
 
 -- | Find the symbol the cursor is over, then open the declaration that created
 -- that symbol
@@ -834,7 +821,7 @@ doGotoDeclaration
     => t (SolutionResult UserError m) ()
 doGotoDeclaration = do
     text <- splice $ getEditorBufferText Nothing Nothing
-    (startPos,endPos) <- splice $ getEditorBufferCursor
+    (startPos,endPos) <- splice getEditorBufferCursor
     startOffset <- splice $ getEditorBufferIndexAtPosition startPos
     endOffset <- splice $ getEditorBufferIndexAtPosition endPos
     let currentWord = getCurrentWord text startOffset endOffset isChar
@@ -852,7 +839,7 @@ doGotoDeclaration = do
     hits <- lift $ Solution.findSymbol $ Symbol currentWord
     let hits' = join . fmap (sequenceA . fmap (join .  fmap sequenceA)) $ hits
     case hits' of
-        [(ProjectChild pji (ModuleChild mi di))] -> do
+        [ProjectChild pji (ModuleChild mi di)] ->
             doOpenItem $ DeclarationPath pji mi di
         _ -> return ()
 
@@ -864,7 +851,7 @@ doBackHistory
 doBackHistory = do
     text <- splice $ getEditorBufferText Nothing Nothing
     lift $ lift $ replaceHistoryText text
-    result <- lift $ lift $ navigateHistoryBack
+    result <- lift $ lift navigateHistoryBack
     case result of
         Just (path,text') -> do
             splice $ setEditorBufferTextHighlighted text'
@@ -883,7 +870,7 @@ doForwardHistory
 doForwardHistory = do
     text <- splice $ getEditorBufferText Nothing Nothing
     lift $ lift $ replaceHistoryText text
-    result <- lift $ lift $ navigateHistoryForward
+    result <- lift $ lift navigateHistoryForward
     case result of
         Just (path,text') -> do
             splice $ setEditorBufferTextHighlighted text'
