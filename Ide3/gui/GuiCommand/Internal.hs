@@ -69,7 +69,7 @@ import qualified DeclarationPath
 
 import GuiError
 
-import ErrorParser.Types
+import ErrorParser
 
 -- | User error
 type UserError = GuiError
@@ -138,7 +138,6 @@ doEditProjectStart pji = do
 
 
 doDeleteProject :: ( GuiCommand t m
-                   , m ~ ClassProjectInitializerMonad (t m)
                    , Args (ProjectArgType m)
                    )
                 => ProjectInfo
@@ -197,7 +196,7 @@ setPathAsCurrent :: ( GuiCommand t m )
 setPathAsCurrent (DeclarationPath pji mi di) = lift $ lift $ setCurrentDecl pji mi di
 setPathAsCurrent (ModulePath pji mi) = lift $ lift $ setCurrentModule pji mi
 setPathAsCurrent (UnparsableModulePath pji mi) = lift $ lift $ setCurrentModule pji mi
-setPathAsCurent _ = return ()
+setPathAsCurrent _ = return ()
 
 -- | Retrieve a declaration, module header, or unparsable module contents
 openItem 
@@ -240,14 +239,11 @@ doGetDecl :: ( GuiCommand t m )
           -> t (SolutionResult UserError m)  ()
 doGetDecl path = do
     index <- splice $ findAtPath path
-    let maybePath = case index of
-            DeclResult pji mi di -> Just $ DeclarationPath pji mi di
-            ModuleResult pji mi di -> Just $ ModulePath pji mi
-            UnparsableModuleResult pji mi _ _ -> Just $ UnparsableModulePath pji mi
-    case maybePath of
-        Just path -> doOpenItem path 
-        
-        Nothing -> return ()
+    maybe (return ()) doOpenItem $ case index of
+        DeclResult pji mi di -> Just $ DeclarationPath pji mi di
+        ModuleResult pji mi _ -> Just $ ModulePath pji mi
+        UnparsableModuleResult pji mi _ _ -> Just $ UnparsableModulePath pji mi
+        _ -> Nothing
 
 doOpenItem :: ( GuiCommand t m )
           => SolutionPath
@@ -256,7 +252,7 @@ doOpenItem path = do
     maybeHistoryCurrent <- lift $ lift getCurrentHistory
     case maybeHistoryCurrent of
         -- If the item to open is the current item, do nothing
-        Just (oldPath, oldText)
+        Just (oldPath, _)
             | path == oldPath -> return ()
         _ -> do
             saveCurrentHistory
@@ -300,9 +296,9 @@ doBuild = do
     -- each group's offsets. 
     let sortedErrors = OMap.partitionBy errorLocation errors
     let errorSrcLoc e = SrcLoc (errorRow e) (errorColumn e)
-    let fetchErrorLocations (ErrorLocation proj m) es = do
-            let pji = ProjectInfo $ getProjectName proj
-            let mi = ModuleInfo $ Symbol $ getModuleName m
+    let fetchErrorLocations (ErrorLocation (ProjectName proj) (ModuleName m)) es = do
+            let pji = ProjectInfo $ proj
+            let mi = ModuleInfo $ Symbol $ m
             let mkItemPath = ProjectChild pji . ModuleChild mi
             let fixLocation e locResult = flip mapError e $ \_ _ _ msg -> case locResult of
                     Just (solutionItem, SrcLoc r' c')

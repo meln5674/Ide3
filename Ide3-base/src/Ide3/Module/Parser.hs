@@ -170,8 +170,8 @@ parse s p oldMi = case parseModuleWithComments parseMode s of
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> case maybeName of
             Just name -> do
-                let mi = ModuleInfo $ Symbol $ T.pack $ getModuleName name
-                    getModuleName (Syntax.ModuleName _ x) = x
+                let (Syntax.ModuleName _ mName) = name
+                    mi = ModuleInfo $ Symbol $ T.pack mName
                     _ = l' :: SrcSpanInfo
                 return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
             Nothing -> Left $ InternalError "Unparsable module found without backup module info" ""
@@ -197,8 +197,10 @@ parseMain s p = case parseModuleWithComments parseMode s of
     ParseOk x -> extract s x (Just $ ModuleInfo $ Symbol "Main")
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
-            let mi = ModuleInfo $ Symbol $ T.pack $ maybe "Main" getModuleName maybeName
-                getModuleName (Syntax.ModuleName _ x) = x
+            let mName
+                    | Just (Syntax.ModuleName _ justName) <- maybeName = justName
+                    | otherwise = "Main"
+                mi = ModuleInfo $ Symbol $ T.pack mName
                 _ = l' :: SrcSpanInfo
             return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
         ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""

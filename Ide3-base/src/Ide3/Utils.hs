@@ -12,15 +12,11 @@ Portability : POSIX
 {-# LANGUAGE OverloadedStrings #-}
 module Ide3.Utils where
 
-import Data.Text (Text)
 import qualified Data.Text as T
-
-import Data.List
 
 import System.FilePath
 import System.IO.Error
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
@@ -56,9 +52,9 @@ moduleInfoToPath root (ModuleInfo (Symbol s)) = root </> relative <.> "hs"
     relative = T.unpack $ T.intercalate (T.pack [pathSeparator]) $ T.splitOn "." $ s
 
 pathToModuleInfo :: FilePath -> FilePath -> ModuleInfo
-pathToModuleInfo root abs = ModuleInfo $ Symbol s
+pathToModuleInfo rootPath absPath = ModuleInfo $ Symbol s
   where
-    relative = dropExtension $ makeRelative root abs
+    relative = dropExtension $ makeRelative rootPath absPath
     s = T.intercalate "." $ T.splitOn (T.pack [pathSeparator]) $ T.pack relative
 
 -- | Class of transformers whch can insert themselves underneath

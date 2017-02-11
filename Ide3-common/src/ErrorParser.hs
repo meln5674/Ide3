@@ -5,6 +5,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ErrorParser 
     ( parseLog
+    , Error (..)
+    , ErrorType (..)
+    , ErrorLocation (..)
+    , ProjectName (..)
+    , ModuleName (..)
+    , Row (..)
+    , Column (..)
+    , mapError
+    , mapErrorM
     ) where
 
 import Prelude hiding (lines, words, unwords, unlines, null)

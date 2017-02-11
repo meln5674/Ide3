@@ -31,9 +31,9 @@ library
                      , EnvironmentMonad
                      , Args
                      , ErrorParser
-                     , ErrorParser.Types
                      , DirtyModuleClass
     other-modules:     Viewer.Internal
+                     , ErrorParser.Types
     build-depends:     base
                      , temporary
                      , directory
@@ -53,6 +53,7 @@ test-suite Ide3-common-test
     hs-source-dirs:     test, src
     main-is:            Main.hs
     other-modules:      ErrorParser
+                      , ErrorParser.Types
                       , Tests.ErrorParser
     build-depends:      base
                       , Ide3-base

@@ -326,19 +326,19 @@ makeComboBox self = liftIO $ do
 
 makeVPanedWith :: (MonadIO m, IsContainer self) 
                => self 
-               -> (VPaned -> m b) 
+               -> (Paned -> m b) 
                -> m b
 makeVPanedWith container f = do
-    vbox <- vPanedNew
+    vbox <- new Paned [#orientation := OrientationVertical]
     container `containerAdd` vbox
     f vbox
 
 makeHPanedWith :: (MonadIO m, IsContainer self) 
                => self 
-               -> (HPaned -> m b)
+               -> (Paned -> m b)
                -> m b
 makeHPanedWith container f = do
-    hbox <- hPanedNew
+    hbox <- new Paned [#orientation := OrientationHorizontal]
     container `containerAdd` hbox
     f hbox
 

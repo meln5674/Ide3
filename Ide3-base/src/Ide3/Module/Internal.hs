@@ -30,7 +30,6 @@ import qualified Data.Map as Map
 
 import qualified Ide3.OrderedMap as OMap
 
-import Control.Monad
 import Control.Monad.Trans.Except
 
 import Ide3.Types.Internal
@@ -261,7 +260,7 @@ parse :: String
       -> Maybe FilePath 
       -> Maybe ModuleInfo
       -> Either (SolutionError u) (Module,[ExportId],[ImportId], Maybe (SrcLoc,String))
-parse s path oldMi = (parseUsing $ \s path -> Parser.parse s path oldMi) s path
+parse s path oldMi = (parseUsing $ \s' path' -> Parser.parse s' path' oldMi) s path
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
@@ -417,9 +416,9 @@ annotateHeader :: Module -> [AnnotatedModuleItem]
 annotateHeader m = maybe withNoExportList withExportList $ moduleExports m
   where
     ModuleInfo (Symbol name) = info m
-    withNoExportList = [Annotated Nothing ["module " <> name <> " where"]]
+    withNoExportList = [Annotated Nothing [headerStart <> name <> headerEnd]]
     withExportList es = 
-        Annotated Nothing ["module " <> name]
+        Annotated Nothing [headerStart <> name]
         : case Map.toList es of
             [] -> [Annotated Nothing [indent $ exportListStart <> exportListEnd <> headerEnd]]
             [(eid,e)] -> [ Annotated (Just $ ExportKeyValue eid e) 

@@ -10,10 +10,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Main where
 
-import qualified Data.Text as T
-
-import Data.Proxy
-
 import Control.Monad
 import Control.Monad.Catch
 import Control.Monad.Trans
@@ -23,7 +19,6 @@ import Control.Monad.Trans.State.Strict hiding (withState)
 import Control.Concurrent.MVar
 import Control.Concurrent.STM.TChan
 
-import Data.GI.Base.Signals (SignalHandlerId)
 import GI.Gtk hiding (main, on)
 import qualified GI.Gtk as Gtk
 import GI.Gdk hiding (on)
@@ -115,18 +110,20 @@ instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) w
     getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
     getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
     getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
+    getProjectRemover = mapProjectRemover lift <$> lift getProjectRemover
     type ProjectArgType (ViewerStateT m) = ProjectArgType m
 
 instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) where
     getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
     getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
     getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
+    getProjectRemover = mapProjectRemover lift <$> lift getProjectRemover
     type ProjectArgType (GuiViewerT m) = ProjectArgType m
 
 type MonadStack = GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))
 type GuiState = (FileSystemSolution, Solution) 
 
-makeDialogs :: Monad m' => AccelGroup -> GuiEnv m' p -> IO Dialogs
+makeDialogs :: AccelGroup -> GuiEnv m' p -> IO Dialogs
 makeDialogs group = runGuiEnvT $ do
     withGuiComponents $ applyDeclBufferAttrs defaultTextAttrs
     newSolutionDialog <- NewSolutionDialog.make $ \dialog -> do

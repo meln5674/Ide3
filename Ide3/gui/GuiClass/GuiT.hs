@@ -10,11 +10,8 @@ import qualified Data.Text as T
 
 import System.Directory
 
-import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
-
-import ViewerMonad
 
 import Ide3.Types
 import Ide3.Utils
@@ -176,7 +173,6 @@ getSolutionCreatorArg'
 
 
 instance ( MonadIO m
-         , ViewerMonad m
          , ArgType m' ~ StackInitializerArgs
          , m ~ m'
          ) => SolutionInitializerClass (GuiT m' p m) where

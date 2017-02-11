@@ -1,8 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE QuasiQuotes #-}
 module GuiViewer
-    ( module GuiViewer
-    , module GuiViewer.Internal
+    ( module GuiViewer.Internal
     ) where
 
 import Control.Monad.Trans

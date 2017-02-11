@@ -80,13 +80,13 @@ data BuildInfo = BuildInfo
 data Dependency = Dependency Text
 
 -- | Information identifying a module
-newtype ModuleInfo = ModuleInfo Symbol              
+newtype ModuleInfo = ModuleInfo { getModuleName :: Symbol }
     deriving (Show, Read, Eq, Ord)
 
 -- | Produce a string representing a module's info, with a default string if it
 -- is an unnamed, pathless module
 moduleInfoString :: ModuleInfo -> Text
-moduleInfoString (ModuleInfo s) = getSymbol s
+moduleInfoString = getSymbol . getModuleName
 
 -- | A key-value pair of a module item
 data ModuleItemKeyValue

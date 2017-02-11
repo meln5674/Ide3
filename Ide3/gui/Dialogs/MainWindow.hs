@@ -81,38 +81,22 @@ module Dialogs.MainWindow
     , addForwardEventAccelerator
     ) where
 
-import Data.Monoid
-
-import Data.Text hiding (map)
-
-import Control.Monad
 import Control.Monad.Trans
 
 import Data.GI.Base.Attributes
 import GI.Gtk hiding (TreePath, SearchBar)
-import GI.Gdk hiding (Window, windowNew)
-import Data.GI.Gtk.ModelView.CellLayout
-
-import Ide3.Types
 
 import BetterTextView
-
-import ErrorParser.Types
 
 import GuiClass.Types
 
 import GuiEnv
-import GuiMonad
 
 import GuiHelpers
 
-import Dialogs.SearchBar (SearchBar)
 import qualified Dialogs.SearchBar as SearchBar
 
 import SearchMode
-import DeclarationPath
-
-import GuiClass (SolutionTreeElem (..))
 
 import Dialogs.MainWindow.Types
 import Dialogs.MainWindow.Menus
@@ -196,11 +180,13 @@ makeContainerWith vbox f = do
     f container
 -}
 
+{-
 makeMainMenuBar :: (MonadIO m, IsBox self) => self -> GuiEnvT {-proxy-} m' p  m MenuBar
 makeMainMenuBar vbox = do
     menuBar <- menuBarNew
     boxPackStart vbox menuBar False False 0
     return menuBar
+-}
 
 makeMainWindowWith :: (MonadIO m) 
                    => (Window -> GuiEnvT {-proxy-} m' p  m a) 

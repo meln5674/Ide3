@@ -8,8 +8,6 @@ import Control.Monad.Trans
 import GI.Gdk
 import GI.Gtk
 
-import GuiHelpers
-
 import Dialogs.MainWindow.Types
 import Dialogs.MainWindow.Accelerators
 

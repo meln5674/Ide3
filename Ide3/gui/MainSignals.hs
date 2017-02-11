@@ -12,7 +12,8 @@
 module MainSignals where
 
 import Data.Int
-import Data.Text
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import System.Exit
 import System.Directory
@@ -230,9 +231,10 @@ onDeleteProjectClicked :: forall t {-proxy-} m' p m
               -> t m Bool
 onDeleteProjectClicked pji = do
     dialog <- Gtk.new Gtk.Dialog []
-    Gtk.dialogAddButton dialog "Yes" $ fromIntegral $ fromEnum DeleteProjectAndFiles
-    Gtk.dialogAddButton dialog "No" $ fromIntegral $ fromEnum DeleteProjectNotFiles
-    Gtk.dialogAddButton dialog "Cancel" $ fromIntegral $ fromEnum CancelDeleteProject
+    let responses = [DeleteProjectAndFiles, DeleteProjectNotFiles, CancelDeleteProject]
+        labels = ["Yes", "No", "Cancel"]
+        buttonPairs = zip labels (map (fromIntegral . fromEnum) responses)
+    forM_ buttonPairs $ uncurry $ Gtk.dialogAddButton dialog
     result <- liftM (toEnum . fromIntegral) $ dialogRun dialog
     case result of
         DeleteProjectAndFiles -> doDeleteProject pji True
@@ -465,12 +467,12 @@ onMoveDeclarationClicked pji mi di = do
                     case result of
                         ModuleResult pji' mi' _ -> do
                             doMoveDeclaration pji mi di pji' mi'
-                            MoveDeclarationDialog.close dialog
-                        ProjectResult _ -> do
-                            doError $ InvalidOperation "Please select a module"
-                                                       ""
+                            MoveDeclarationDialog.close dialog 
                         NoSearchResult -> do
                             doError $ InvalidOperation "An internal error has occured"
+                                                       ""
+                        _ -> do
+                            doError $ InvalidOperation "Please select a module"
                                                        ""
             return False
         void $ dialog `on` MoveDeclarationDialog.cancelClickedEvent $ Func1 $ \_ -> do
@@ -487,9 +489,7 @@ setupModuleContextMenu :: forall t {-proxy-} m' p m
 setupModuleContextMenu pji mi = do
     menu <- SolutionContextMenu.makeModuleMenu pji mi
     void $ menu `on` SolutionContextMenu.newSubModuleClickedEvent $ Func1 $ \_ -> do
-        onNewModuleClicked pji $ case mi of
-            ModuleInfo (Symbol prefix) -> Just prefix
-            _ -> Nothing
+        onNewModuleClicked pji $ Just $ getSymbol $ getModuleName mi
     void $ menu `on` SolutionContextMenu.newDeclClickedEvent $ Func1 $ \_ -> do
         doAddDeclaration pji mi $ RawDeclarationInfo $ "New Declaration"
         return False
@@ -633,8 +633,8 @@ onSolutionViewClicked gui event = do
         menu <- case pathClicked of
             Nothing -> setupSolutionContextMenu
             Just (path, _, _) -> do
-                item <- findAtPath path
-                case item of
+                result <- findAtPath path
+                case result of
                     ProjectResult pji -> setupProjectContextMenu pji
                     ModuleResult pji mi _ -> setupModuleContextMenu pji mi
                     UnparsableModuleResult pji mi loc _ -> setupUnparsableModuleContextMenu gui pji mi loc
@@ -721,14 +721,14 @@ onSolutionTreeTooltipQuery :: forall t m' p m
 onSolutionTreeTooltipQuery gui x' y' _ tooltip = do
     let x = fromIntegral x'
         y = fromIntegral y'
-    result <- MainWindow.getSolutionPathClicked (WidgetCoords x y) gui
-    case result of
+    pathResult <- MainWindow.getSolutionPathClicked (WidgetCoords x y) gui
+    case pathResult of
         Just (path, _, _) -> do
-            item <- findAtPath path
-            case item of
+            result <- findAtPath path
+            case result of
                 UnparsableModuleResult _ _ loc msg -> do
                     let tooltipText = show loc ++ ": " ++ msg
-                    liftIO $ tooltipSetText tooltip $ Just $ pack tooltipText
+                    liftIO $ tooltipSetText tooltip $ Just $ T.pack tooltipText
                     return True
                 _ -> return False
         Nothing -> return False
@@ -789,28 +789,28 @@ setupMainSignals gui = do
 
 
 setupKeyboardShortcuts :: MonadIO m => MainWindow -> AccelGroup -> m ()
-setupKeyboardShortcuts gui group = do
-    gui `MainWindow.addAccelGroup` group
-    MainWindow.addNewClickedEventAccelerator gui group
+setupKeyboardShortcuts gui accelGroup = do
+    gui `MainWindow.addAccelGroup` accelGroup
+    MainWindow.addNewClickedEventAccelerator gui accelGroup
         KEY_n [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addOpenClickedEventAccelerator gui group
+    MainWindow.addOpenClickedEventAccelerator gui accelGroup
         KEY_o [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addDigestClickedEventAccelerator gui group
+    MainWindow.addDigestClickedEventAccelerator gui accelGroup
         KEY_o [ModifierTypeControlMask, ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addSaveClickedEventAccelerator gui group
+    MainWindow.addSaveClickedEventAccelerator gui accelGroup
         KEY_s [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addSaveSolutionClickedEventAccelerator gui group
+    MainWindow.addSaveSolutionClickedEventAccelerator gui accelGroup
         KEY_s [ModifierTypeControlMask,ModifierTypeShiftMask] [AccelFlagsVisible]
-    MainWindow.addBuildClickedEventAccelerator gui group
+    MainWindow.addBuildClickedEventAccelerator gui accelGroup
         KEY_F5 [] [AccelFlagsVisible]
-    {-MainWindow.addFindClickedEventAccelerator gui group
+    {-MainWindow.addFindClickedEventAccelerator gui accelGroup
         KEY_f [ModifierTypeControlMask] [AccelFlagsVisible]-}
-    {-MainWindow.addNavigateClickedEventAccelerator gui group
+    {-MainWindow.addNavigateClickedEventAccelerator gui accelGroup
         KEY_KP_Space [ModifierTypeControlMask] [AccelFlagsVisible]-}
-    MainWindow.addGotoDeclarationEventAccelerator gui group
+    MainWindow.addGotoDeclarationEventAccelerator gui accelGroup
         KEY_d [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addBackEventAccelerator gui group
+    MainWindow.addBackEventAccelerator gui accelGroup
         KEY_less [ModifierTypeControlMask] [AccelFlagsVisible]
-    MainWindow.addForwardEventAccelerator gui group
+    MainWindow.addForwardEventAccelerator gui accelGroup
         KEY_greater [ModifierTypeControlMask] [AccelFlagsVisible]
     

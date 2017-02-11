@@ -9,38 +9,11 @@ module Dialogs.MainWindow.Menus
     , module Dialogs.MainWindow.Menus.Accelerators
     ) where
 
-import Data.Monoid
-
-import Data.Text hiding (map)
-
-import Control.Monad
 import Control.Monad.Trans
 
-import Data.GI.Base.Attributes
 import GI.Gtk hiding (TreePath, SearchBar)
-import GI.Gdk hiding (Window, windowNew)
-import Data.GI.Gtk.ModelView.CellLayout
-
-import Ide3.Types
-
-import BetterTextView
-
-import ErrorParser.Types
-
-import GuiClass.Types
-
-import GuiEnv
-import GuiMonad
 
 import GuiHelpers
-
-import Dialogs.SearchBar (SearchBar)
-import qualified Dialogs.SearchBar as SearchBar
-
-import SearchMode
-import DeclarationPath
-
-import GuiClass (SolutionTreeElem (..))
 
 import Dialogs.MainWindow.Menus.Types
 import Dialogs.MainWindow.Menus.Signals

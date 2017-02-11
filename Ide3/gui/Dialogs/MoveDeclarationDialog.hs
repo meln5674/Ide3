@@ -15,7 +15,7 @@ module Dialogs.MoveDeclarationDialog
 
 import Data.Maybe
 import Data.Tree
-import Data.Text (Text, pack)
+import Data.Text (Text)
 
 import Control.Monad.Trans
 

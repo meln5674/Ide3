@@ -241,7 +241,6 @@ searchTreeForModulePart (ModuleInfo (Symbol s)) = searchTree''' moduleNameIsPref
             ('.':_) -> True
             _ -> False
     moduleNameIsPrefixOf _ = False
-searchTreeForModulePart _ = MultiState $ const []
 
 {-
 searchTreeForModule :: ModuleInfo -> Tree SolutionTreeElem -> [(TreePath, Tree SolutionTreeElem)]
@@ -526,11 +525,11 @@ updateSolutionTreeTree spath f = do
     insertSolutionTreePathTree (init tpath) (Just $ last tpath) tree
 
 hasSubModules' :: SolutionViewClass m => SolutionPath -> m Bool
-hasSubModules' path = flip any <$> getTreeAtSolutionPath path <*> pure pred
+hasSubModules' path = any isModule <$> getTreeAtSolutionPath path
   where
-    pred ModuleElem{} = True
-    pred UnparsableModuleElem{} = True
-    pred _ = False
+    isModule ModuleElem{} = True
+    isModule UnparsableModuleElem{} = True
+    isModule _ = False
 
 hasSubModules :: SolutionViewClass m => SolutionPath -> m Bool
 hasSubModules path@(ModulePath _ _) = hasSubModules' path

@@ -15,7 +15,7 @@ import Control.Monad.Trans.Except
 
 import Ide3.Types
 
-import ErrorParser.Types
+import ErrorParser
 
 import DeclarationPath
 

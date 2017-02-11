@@ -62,9 +62,7 @@ executable Ide3-GUI
                      , GuiMonad
                      , GuiEnv
                      , GuiClass
-                     --, GuiClass.Dialogs
                      , GuiClass.GuiEnv
-                     --, GuiClass.GuiEnv.Stack
                      , GuiClass.GuiT
                      , GuiClass.Types
                      , ViewerMonad2
@@ -140,6 +138,9 @@ test-suite Ide3-test
   other-modules:       SolutionTree
                      , DeclarationPath
                      , Tests.SolutionTree
+                     , GuiClass
+                     , GuiClass.Types
+                     , SyntaxHighlighter2
   build-depends:       base
                      , Ide3-common
                      , Ide3-base

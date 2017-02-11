@@ -16,7 +16,7 @@ module ProjectRemover
     , ProjectRemover (..)
     , runProjectRemover
     , noProjectRemover
---    , mapProjectRemover
+    , mapProjectRemover
     ) where
 
 import Control.Monad.Trans.Except
@@ -44,9 +44,9 @@ runProjectRemover = runProjectRemoverInternal
 noProjectRemover :: Monad m => ProjectRemover a m
 noProjectRemover = ProjectRemover $ \_ -> throwE $ Unsupported "No project Remover specified"
 
-{-
+
 mapProjectRemover :: (forall b . m b -> m' b) 
                     -> ProjectRemover a m 
                     -> ProjectRemover a m'
 mapProjectRemover f (ProjectRemover b) = ProjectRemover (\x -> mapExceptT f $ b x) 
--}
+

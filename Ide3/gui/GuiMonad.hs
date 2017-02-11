@@ -25,7 +25,7 @@ import GI.Gtk
 import Data.GI.Gtk.ModelView.ForestStore
 import Data.GI.Gtk.ModelView.SeqStore
 
-import ErrorParser.Types
+import ErrorParser
 
 import SyntaxHighlighter2
 

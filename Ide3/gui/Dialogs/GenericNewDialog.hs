@@ -36,7 +36,6 @@ import Data.Text
 import Control.Monad.Trans
 
 import GI.Gtk
-import Data.GI.Base.Attributes
 
 import GuiHelpers
 

@@ -7,10 +7,10 @@ import Dialogs.MainWindow.Types
 import Dialogs.MainWindow.Signals
 
 mkSolutionViewerSignal :: (SolutionViewer -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkSolutionViewerSignal getter signal window = (getter $ solutionViewer window, signal)
+mkSolutionViewerSignal getter = mkMainWindowSignal (getter . solutionViewer)
 
 mkBuildViewerSignal :: (BuildViewer -> object) -> SignalProxy object info -> MainWindowSignal object info
-mkBuildViewerSignal getter signal window = (getter $ buildViewer window, signal)
+mkBuildViewerSignal getter = mkMainWindowSignal (getter . buildViewer)
 
 declClickedEvent :: MainWindowSignal TreeView TreeViewRowActivatedSignalInfo
 declClickedEvent = projectView `mkSolutionViewerSignal` #rowActivated

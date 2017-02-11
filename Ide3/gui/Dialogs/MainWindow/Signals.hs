@@ -4,7 +4,7 @@ import GI.Gtk
 
 import GuiHelpers
 
-import Dialogs.MainWindow.Types
+import Dialogs.MainWindow.Types hiding (window)
 
 type MainWindowSignal object info = SubSignalProxy MainWindow object info
 

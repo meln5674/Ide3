@@ -23,9 +23,6 @@ import Dialogs.Class
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
 import Dialogs.NewProjectDialog (NewProjectDialog)
-import Dialogs.NewModuleDialog (NewModuleDialog)
-import Dialogs.NewExportDialog (NewExportDialog)
-import Dialogs.NewImportDialog (NewImportDialog)
 
 data Dialogs = Dialogs
     { mainWindow :: MainWindow

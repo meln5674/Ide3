@@ -93,7 +93,6 @@ makeTreeSkeleton = go ""
           where
             preRoot = T.take (T.length knownRoot) s
             postRoot = T.takeWhile ('.' /= ) $ T.drop (T.length knownRoot) s
-        getRootName x = x
 
 -- | Take a module tree and fill each node with its declarations
 fillTree :: ( ModuleExportClass m

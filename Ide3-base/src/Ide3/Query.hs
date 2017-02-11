@@ -447,12 +447,11 @@ moduleImportedByInModule :: (SolutionMonad m)
                          -> ProjectInfo
                          -> ModuleInfo
                          -> SolutionResult u m [ImportId]
-moduleImportedByInModule pji mi@(ModuleInfo sym) pji' mi' = do
+moduleImportedByInModule pji mi pji' mi' = do
     iis <- getImports pji' mi'
     flip filterM iis $ \ii -> do
         i <- getImport pji mi ii
-        return $ Import.moduleName (item i) == sym
-moduleImportedByInModule _ _ _ _ = return []
+        return $ Import.moduleName (item i) == getModuleName mi
 
 -- | Find all of the modules in a project which import another module
 moduleImportedByInProject :: (SolutionMonad m)

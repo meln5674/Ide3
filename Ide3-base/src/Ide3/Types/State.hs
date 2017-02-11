@@ -41,10 +41,6 @@ data Project
     , projectExternModules :: Map ModuleInfo ExternModule
     }
     deriving (Show, Read, Eq)
--- | Get the name of a module from its info
-getModuleName :: ModuleInfo -> Symbol
-getModuleName (ModuleInfo n) = n
-getModuleName _ = Symbol "UNNAMED MODULE"
 
 -- | A collection of imports
 type ImportCollection = Map ImportId (WithBody Import)

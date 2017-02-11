@@ -6,7 +6,7 @@ import System.Exit
 
 import Tests.ErrorParser
 
---allTests = TestList [test_parseLogFile "testlog", test_parseLogFile "testlog2"]
+allTests = TestList [] --[test_parseLogFile "testlog", test_parseLogFile "testlog2"]
 
 main :: IO ()
 main = do

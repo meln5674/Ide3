@@ -20,8 +20,6 @@ import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Control.Monad
-
 import Language.Haskell.Exts.Parser
 import Language.Haskell.Exts.Syntax hiding (Symbol, Ann, ann)
 import qualified Language.Haskell.Exts.Syntax as Syntax

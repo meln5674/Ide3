@@ -24,7 +24,7 @@ import GenericGuiEnv (IdleThreadTask(..))
 
 type MVarType p = (GuiViewerState, (ViewerState, p))
 
-data GuiEnv m p
+data GuiEnv (m :: * -> *) p
     = GuiEnv
     { guiComponents :: GuiComponents
     , projectMVar :: MVar (MVarType p)
@@ -76,6 +76,7 @@ instance (GuiViewerClass m) => GuiViewerClass (GuiEnvT m' p m) where
     getOpenDeclaration = lift . getOpenDeclaration
     replaceHistoryPath = lift . replaceHistoryPath
     replaceHistoryText = lift . replaceHistoryText
+    getCurrentHistory = lift getCurrentHistory
     navigateHistoryBack = lift navigateHistoryBack
     navigateHistoryForward = lift navigateHistoryForward
     updateHistoryPath = lift .-.. updateHistoryPath

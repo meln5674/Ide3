@@ -74,7 +74,7 @@ instance Monad m => GuiViewerClass (GuiViewerT m) where
         history <- gets declarationHistory
         case History.present history of
             Nothing -> return ()
-            Just di -> 
+            Just _ -> 
                 case History.replace di' history of
                     Just history' -> 
                         modify $ \s -> s{ declarationHistory = history' }

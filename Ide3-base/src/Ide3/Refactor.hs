@@ -14,7 +14,6 @@ module Ide3.Refactor where
 import qualified Data.Text as T
 
 import Control.Monad
-import Control.Monad.Trans.Except
 
 import Ide3.Types.Internal
 
@@ -65,5 +64,3 @@ renameModule pji src (ModuleInfo msym') = do
                 let pairs = filter (uncurry (/=)) $ zip syms syms'
                 dis <- getDeclarations pji' mi'
                 forM dis $ \di -> renameSymbols pji' mi' di pairs
-renameModule _ _ _ =
-    throwE $ InvalidOperation "Cannot rename a module to unnamed" ""

@@ -469,8 +469,6 @@ loadProject :: ( MonadIO m
 loadProject pji = do
     addProject pji
     modules <- loadInternalModules pji
-    --externModules <- getExternalModules pji
-    liftIO $ putStrLn $ "adding project: " ++ show pji
     let addPaths :: StateT CabalSolutionInfo (State [(SrcFileLoc,String)]) ()
         addPaths = forM_ modules $ \(mi,path,err) -> do
             modify $ addModulePath pji mi path

@@ -18,8 +18,6 @@ import Control.Monad.Trans
 
 import GI.Gtk
 
-import GuiHelpers
-
 import Dialogs.GenericNewDialog ( GenericNewDialog, GenericNewDialogSignal, NewDialog )
 import qualified Dialogs.GenericNewDialog as Generic
 

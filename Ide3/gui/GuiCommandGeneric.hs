@@ -5,8 +5,6 @@ module GuiCommandGeneric where
 
 import Data.Text (Text)
 
-import Control.Monad.Catch
-
 import Control.Concurrent
 
 import Control.Monad.Trans
@@ -69,7 +67,6 @@ doNew maybeSolutionRoot projectName
     = dialogOnError' () . Internal.doNew maybeSolutionRoot projectName
 
 doOpen :: ( GuiCommand2 t m' m 
-          , MonadIO m'
           )
        => FilePath
        -> t m ()
@@ -136,7 +133,6 @@ doEditProject :: ( GuiCommand2 t m' m
 doEditProject = dialogOnError' () . Internal.doEditProject
 
 doDeleteProject :: ( GuiCommand2 t m' m
-                   , m' ~ ClassProjectInitializerMonad (t m')
                    , Args (ProjectArgType m')
                    )
                 => ProjectInfo

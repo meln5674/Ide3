@@ -25,7 +25,7 @@ import Data.GI.Gtk.ModelView.CellLayout
 
 import Ide3.Types
 
-import ErrorParser.Types
+import ErrorParser
 
 import DeclarationPath
 import GuiClass.Types
@@ -247,7 +247,7 @@ renderDeclarationCell err = [#text := text]
         Just (ExportString e) -> "[EXPORT] " <> body e
         Just (DeclarationString di) -> case item di of
             SymbolDeclarationInfo sym -> getSymbol sym
-            RawDeclarationInfo text -> text
+            RawDeclarationInfo raw -> raw
         Nothing -> ""
 
 -- | Renderer for the error list row column

@@ -29,8 +29,6 @@ import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 
-import Data.Maybe
-
 import System.Process
 import System.Directory
 
@@ -520,9 +518,7 @@ moduleNameCompletion s = do
         Just pji -> do
             r <- runExceptT $ do
                 mods <- bounce $ getModules pji
-                let modNames = catMaybes $ for mods  $ \case
-                        (ModuleInfo (Symbol sym)) -> Just sym
-                        _ -> Nothing
+                let modNames = map (getSymbol . getModuleName) mods
                 let matchingNames = filter (s `T.isPrefixOf`) modNames
                 return $ Just $ for matchingNames $ \n ->
                     Completion{ replacement = T.unpack $ T.drop (T.length s) n
