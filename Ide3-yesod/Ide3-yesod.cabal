@@ -1,0 +1,59 @@
+name:                Ide3-yesod
+version:             0.1.0.0
+synopsis:            Initial project template from stack
+description:         Please see README.md
+homepage:            https://github.com/meln5674/Ide3-yesod#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2017 Author name here
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+executable Ide3-yesod
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  other-modules:       App
+                     , Auth
+                     , CredentialsMonad
+                     , Crypto.PasswordStore.Persist
+                     , Forms
+                     , Handlers
+                     , Ide3.Persist
+                     , Ide3.NewMonad.Instances.UserT
+                     , Persist
+                     , Routes
+                     , Types
+                     , Users
+                     , UserT
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -ddump-splices
+  build-depends:       base
+                     , Ide3-base
+                     , Ide3-common
+                     , Ide3-stack
+                     , yesod
+                     , yesod-core
+                     , persistent
+                     , persistent-sqlite
+                     , persistent-template
+                     , pwstore-fast
+                     , bytestring
+                     , text
+                     , mtl
+                     , transformers
+                     , monad-logger
+                     , resourcet
+                     , containers
+  default-language:    Haskell2010
+
+test-suite Ide3-yesod-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , Ide3-yesod
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
