@@ -79,7 +79,7 @@ info = moduleInfo
 -- | Create an empty module
 empty :: Module
 empty = Module
-      { moduleInfo = UnamedModule Nothing
+      { moduleInfo = ModuleInfo $ Symbol "Main"
       , moduleHeader = ""
       , modulePragmas = []
       , moduleImports = Map.empty 
@@ -259,8 +259,9 @@ setExport ei ei' e' m = case moduleExports m of
 --  created, along with each of the export and import ids created
 parse :: String 
       -> Maybe FilePath 
+      -> Maybe ModuleInfo
       -> Either (SolutionError u) (Module,[ExportId],[ImportId], Maybe (SrcLoc,String))
-parse = parseUsing Parser.parse
+parse s path oldMi = (parseUsing $ \s path -> Parser.parse s path oldMi) s path
 
 -- | Parse a complete module from a string, returning the Module data structure
 --  created, along with each of the export and import ids created
@@ -281,9 +282,7 @@ parseUsing parser s p = case parser s p of
     Right extractResult@Extracted{} -> Right (module_, eids, iids, Nothing)
       where
         Extracted minfo header pragmas exports imports decls = extractResult
-        newInfo = case unAnn minfo of
-            UnamedModule Nothing -> UnamedModule p
-            x -> x
+        newInfo = unAnn minfo
         header' = unAnn header
         pragmas' = map unAnn pragmas
         eids = maybe [] (map ExportId . enumFromTo 0 . length) exports

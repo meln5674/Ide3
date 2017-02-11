@@ -80,19 +80,13 @@ data BuildInfo = BuildInfo
 data Dependency = Dependency Text
 
 -- | Information identifying a module
-data ModuleInfo 
-    -- |A module with a name
-    = ModuleInfo Symbol              
-    -- |An unamed module, possibly with the path it came from    
-    | UnamedModule (Maybe FilePath)     
+newtype ModuleInfo = ModuleInfo Symbol              
     deriving (Show, Read, Eq, Ord)
 
 -- | Produce a string representing a module's info, with a default string if it
 -- is an unnamed, pathless module
-moduleInfoString :: ModuleInfo -> Text -> Text
-moduleInfoString (ModuleInfo s) _ = getSymbol s
-moduleInfoString (UnamedModule (Just path)) _ = T.pack path
-moduleInfoString _ x = x
+moduleInfoString :: ModuleInfo -> Text
+moduleInfoString (ModuleInfo s) = getSymbol s
 
 -- | A key-value pair of a module item
 data ModuleItemKeyValue
@@ -467,8 +461,6 @@ class Qualify a where
 instance Qualify Symbol where
     qual (ModuleChild (ModuleInfo (Symbol m)) (Symbol s))
         = Symbol $ m <> "." <> s
-    qual (ModuleChild (UnamedModule _) _)
-        = error "Cannot qualify with an unnamed module"
 
 -- | Prepend module name and dot to declaration info
 instance Qualify DeclarationInfo where
@@ -476,8 +468,6 @@ instance Qualify DeclarationInfo where
         = Symbol $ m <> "." <> s
     qual (ModuleChild (ModuleInfo _) (RawDeclarationInfo _))
         = error "Cannot qualify a non-symbol declaration"
-    qual (ModuleChild (UnamedModule _) _)
-        = error "Cannot qualifiy with an unnamed module"
 
 -- | Wrapper for a monad transformer which can throw solution exceptions
 type SolutionResult u = ExceptT (SolutionError u)

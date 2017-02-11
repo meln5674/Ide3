@@ -69,8 +69,6 @@ instance ToSolutionPath ProjectInfo where
     toSolutionPath (ProjectInfo x) = x <> "/"
 instance ToSolutionPath ModuleInfo where
     toSolutionPath (ModuleInfo (Symbol x)) = x <> ":"
-    toSolutionPath (UnamedModule (Just path)) = T.pack path <> ":"
-    toSolutionPath (UnamedModule Nothing) = "??????" <> ":"
 instance ToSolutionPath DeclarationInfo where
     toSolutionPath (SymbolDeclarationInfo (Symbol x)) = x
     toSolutionPath (RawDeclarationInfo x) = x

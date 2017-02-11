@@ -14,6 +14,7 @@ tree and construct a project from them
 
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Digest
     ( digestSolutionM
     , digestSolution
@@ -34,6 +35,8 @@ import System.Posix.Files
 import System.FilePath
 
 import qualified HsInterface as Iface
+
+import Ide3.Utils
 
 import Ide3.Types.Internal
 import Ide3.Types.State
@@ -134,10 +137,11 @@ digestProjectM :: ( MonadIO m
                -> FilePath 
                -> Maybe FilePath 
                -> SolutionResult u m ()
-digestProjectM pji p maybeip = do
-    contents <- liftIO $ enumerateHaskellProject p
+digestProjectM pji proot maybeip = do
+    contents <- liftIO $ enumerateHaskellProject proot
     addProject pji
-    forM_ contents $ \(mp,mc) -> addRawModule pji mc (Just mp)
+    forM_ contents $ \(mp,mc) -> do
+        addRawModule pji mc (Just mp) (Just $ pathToModuleInfo proot mp)
     case maybeip of
         Nothing -> return ()
         Just ip -> do

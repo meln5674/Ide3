@@ -195,8 +195,6 @@ renderSolutionTreeElem :: (AttrSetC info o "text" Text)
                        -> [AttrOp o 'AttrSet]
 renderSolutionTreeElem (ProjectElem (ProjectInfo n)) = [#text := n]
 renderSolutionTreeElem (ModuleElem (ModuleInfo (Symbol s)) _) = [#text := s]
-renderSolutionTreeElem (ModuleElem (UnamedModule (Just path)) _) = [#text := T.pack path]
-renderSolutionTreeElem (ModuleElem (UnamedModule Nothing) _) = [#text := ("???" :: Text)]
 renderSolutionTreeElem (DeclElem (SymbolDeclarationInfo sym))
     = [#text := getSymbol sym]
 renderSolutionTreeElem (DeclElem (RawDeclarationInfo s))
@@ -209,10 +207,6 @@ renderSolutionTreeElem (ExportElem _ (WithBody _ exportBody)) = [#text := export
 renderSolutionTreeElem (PragmaElem p) = [#text := p]
 renderSolutionTreeElem (UnparsableModuleElem (ModuleInfo (Symbol s)) _ _)
     = [#text := (s <> " (UNPARSEABLE)" :: Text)]
-renderSolutionTreeElem (UnparsableModuleElem (UnamedModule (Just path)) _ _)
-    = [#text := (T.pack path <> " (UNPARSEABLE)" :: Text)]
-renderSolutionTreeElem (UnparsableModuleElem (UnamedModule Nothing) _ _)
-    = [#text := ("??? (UNPARSEABLE)" :: Text)]
 renderSolutionTreeElem SolutionElem = [#text := ("THIS SHOULDN'T BE SEEN" :: Text)]
 
 
@@ -235,7 +229,7 @@ renderProjectCell e = [#text := unProjectInfo pji]
 renderModuleCell :: (AttrSetC info o "text" Text) 
                  => Error ItemPath Text
                  -> [AttrOp o 'AttrSet]
-renderModuleCell e = [#text := moduleInfoString mi "???"]
+renderModuleCell e = [#text := moduleInfoString mi]
   where
     (ProjectChild _ (ModuleChild mi _)) = errorLocation e
 

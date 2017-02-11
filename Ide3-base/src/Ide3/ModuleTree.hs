@@ -78,11 +78,7 @@ makeTreeSkeleton = go ""
           where
             subTrees = go newRoot toProcess
             rootPresent = rootInfo `elem` subModuleNames
-            rootString = case rootInfo of
-                ModuleInfo (Symbol s) -> s
-                UnamedModule (Just p) -> T.pack p
-                UnamedModule _ -> 
-                    error "Cannot make a tree with a pathless unamed module"
+            ModuleInfo (Symbol rootString) = rootInfo
             newRoot = rootString <> "."
             toProcess = if rootPresent
                 then delete rootInfo subModuleNames
@@ -185,11 +181,7 @@ formatTree = T.intercalate "\n" . go []
             OrgNode n _ -> n
             ModuleNode n _ _ _ _ _ -> n
             UnparsableModuleNode n _ _ _ _ -> n
-        moduleName = case moduleInfo of
-            ModuleInfo (Symbol n) -> n
-            UnamedModule (Just p) -> T.pack p
-            UnamedModule _ ->
-                error "Cannot make a tree with a pathless unamed module"
+        ModuleInfo (Symbol moduleName) = moduleInfo
         firstLine = case prefixFlags of
             [] -> moduleName
             [_] -> "+-- " <> moduleName

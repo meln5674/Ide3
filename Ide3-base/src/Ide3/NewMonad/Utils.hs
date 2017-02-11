@@ -77,8 +77,9 @@ addRawModuleGeneric :: ( ProjectModuleClass m
                     -> ProjectInfo 
                     -> String
                     -> Maybe FilePath 
+                    -> Maybe ModuleInfo
                     -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
-addRawModuleGeneric addMod pji str p = case Module.parse str p of
+addRawModuleGeneric addMod pji str p oldMi = case Module.parse str p oldMi of
     Right (m,_,_,err) -> do
         let mi = Module.info m
         addMod mi
@@ -104,6 +105,7 @@ addRawModule :: ( ProjectModuleClass m
              => ProjectInfo 
              -> String
              -> Maybe FilePath 
+             -> Maybe ModuleInfo
              -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
 addRawModule pji = addRawModuleGeneric (createModule pji) pji
 
@@ -116,6 +118,8 @@ updateRawModule :: ( ProjectModuleClass m
                    ) 
                 => ProjectInfo 
                 -> String 
-                -> Maybe FilePath 
+                -> Maybe FilePath
+                -> Maybe ModuleInfo
                 -> SolutionResult u m (ModuleInfo, Maybe (SrcLoc,String))
 updateRawModule pji = addRawModuleGeneric (setModuleParsable pji) pji
+

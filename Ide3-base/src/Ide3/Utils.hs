@@ -9,11 +9,15 @@ Stability   : experimental
 Portability : POSIX
 -}
 
-
+{-# LANGUAGE OverloadedStrings #-}
 module Ide3.Utils where
+
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import Data.List
 
+import System.FilePath
 import System.IO.Error
 
 import Control.Monad
@@ -45,6 +49,17 @@ wrapReadFile :: (MonadIO m) => FilePath -> SolutionResult u m String
 wrapReadFile path = wrapIOErrorWithMsg errMsg $ readFile path
   where
     errMsg = "When reading " ++ path
+
+moduleInfoToPath :: FilePath -> ModuleInfo ->  FilePath
+moduleInfoToPath root (ModuleInfo (Symbol s)) = root </> relative <.> "hs"
+  where
+    relative = T.unpack $ T.intercalate (T.pack [pathSeparator]) $ T.splitOn "." $ s
+
+pathToModuleInfo :: FilePath -> FilePath -> ModuleInfo
+pathToModuleInfo root abs = ModuleInfo $ Symbol s
+  where
+    relative = dropExtension $ makeRelative root abs
+    s = T.intercalate "." $ T.splitOn (T.pack [pathSeparator]) $ T.pack relative
 
 -- | Class of transformers whch can insert themselves underneath
 -- ExceptT in a monad transformer stack

@@ -64,18 +64,19 @@ annotate getAnn convert a = Ann (toSrcFileSpan $ getAnn a) (convert a)
 extractInfo :: (FileSpannable l) 
             => String 
             -> (Syntax.Module l, [Comment]) 
-            -> Ann SrcFileSpan ModuleInfo
-extractInfo _ (Syntax.Module _ (Just mHead) _ _ _, _) = Ann mHeadAnn' mInfo
+            -> Maybe ModuleInfo
+            -> Maybe (Ann SrcFileSpan ModuleInfo)
+extractInfo _ (Syntax.Module _ (Just mHead) _ _ _, _) _ = Just $ Ann mHeadAnn' mInfo
   where
     (Syntax.ModuleHead mHeadAnn mName _ _) = mHead 
     (Syntax.ModuleName _ name) = mName
     mInfo = ModuleInfo $ Symbol $ T.pack name
     mHeadAnn' = toSrcFileSpan mHeadAnn
-extractInfo _ (m,_) = Ann mAnn' mInfo
+extractInfo _ (m,_) (Just mi) = Just $ Ann mAnn' mi
   where
     mAnn = Syntax.ann m
     mAnn' = mkSrcFileSpanFrom mAnn noSpan
-    mInfo = UnamedModule Nothing
+extractInfo _ _ _ = Nothing
 
 -- | Extract the pragmas from a module
 extractPragmas :: (FileSpannable l)
@@ -145,29 +146,35 @@ extractDecls _ _ = Right []
 extract :: (SrcInfo l, FileSpannable l)
         => String 
         -> (Syntax.Module l, [Comment]) 
+        -> Maybe ModuleInfo
         -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
-extract str x = do
-    let info    =  extractInfo      str x
+extract str x oldMi = do
+    let maybeInfo    =  extractInfo      str x oldMi
         pragmas =  extractPragmas   str x
         header  =  extractHeader    str x
         exports =  extractExports   str x
         imports =  extractImports   str x
     decls       <- extractDecls     str x
-    return $ Extracted info header pragmas exports imports decls
+    case maybeInfo of
+        Just info -> return $ Extracted info header pragmas exports imports decls
+        Nothing -> Left $ InternalError "Nameless module found without backup" ""
 
 
 -- | Take a string and produce the needed information for building a Module
 parse :: String 
-      -> Maybe FilePath 
+      -> Maybe FilePath
+      -> Maybe ModuleInfo
       -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
-parse s p = case parseModuleWithComments parseMode s of
-    ParseOk x -> extract s x
+parse s p oldMi = case parseModuleWithComments parseMode s of
+    ParseOk x -> extract s x oldMi
     ParseFailed l msg -> case parseWithMode parseMode s of
-        ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
-            let mi = maybe (UnamedModule p) (ModuleInfo . Symbol . T.pack . getModuleName) maybeName
-                getModuleName (Syntax.ModuleName _ x) = x
-                _ = l' :: SrcSpanInfo
-            return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
+        ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> case maybeName of
+            Just name -> do
+                let mi = ModuleInfo $ Symbol $ T.pack $ getModuleName name
+                    getModuleName (Syntax.ModuleName _ x) = x
+                    _ = l' :: SrcSpanInfo
+                return $ Unparsable (toSrcLoc l) msg mi $ T.pack s
+            Nothing -> Left $ InternalError "Unparsable module found without backup module info" ""
         ParseFailed l' msg' -> Left $ ParseError (toSrcFileLoc l') msg' ""
   where
     exts = maybe [] snd $ readExtensions s
@@ -187,12 +194,7 @@ parseMain :: String
           -> Maybe FilePath 
           -> Either (SolutionError u) (ExtractionResults SrcFileSpan)
 parseMain s p = case parseModuleWithComments parseMode s of
-    ParseOk x -> do
-        Extracted i h ps es is ds <- extract s x
-        let i' = case i of
-                Ann l (UnamedModule _) -> Ann l $ ModuleInfo $ Symbol "Main"
-                _ -> i'
-        return $ Extracted i' h ps es is ds
+    ParseOk x -> extract s x (Just $ ModuleInfo $ Symbol "Main")
     ParseFailed l msg -> case parseWithMode parseMode s of
         ParseOk (NonGreedy (PragmasAndModuleName l' _ maybeName)) -> do
             let mi = ModuleInfo $ Symbol $ T.pack $ maybe "Main" getModuleName maybeName
@@ -219,9 +221,10 @@ parseMain s p = case parseModuleWithComments parseMode s of
 parseAtLocation :: [SrcLoc]
                 -> String
                 -> Maybe FilePath
+                -> Maybe ModuleInfo
                 -> Either (SolutionError u) [Maybe (ModuleItem, SrcLoc)]
-parseAtLocation ls s p = do
-    result <- Ide3.Module.Parser.parse s p 
+parseAtLocation ls s p oldMi = do
+    result <- Ide3.Module.Parser.parse s p oldMi
     case result of
         Extracted _ hc ps es is ds  -> do
             let try :: (x -> ModuleItem) 

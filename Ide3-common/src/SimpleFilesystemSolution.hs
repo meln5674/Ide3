@@ -190,17 +190,6 @@ instance MonadIO m => StatefulPersistenceClass (SimpleFilesystemSolutionT m) whe
     finalizeState (Just (SolutionDirPath path)) p = 
         throwE $ InvalidOperation "Directory solutions are read-only" ""
 
--- | Get the for a module name
-moduleNamePath :: String -> FilePath
-moduleNamePath [] = []
-moduleNamePath ('/':xs) = '.' : moduleNamePath xs
-moduleNamePath (x:xs) = x : moduleNamePath xs
-
--- | Get the path for a module info
-modulePath :: ModuleInfo -> Maybe FilePath
-modulePath (ModuleInfo (Symbol s)) = Just $ "src/" ++ moduleNamePath (T.unpack s) ++ ".hs"
-modulePath (UnamedModule path) = path
-
 -- | A pair of filename and file contents to write to disc
 data OutputPair
     = OutputPair
@@ -237,10 +226,9 @@ makeFileListing pji = do
         nodeDecls (ModuleNode _ _ _ ds _ _) = Just ds
         nodeDecls _ = Nothing
         
-        dirs node = do
-            dir <- takeDirectory <$> modulePath (nodeInfo node)
-            let subDirs = concat $ mapMaybe dirs $ subModules node
-            return $ dir : subDirs
+        dirs node = (takeDirectory $ moduleInfoToPath "" $ nodeInfo node) : subDirs node
+        subDirs node = concatMap dirs $ subModules node
+        
         {-
         dirs (OrgNode i ts) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
         dirs (ModuleNode i ts _ _ _ _) = (: (concat $ mapMaybe dirs ts)) <$> (takeDirectory <$> modulePath i)
@@ -255,14 +243,11 @@ makeFileListing pji = do
         declInfos (ModuleNode i ts _ ds _ _) = (i, ds) : concatMap declInfos ts
         declInfos (UnparsableModuleNode
         -}
-        dirs' = concat $ mapMaybe dirs t
+        dirs' = concatMap dirs t
         declInfos' = concatMap declInfos t
-    declGroups <- forM declInfos' $ \(mi, dis) -> do
+    decls <- forM declInfos' $ \(mi, dis) -> do
         ds <- forM dis $ getDeclaration pji mi
-        case modulePath mi of
-            Nothing -> return Nothing 
-            Just p -> return $ Just $ OutputPair p $ T.intercalate "\n" $ map body ds
-    let decls = catMaybes declGroups
+        return $ OutputPair (moduleInfoToPath "" mi) $ T.intercalate "\n" $ map body ds
     return FileListing
            { directoriesNeeded = dirs'
            , outputs = decls

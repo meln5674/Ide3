@@ -220,18 +220,18 @@ getProject pji = do
 
 toModuleName :: ModuleInfo -> ModuleName.ModuleName
 toModuleName (ModuleInfo (Symbol s)) = ModuleName.fromString $ T.unpack s
-toModuleName (UnamedModule _) = error "Unamed module"
 
 toModuleInfo :: ModuleName.ModuleName -> ModuleInfo
 toModuleInfo mn = ModuleInfo $ Symbol $ T.intercalate "." $ map T.pack $ ModuleName.components mn
 
-locateModule :: (MonadIO m) => [FilePath] -> ModuleName.ModuleName -> m (Maybe FilePath)
+locateModule :: (MonadIO m) => [FilePath] -> ModuleName.ModuleName -> m (Maybe (FilePath,FilePath))
 locateModule paths mn = do
-    let possiblePaths = map (</> (ModuleName.toFilePath mn ++ ".hs")) paths
-    hits <- forM possiblePaths $ \path -> do
+    let makePossiblePath root = (root, root </> ModuleName.toFilePath mn <.> "hs")
+        possiblePaths = map makePossiblePath paths
+    hits <- forM possiblePaths $ \(root, path) -> do
         exists <- liftIO $ doesFileExist path
         if exists
-            then return $ Just path
+            then return $ Just (root, path)
             else return Nothing
     return $ getFirst $ mconcat $ map First hits
 
@@ -242,15 +242,16 @@ loadInternalModule :: ( MonadIO m
                       , ModuleExportClass m
                       , ModulePragmaClass m
                       )  
-                   => ProjectInfo 
+                   => ProjectInfo
+                   -> FilePath
                    -> FilePath
                    -> Bool
                    -> SolutionResult u (CabalSolution m) (ModuleInfo, Maybe (SrcLoc,String))
-loadInternalModule pji path isMain = do
-    let parser = if isMain then Module.parseMain else Module.parse
+loadInternalModule pji root path isMain = do
+    --let parser = if isMain then Module.parseMain else Module.parse
     contents <- wrapReadFile path
     -- TODO: Update addRawModule to switch on isMain
-    bounce $ addRawModule pji contents (Just path)
+    bounce $ addRawModule pji contents (Just path) (Just $ pathToModuleInfo root path)
 
 updateInternalModule :: ( MonadIO m
                         , ProjectModuleClass m
@@ -260,14 +261,15 @@ updateInternalModule :: ( MonadIO m
                         , ModulePragmaClass m
                         )  
                      => ProjectInfo 
+                     -> ModuleInfo
                      -> FilePath
                      -> Bool
                      -> SolutionResult u (CabalSolution m) (ModuleInfo, Maybe (SrcLoc,String))
-updateInternalModule pji path isMain = do
-    let parser = if isMain then Module.parseMain else Module.parse
+updateInternalModule pji mi path isMain = do
+    --let parser = if isMain then Module.parseMain else Module.parse
     contents <- wrapReadFile path
     -- TODO: See above
-    bounce $ updateRawModule pji contents (Just path)
+    bounce $ updateRawModule pji contents (Just path) (Just mi)
 
 locateAndLoadInternalModule :: ( MonadIO m 
                                , ProjectModuleClass m
@@ -288,8 +290,8 @@ locateAndLoadInternalModule pji roots isMain mn = do
     locateResult <- locateModule roots mn
     case locateResult of
         Nothing -> throwE $ InvalidOperation ("Can't find module " ++ show mn) ""
-        Just path -> do
-            (mi, err) <- loadInternalModule pji path isMain
+        Just (root, path) -> do
+            (mi, err) <- loadInternalModule pji root path isMain
             return (mi,path,err)
 
 getMainModuleName :: Monad m 
@@ -542,9 +544,7 @@ addModuleToConfig :: (Monad m)
                   -> SolutionResult u (CabalSolution m) ()
 addModuleToConfig pji mi = do
     setCabalFileDirty
-    moduleName <- case mi of
-        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString $ T.unpack name
-        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
+    let moduleName = toModuleName mi
     p <- lookupCabalProject pji
     p' <- case p of
         LibraryProject lib -> do
@@ -565,9 +565,7 @@ removeModuleFromConfig :: (Monad m)
                        -> SolutionResult u (CabalSolution m) ()
 removeModuleFromConfig pji mi = do
     setCabalFileDirty
-    moduleName <- case mi of
-        (ModuleInfo (Symbol name)) -> return $ ModuleName.fromString $ T.unpack name
-        _ -> throwE $ Unsupported "Cannot add unamed module to a cabal solution"
+    let moduleName = toModuleName mi
     pji' <- getCabalProjectInfo pji
     p <- getCabalProject pji'
     let p' = case p of
@@ -696,7 +694,7 @@ instance ( MonadIO m
             Nothing -> throwE $ InternalError ("Can't find source directory for module " ++ show mi) ""
         mainModuleName <- getMainModuleName pji
         let moduleName = moduleNameFromPath modulePath
-        (mi'', _) <- updateInternalModule pji modulePath (mainModuleName == Just moduleName)
+        (mi'', _) <- updateInternalModule pji mi modulePath (mainModuleName == Just moduleName)
         return mi''
 
 instance (MonadIO m, ProjectExternModuleClass m) => ProjectExternModuleClass (CabalSolution m) where
@@ -770,19 +768,16 @@ instance (MonadIO m, ModuleLocationClass m) => ModuleLocationClass (CabalSolutio
 
 instance (MonadIO m, ModuleDeclarationClass m, ModuleImportClass m, ModuleExportClass m) => ModuleLocationClass (CabalSolution m) where
     getModuleItemAtLocation pji mi l = do
-        path <- case mi of
-            UnamedModule Nothing -> throwE $ InvalidOperation "Can't find an unnamed module" ""
-            UnamedModule (Just path) -> return path
-            _ -> do
-                let name = toModuleName mi
-                p <- lookupCabalProject pji
-                roots <- getProjectSourceRoots p
-                result <- locateModule roots name
-                case result of
-                    Just path -> return path
-                    Nothing -> throwE $ InvalidOperation "Can't find module" ""
+        (root, path) <- do
+            let name = toModuleName mi
+            p <- lookupCabalProject pji
+            roots <- getProjectSourceRoots p
+            result <- locateModule roots name
+            case result of
+                Just path -> return path
+                Nothing -> throwE $ InvalidOperation "Can't find module" ""
         contents <- wrapIOError $ readFile path
-        results <- ExceptT $ return $ Module.parseAtLocation l contents (Just path)
+        results <- ExceptT $ return $ Module.parseAtLocation l contents (Just path) (Just mi)
         forM results $ \result ->  case result of
             Nothing -> return Nothing
             Just (resultItem, l') -> do
