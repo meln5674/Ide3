@@ -555,6 +555,7 @@ doAddDeclaration pji mi di = do
         $ lift 
         $ openDeclaration (DeclarationPath pji mi di)
         $ body decl
+    splice $ setEditorEnabled True
 
 -- | Remove a declaration from a module
 doRemoveDeclaration :: ( GuiCommand t m )
