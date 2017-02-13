@@ -107,6 +107,8 @@ instance GenericGuiEnv (GuiT m' p) where
     addIdleTask t = GuiT $ GuiEnv.addIdleTask t
 
 instance (Monad m) => DialogsClass (GuiT m' p m) where
+    type NewSolutionDialog (GuiT m' p m) = NewSolutionDialog (DialogsT m)
+    type NewProjectDialog (GuiT m' p m) = NewProjectDialog (DialogsT m)
     withMainWindow = liftDialogs . withMainWindow
     withNewSolutionDialog = liftDialogs . withNewSolutionDialog
     withNewProjectDialog = liftDialogs . withNewProjectDialog

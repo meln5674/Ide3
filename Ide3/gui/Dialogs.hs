@@ -10,6 +10,7 @@ Portability : POSIX
 
 -}
 
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Dialogs where
 
@@ -18,7 +19,8 @@ import Control.Monad.Trans.Reader
 
 import Ide3.Utils
 
-import Dialogs.Class
+import Dialogs.Class hiding (NewSolutionDialog, NewProjectDialog)
+import qualified Dialogs.Class as D
 
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
@@ -50,6 +52,8 @@ getDialogs :: ( Monad m ) => DialogsT m Dialogs
 getDialogs = DialogsT ask
 
 instance (Monad m) => DialogsClass (DialogsT m) where
+    type NewSolutionDialog (DialogsT m) = NewSolutionDialog
+    type NewProjectDialog (DialogsT m) = NewProjectDialog
     withMainWindow f = DialogsT $ asks (f . mainWindow)
     withNewSolutionDialog f = DialogsT $ asks (f . newSolutionDialog)
     withNewProjectDialog f = DialogsT $ asks (f . newProjectDialog)
