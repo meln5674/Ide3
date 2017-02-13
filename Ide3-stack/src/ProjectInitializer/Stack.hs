@@ -7,6 +7,8 @@ module ProjectInitializer.Stack where
 import Data.Text (Text)
 import qualified Data.Text as T
 
+import System.Directory
+
 import Control.Monad.Trans
 import Control.Monad.Trans.Except
 
@@ -16,6 +18,7 @@ import Distribution.ModuleName
 import Distribution.Text hiding (Text)
 
 import Ide3.Types
+import Ide3.Utils
 
 import ProjectInitializer
 
@@ -34,6 +37,7 @@ stackProjectInitializer = ProjectInitializer $ \arg -> do
     deps <- case traverse simpleParse $ dependencies arg of
         Just deps -> return deps
         Nothing -> throwE $ InvalidOperation "Cannot parse dependencies" ""
+    wrapIOError $ mapM_ (createDirectoryIfMissing True) $ primarySrcDir arg : secondarySrcDirs arg
     let newBuildInfo = emptyBuildInfo 
                      { hsSourceDirs = primarySrcDir arg : secondarySrcDirs arg
                      , targetBuildDepends = deps
