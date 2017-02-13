@@ -17,6 +17,8 @@ library
     exposed-modules:   Runner
                      , Builder
                      , Initializer
+                     , SolutionRetriever
+                     , SolutionEditor
                      , ProjectInitializer
                      , ProjectEditor
                      , ProjectRetriever

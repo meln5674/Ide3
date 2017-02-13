@@ -36,6 +36,7 @@ function.
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE FlexibleContexts #-}
 module GuiHelpers 
     ( 
     -- * Gui Construction
@@ -61,11 +62,6 @@ module GuiHelpers
     -- * Tree Path's
     , withTreePath
     , withGtkTreePath
-    -- * Signals for widgets inside data structures
-    , onSub
-    , afterSub
-    , SubSignalProxy
-    , ownSignal
     -- * Signal handlers which require context
     , on
 --    , on_
@@ -81,11 +77,28 @@ module GuiHelpers
     , Func4 (Func4)
     , Func5 (Func5)
     , Func6 (Func6)
+    -- * 
+    , WidgetContainer (..)
+    -- * Signals for widgets inside data structures
+    , onSub
+    , onSub'
+    , afterSub
+    , afterSub'
+    , SubSignalProxy
+    , ownSignal
+    , mkSubSignal
+    , mkSubSignal'
     -- * Attributes for widgets inside data structures
     , SubAttrLabelProxy
     , SubAttrOp
+    , mkSubAttr
+    , mkSubAttr'
+    , mkSubAttrOp
+    , mkSubAttrOp'
     , getSub
+    , getSub'
     , setSub
+    , setSub'
     ) where
 
 import GHC.TypeLits
@@ -367,6 +380,10 @@ addAccel getter signalName object group key modifiers flags = do
                          flags
 
 
+class WidgetContainer container where
+    type WidgetType container
+    getWidget :: container -> WidgetType container
+    
 -- | Signals which affect widgets inside of a data structure.
 -- Such signals are represented by functions mapping the data structure to a
 -- pair of widget and signal on that widget
@@ -377,6 +394,12 @@ type SubSignalProxy object subObject info
 ownSignal :: SignalProxy object info -> SubSignalProxy object object info
 ownSignal info object = (object, info)
 
+mkSubSignal :: (object -> subObject) -> SignalProxy subObject info -> SubSignalProxy object subObject info
+mkSubSignal getter info object = (getter object, info)
+
+mkSubSignal' :: (WidgetContainer object) => SignalProxy (WidgetType object) info -> SubSignalProxy object (WidgetType object) info
+mkSubSignal' = mkSubSignal getWidget
+
 -- | Attach a handler to a widget inside of a data structure
 onSub :: (GObject subObject, MonadIO m, SignalInfo info)
       => object
@@ -385,6 +408,13 @@ onSub :: (GObject subObject, MonadIO m, SignalInfo info)
       -> m SignalHandlerId
 onSub object signal callback = let (subObject, signal') = signal object
     in Gtk.on subObject signal' callback
+
+onSub' :: (GObject (WidgetType object), MonadIO m, SignalInfo info, WidgetContainer object)
+       => object
+       -> SignalProxy (WidgetType object) info
+       -> HaskellCallbackType info
+       -> m SignalHandlerId
+onSub' object signal callback = onSub object (mkSubSignal' signal) callback
 
 -- | Attach a handler to a widget inside of a data structure, the handler fires
 -- after the default handler
@@ -395,6 +425,14 @@ afterSub :: (GObject subObject, MonadIO m, SignalInfo info)
       -> m SignalHandlerId
 afterSub object signal callback = let (subObject, signal') = signal object
     in Gtk.after subObject signal' callback
+
+afterSub' :: (GObject (WidgetType object), MonadIO m, SignalInfo info, WidgetContainer object)
+          => object
+          -> SignalProxy (WidgetType object) info
+          -> HaskellCallbackType info
+          -> m SignalHandlerId
+afterSub' object signal callback = afterSub object (mkSubSignal' signal) callback
+
 
 -- | Class of transformers which can 'intercept' the attaching of signals to
 -- objects to provide additional context
@@ -607,6 +645,19 @@ type SubAttrLabelProxy object subObject (attr :: Symbol)
 type SubAttrOp object subObject tag 
     = object -> (subObject, AttrOp subObject tag)
 
+mkSubAttr :: (object -> subObject) -> AttrLabelProxy attr -> SubAttrLabelProxy object subObject attr
+mkSubAttr getter attr object = (getter object, attr)
+
+mkSubAttr' :: (WidgetContainer object) => AttrLabelProxy attr -> SubAttrLabelProxy object (WidgetType object) attr
+mkSubAttr' = mkSubAttr getWidget
+
+mkSubAttrOp :: (object -> subObject) -> AttrOp subObject tag -> SubAttrOp object subObject tag
+mkSubAttrOp getter op object = (getter object, op)
+
+mkSubAttrOp' :: (WidgetContainer object) => AttrOp (WidgetType object) tag -> SubAttrOp object (WidgetType object) tag
+mkSubAttrOp' = mkSubAttrOp getWidget
+
+
 -- | Retrieve the value of an attribute of a widget in a data structure
 getSub :: ( AttrGetC info subObj attr result
           , MonadIO m
@@ -616,11 +667,27 @@ getSub :: ( AttrGetC info subObj attr result
        -> m result
 getSub obj subAttr = uncurry get $ subAttr obj
 
+
+getSub' :: ( AttrGetC info (WidgetType obj) attr result
+           , MonadIO m
+           , WidgetContainer obj
+           )
+       => obj
+       -> AttrLabelProxy attr
+       -> m result
+getSub' obj attr = getSub obj (mkSubAttr' attr)
+
 -- | Assign the value of an attribute of a widget in a data structure
 setSub :: MonadIO m => object -> [SubAttrOp object subObject 'AttrSet] -> m ()
 setSub obj subAttrs = mapM_ (uncurry set) x
   where
     x = map (fmap (:[]) . ($obj)) subAttrs 
+
+setSub' :: (MonadIO m, WidgetContainer object)
+        => object
+        -> [AttrOp (WidgetType object) 'AttrSet]
+        -> m ()
+setSub' obj attrs = setSub obj $ map mkSubAttrOp' attrs
 
 -- | Perform an action after allocating a tree path.
 -- NOTE: The path is not manually freed due to gi-gtk doing this automatically

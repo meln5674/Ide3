@@ -43,6 +43,7 @@ import Dialogs.Class
 
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
+import qualified Dialogs.EditSolutionDialog as EditSolutionDialog
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
 
 import GuiT
@@ -106,6 +107,16 @@ instance InitializerMonad m => InitializerMonad (GuiViewerT m) where
     getInitializer = mapInitializer lift <$> lift getInitializer
     type ArgType (GuiViewerT m) = ArgType m
 
+instance SolutionEditorMonad m => SolutionEditorMonad (ViewerStateT m) where
+    type SolutionEditArgType (ViewerStateT m) = SolutionEditArgType m
+    getSolutionEditor = mapSolutionEditor lift <$> lift getSolutionEditor
+    getSolutionRetriever = mapSolutionRetriever lift <$> lift getSolutionRetriever
+
+instance SolutionEditorMonad m => SolutionEditorMonad (GuiViewerT m) where
+    type SolutionEditArgType (GuiViewerT m) = SolutionEditArgType m
+    getSolutionEditor = mapSolutionEditor lift <$> lift getSolutionEditor
+    getSolutionRetriever = mapSolutionRetriever lift <$> lift getSolutionRetriever
+
 instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) where
     getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
     getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
@@ -138,15 +149,23 @@ makeDialogs group = runGuiEnvT $ do
                 NewProjectDialog.setVisible dialog False
                 return False
         return dialog
+    editSolutionDialog <- EditSolutionDialog.make $ \dialog -> do
+        void $ runIdentityT $
+            dialog `on` EditSolutionDialog.cancelClicked $ Func1 $ \_ -> lift $ do
+                EditSolutionDialog.setVisible dialog False
+                return False
+        return dialog
     mainWindow <- MainWindow.make $ \gui -> do
         setupKeyboardShortcuts gui group
         return gui
     newSolutionDialog `NewSolutionDialog.setVisible` False
     newProjectDialog `NewProjectDialog.setVisible` False
+    editSolutionDialog `EditSolutionDialog.setVisible` False
     return Dialogs
         { mainWindow
         , newSolutionDialog
         , newProjectDialog
+        , editSolutionDialog
         }
 
 setupNewSolutionDialogSignals :: NewSolutionDialog.NewSolutionDialog -> GuiT MonadStack GuiState IO ()

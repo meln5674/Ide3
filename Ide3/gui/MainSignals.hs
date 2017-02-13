@@ -76,7 +76,9 @@ type MainGuiClass t m' p m =
     , Args (ProjectArgType m')
     , m' ~ ClassSolutionInitializerMonad (t m')
     , m' ~ ClassProjectInitializerMonad (t m')
+    , m' ~ ClassSolutionEditorMonad (t m')
     , Args (ArgType m')
+    , Args (SolutionEditArgType m')
     , SolutionInitializerClass (t m')
     , GuiCommand2 t m' m
     , GuiCommand2 t m' IO
@@ -101,6 +103,11 @@ onNewSolutionConfirmed = {-withNewSolutionDialog $ \dialog -> id $ do
     liftIO $ NewSolutionDialog.close dialog-}
     doAddSolution
     
+onEditSolutionConfirmed :: forall t m' p m
+                         . ( MainGuiClass t m' p m
+                           )
+                        => t m ()
+onEditSolutionConfirmed = doEditSolution
 
 onNewProjectConfirmed :: forall t {-proxy-} m' p m
                        . ( MainGuiClassIO t m' p m
@@ -127,6 +134,12 @@ onNewClicked = do
             return False-}
     doNewStart
     return ()
+
+onEditSolutionClicked :: forall t m' p m
+                       . ( MainGuiClass t m' p m
+                         )
+                      => t m ()
+onEditSolutionClicked = doEditSolutionStart
 
 onOpenClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
@@ -539,6 +552,9 @@ setupSolutionContextMenu = do
     menu <- SolutionContextMenu.makeSolutionMenu
     void $ menu `on` SolutionContextMenu.newProjectClickedEvent $ Func1 $ \_ -> do
         onNewProjectClicked
+        return False
+    void $ menu `on` SolutionContextMenu.editSolutionClickedEvent $ Func1 $ \_ -> do
+        onEditSolutionClicked
         return False
     return menu
 

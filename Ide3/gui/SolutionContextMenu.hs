@@ -65,6 +65,7 @@ data ElementMenu
     }
     | SolutionMenu
     { newProjectButton :: MenuItem
+    , editSolutionButton :: MenuItem
     }
 
 
@@ -221,12 +222,17 @@ makeDeleteProjectButton = makeMenuButton "Delete"
 makeSolutionMenu :: (MonadIO m) => m ContextMenu
 makeSolutionMenu = makeMenuWith $ \menu -> do
     newProjectButton <- makeNewProjectButton menu
+    editSolutionButton <- makeEditSolutionButton menu
     return SolutionMenu
            { newProjectButton
+           , editSolutionButton
            }
 
 makeNewProjectButton :: (MonadIO m) => Menu -> m MenuItem
 makeNewProjectButton = makeMenuButton "New Project"
+
+makeEditSolutionButton :: (MonadIO m) => Menu -> m MenuItem
+makeEditSolutionButton = makeMenuButton "Edit"
 
 
 showMenu :: MonadIO m => ContextMenu -> EventButton -> m ()
@@ -303,6 +309,9 @@ newModuleClickedEvent = newModuleButton `mkMenuSignal` #buttonPressEvent
 
 newProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 newProjectClickedEvent = newProjectButton `mkMenuSignal` #buttonPressEvent
+
+editSolutionClickedEvent :: ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
+editSolutionClickedEvent = editSolutionButton `mkMenuSignal` #buttonPressEvent
 
 editProjectClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 editProjectClickedEvent = editProjectButton `mkMenuSignal` #buttonPressEvent

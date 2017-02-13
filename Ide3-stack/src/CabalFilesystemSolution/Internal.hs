@@ -47,6 +47,7 @@ import qualified Ide3.Module as Module
 import ViewerMonad
 import PseudoState
 import CabalMonad
+import StackMonad
 import DirtyModuleClass (DirtyModuleClass)
 import qualified DirtyModuleClass
 
@@ -1066,3 +1067,10 @@ instance (Monad m) => CabalMonad (CabalSolution m) where
 instance Monad m => DirtyModuleClass (CabalSolution m) where
     isModuleDirty = CabalFilesystemSolution.Internal.isModuleDirty
 
+instance MonadIO m => StackMonad (CabalSolution m) where
+    getStackConfig = withOpenedSolution $ \info -> do
+        wrapIOError $ T.readFile $ solutionPath info </> "stack.yaml"
+    setStackConfig text = withOpenedSolution $ \info -> do
+        wrapIOError $ T.writeFile (solutionPath info </> "stack.yaml") text
+        
+        

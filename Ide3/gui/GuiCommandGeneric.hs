@@ -43,6 +43,13 @@ doNewStart :: ( GuiCommand2 t m' m)
            => t m ()
 doNewStart = dialogOnError' () Internal.doNewStart
 
+doEditSolutionStart :: ( GuiCommand2 t m' m 
+                       , m' ~ ClassSolutionEditorMonad (t m')
+                       , Args (SolutionEditArgType m')
+                       )
+                    => t m ()
+doEditSolutionStart = dialogOnError' () Internal.doEditSolutionStart
+
 doNewProjectStart :: ( GuiCommand2 t m' m )
            => t m ()
 doNewProjectStart = dialogOnError' () Internal.doNewProjectStart
@@ -66,6 +73,13 @@ doNew :: ( GuiCommand2 t m' m
 doNew maybeSolutionRoot projectName
     = dialogOnError' () . Internal.doNew maybeSolutionRoot projectName
 
+doEditSolution :: ( GuiCommand2 t m' m
+                  , m' ~ ClassSolutionEditorMonad (t m')
+                  , Args (SolutionEditArgType m')
+                  )
+               => t m ()
+doEditSolution = dialogOnError' () Internal.doEditSolution
+               
 doOpen :: ( GuiCommand2 t m' m 
           )
        => FilePath

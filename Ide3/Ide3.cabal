@@ -51,6 +51,7 @@ executable Ide3-GUI
                      , Dialogs.MainWindow.Signals
                      , Dialogs.MainWindow.Types
                      , Dialogs.NewSolutionDialog
+                     , Dialogs.EditSolutionDialog
                      , Dialogs.NewSolutionDialog.Types
                      , Dialogs.NewProjectDialog
                      , Dialogs.NewModuleDialog

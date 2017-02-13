@@ -248,7 +248,7 @@ scrollEditorCursorIntoView window = do
     textViewScrollToMark textView startMark 0 True 0.5 0.5
 
 setDeclViewEnabled :: (MonadIO m) => MainWindow -> Bool -> m ()
-setDeclViewEnabled window enabled = setSub (declView $ solutionViewer window) [mkBTVAttr (#editable := enabled)]
+setDeclViewEnabled window enabled = setSub window [mkSubAttrOp (getWidget . declView . solutionViewer) (#editable := enabled)]
 
 setBuildButtonEnabled :: ( MonadIO m ) => MainWindow -> Bool -> m ()
 setBuildButtonEnabled window enabled = set (buildButton $ solutionMenu $ menus window) [#sensitive := enabled]

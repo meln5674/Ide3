@@ -19,16 +19,18 @@ import Control.Monad.Trans.Reader
 
 import Ide3.Utils
 
-import Dialogs.Class hiding (NewSolutionDialog, NewProjectDialog)
+import Dialogs.Class hiding (NewSolutionDialog, NewProjectDialog, EditSolutionDialog)
 import qualified Dialogs.Class as D
 
 import Dialogs.MainWindow (MainWindow)
 import Dialogs.NewSolutionDialog (NewSolutionDialog)
+import Dialogs.EditSolutionDialog (EditSolutionDialog)
 import Dialogs.NewProjectDialog (NewProjectDialog)
 
 data Dialogs = Dialogs
     { mainWindow :: MainWindow
     , newSolutionDialog :: NewSolutionDialog
+    , editSolutionDialog :: EditSolutionDialog
     , newProjectDialog :: NewProjectDialog
     }
 
@@ -53,7 +55,9 @@ getDialogs = DialogsT ask
 
 instance (Monad m) => DialogsClass (DialogsT m) where
     type NewSolutionDialog (DialogsT m) = NewSolutionDialog
+    type EditSolutionDialog (DialogsT m) = EditSolutionDialog
     type NewProjectDialog (DialogsT m) = NewProjectDialog
     withMainWindow f = DialogsT $ asks (f . mainWindow)
     withNewSolutionDialog f = DialogsT $ asks (f . newSolutionDialog)
+    withEditSolutionDialog f = DialogsT $ asks (f . editSolutionDialog)
     withNewProjectDialog f = DialogsT $ asks (f . newProjectDialog)

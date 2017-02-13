@@ -101,6 +101,7 @@ type GuiCommand t m =
     , ViewerStateClass m
     , ModuleLocationClass m
     , SolutionInitializerClass (t m)
+    , SolutionEditorClass (t m)
     , ProjectInitializerClass (t m)
     , EnvironmentMonad m
     , PersistToken m ~ ViewerPersistToken m
@@ -117,6 +118,18 @@ doNewStart :: ( GuiCommand t m
               )
            => t (SolutionResult UserError m) ()
 doNewStart = splice setupSolutionCreator
+    
+
+doEditSolutionStart :: ( GuiCommand t m
+                       , m ~ ClassSolutionEditorMonad (t m)
+                       , Args (SolutionEditArgType m)
+                       )
+                    => t (SolutionResult UserError m) ()
+doEditSolutionStart = do
+    retriever <- lift $ lift $ getSolutionRetriever
+    args <- lift $ runSolutionRetriever retriever
+    result <- splice $ setupSolutionEditor $ Just args
+    return ()
 
 -- | Start the process of creating a new project
 doNewProjectStart :: ( GuiCommand t m
@@ -181,6 +194,17 @@ doNew maybeSolutionRoot projectName templateName = case maybeSolutionRoot of
                 lift $ saveSolution $ Just $ projectRoot </> projectName
             InitializerFailed out err -> 
                 doError $ InvalidOperation (T.unpack $ out <> err) ""
+
+doEditSolution :: ( GuiCommand t m 
+                  , m ~ ClassSolutionEditorMonad (t m)
+                  , Args (SolutionEditArgType m)
+                  )
+               => t (SolutionResult UserError m) ()
+doEditSolution = do
+    args <- unsplice getSolutionEditorArg
+    editor <- lift $ lift getSolutionEditor
+    result <- lift $ runSolutionEditor editor args
+    return ()
 
 -- | Open a solution
 doOpen :: ( GuiCommand t m )

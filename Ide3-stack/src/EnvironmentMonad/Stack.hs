@@ -18,11 +18,14 @@ import EnvironmentMonad
 import Builder.Stack
 import Runner.Stack
 import Initializer.Stack
+import SolutionEditor.Stack
+import SolutionRetriever.Stack
 import ProjectInitializer.Stack
 import ProjectEditor.Stack
 import ProjectRetriever.Stack
 import ProjectRemover.Stack
 import ProjectInitializer.Stack.Types
+import SolutionEditor.Stack.Types
 
 import CabalFilesystemSolution
 
@@ -69,3 +72,10 @@ instance ( MonadIO m )
     getProjectEditor = return stackProjectEditor
     getProjectRetriever = return stackProjectRetriever
     getProjectRemover = return stackProjectRemover
+
+instance ( MonadIO m )
+        => SolutionEditorMonad (CabalSolution m) where
+    type SolutionEditArgType (CabalSolution m) = StackYaml
+    getSolutionEditor = return stackSolutionEditor
+    getSolutionRetriever = return stackSolutionRetriever
+

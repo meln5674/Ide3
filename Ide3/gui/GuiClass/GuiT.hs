@@ -23,6 +23,7 @@ import EnvironmentMonad
 import Initializer.Stack
 import ProjectInitializer.Stack()
 import ProjectInitializer.Stack.Types
+import SolutionEditor.Stack.Types
 
 import GuiClass
 
@@ -30,6 +31,7 @@ import Dialogs.Class
 
 import qualified Dialogs.MainWindow as MainWindow
 import qualified Dialogs.NewSolutionDialog as NewSolutionDialog
+import qualified Dialogs.EditSolutionDialog as EditSolutionDialog
 import qualified Dialogs.NewProjectDialog as NewProjectDialog
 import Dialogs.NewProjectDialog (ProjectType(..), TestSuiteType(..), DialogMode(..))
 
@@ -188,6 +190,26 @@ instance ( MonadIO m
         = liftDialogs
         $ withNewSolutionDialogM
         $ \dialog -> NewSolutionDialog.setVisible dialog False
+
+instance ( MonadIO m
+         , SolutionEditArgType m' ~ StackYaml
+         , m ~ m'
+         ) => SolutionEditorClass (GuiT m' p m) where
+    type ClassSolutionEditorMonad (GuiT m' p m) = m'
+    setupSolutionEditor text
+        = liftDialogs
+        $ withEditSolutionDialogM
+        $ \dialog -> do
+            EditSolutionDialog.setVisible dialog True
+            maybe (return ()) (EditSolutionDialog.setConfigurationText dialog . unStackYaml) text
+    getSolutionEditorArg
+        = liftDialogs
+        $ withEditSolutionDialogM
+        $ \dialog -> (return . StackYaml) <$> EditSolutionDialog.getConfigurationText dialog
+    finalizeSolutionEditor
+        = liftDialogs
+        $ withEditSolutionDialogM
+        $ \dialog -> EditSolutionDialog.setVisible dialog False
 
 
 instance ( MonadIO m ) => EditorControlClass (GuiT m' p m) where

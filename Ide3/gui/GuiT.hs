@@ -109,6 +109,8 @@ instance GenericGuiEnv (GuiT m' p) where
 instance (Monad m) => DialogsClass (GuiT m' p m) where
     type NewSolutionDialog (GuiT m' p m) = NewSolutionDialog (DialogsT m)
     type NewProjectDialog (GuiT m' p m) = NewProjectDialog (DialogsT m)
+    type EditSolutionDialog (GuiT m' p m) = EditSolutionDialog (DialogsT m)
     withMainWindow = liftDialogs . withMainWindow
     withNewSolutionDialog = liftDialogs . withNewSolutionDialog
+    withEditSolutionDialog = liftDialogs . withEditSolutionDialog
     withNewProjectDialog = liftDialogs . withNewProjectDialog

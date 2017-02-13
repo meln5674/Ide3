@@ -21,8 +21,9 @@ module BetterTextView
     ( BetterTextView
     , betterTextViewNew
     , betterTextViewNewWithBuffer
-    , mkBTVAttr
-    , mkBTVSignal
+    --, mkBTVAttr
+    --, mkBTVAttrOp
+    --, mkBTVSignal
     ) where
 
 import qualified Data.Text as T
@@ -50,6 +51,10 @@ newtype BetterTextView = BetterTextView { getBetterTextView :: TextView }
   , IsTextView
   , IsWidget
   )
+
+instance WidgetContainer BetterTextView where
+    type WidgetType BetterTextView = TextView
+    getWidget = getBetterTextView
 
 type instance ParentTypes BetterTextView = '[TextView]
 type instance AttributeList BetterTextView = AttributeList TextView
@@ -117,10 +122,18 @@ betterTextViewNewWithBuffer buf = do
     void $ addTabEvent textView
     return $ BetterTextView textView
 
--- | Modify a GI attribute meant for a GtkTextView to be applied to a 
+
+{-
+--mkBTVAttr :: (attr :: Symbol) -> SubAttrLabelProxy BetterTextView TextView attr
+mkBTVAttr = mkSubAttr getBetterTextView
+
+-- | Modify a GI attribute operation meant for a GtkTextView to be applied to a 
 -- BetterTextView
-mkBTVAttr :: AttrOp TextView tag -> SubAttrOp BetterTextView TextView tag
-mkBTVAttr attr btv = (getBetterTextView btv , attr)
+--mkBTVAttrOp :: AttrOp TextView tag -> SubAttrOp BetterTextView TextView tag
+mkBTVAttrOp = mkSubAttrOp getBetterTextView
+
+
 
 mkBTVSignal :: SignalProxy TextView tag -> SubSignalProxy BetterTextView TextView tag
 mkBTVSignal signal btv = (getBetterTextView btv, signal)
+-}

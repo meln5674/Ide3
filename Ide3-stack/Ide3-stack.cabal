@@ -18,6 +18,9 @@ library
   exposed-modules:     Runner.Stack
                      , Builder.Stack
                      , Initializer.Stack
+                     , SolutionRetriever.Stack
+                     , SolutionEditor.Stack
+                     , SolutionEditor.Stack.Types
                      , ProjectInitializer.Stack
                      , ProjectInitializer.Stack.Types
                      , ProjectEditor.Stack
@@ -25,6 +28,7 @@ library
                      , ProjectRemover.Stack
                      , CabalFilesystemSolution
                      , CabalMonad
+                     , StackMonad
                      , EnvironmentMonad.Stack
   other-modules:       CabalFilesystemSolution.Internal
 

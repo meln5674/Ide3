@@ -24,9 +24,11 @@ import Dialogs.NewProjectDialog (NewProjectDialog)
 
 class Monad m => DialogsClass m where
     type NewSolutionDialog m
+    type EditSolutionDialog m
     type NewProjectDialog m
     withMainWindow :: (MainWindow -> a) -> m a
     withNewSolutionDialog :: (NewSolutionDialog m -> a) -> m a
+    withEditSolutionDialog :: (EditSolutionDialog m -> a) -> m a
     withNewProjectDialog :: (NewProjectDialog m -> a) -> m a
 
 withMainWindowM :: DialogsClass m => (MainWindow -> m a) -> m a
@@ -34,6 +36,9 @@ withMainWindowM = join . withMainWindow
 
 withNewSolutionDialogM :: DialogsClass m => (NewSolutionDialog m -> m a) -> m a
 withNewSolutionDialogM = join . withNewSolutionDialog
+
+withEditSolutionDialogM :: DialogsClass m => (EditSolutionDialog m -> m a) -> m a
+withEditSolutionDialogM = join . withEditSolutionDialog
 
 withNewProjectDialogM :: DialogsClass m => (NewProjectDialog m -> m a) -> m a
 withNewProjectDialogM = join . withNewProjectDialog

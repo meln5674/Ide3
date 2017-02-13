@@ -11,6 +11,8 @@ module EnvironmentMonad
     , module ProjectEditor
     , module ProjectRetriever
     , module ProjectRemover
+    , module SolutionEditor
+    , module SolutionRetriever
     , module Args
     ) where
 
@@ -19,6 +21,8 @@ import Args
 import Builder
 import Runner
 import Initializer
+import SolutionEditor
+import SolutionRetriever
 import ProjectInitializer
 import ProjectRetriever
 import ProjectEditor
@@ -34,6 +38,11 @@ class Monad m => InitializerMonad m where
     type ArgType m
     getInitializer :: Args (ArgType m) => m (Initializer (ArgType m) m)
 
+class Monad m => SolutionEditorMonad m where
+    type SolutionEditArgType m
+    getSolutionRetriever :: Args (SolutionEditArgType m) => m (SolutionRetriever (SolutionEditArgType m) m)
+    getSolutionEditor :: Args (SolutionEditArgType m) => m (SolutionEditor (SolutionEditArgType m) m)
+
 class Monad m => ProjectInitializerMonad m where
     type ProjectArgType m
     getProjectInitializer :: Args (ProjectArgType m) => m (ProjectInitializer (ProjectArgType m) m)
@@ -45,5 +54,6 @@ type EnvironmentMonad m =
     ( BuilderMonad m
     , RunnerMonad m
     , InitializerMonad m
+    , SolutionEditorMonad m
     , ProjectInitializerMonad m
     )

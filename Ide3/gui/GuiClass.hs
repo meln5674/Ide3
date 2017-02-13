@@ -93,6 +93,19 @@ type ProjectInitializerClass' m m'
       , Args (ProjectArgType m')
       )
 
+class (Monad m) => SolutionEditorClass m where
+    type ClassSolutionEditorMonad m :: * -> *
+    setupSolutionEditor :: Maybe (SolutionEditArgType (ClassSolutionEditorMonad m)) -> m ()
+    getSolutionEditorArg
+        :: m (Either (SolutionError u) (SolutionEditArgType (ClassSolutionEditorMonad m)))
+    finalizeSolutionEditor :: m ()
+
+type SolutionEditorClass' m m'
+    = ( SolutionEditorClass m
+      , m' ~ ClassSolutionEditorMonad m
+      , SolutionEditorMonad m'
+      )
+
 class Monad m => ErrorListClass m where
     clearErrorList :: m ()
     addErrorToList :: Error ItemPath Text -> m ()

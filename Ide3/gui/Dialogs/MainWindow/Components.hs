@@ -88,9 +88,9 @@ makeDeclView :: ( MonadIO m
              => self -> GuiEnvT {-proxy-} m' p  m BetterTextView
 makeDeclView container = makeScrolledWindowWith container $ \scrollWindow -> do
     declView <- withGuiComponents $ flip withEditorBuffer $ betterTextViewNewWithBuffer
-    setSub declView $ map mkBTVAttr [ #monospace := True
-                                    , #editable := False
-                                    ]
+    setSub' declView $ [ #monospace := True
+                       , #editable := False
+                       ]
     scrollWindow `containerAdd` declView
     return declView
 
