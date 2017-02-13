@@ -230,7 +230,7 @@ onDeleteProjectClicked :: forall t {-proxy-} m' p m
               => ProjectInfo
               -> t m Bool
 onDeleteProjectClicked pji = do
-    dialog <- Gtk.new Gtk.Dialog []
+    dialog <- Gtk.new Gtk.Dialog [ #title := "Delete files along with project?" ]
     let responses = [DeleteProjectAndFiles, DeleteProjectNotFiles, CancelDeleteProject]
         labels = ["Yes", "No", "Cancel"]
         buttonPairs = zip labels (map (fromIntegral . fromEnum) responses)
@@ -240,6 +240,7 @@ onDeleteProjectClicked pji = do
         DeleteProjectAndFiles -> doDeleteProject pji True
         DeleteProjectNotFiles -> doDeleteProject pji False
         CancelDeleteProject -> return ()
+    widgetDestroy dialog
     return False
 
 {-
