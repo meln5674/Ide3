@@ -180,13 +180,21 @@ parse s p oldMi = case parseModuleWithComments parseMode s of
     exts = maybe [] snd $ readExtensions s
     parseMode = case p of
         Just fn -> defaultParseMode
-                 { parseFilename=fn
-                 , extensions= EnableExtension MultiParamTypeClasses : exts
+                 { parseFilename = fn
+                 -- temporary workaround for 
+                 -- https://github.com/haskell-suite/haskell-src-exts/issues/304
+                 , extensions = EnableExtension MultiParamTypeClasses 
+                              : EnableExtension FlexibleContexts
+                              : exts
                  , fixities=Just[]
                  }
         Nothing -> defaultParseMode
-                 { extensions= EnableExtension MultiParamTypeClasses : exts
-                 , fixities=Just[]
+                 { fixities=Just[]
+                 -- temporary workaround for 
+                 -- https://github.com/haskell-suite/haskell-src-exts/issues/304
+                 , extensions = EnableExtension MultiParamTypeClasses 
+                              : EnableExtension FlexibleContexts
+                              : exts
                  }
 
 -- | Parse a module and assume its name is "Main" if it doesn't already have one
@@ -211,12 +219,18 @@ parseMain s p = case parseModuleWithComments parseMode s of
                  { parseFilename=fn
                  -- temporary workaround for 
                  -- https://github.com/haskell-suite/haskell-src-exts/issues/304
-                 , extensions = EnableExtension MultiParamTypeClasses : exts
+                 , extensions = EnableExtension MultiParamTypeClasses 
+                              : EnableExtension FlexibleContexts
+                              : exts
                  , fixities = Just[]
                  }
         Nothing -> defaultParseMode
-                 { extensions = EnableExtension MultiParamTypeClasses : exts
-                 , fixities = Just[]
+                 { fixities = Just[]
+                 -- temporary workaround for 
+                 -- https://github.com/haskell-suite/haskell-src-exts/issues/304
+                 , extensions = EnableExtension MultiParamTypeClasses 
+                              : EnableExtension FlexibleContexts
+                              : exts
                  }
 
 -- | Parse a string of haskell code, extracting the items at specific locations

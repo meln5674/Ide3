@@ -97,13 +97,31 @@ new i = Module
       , moduleDeclarations = OMap.empty
       }
 
+withParsable :: Monad m => Module -> SolutionResult u m a -> SolutionResult u m a
+withParsable m@Module{} x = x
+withParsable m _ = throwE $ InvalidOperation ("Module " ++ show (moduleInfo m) ++ " is not parsable") ""
+
+withParsableF :: Monad m => (Module -> SolutionResult u m a) -> Module -> SolutionResult u m a
+withParsableF f m@Module{} = f m
+withParsableF _ m = throwE $ InvalidOperation ("Module " ++ show (moduleInfo m) ++ " is not parsable") ""
+
+withParsableF' :: Monad m => (Module -> a) -> Module -> SolutionResult u m a
+withParsableF' f m@Module{} = return $ f m
+withParsableF' _ m = throwE $ InvalidOperation msg ""
+  where
+    msg = "Module " ++ show (moduleInfo m) 
+                    ++ " is not parsable " 
+                    ++ show (moduleErrorLoc m) 
+                    ++ ": " 
+                    ++ show (moduleErrorMsg m)
+
 -- | Add a declaration to a module
 addDeclaration :: Monad m 
                => DeclarationInfo
                -> WithBody Declaration
                -> Module
                -> SolutionResult u m Module
-addDeclaration di d m = case OMap.lookup di $ moduleDeclarations m of
+addDeclaration di d m = withParsable m $ case OMap.lookup di $ moduleDeclarations m of
     Just _ -> throwE $ DuplicateDeclaration (info m) di "Module.addDeclaration"
     Nothing -> return
         $ m 
@@ -115,7 +133,7 @@ removeDeclaration :: Monad m
                   => DeclarationInfo
                   -> Module
                   -> SolutionResult u m (WithBody Declaration, Module)
-removeDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
+removeDeclaration di m = withParsable m $ case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE 
         $ DeclarationNotFound (info m) di "Module.removeDeclaration"
     Just d -> return 
@@ -128,7 +146,7 @@ getDeclaration :: Monad m
                => DeclarationInfo
                -> Module
                -> SolutionResult u m (WithBody Declaration)
-getDeclaration di m = case OMap.lookup di $ moduleDeclarations m of
+getDeclaration di m = withParsable m $ case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.getDeclaration"
     Just d -> return d
 
@@ -139,7 +157,7 @@ setDeclaration :: Monad m
                -> WithBody Declaration
                -> Module
                -> SolutionResult u m Module
-setDeclaration di di' d' m = case OMap.lookup di $ moduleDeclarations m of
+setDeclaration di di' d' m = withParsable m $ case OMap.lookup di $ moduleDeclarations m of
     Nothing -> throwE $ DeclarationNotFound (info m) di "Module.setDeclaration"
     Just _ -> return $ m
         { moduleDeclarations
@@ -154,7 +172,7 @@ addImport :: Monad m
           -> WithBody Import
           -> Module
           -> SolutionResult u m Module
-addImport ii i m = case Map.lookup ii $ moduleImports m of
+addImport ii i m = withParsable m $ case Map.lookup ii $ moduleImports m of
     Just _ -> throwE $ InternalError "Duplicate import id" "Module.addImport"
     Nothing -> return $ m{ moduleImports = Map.insert ii i $ moduleImports m }
 
@@ -163,7 +181,7 @@ removeImport :: Monad m
              => ImportId
              -> Module
              -> SolutionResult u m (WithBody Import, Module)
-removeImport ii m = case Map.lookup ii $ moduleImports m of
+removeImport ii m = withParsable m $ case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.removeImport"
     Just i -> return (i, m{ moduleImports = Map.delete ii $ moduleImports m })
 
@@ -172,7 +190,7 @@ getImport :: Monad m
           => ImportId
           -> Module
           -> SolutionResult u m (WithBody Import)
-getImport ii m = case Map.lookup ii $ moduleImports m of
+getImport ii m = withParsable m $ case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.getImport"
     Just i -> return i
 
@@ -183,7 +201,7 @@ setImport :: Monad m
           -> WithBody Import
           -> Module
           -> SolutionResult u m Module
-setImport ii ii' i' m = case Map.lookup ii $ moduleImports m of
+setImport ii ii' i' m = withParsable m $ case Map.lookup ii $ moduleImports m of
     Nothing -> throwE $ InvalidImportId (info m) ii "Module.setImport"
     Just _ -> return $ m
         { moduleImports
@@ -198,7 +216,7 @@ addExport :: Monad m
           -> WithBody Export
           -> Module
           -> SolutionResult u m Module
-addExport ei e m = case moduleExports m of
+addExport ei e m = withParsable m $ case moduleExports m of
     Just es -> case Map.lookup ei es of
         Just _ -> throwE
             $ InternalError "Duplicate export id" "Module.addExport"
@@ -210,7 +228,7 @@ removeExport :: Monad m
              => ExportId
              -> Module
              -> SolutionResult u m (WithBody Export, Module)
-removeExport ei m = case moduleExports m of
+removeExport ei m = withParsable m $ case moduleExports m of
     Nothing -> throwE
         $ InvalidOperation "Can't remove export from an export all" 
                            "Module.removeExport"
@@ -224,7 +242,7 @@ getExport :: Monad m
           => ExportId
           -> Module
           -> SolutionResult u m (WithBody Export)
-getExport ei m = case moduleExports m of
+getExport ei m = withParsable m $ case moduleExports m of
     Nothing -> throwE
         $ InvalidOperation "Can't get export from an export all" 
                            "Module.getExport"
@@ -239,7 +257,7 @@ setExport :: Monad m
           -> WithBody Export
           -> Module
           -> SolutionResult u m Module
-setExport ei ei' e' m = case moduleExports m of
+setExport ei ei' e' m = withParsable m $ case moduleExports m of
     Just es -> case Map.lookup ei es of
         Nothing -> throwE
             $ InternalError "Tried to set an export in an export all" 
@@ -298,29 +316,29 @@ parseUsing parser s p = case parser s p of
 
 
 -- | Get the imports from a module
-getImports :: Module -> [WithBody Import]
-getImports = Map.elems . moduleImports
+getImports :: Monad m => Module -> SolutionResult u m [WithBody Import]
+getImports = withParsableF' $ Map.elems . moduleImports
 
 -- | Get the pragmas from a module
-getPragmas :: Module -> [Pragma]
-getPragmas = modulePragmas
+getPragmas :: Monad m => Module -> SolutionResult u m [Pragma]
+getPragmas = withParsableF' $ modulePragmas
 
 -- |Get the declarations from a module
-getDeclarations :: Module -> [WithBody Declaration]
-getDeclarations = OMap.elems . moduleDeclarations
+getDeclarations :: Monad m => Module -> SolutionResult u m [WithBody Declaration]
+getDeclarations = withParsableF' $ OMap.elems . moduleDeclarations
 
 -- |Get the exports from a module
-getExports :: Module -> Maybe (Map ExportId (WithBody Export))
-getExports = moduleExports
+getExports :: Monad m => Module -> SolutionResult u m (Maybe (Map ExportId (WithBody Export)))
+getExports = withParsableF' $ moduleExports
 
 -- | Get the ids of all exports in a module structure, or signal that the module
 --  exports everything
-getExportIds :: Module -> Maybe [ExportId]
-getExportIds = fmap Map.keys . moduleExports
+getExportIds :: Monad m => Module -> SolutionResult u m (Maybe [ExportId])
+getExportIds = withParsableF' $ fmap Map.keys . moduleExports
 
 -- | Get the ids of all imports in a module structure
-getImportIds :: Module -> [ImportId]
-getImportIds = Map.keys . moduleImports
+getImportIds :: Monad m => Module -> SolutionResult u m [ImportId]
+getImportIds = withParsableF' $ Map.keys . moduleImports
 
 -- | Take the strings representing an export list and format them
 makeExportList :: [Text] -> Text
@@ -530,8 +548,10 @@ nextId default_ m = succ $ maximum (pred default_ : Map.keys m)
 
 -- | Get the next value to use for an ImportId
 nextImportId :: Module -> ImportId
-nextImportId = nextId 0 . moduleImports
+nextImportId m@Module{} = nextId 0 $ moduleImports m
+nextImportId _ = 0
 
 -- | Get the next value to use as an ExportId
 nextExportId :: Module -> ExportId
-nextExportId = maybe 0 (nextId 0) . moduleExports
+nextExportId m@Module{} = maybe 0 (nextId 0) $ moduleExports m
+nextExportId _ = 0

@@ -25,6 +25,9 @@ library
                      , Ide3.Project
                      , Ide3.Project.Query
                      , Ide3.Module
+                     , Ide3.Module.Query
+                     , Ide3.Export.Query
+                     , Ide3.Import.Query
                      , Ide3.Module.Extern
                      , Ide3.Module.Common
                      , Ide3.Refactor
@@ -74,10 +77,7 @@ library
                      , Ide3.Types.Internal
                      , Ide3.Types.Exts
                      , Ide3.Query
-                     , Ide3.Module.Query
                      , Ide3.Module.Parser
-                     , Ide3.Export.Query
-                     , Ide3.Import.Query
                      , Ide3.Import.Parser
                      , Ide3.Export.Parser
                      , Ide3.Declaration.Parser

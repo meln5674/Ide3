@@ -136,6 +136,7 @@ data ModuleChild a = ModuleChild ModuleInfo a
 
 -- | A value which is tagged as belonging to a project
 data ProjectChild a = ProjectChild ProjectInfo a
+  deriving (Eq, Ord)
 
 -- | Convert the child to string, prepend the project name in parens
 instance Show a => Show (ProjectChild a) where

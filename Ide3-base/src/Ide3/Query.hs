@@ -450,7 +450,7 @@ moduleImportedByInModule :: (SolutionMonad m)
 moduleImportedByInModule pji mi pji' mi' = do
     iis <- getImports pji' mi'
     flip filterM iis $ \ii -> do
-        i <- getImport pji mi ii
+        i <- getImport pji' mi' ii
         return $ Import.moduleName (item i) == getModuleName mi
 
 -- | Find all of the modules in a project which import another module
@@ -463,7 +463,7 @@ moduleImportedByInProject pji mi pji' = do
     mis <- getModules pji'
     forM mis $ \mi' -> do
         iis <- moduleImportedByInModule pji mi pji' mi' 
-        return $ ModuleChild mi iis
+        return $ ModuleChild mi' iis
 
 -- | Find all modules which import another module
 moduleImportedBy :: (SolutionMonad m)

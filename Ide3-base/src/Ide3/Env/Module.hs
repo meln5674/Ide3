@@ -101,7 +101,7 @@ getImport = descendRO ask
 
 -- | Get the ids of all imports
 getImports :: Monad m => DescentChain1 Module m u [ImportId]
-getImports = gets $ Map.keys . moduleImports
+getImports = get >>= lift . withParsableF' (Map.keys . moduleImports)
 
 
 -- | Set the module to export all of its symbols
