@@ -163,7 +163,7 @@ doDeleteProject pji deleteCompletely = do
         args <- lift $ runProjectRetriever retriever pji
         void $ lift $ runProjectRemover remover args
     lift $ removeProject pji
-    
+    doSaveSolution Nothing
 
 -- | Complete the process of creating a new project
 doNew :: ( GuiCommand t m
@@ -204,8 +204,8 @@ doEditSolution = do
     args <- unsplice getSolutionEditorArg
     editor <- lift $ lift getSolutionEditor
     result <- lift $ runSolutionEditor editor args
-    return ()
-
+    doSaveSolution Nothing
+    
 -- | Open a solution
 doOpen :: ( GuiCommand t m )
        => FilePath
@@ -473,7 +473,7 @@ doSave = do
         -- If we're editing a module header or an unparsable module
         (_,Just (pji, mi)) -> saveModule pji mi
         _ -> return ()
-
+    doSaveSolution Nothing
 
 
 
@@ -519,6 +519,7 @@ doAddProject = do
             splice $ insertSolutionTreeNode SolutionPath (ProjectElem pji)
             lift $ finalize Nothing
         ProjectInitializerFailed out err -> doError $ InvalidOperation (T.unpack $ out <> err) ""
+    doSaveSolution Nothing
 
 doEditProject :: ( GuiCommand t m
                 , m ~ ClassProjectInitializerMonad (t m)
@@ -537,6 +538,7 @@ doEditProject pji = do
             splice $ updateSolutionTreeNode (ProjectPath pji) (const $ ProjectElem pji')
             lift $ finalize Nothing
         ProjectEditorFailed out err -> doError $ InvalidOperation (out ++ err) ""
+    doSaveSolution Nothing
     
 -- | Add a module to a project
 doAddModule :: ( GuiCommand t m )
@@ -550,6 +552,7 @@ doAddModule pji mi = do
     let sTree = S.makeModuleTree mTree
     
     splice $ addModuleToTree pji mi sTree
+    doSaveSolution Nothing
     
 
 -- | Remove a module from a project
@@ -560,6 +563,7 @@ doRemoveModule :: ( GuiCommand t m )
 doRemoveModule pji mi = do
     lift $ removeModule pji mi
     splice $ removeModuleFromTree pji mi
+    doSaveSolution Nothing
     
 
 -- | Add a declaration to a module
@@ -580,6 +584,7 @@ doAddDeclaration pji mi di = do
         $ openDeclaration (DeclarationPath pji mi di)
         $ body decl
     splice $ setEditorEnabled True
+    doSaveSolution Nothing
 
 -- | Remove a declaration from a module
 doRemoveDeclaration :: ( GuiCommand t m )
@@ -590,6 +595,7 @@ doRemoveDeclaration :: ( GuiCommand t m )
 doRemoveDeclaration pji mi di = do
     lift $ removeDeclaration pji mi di
     splice $ removeSolutionTreeNode $ DeclarationPath pji mi di
+    doSaveSolution Nothing
 
 -- | Change the export list of a module as to not export a declaration.
 -- This may fail if the export is not explicitly exported, or if the
@@ -620,6 +626,7 @@ doUnExportDeclaration pji mi (SymbolDeclarationInfo sym) = do
             [_] -> do
                 lift $ removeExport pji mi ei
                 splice $ removeSolutionTreeNode $ ExportPath pji mi ei
+                doSaveSolution Nothing
             _ -> doError $ Unsupported 
                          $ "Symbol is exported with other symbols, "
                            ++ "please remove export manually"
@@ -649,7 +656,7 @@ doMoveDeclaration pji mi di pji' mi' = do
         cdi <- getCurrentDeclaration
         when (cdi == Just (pji, mi, di)) $
             setCurrentDecl pji' mi' di
-            
+    doSaveSolution Nothing
 
 -- | An an import to a module
 doAddImport :: ( GuiCommand t m )
@@ -664,6 +671,7 @@ doAddImport pji mi importStr = case Import.parse importStr of
         splice
             $ insertSolutionTreeNode (ImportsPath pji mi) 
             $ ImportElem ii i
+        doSaveSolution Nothing
         return Nothing
     Left parseError -> case parseError of
         err@ParseError{} -> return $ Just err
@@ -678,6 +686,7 @@ doRemoveImport :: ( GuiCommand t m )
 doRemoveImport pji mi ii = do
     lift $ removeImport pji mi ii
     splice $ removeSolutionTreeNode $ ImportPath pji mi ii
+    doSaveSolution Nothing
 
 -- | Retrieve the body of an import
 doGetImport :: ( GuiCommand t m )
@@ -705,6 +714,7 @@ doEditImport pji mi ii importStr = case Import.parse importStr of
             $ updateSolutionTreeNode (ImportPath pji mi ii) 
             $ const 
             $ ImportElem ii' i'
+        doSaveSolution Nothing
         return Nothing
     Left parseError -> case parseError of
         err@ParseError{} -> return $ Just err
@@ -723,6 +733,7 @@ doAddExport pji mi exportStr = case Export.parse exportStr of
         splice 
             $ insertSolutionTreeNode (ExportsPath pji mi) 
             $ ExportElem ei e
+        doSaveSolution Nothing
         return Nothing
     Left parseError -> case parseError of
         err@ParseError{} -> return $ Just err
@@ -737,6 +748,7 @@ doRemoveExport :: ( GuiCommand t m )
 doRemoveExport pji mi ei = do
     lift $ removeExport pji mi ei
     splice $ removeSolutionTreeNode $ ExportPath pji mi ei
+    doSaveSolution Nothing
 
 -- | Retrieve the body of an export
 doGetExport :: ( GuiCommand t m )
@@ -764,6 +776,7 @@ doEditExport pji mi ei exportStr = case Export.parse exportStr of
             $ updateSolutionTreeNode (ExportPath pji mi ei) 
             $ const 
             $ ExportElem ei' e'
+        doSaveSolution Nothing
         return Nothing
     Left parseError -> case parseError of
         err@ParseError{} -> return $ Just err
@@ -779,6 +792,7 @@ doExportAll pji mi = do
     splice $ forM_ (fromMaybe [] eis) $ 
         removeSolutionTreeNode . ExportPath pji mi
     lift $ exportAll pji mi
+    doSaveSolution Nothing
     
 -- | Perform a text search or a declaration navigation depending on the state
 -- of the search component.
