@@ -659,6 +659,44 @@ doMoveDeclaration pji mi di pji' mi' = do
             setCurrentDecl pji' mi' di
     doSaveSolution Nothing
 
+doAddPragma :: ( GuiCommand t m )
+            => ProjectInfo
+            -> ModuleInfo
+            -> Text
+            -> t (SolutionResult UserError m) ()
+doAddPragma pji mi p = do
+    lift $ addPragma pji mi p
+    splice
+         $ insertSolutionTreeNode (PragmasPath pji mi) 
+         $ PragmaElem p
+    doSaveSolution Nothing
+
+-- | Remove a pragma from a module
+doRemovePragma :: ( GuiCommand t m )
+               => ProjectInfo
+               -> ModuleInfo
+               -> Pragma
+               -> t (SolutionResult UserError m) ()
+doRemovePragma pji mi p = do
+    lift $ removePragma pji mi p
+    splice $ removeSolutionTreeNode $ PragmaPath pji mi p
+    doSaveSolution Nothing
+
+doEditPragma :: ( GuiCommand t m )
+               => ProjectInfo
+               -> ModuleInfo
+               -> Pragma
+               -> Pragma
+               -> t (SolutionResult UserError m) ()
+doEditPragma pji mi p p' = do
+    lift $ removePragma pji mi p
+    lift $ addPragma pji mi p'
+    splice $ removeSolutionTreeNode $ PragmaPath pji mi p
+    splice
+        $ insertSolutionTreeNode (PragmasPath pji mi) 
+        $ PragmaElem p'
+    doSaveSolution Nothing
+
 -- | An an import to a module
 doAddImport :: ( GuiCommand t m )
             => ProjectInfo

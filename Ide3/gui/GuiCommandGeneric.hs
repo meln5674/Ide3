@@ -204,6 +204,28 @@ doMoveDeclaration :: ( GuiCommand2 t m' m
                   -> t m ()
 doMoveDeclaration pji mi di pji' mi' = dialogOnError' () $ Internal.doMoveDeclaration pji mi di pji' mi'
 
+doAddPragma :: ( GuiCommand2 t m' m )
+            => ProjectInfo
+            -> ModuleInfo
+            -> Text
+            -> t m ()
+doAddPragma pji mi p = dialogOnError' () $ Internal.doAddPragma pji mi p
+
+doRemovePragma :: ( GuiCommand2 t m' m )
+            => ProjectInfo
+            -> ModuleInfo
+            -> Text
+            -> t m ()
+doRemovePragma pji mi p = dialogOnError' () $ Internal.doRemovePragma pji mi p
+
+doEditPragma :: ( GuiCommand2 t m' m )
+             => ProjectInfo
+             -> ModuleInfo
+             -> Pragma
+             -> Pragma
+             -> t m ()
+doEditPragma pji mi p p' = dialogOnError' () $ Internal.doEditPragma pji mi p p'
+
 doAddImport :: ( GuiCommand2 t m' m )
             => ProjectInfo
             -> ModuleInfo

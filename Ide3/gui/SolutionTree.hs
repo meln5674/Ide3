@@ -433,10 +433,14 @@ findAtPath path = do
             -> return $ UnparsableModuleResult pji mi loc msg
         (Just (DeclElem di), Just (ModuleElem mi _), _, Just (ProjectElem pji))
             -> return $ DeclResult pji mi di
+        (Just PragmasElem, Just (ModuleElem mi _), _, Just (ProjectElem pji))
+            -> return $ PragmasResult pji mi
         (Just ImportsElem, Just (ModuleElem mi _), _, Just (ProjectElem pji))
             -> return $ ImportsResult pji mi
         (Just ExportsElem, Just (ModuleElem mi _), _, Just (ProjectElem pji))
             -> return $ ExportsResult pji mi
+        (Just (PragmaElem p), _, Just (ModuleElem mi _), Just (ProjectElem pji))
+            -> return $ PragmaResult pji mi p
         (Just (ImportElem ii _), _, Just (ModuleElem mi _), Just (ProjectElem pji))
             -> return $ ImportResult pji mi ii
         (Just (ExportElem ei _), _, Just (ModuleElem mi _), Just (ProjectElem pji)) 

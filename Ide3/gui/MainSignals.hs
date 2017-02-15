@@ -46,6 +46,7 @@ import Dialogs.MainWindow (MainWindow, FocusTarget (..), SolutionPathCoords (..)
 import SolutionContextMenu (ContextMenu)
 
 import qualified Dialogs.MainWindow as MainWindow
+import qualified Dialogs.NewPragmaDialog as NewPragmaDialog
 import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
@@ -341,6 +342,49 @@ onNewSubModuleClickedMenu = onNewModuleClickedGeneric $ do
     return False
 -}
 
+
+onNewPragmaClicked :: forall t {-proxy-} m' p m
+               . ( MainGuiClassIO t m' p m )
+              => ProjectInfo
+              -> ModuleInfo
+              -> t m Bool
+onNewPragmaClicked pji mi = do
+    NewPragmaDialog.makeNew $ \dialog -> do
+        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> do
+            maybePragma <- NewPragmaDialog.getPragma dialog
+            case maybePragma of
+                "" -> doError $ InvalidOperation "Please enter a pragma" ""
+                pragma -> do
+                    doAddPragma pji mi pragma
+                    NewPragmaDialog.close dialog
+            return False
+        void $ dialog `on` NewPragmaDialog.cancelClickedEvent $ Func1 $ \_ -> do
+            NewPragmaDialog.close dialog
+            return False
+    return False
+
+
+onEditPragmaClicked :: forall t {-proxy-} m' p m
+               . ( MainGuiClass t m' p m )
+              => ProjectInfo
+              -> ModuleInfo
+              -> Pragma
+              -> t m Bool
+onEditPragmaClicked pji mi p = do
+    NewPragmaDialog.makeEdit p $ \dialog -> do
+        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> do
+            maybePragma <- NewPragmaDialog.getPragma dialog
+            case maybePragma of
+                "" -> doError $ InvalidOperation "Please enter a pragma" ""
+                pragma -> do
+                    doEditPragma pji mi p pragma
+                    NewPragmaDialog.close dialog
+            return False
+        void $ dialog `on` NewPragmaDialog.cancelClickedEvent $ Func1 $ \_ -> do
+            NewPragmaDialog.close dialog
+            return False
+    return False
+
 onNewImportClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
               => ProjectInfo
@@ -592,6 +636,19 @@ setupDeclContextMenu pji mi di = do
         return False
     return menu
 
+setupPragmasContextMenu :: forall t {-proxy-} m' p m
+               . ( MainGuiClassIO t m' p m )
+                 => ProjectInfo
+                 -> ModuleInfo
+                 -> t m ContextMenu
+setupPragmasContextMenu pji mi = id $ do
+    menu <- SolutionContextMenu.makePragmasMenu pji mi
+    void $ menu `on` SolutionContextMenu.newPragmaClickedEvent $ Func1 $ \_ -> do
+        onNewPragmaClicked pji mi
+    return menu
+
+
+
 setupImportsContextMenu :: forall t {-proxy-} m' p m
                . ( MainGuiClassIO t m' p m )
                  => ProjectInfo
@@ -615,6 +672,22 @@ setupExportsContextMenu pji mi = do
         onNewExportClicked pji mi
     void $ menu `on` SolutionContextMenu.exportAllClickedEvent $ Func1 $ \_ -> do
         onExportAllClicked pji mi
+    return menu
+
+setupPragmaContextMenu :: forall t {-proxy-} m' p m
+               . ( MainGuiClassIO t m' p m )
+                 => ProjectInfo
+                 -> ModuleInfo
+                 -> Pragma
+                 -> t m ContextMenu
+setupPragmaContextMenu pji mi p = do
+    menu <- SolutionContextMenu.makePragmaMenu pji mi p
+    void $ menu `on` SolutionContextMenu.deletePragmaClickedEvent $ Func1 $ \_ -> do
+        doRemovePragma pji mi p
+        return False
+    void $ menu `on` SolutionContextMenu.editPragmaClickedEvent $ Func1 $ \_ -> do
+        void $ onEditPragmaClicked pji mi p
+        return False
     return menu
 
 setupImportContextMenu :: forall t {-proxy-} m' p m
@@ -674,8 +747,8 @@ onSolutionViewClicked gui event = do
                     ExportsResult pji mi -> setupExportsContextMenu pji mi
                     ImportResult pji mi ii -> setupImportContextMenu pji mi ii
                     ExportResult pji mi ei -> setupExportContextMenu pji mi ei
-                    PragmasResult _ _ -> setupSolutionContextMenu
-                    PragmaResult _ _ _ -> setupSolutionContextMenu
+                    PragmasResult pji mi -> setupPragmasContextMenu pji mi
+                    PragmaResult pji mi p -> setupPragmaContextMenu pji mi p
                     NoSearchResult -> setupSolutionContextMenu
         lift $ SolutionContextMenu.showMenu menu event
     return False    
@@ -738,7 +811,7 @@ onErrorClicked :: forall t {-proxy-} m' p m
               -> t m ()
 onErrorClicked gui path _ = do
     shouldFocus <- withGtkTreePath path doJumpToErrorLocation
-    when shouldFocus $ MainWindow.setFocus FocusErrorList gui
+    when shouldFocus $ MainWindow.setFocus FocusEditor gui
 
 
 onSolutionTreeTooltipQuery :: forall t m' p m

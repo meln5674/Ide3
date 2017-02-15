@@ -31,6 +31,11 @@ data ElementMenu
     { moduleInfo :: ProjectChild ModuleInfo
     , gotoErrorButton :: MenuItem
     }
+    | PragmaMenu
+    { pragmaInfo :: ProjectChild (ModuleChild Pragma)
+    , editPragmaButton :: MenuItem
+    , deletePragmaButton :: MenuItem
+    }
     | DeclMenu
     { declInfo :: ProjectChild (ModuleChild DeclarationInfo)
     , exportDeclarationButton :: MenuItem
@@ -47,6 +52,10 @@ data ElementMenu
     { exportInfo :: ProjectChild (ModuleChild ExportId)
     , editExportButton :: MenuItem
     , deleteExportButton :: MenuItem
+    }
+    | PragmasMenu
+    { pragmasInfo :: ProjectChild ModuleInfo
+    , newPragmaButton :: MenuItem
     }
     | ImportsMenu
     { importsInfo :: ProjectChild ModuleInfo
@@ -113,6 +122,22 @@ makeUnparsableModuleMenu pji mi = makeMenuWith $ \menu -> do
 makeGotoErrorButton :: (MonadIO m) => Menu -> m MenuItem
 makeGotoErrorButton = makeMenuButton "Go to Error Location"
 
+makePragmaMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> Pragma -> m ContextMenu
+makePragmaMenu pji mi p = makeMenuWith $ \menu -> do
+    editPragmaButton <- makeEditPragmaButton menu
+    deletePragmaButton <- makeDeletePragmaButton menu
+    return PragmaMenu
+           { pragmaInfo = ProjectChild pji $ ModuleChild mi p
+           , editPragmaButton
+           , deletePragmaButton
+           }
+
+makeEditPragmaButton :: (MonadIO m) => Menu -> m MenuItem
+makeEditPragmaButton = makeMenuButton "Edit"
+
+makeDeletePragmaButton :: (MonadIO m) => Menu -> m MenuItem
+makeDeletePragmaButton = makeMenuButton "Delete"
+
 makeDeclMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> DeclarationInfo -> m ContextMenu
 makeDeclMenu pji mi di = makeMenuWith $ \menu -> do
     exportDeclarationButton <- makeExportDeclarationButton menu
@@ -170,6 +195,17 @@ makeEditExportButton = makeMenuButton "Edit"
 
 makeDeleteExportButton :: (MonadIO m) => Menu -> m MenuItem
 makeDeleteExportButton = makeMenuButton "Delete"
+
+makePragmasMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
+makePragmasMenu pji mi = makeMenuWith $ \menu -> do
+    newPragmaButton <- makeNewPragmaButton menu
+    return PragmasMenu
+           { pragmasInfo = ProjectChild pji mi
+           , newPragmaButton
+           }
+
+makeNewPragmaButton :: (MonadIO m) => Menu -> m MenuItem
+makeNewPragmaButton = makeMenuButton "New Pragma"
 
 makeImportsMenu :: (MonadIO m) => ProjectInfo -> ModuleInfo -> m ContextMenu
 makeImportsMenu pji mi = makeMenuWith $ \menu -> do
@@ -268,6 +304,12 @@ renameModuleClickedEvent = renameModuleButton `mkMenuSignal` #buttonPressEvent
 deleteModuleClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 deleteModuleClickedEvent = deleteModuleButton `mkMenuSignal` #buttonPressEvent
 
+editPragmaClickedEvent :: ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
+editPragmaClickedEvent = editPragmaButton `mkMenuSignal` #buttonPressEvent
+
+deletePragmaClickedEvent :: ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
+deletePragmaClickedEvent = deletePragmaButton `mkMenuSignal` #buttonPressEvent
+
 gotoErrorClickedEvent :: ContextMenuSignal MenuItem WidgetButtonPressEventSignalInfo
 gotoErrorClickedEvent = gotoErrorButton `mkMenuSignal` #buttonPressEvent
 
@@ -294,6 +336,9 @@ editExportClickedEvent = editExportButton `mkMenuSignal` #buttonPressEvent
 
 deleteExportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 deleteExportClickedEvent = deleteExportButton `mkMenuSignal` #buttonPressEvent
+
+newPragmaClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
+newPragmaClickedEvent = newPragmaButton `mkMenuSignal` #buttonPressEvent
 
 newImportClickedEvent ::   ContextMenuSignal  MenuItem WidgetButtonPressEventSignalInfo
 newImportClickedEvent = newImportButton `mkMenuSignal` #buttonPressEvent
