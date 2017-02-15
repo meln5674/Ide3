@@ -155,6 +155,15 @@ addRunClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
                                   -> m ()
 addRunClickedEventAccelerator = runButton `addSolutionMenuAccelerator` "activate"
 
+addRunWithArgsClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
+                                  => MainWindow
+                                  -> group
+                                  -> key
+                                  -> [ModifierType] 
+                                  -> [AccelFlags]
+                                  -> m ()
+addRunWithArgsClickedEventAccelerator = runWithArgsButton `addSolutionMenuAccelerator` "activate"
+
 --addFindClickedEventAccelerator :: (MonadIO m, IsAccelGroup group, Integral key)
 --                                  => MainWindow
 --                                  -> group

@@ -46,6 +46,7 @@ module Dialogs.MainWindow
     , saveSolutionClickedEvent
     , buildClickedEvent
     , runClickedEvent
+    , runWithArgsClickedEvent
     , errorClickedEvent
     , windowClosedEvent
     , findClickedEvent
@@ -73,6 +74,7 @@ module Dialogs.MainWindow
     , addSaveSolutionClickedEventAccelerator
     , addBuildClickedEventAccelerator
     , addRunClickedEventAccelerator
+    , addRunWithArgsClickedEventAccelerator
     --, addFindClickedEventAccelerator
     --, addNavigateClickedEventAccelerator
     --, addSearchClickedEventAccelerator

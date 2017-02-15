@@ -351,14 +351,15 @@ doBuild = do
 -- | Run the current project
 doRun :: ( GuiCommand t m
          )
-      => t (SolutionResult UserError m) ()
-doRun = do
+      => [String]
+      -> t (SolutionResult UserError m) ()
+doRun args = do
     runner <- lift $ lift getRunner
     maybePji <- lift $ lift getCurrentProject
     case maybePji of
         Nothing -> doError $ InvalidOperation "No project selected" ""
         Just pji -> do
-            r <- lift $ runRunner runner pji
+            r <- lift $ runRunner runner pji args
             let text = case r of
                     RunSucceeded out err -> out <> err
                     RunFailed out err -> out <> err

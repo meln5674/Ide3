@@ -50,6 +50,7 @@ import qualified Dialogs.NewModuleDialog as NewModuleDialog
 import qualified Dialogs.NewImportDialog as NewImportDialog
 import qualified Dialogs.NewExportDialog as NewExportDialog
 import qualified Dialogs.MoveDeclarationDialog as MoveDeclarationDialog
+import qualified Dialogs.RunWithArgsDialog as RunWithArgsDialog
 import qualified SolutionContextMenu
 
 import GenericGuiEnv
@@ -208,8 +209,21 @@ onBuildClicked = void $ doBuild
 onRunClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
               => t m ()
-onRunClicked = doRun
+onRunClicked = doRun []
 
+onRunWithArgsClicked :: forall t m' p m
+                      . ( MainGuiClass t m' p m )
+                     => t m ()
+onRunWithArgsClicked = do
+    RunWithArgsDialog.make $ \dialog -> do
+        void $ dialog `on` RunWithArgsDialog.confirmClicked $ Func1 $ \_ -> do
+            args <- RunWithArgsDialog.getArguments $ dialog 
+            doRun args
+            RunWithArgsDialog.close dialog
+            return False
+        void $ dialog `on` RunWithArgsDialog.cancelClicked $ Func1 $ \_ -> do
+            RunWithArgsDialog.close dialog
+            return False
 
 onSaveClicked :: forall t {-proxy-} m' p m
                . ( MainGuiClass t m' p m )
@@ -778,6 +792,8 @@ setupMainSignals gui = do
         Func0 $ onBuildClicked
     void $ gui `on` MainWindow.runClickedEvent $ 
         Func0 $ onRunClicked
+    void $ gui `on` MainWindow.runWithArgsClickedEvent $ 
+        Func0 $ onRunWithArgsClicked
     --gui `on_` MainWindow.findClickedEvent $ 
         --Func0 $ onFindClicked gui
     --gui `on_` MainWindow.navigateClickedEvent $

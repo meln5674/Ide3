@@ -437,7 +437,8 @@ doRun runner = printOnError $ do
     case maybePji of
         Nothing -> throwE $ InvalidOperation "No project selected" ""
         Just pji -> do
-            r <- ExceptT $ lift $ runExceptT $ runRunner runner pji
+            -- TODO: args
+            r <- ExceptT $ lift $ runExceptT $ runRunner runner pji []
             case r of
                 RunSucceeded out err -> return $ out <> err
                 RunFailed out err -> return $ out <> err

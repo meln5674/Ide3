@@ -108,8 +108,9 @@ doBuild = dialogOnErrorConc (setBuildEnabled True) Internal.doBuild
 
 doRun :: ( GuiCommand2 t m' m
          )
-      => t m ()
-doRun = dialogOnError' () Internal.doRun
+      => [String]
+      -> t m ()
+doRun = dialogOnError' () . Internal.doRun
 
 
 doSave :: ( GuiCommand2 t m' m

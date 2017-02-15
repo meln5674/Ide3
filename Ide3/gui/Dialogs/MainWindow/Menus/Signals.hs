@@ -53,6 +53,9 @@ buildClickedEvent = buildButton `mkSolutionMenuSignal` #activate
 runClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
 runClickedEvent = runButton `mkSolutionMenuSignal` #activate
 
+runWithArgsClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
+runWithArgsClickedEvent = runWithArgsButton `mkSolutionMenuSignal` #activate
+
 findClickedEvent :: MainWindowSignal MenuItem MenuItemActivateSignalInfo
 findClickedEvent = findButton `mkSearchMenuSignal` #activate
 

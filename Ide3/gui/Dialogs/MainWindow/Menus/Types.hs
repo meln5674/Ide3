@@ -15,6 +15,7 @@ data SolutionMenu
     = SolutionMenu
     { buildButton :: MenuItem
     , runButton :: MenuItem
+    , runWithArgsButton :: MenuItem
     }
 
 data SearchMenu

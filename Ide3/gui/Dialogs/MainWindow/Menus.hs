@@ -74,9 +74,11 @@ makeSolutionMenu :: (MonadIO m) => MenuBar -> m SolutionMenu
 makeSolutionMenu = makeSolutionMenuWith $ \solutionMenu -> do
     buildButton <- makeBuildButton solutionMenu
     runButton <- makeRunButton solutionMenu
+    runWithArgsButton <- makeRunWithArgsButton solutionMenu
     return SolutionMenu
            { buildButton
            , runButton
+           , runWithArgsButton
            }
 
 makeSolutionMenuWith :: (MonadIO m) => (Menu -> m b) -> MenuBar -> m b
@@ -87,6 +89,9 @@ makeBuildButton = makeMenuButton "Build"
 
 makeRunButton :: (MonadIO m, IsMenuShell self) => self -> m MenuItem
 makeRunButton = makeMenuButton "Run"
+
+makeRunWithArgsButton :: (MonadIO m, IsMenuShell self) => self -> m MenuItem
+makeRunWithArgsButton = makeMenuButton "Run w/ Args"
 
 makeSearchMenu :: (MonadIO m) => MenuBar -> m SearchMenu
 makeSearchMenu = makeSearchMenuWith $ \searchMenu -> do

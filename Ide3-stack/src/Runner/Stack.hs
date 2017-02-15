@@ -24,19 +24,19 @@ import Ide3.Types
 
 -- | A Runner which uses stack exec to run a solution
 stackRunner :: (MonadIO m, MonadMask m, CabalMonad m) => Runner m
-stackRunner = MkRunner $ \pji -> do
+stackRunner = MkRunner $ \pji cmdArgs -> do
     cpji <- getCabalProjectInfo pji
     maybeArgs <- case cpji of
         LibraryInfo -> return Nothing
-        ExecutableInfo execName -> return $ Just ["exec",execName]
+        ExecutableInfo execName -> return $ Just $ ["exec",execName,"--"] ++ cmdArgs
         BenchmarkInfo benchName -> do
             pkgDesc <- getPackageDescription
             let benchArg = unPackageName (pkgName $ package pkgDesc) ++ ':' : benchName
-            return $ Just ["bench",benchArg]
+            return $ Just $ ["bench",benchArg,"--benchmark-arguments"] ++ cmdArgs
         TestSuiteInfo testName -> do
             pkgDesc <- getPackageDescription
             let testArg = unPackageName (pkgName $ package pkgDesc) ++ ':' : testName
-            return $ Just ["test",testArg]
+            return $ Just $ ["test",testArg,"--test-arguments"] ++ cmdArgs
     case maybeArgs of
         Nothing -> throwE $ InvalidOperation "Cannot run a library" ""
         Just args -> ExceptT $ flip catch handleException $ do 
