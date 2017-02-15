@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Main where
 
 import Control.Monad
@@ -26,6 +27,8 @@ import GI.Gdk hiding (on)
 
 import Ide3.Types
 import Ide3.Types.State
+import Ide3.NewMonad.Instances.Lift
+import Ide3.NewMonad.Instances.Lift.TH
 import Ide3.NewMonad.Instances.State
 import Ide3.NewMonad.Instances.State.Class.Instances.Strict
 import qualified Ide3.Solution as Solution
@@ -87,49 +90,45 @@ deriving instance InteruptMonad0 GtkIO
 instance ErrorClass (GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))) where
     displayError msg = lift $ lift $ lift $ lift $ lift $ displayError msg
 
-instance BuilderMonad m => BuilderMonad (ViewerStateT m) where
-    getBuilder = mapBuilder lift <$> lift getBuilder
+[betterderiving|
+id;
+;
+  BuilderMonad
+, RunnerMonad
+, InitializerMonad
+, SolutionEditorMonad
+, ProjectInitializerMonad;
+ViewerStateT;
+  getBuilder = liftBuilder
+, getRunner = liftRunner
+, getInitializer = liftInitializer
+, getSolutionRetriever = liftSolutionRetriever
+, getSolutionEditor = liftSolutionEditor
+, getProjectInitializer = liftProjectInitializer
+, getProjectEditor = liftProjectEditor
+, getProjectRetriever =  liftProjectRetriever
+, getProjectRemover = liftProjectRemover
+|]
 
-instance BuilderMonad m => BuilderMonad (GuiViewerT m) where
-    getBuilder = mapBuilder lift <$> lift getBuilder
-    
-instance RunnerMonad m => RunnerMonad (ViewerStateT m) where
-    getRunner = mapRunner lift <$> lift getRunner
-
-instance RunnerMonad m => RunnerMonad (GuiViewerT m) where
-    getRunner = mapRunner lift <$> lift getRunner
-
-instance InitializerMonad m => InitializerMonad (ViewerStateT m) where
-    getInitializer = mapInitializer lift <$> lift getInitializer
-    type ArgType (ViewerStateT m) = ArgType m
-
-instance InitializerMonad m => InitializerMonad (GuiViewerT m) where
-    getInitializer = mapInitializer lift <$> lift getInitializer
-    type ArgType (GuiViewerT m) = ArgType m
-
-instance SolutionEditorMonad m => SolutionEditorMonad (ViewerStateT m) where
-    type SolutionEditArgType (ViewerStateT m) = SolutionEditArgType m
-    getSolutionEditor = mapSolutionEditor lift <$> lift getSolutionEditor
-    getSolutionRetriever = mapSolutionRetriever lift <$> lift getSolutionRetriever
-
-instance SolutionEditorMonad m => SolutionEditorMonad (GuiViewerT m) where
-    type SolutionEditArgType (GuiViewerT m) = SolutionEditArgType m
-    getSolutionEditor = mapSolutionEditor lift <$> lift getSolutionEditor
-    getSolutionRetriever = mapSolutionRetriever lift <$> lift getSolutionRetriever
-
-instance ProjectInitializerMonad m => ProjectInitializerMonad (ViewerStateT m) where
-    getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
-    getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
-    getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
-    getProjectRemover = mapProjectRemover lift <$> lift getProjectRemover
-    type ProjectArgType (ViewerStateT m) = ProjectArgType m
-
-instance ProjectInitializerMonad m => ProjectInitializerMonad (GuiViewerT m) where
-    getProjectInitializer = mapProjectInitializer lift <$> lift getProjectInitializer
-    getProjectEditor = mapProjectEditor lift <$> lift getProjectEditor
-    getProjectRetriever = mapProjectRetriever lift <$> lift getProjectRetriever
-    getProjectRemover = mapProjectRemover lift <$> lift getProjectRemover
-    type ProjectArgType (GuiViewerT m) = ProjectArgType m
+[betterderiving|
+id;
+;
+  BuilderMonad
+, RunnerMonad
+, InitializerMonad
+, SolutionEditorMonad
+, ProjectInitializerMonad;
+GuiViewerT;
+  getBuilder = liftBuilder
+, getRunner = liftRunner
+, getInitializer = liftInitializer
+, getSolutionRetriever = liftSolutionRetriever
+, getSolutionEditor = liftSolutionEditor
+, getProjectInitializer = liftProjectInitializer
+, getProjectEditor = liftProjectEditor
+, getProjectRetriever =  liftProjectRetriever
+, getProjectRemover = liftProjectRemover
+|]
 
 type MonadStack = GuiViewerT (ViewerStateT (CabalSolution (StatefulWrapper (SolutionStateT GtkIO))))
 type GuiState = (FileSystemSolution, Solution) 
@@ -191,7 +190,7 @@ doMain initialState = do
     components <- initializeComponents
     group <- Gtk.new AccelGroup []
     idleQueue <- newTChanIO
-    let env = GuiEnv {-proxy-} components projectMVar idleQueue
+    let env = GuiEnv components projectMVar idleQueue
     dialogs <- makeDialogs group env
     let go :: GuiT MonadStack GuiState IO ()
         go = do

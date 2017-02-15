@@ -36,6 +36,9 @@ library
                      , DirtyModuleClass
     other-modules:     Viewer.Internal
                      , ErrorParser.Types
+                     , EnvironmentMonad.Internal
+                     , EnvironmentMonad.TH
+                     , EnvironmentMonad.TH.Helpers
     build-depends:     base
                      , temporary
                      , directory
