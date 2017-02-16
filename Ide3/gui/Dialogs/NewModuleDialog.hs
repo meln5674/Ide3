@@ -8,6 +8,7 @@ module Dialogs.NewModuleDialog
     , getModuleName
     , setVisible
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     ) where
 
@@ -39,6 +40,9 @@ getModuleName = Generic.getEnteredText
 
 confirmClickedEvent :: NewModuleDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
+
+confirmPressedEvent :: NewModuleDialogSignal Entry EntryActivateSignalInfo
+confirmPressedEvent = Generic.confirmPressedEvent
 
 cancelClickedEvent :: NewModuleDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent

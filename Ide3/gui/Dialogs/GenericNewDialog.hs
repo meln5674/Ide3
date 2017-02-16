@@ -26,6 +26,7 @@ module Dialogs.GenericNewDialog
     , setEnteredText
     , setVisible
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     ) where
 
@@ -121,6 +122,10 @@ type GenericNewDialogSignal dialog subObject info = SubSignalProxy dialog subObj
 -- | Signal sent when the confirm button is clicked
 confirmClickedEvent :: (NewDialog dialog) => GenericNewDialogSignal dialog Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent dialog = (confirmButton $ getGenericDialog dialog, #buttonPressEvent)
+
+-- | Signal sent when the confirm button is clicked
+confirmPressedEvent :: (NewDialog dialog) => GenericNewDialogSignal dialog Entry EntryActivateSignalInfo
+confirmPressedEvent dialog = (textEntryBox $ getGenericDialog dialog, #activate)
 
 -- | Signal sent when the cancel button is clicked
 cancelClickedEvent :: (NewDialog dialog) => GenericNewDialogSignal dialog Button WidgetButtonPressEventSignalInfo

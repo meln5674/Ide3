@@ -8,6 +8,7 @@ module Dialogs.MoveDeclarationDialog
     ( MoveDeclarationDialog
     , make
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     , getSelectedModulePath
     , close
@@ -121,6 +122,9 @@ mkSignal getter signal window = (getter window, signal)
 
 confirmClickedEvent :: MoveDeclarationDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = confirmButton `mkSignal` #buttonPressEvent
+
+confirmPressedEvent :: MoveDeclarationDialogSignal TreeView TreeViewRowActivatedSignalInfo
+confirmPressedEvent = moduleTree `mkSignal` #rowActivated
 
 cancelClickedEvent :: MoveDeclarationDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = cancelButton `mkSignal` #buttonPressEvent

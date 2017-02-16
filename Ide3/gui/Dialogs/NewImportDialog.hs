@@ -8,6 +8,7 @@ module Dialogs.NewImportDialog
     , NewImportDialogSignal
     , getImport
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     ) where
 
@@ -41,6 +42,9 @@ getImport = Generic.getEnteredText
 
 confirmClickedEvent :: NewImportDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
+
+confirmPressedEvent :: NewImportDialogSignal Entry EntryActivateSignalInfo
+confirmPressedEvent = Generic.confirmPressedEvent
 
 cancelClickedEvent :: NewImportDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent

@@ -8,6 +8,7 @@ module Dialogs.NewExportDialog
     , NewExportDialogSignal
     , getExport
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     ) where
 
@@ -41,6 +42,9 @@ getExport = Generic.getEnteredText
 
 confirmClickedEvent :: NewExportDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
+
+confirmPressedEvent :: NewExportDialogSignal Entry EntryActivateSignalInfo
+confirmPressedEvent = Generic.confirmPressedEvent
 
 cancelClickedEvent :: NewExportDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent

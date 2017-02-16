@@ -9,6 +9,7 @@ module Dialogs.NewPragmaDialog
     , getPragma
     , setVisible
     , confirmClickedEvent
+    , confirmPressedEvent
     , cancelClickedEvent
     ) where
 
@@ -43,6 +44,9 @@ getPragma = Generic.getEnteredText
 
 confirmClickedEvent :: NewPragmaDialogSignal Button WidgetButtonPressEventSignalInfo
 confirmClickedEvent = Generic.confirmClickedEvent
+
+confirmPressedEvent :: NewPragmaDialogSignal Entry EntryActivateSignalInfo
+confirmPressedEvent = Generic.confirmPressedEvent
 
 cancelClickedEvent :: NewPragmaDialogSignal Button WidgetButtonPressEventSignalInfo
 cancelClickedEvent = Generic.cancelClickedEvent

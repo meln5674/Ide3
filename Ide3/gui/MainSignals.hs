@@ -241,14 +241,16 @@ onNewModuleClickedGeneric getArgs = do
     case maybeArgs of
         Just (pji, modName) -> do
             NewModuleDialog.make modName $ \dialog -> do
-                void $ dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \_ -> do
-                    moduleName <- NewModuleDialog.getModuleName dialog
-                    case moduleName of
-                        "" -> doError $ InvalidOperation "Please enter a module name" ""
-                        _ -> do
-                            doAddModule pji (ModuleInfo (Symbol moduleName))
-                            NewModuleDialog.close dialog
-                    return False
+                let confirm = do
+                        moduleName <- NewModuleDialog.getModuleName dialog
+                        case moduleName of
+                            "" -> doError $ InvalidOperation "Please enter a module name" ""
+                            _ -> do
+                                doAddModule pji (ModuleInfo (Symbol moduleName))
+                                NewModuleDialog.close dialog
+                        return False
+                void $ dialog `on` NewModuleDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+                void $ dialog `on` NewModuleDialog.confirmPressedEvent $ Func0 $ void confirm
                 void $ dialog `on` NewModuleDialog.cancelClickedEvent $ Func1 $ \_ -> do
                     NewModuleDialog.close dialog
                     return False
@@ -301,14 +303,16 @@ onNewPragmaClicked ::
               -> t m Bool
 onNewPragmaClicked pji mi = do
     NewPragmaDialog.makeNew $ \dialog -> do
-        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            maybePragma <- NewPragmaDialog.getPragma dialog
-            case maybePragma of
-                "" -> doError $ InvalidOperation "Please enter a pragma" ""
-                pragma -> do
-                    doAddPragma pji mi pragma
-                    NewPragmaDialog.close dialog
-            return False
+        let confirm = do
+                maybePragma <- NewPragmaDialog.getPragma dialog
+                case maybePragma of
+                    "" -> doError $ InvalidOperation "Please enter a pragma" ""
+                    pragma -> do
+                        doAddPragma pji mi pragma
+                        NewPragmaDialog.close dialog
+                return False
+        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` NewPragmaDialog.confirmPressedEvent $ Func0 $ void confirm
         void $ dialog `on` NewPragmaDialog.cancelClickedEvent $ Func1 $ \_ -> do
             NewPragmaDialog.close dialog
             return False
@@ -322,14 +326,16 @@ onEditPragmaClicked :: ( MainGuiClass t m' p m )
                     -> t m Bool
 onEditPragmaClicked pji mi p = do
     NewPragmaDialog.makeEdit p $ \dialog -> do
-        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            maybePragma <- NewPragmaDialog.getPragma dialog
-            case maybePragma of
-                "" -> doError $ InvalidOperation "Please enter a pragma" ""
-                pragma -> do
-                    doEditPragma pji mi p pragma
-                    NewPragmaDialog.close dialog
-            return False
+        let confirm = do
+                maybePragma <- NewPragmaDialog.getPragma dialog
+                case maybePragma of
+                    "" -> doError $ InvalidOperation "Please enter a pragma" ""
+                    pragma -> do
+                        doEditPragma pji mi p pragma
+                        NewPragmaDialog.close dialog
+                return False
+        void $ dialog `on` NewPragmaDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` NewPragmaDialog.confirmPressedEvent $ Func0 $ void confirm
         void $ dialog `on` NewPragmaDialog.cancelClickedEvent $ Func1 $ \_ -> do
             NewPragmaDialog.close dialog
             return False
@@ -341,16 +347,18 @@ onNewImportClicked :: ( MainGuiClassIO t m' p m )
                    -> t m Bool
 onNewImportClicked pji mi = do
     NewImportDialog.makeNew $ \dialog -> do
-        void $ dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            maybeImport <- NewImportDialog.getImport dialog
-            case maybeImport of
-                "" -> doError $ InvalidOperation "Please enter an import" ""
-                import_ -> do
-                    maybeError <- doAddImport pji mi import_
-                    case maybeError of
-                        Just err -> doError err
-                        Nothing -> NewImportDialog.close dialog
-            return False
+        let confirm = do
+                maybeImport <- NewImportDialog.getImport dialog
+                case maybeImport of
+                    "" -> doError $ InvalidOperation "Please enter an import" ""
+                    import_ -> do
+                        maybeError <- doAddImport pji mi import_
+                        case maybeError of
+                            Just err -> doError err
+                            Nothing -> NewImportDialog.close dialog
+                return False
+        void $ dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` NewImportDialog.confirmPressedEvent $ Func0 $ void confirm
         void $ dialog `on` NewImportDialog.cancelClickedEvent $ Func1 $ \_ -> do
             NewImportDialog.close dialog
             return False
@@ -368,16 +376,18 @@ onEditImportClicked pji mi ii = do
         Nothing -> return False
         Just importStr -> do
             NewImportDialog.makeEdit importStr $ \dialog -> do
-                void $ dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \_ -> do
-                    maybeImport <- NewImportDialog.getImport dialog
-                    case maybeImport of
-                        "" -> doError $ InvalidOperation "Please enter an import" ""
-                        import_ -> do
-                            maybeError <- doEditImport pji mi ii import_
-                            case maybeError of
-                                Just err -> doError err
-                                Nothing -> NewImportDialog.close dialog
-                    return False
+                let confirm = do
+                        maybeImport <- NewImportDialog.getImport dialog
+                        case maybeImport of
+                            "" -> doError $ InvalidOperation "Please enter an import" ""
+                            import_ -> do
+                                maybeError <- doEditImport pji mi ii import_
+                                case maybeError of
+                                    Just err -> doError err
+                                    Nothing -> NewImportDialog.close dialog
+                        return False
+                void $ dialog `on` NewImportDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+                void $ dialog `on` NewImportDialog.confirmPressedEvent $ Func0 $ void confirm
                 void $ dialog `on` NewImportDialog.cancelClickedEvent $ Func1 $ \_ -> do
                     NewImportDialog.close dialog
                     return False
@@ -389,16 +399,18 @@ onNewExportClicked :: ( MainGuiClass t m' p m )
                    -> t m Bool
 onNewExportClicked pji mi = do
     NewExportDialog.makeNew $ \dialog -> do
-        void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            maybeExport <- NewExportDialog.getExport dialog
-            case maybeExport of
-                "" -> doError $ InvalidOperation "Please enter an export" ""
-                export -> do
-                    maybeError <- doAddExport pji mi export
-                    case maybeError of
-                        Just err -> id $ doError err
-                        Nothing -> NewExportDialog.close dialog
-            return False
+        let confirm = do
+                maybeExport <- NewExportDialog.getExport dialog
+                case maybeExport of
+                    "" -> doError $ InvalidOperation "Please enter an export" ""
+                    export -> do
+                        maybeError <- doAddExport pji mi export
+                        case maybeError of
+                            Just err -> id $ doError err
+                            Nothing -> NewExportDialog.close dialog
+                return False
+        void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` NewExportDialog.confirmPressedEvent $ Func0 $ void confirm
         void $ dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \_ -> do
             NewExportDialog.close dialog
             return False
@@ -424,16 +436,18 @@ onEditExportClicked pji mi ii = do
         Nothing -> return False
         Just exportStr -> do
             NewExportDialog.makeEdit exportStr $ \dialog -> do
-                void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> do
-                    maybeExport <- NewExportDialog.getExport dialog
-                    case maybeExport of
-                        "" -> doError $ InvalidOperation "Please enter an export" ""
-                        export -> do
-                            maybeError <- doEditExport pji mi ii export
-                            case maybeError of
-                                Just err -> doError err
-                                Nothing -> NewExportDialog.close dialog
-                    return False
+                let confirm = do
+                        maybeExport <- NewExportDialog.getExport dialog
+                        case maybeExport of
+                            "" -> doError $ InvalidOperation "Please enter an export" ""
+                            export -> do
+                                maybeError <- doEditExport pji mi ii export
+                                case maybeError of
+                                    Just err -> doError err
+                                    Nothing -> NewExportDialog.close dialog
+                        return False
+                void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+                void $ dialog `on` NewExportDialog.confirmPressedEvent $ Func0 $ void confirm
                 void $ dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \_ -> do
                     NewExportDialog.close dialog
                     return False
@@ -446,20 +460,23 @@ onExportDeclarationClicked :: ( MainGuiClass t m' p m )
                            -> t m Bool
 onExportDeclarationClicked pji mi (SymbolDeclarationInfo (Symbol declStr)) = do
     NewExportDialog.makeEdit declStr $ \dialog -> do
-        void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            maybeExport <- NewExportDialog.getExport dialog
-            case maybeExport of
-                "" -> doError $ InvalidOperation "Please enter an export" ""
-                export -> do
-                    maybeError <- doAddExport pji mi export
-                    case maybeError of
-                        Just err -> doError err
-                        Nothing -> NewExportDialog.close dialog
-            return False
+        let confirm = do
+                maybeExport <- NewExportDialog.getExport dialog
+                case maybeExport of
+                    "" -> doError $ InvalidOperation "Please enter an export" ""
+                    export -> do
+                        maybeError <- doAddExport pji mi export
+                        case maybeError of
+                            Just err -> doError err
+                            Nothing -> NewExportDialog.close dialog
+                return False
+        void $ dialog `on` NewExportDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` NewExportDialog.confirmPressedEvent $ Func0 $ void confirm
         void $ dialog `on` NewExportDialog.cancelClickedEvent $ Func1 $ \_ -> do
             NewExportDialog.close dialog
             return False
     return False
+
 onExportDeclarationClicked _ _ _ = do
     doError $ InvalidOperation "This declaration is not exportable" ""
     return False
@@ -472,24 +489,26 @@ onMoveDeclarationClicked :: ( MainGuiClass t m' p m )
                          -> t m Bool
 onMoveDeclarationClicked pji mi di = do
     MoveDeclarationDialog.make $ \dialog -> do
-        void $ dialog `on` MoveDeclarationDialog.confirmClickedEvent $ Func1 $ \_ -> do
-            pathClicked <- MoveDeclarationDialog.getSelectedModulePath dialog
-            case pathClicked of
-                Nothing -> doError $ InvalidOperation "Please select a module" 
-                                                      ""
-                Just (path, _) -> do
-                    result <- findAtPath path
-                    case result of
-                        ModuleResult pji' mi' _ -> do
-                            doMoveDeclaration pji mi di pji' mi'
-                            MoveDeclarationDialog.close dialog 
-                        NoSearchResult -> do
-                            doError $ InvalidOperation "An internal error has occured"
-                                                       ""
-                        _ -> do
-                            doError $ InvalidOperation "Please select a module"
-                                                       ""
-            return False
+        let confirm = do
+                pathClicked <- MoveDeclarationDialog.getSelectedModulePath dialog
+                case pathClicked of
+                    Nothing -> doError $ InvalidOperation "Please select a module" 
+                                                          ""
+                    Just (path, _) -> do
+                        result <- findAtPath path
+                        case result of
+                            ModuleResult pji' mi' _ -> do
+                                doMoveDeclaration pji mi di pji' mi'
+                                MoveDeclarationDialog.close dialog 
+                            NoSearchResult -> do
+                                doError $ InvalidOperation "An internal error has occured"
+                                                           ""
+                            _ -> do
+                                doError $ InvalidOperation "Please select a module"
+                                                           ""
+                return False
+        void $ dialog `on` MoveDeclarationDialog.confirmClickedEvent $ Func1 $ \_ -> confirm
+        void $ dialog `on` MoveDeclarationDialog.confirmPressedEvent $ Func2 $ \_ _ -> void confirm
         void $ dialog `on` MoveDeclarationDialog.cancelClickedEvent $ Func1 $ \_ -> do
             MoveDeclarationDialog.close dialog
             return False
